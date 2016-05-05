@@ -39,8 +39,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
-/**
- * CloudPubSubSinkTask publishes records to a Google Cloud Pub/Sub topic.
+/***
+ * A {@link SinkTask} used by a {@link CloudPubSubSinkConnector} to write messages to
+ * <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public class CloudPubSubSinkTask extends SinkTask {
   private static final String SCHEMA_NAME = ByteString.class.getName();

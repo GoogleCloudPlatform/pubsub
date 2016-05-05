@@ -38,6 +38,10 @@ import java.util.concurrent.Executors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/***
+ * A {@link CloudPubSubPublisher} that uses <a href="http://www.grpc.io/">gRPC</a> to send messages
+ * to <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
+ */
 public class CloudPubSubGRPCPublisher implements CloudPubSubPublisher {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubGRPCPublisher.class);
 

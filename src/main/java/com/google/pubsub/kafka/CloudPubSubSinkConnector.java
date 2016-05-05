@@ -31,6 +31,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+/***
+ * A {@link SinkConnector} that writes messages to a specified topic in
+ * <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
+ */
 public class CloudPubSubSinkConnector extends SinkConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkConnector.class);
 

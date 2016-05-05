@@ -25,8 +25,10 @@ import org.apache.kafka.connect.storage.Converter;
 
 import java.util.Map;
 
-/**
- * ByteStringConverter publishes records to a Google Cloud Pub/Sub topic.
+/***
+ *  A {@link Converter} for use with the {@link CloudPubSubSinkConnector} and
+ * {@link CloudPubSubSourceConnector} that converts between Kafka data and connector data via a
+ * {@link ByteString}.
  */
 public class ByteStringConverter implements Converter {
   private static final String SCHEMA_NAME = ByteString.class.getName();
