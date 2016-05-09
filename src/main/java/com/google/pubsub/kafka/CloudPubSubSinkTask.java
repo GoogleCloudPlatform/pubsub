@@ -47,16 +47,24 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final String SCHEMA_NAME = ByteString.class.getName();
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
 
+  private static final int MAX_REQUEST_SIZE = (10<<20) - 1024; // Leave a little room for overhead.
   private static final int MAX_MESSAGES_PER_REQUEST = 1000;
   private static final String KEY_ATTRIBUTE = "key";
+  private static final int KEY_ATTRIBUTE_SIZE = KEY_ATTRIBUTE.length();
   private static final String PARTITION_ATTRIBUTE = "partition";
+  private static final int PARTITION_ATTRIBUTE_SIZE = PARTITION_ATTRIBUTE.length();
   private static final String TOPIC_FORMAT = "projects/%s/topics/%s";
+
+  private class UnpublishedMessages {
+    public List<PubsubMessage> messages = new ArrayList();
+    public int size = 0;
+  }
 
   private String cpsTopic;
   private int minBatchSize;
   private Map<Integer, List<ListenableFuture<PublishResponse>>> outstandingPublishes =
       Maps.newHashMap();
-  private Map<Integer, List<PubsubMessage>> unpublishedMessages = Maps.newHashMap();
+  private Map<Integer, UnpublishedMessages> unpublishedMessages = Maps.newHashMap();
   private CloudPubSubPublisher publisher;
 
   public CloudPubSubSinkTask() {}
@@ -87,26 +95,39 @@ public class CloudPubSubSinkTask extends SinkTask {
         throw new DataException("Unexpected record of type " + record.valueSchema());
       }
       log.trace("Received record: " + record.toString());
+      String key = record.key().toString();
+      String partition = record.kafkaPartition().toString();
+      ByteString value = (ByteString)record.value();
       final Map<String, String> attributes = Maps.newHashMap();
       if (record.key() != null) {
-        attributes.put(KEY_ATTRIBUTE, record.key().toString());
+        attributes.put(KEY_ATTRIBUTE, key);
       }
-      attributes.put(PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
-      PubsubMessage message =
-          PubsubMessage.newBuilder()
-              .setData((ByteString)record.value())
-              .putAllAttributes(attributes)
-              .build();
+      attributes.put(PARTITION_ATTRIBUTE, partition);
+      PubsubMessage message = PubsubMessage.newBuilder()
+                                  .setData(value)
+                                  .putAllAttributes(attributes)
+                                  .build();
 
-      List<PubsubMessage> messagesForPartition = unpublishedMessages.get(record.kafkaPartition());
+      UnpublishedMessages messagesForPartition = unpublishedMessages.get(record.kafkaPartition());
       if (messagesForPartition == null) {
-        messagesForPartition = new ArrayList();
+        messagesForPartition = new UnpublishedMessages();
         unpublishedMessages.put(record.kafkaPartition(), messagesForPartition);
       }
-      messagesForPartition.add(message);
 
-      if (messagesForPartition.size() >= minBatchSize) {
-        publishMessagesForPartition(record.kafkaPartition(), messagesForPartition);
+      int messageSize = key.length() + partition.length() + value.size() +
+                        KEY_ATTRIBUTE_SIZE + PARTITION_ATTRIBUTE_SIZE;
+      int newUnpublishedSize = messagesForPartition.size + messageSize;
+      if (newUnpublishedSize > MAX_REQUEST_SIZE) {
+        publishMessagesForPartition(record.kafkaPartition(), messagesForPartition.messages);
+        newUnpublishedSize = messageSize;
+        messagesForPartition.messages.clear();
+      }
+
+      messagesForPartition.size = newUnpublishedSize;
+      messagesForPartition.messages.add(message);
+
+      if (messagesForPartition.messages.size() >= minBatchSize) {
+        publishMessagesForPartition(record.kafkaPartition(), messagesForPartition.messages);
         unpublishedMessages.remove(record.kafkaPartition());
       }
     }
@@ -114,9 +135,10 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   @Override
   public void flush(Map<TopicPartition, OffsetAndMetadata> partitionOffsets) {
-    for (Map.Entry<Integer, List<PubsubMessage>> messagesForPartition :
+    for (Map.Entry<Integer, UnpublishedMessages> messagesForPartition :
         unpublishedMessages.entrySet()) {
-      publishMessagesForPartition(messagesForPartition.getKey(), messagesForPartition.getValue());
+      publishMessagesForPartition(messagesForPartition.getKey(),
+                                  messagesForPartition.getValue().messages);
     }
     unpublishedMessages.clear();
 
