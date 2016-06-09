@@ -18,7 +18,7 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-all</artifactId>
-      <version>0.14.0-SNAPSHOT</version>
+      <version>0.14.0</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -127,7 +127,7 @@
           -->
           <protocArtifact>com.google.protobuf:protoc:3.0.0-beta-2:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>
-          <pluginArtifact>io.grpc:protoc-gen-grpc-java:0.13.1:exe:${os.detected.classifier}</pluginArtifact>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:0.14.0:exe:${os.detected.classifier}</pluginArtifact>
           <protoSourceRoot>${project.basedir}/src/main/proto</protoSourceRoot>
         </configuration>
         <executions>
