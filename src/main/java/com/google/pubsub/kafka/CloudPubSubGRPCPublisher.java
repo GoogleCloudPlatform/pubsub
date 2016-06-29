@@ -52,9 +52,8 @@ public class CloudPubSubGRPCPublisher implements CloudPubSubPublisher {
   private PublisherFutureStub publisher;
 
   public CloudPubSubGRPCPublisher() {
-final ManagedChannelImpl channelImpl =
+    final ManagedChannelImpl channelImpl =
         NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
-
     try {
       final ClientAuthInterceptor interceptor =
           new ClientAuthInterceptor(

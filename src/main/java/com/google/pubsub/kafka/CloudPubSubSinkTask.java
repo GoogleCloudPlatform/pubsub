@@ -95,14 +95,19 @@ public class CloudPubSubSinkTask extends SinkTask {
         throw new DataException("Unexpected record of type " + record.valueSchema());
       }
       log.trace("Received record: " + record.toString());
-      String key = record.key().toString();
-      String partition = record.kafkaPartition().toString();
-      ByteString value = (ByteString)record.value();
+
       final Map<String, String> attributes = Maps.newHashMap();
+      ByteString value = (ByteString)record.value();
+      String key = "";
+      String partition = "";
       if (record.key() != null) {
-        attributes.put(KEY_ATTRIBUTE, key);
+        key = record.key().toString();
+        attributes.put(KEY_ATTRIBUTE, key.toString());
       }
-      attributes.put(PARTITION_ATTRIBUTE, partition);
+      if (record.kafkaPartition() != null) {
+        partition = record.kafkaPartition().toString();
+        attributes.put(PARTITION_ATTRIBUTE, partition.toString());
+      }
       PubsubMessage message = builder
           .setData(value)
           .putAllAttributes(attributes)

@@ -42,19 +42,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
   public static final String CPS_MIN_BATCH_SIZE = "cps.minBatchSize";
-  private static final ConfigDef CONFIG_DEF =
-      new ConfigDef()
-           .define(
-               CPS_PROJECT_CONFIG,
-               Type.STRING,
-               Importance.HIGH,
-               "The project containing the topic(s) from which to pull messages from.")
-           .define(CPS_TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic from which to pull messages from.")
-           .define(
-               CPS_MIN_BATCH_SIZE,
-               Type.INT,
-               Importance.HIGH,
-               "The minimum number of messages to batch per topic before sending to Kafka.");
 
   private String cpsProject;
   private String cpsTopic;
@@ -81,10 +68,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   }
 
   @Override
-  public void stop() {
-  }
-
-  @Override
   public List<Map<String, String>> taskConfigs(int maxTasks) {
     List<Map<String, String>> configs = new ArrayList<>();
     for (int i = 0; i < maxTasks; ++i) {
@@ -96,5 +79,26 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     }
     return configs;
   }
+
+  @Override
+  public ConfigDef config() {
+    // Defines Cloud Pub/Sub specific configurations that should be specified in the properties file for this connector.
+    return new ConfigDef()
+            .define(
+                    CPS_PROJECT_CONFIG,
+                    Type.STRING,
+                    Importance.HIGH,
+                    "The project containing the topic to which to publish.")
+            .define(CPS_TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic to which to publish.")
+            .define(
+                    CPS_MIN_BATCH_SIZE,
+                    Type.INT,
+                    Importance.HIGH,
+                    "The minimum number of messages to batch per partition before sending a publish request to Cloud Pub/Sub.");
+  }
+
+  @Override
+  public void stop() {}
+
 }
 
