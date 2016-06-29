@@ -56,7 +56,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final String TOPIC_FORMAT = "projects/%s/topics/%s";
 
   private class UnpublishedMessages {
-    public List<PubsubMessage> messages = new ArrayList();
+    public List<PubsubMessage> messages = new ArrayList<>();
     public int size = 0;
   }
 
@@ -169,12 +169,13 @@ public class CloudPubSubSinkTask extends SinkTask {
     List<ListenableFuture<PublishResponse>> outstandingPublishesForPartition =
         outstandingPublishes.get(partition);
     if (outstandingPublishesForPartition == null) {
-      outstandingPublishesForPartition = new ArrayList();
+      outstandingPublishesForPartition = new ArrayList<>();
       outstandingPublishes.put(partition, outstandingPublishesForPartition);
     }
 
     int startIndex = 0;
     int endIndex = Math.min(MAX_MESSAGES_PER_REQUEST, messages.size());
+
 
     while (startIndex < messages.size()) {
       PublishRequest request =
