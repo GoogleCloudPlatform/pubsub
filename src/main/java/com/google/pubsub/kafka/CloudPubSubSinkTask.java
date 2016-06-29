@@ -19,7 +19,6 @@ import com.google.api.client.util.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PublishRequest;
-import com.google.pubsub.v1.PublishRequest.Builder;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PubsubMessage;
 
@@ -37,7 +36,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Map.Entry;
 
 /***
  * A {@link SinkTask} used by a {@link CloudPubSubSinkConnector} to write messages to
@@ -47,6 +45,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final String SCHEMA_NAME = ByteString.class.getName();
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
 
+  private static final int NUM_PUBLISHERS = 10;
   private static final int MAX_REQUEST_SIZE = (10<<20) - 1024; // Leave a little room for overhead.
   private static final int MAX_MESSAGES_PER_REQUEST = 1000;
   private static final String KEY_ATTRIBUTE = "key";
@@ -83,12 +82,13 @@ public class CloudPubSubSinkTask extends SinkTask {
             props.get(CloudPubSubSinkConnector.CPS_TOPIC_CONFIG));
     this.minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE));
     log.info("Start connector task for topic " + cpsTopic + " min batch size = " + minBatchSize);
-    this.publisher = new CloudPubSubRoundRobinPublisher(10);
+    this.publisher = new CloudPubSubRoundRobinPublisher(NUM_PUBLISHERS);
   }
 
   @Override
   public void put(Collection<SinkRecord> sinkRecords) {
     log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
+    PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
       if (record.valueSchema().type() != Schema.Type.BYTES ||
           !record.valueSchema().name().equals(SCHEMA_NAME)) {
@@ -103,10 +103,11 @@ public class CloudPubSubSinkTask extends SinkTask {
         attributes.put(KEY_ATTRIBUTE, key);
       }
       attributes.put(PARTITION_ATTRIBUTE, partition);
-      PubsubMessage message = PubsubMessage.newBuilder()
-                                  .setData(value)
-                                  .putAllAttributes(attributes)
-                                  .build();
+      PubsubMessage message = builder
+          .setData(value)
+          .putAllAttributes(attributes)
+          .build();
+      builder.clear();
 
       UnpublishedMessages messagesForPartition = unpublishedMessages.get(record.kafkaPartition());
       if (messagesForPartition == null) {
@@ -153,7 +154,7 @@ public class CloudPubSubSinkTask extends SinkTask {
 
       try {
         for (ListenableFuture<PublishResponse> publishRequest : outstandingPublishesForPartition) {
-          PublishResponse response = publishRequest.get();
+          publishRequest.get();
         }
         outstandingPublishes.remove(partitionOffset.getKey().partition());
       } catch (Exception e) {
@@ -176,13 +177,13 @@ public class CloudPubSubSinkTask extends SinkTask {
     int startIndex = 0;
     int endIndex = Math.min(MAX_MESSAGES_PER_REQUEST, messages.size());
 
-
+    PublishRequest.Builder builder = PublishRequest.newBuilder();
     while (startIndex < messages.size()) {
-      PublishRequest request =
-          PublishRequest.newBuilder()
-              .setTopic(cpsTopic)
-              .addAllMessages(messages.subList(startIndex, endIndex))
-              .build();
+      PublishRequest request = builder
+          .setTopic(cpsTopic)
+          .addAllMessages(messages.subList(startIndex, endIndex))
+          .build();
+      builder.clear();
       // log.info("Publishing: " + (endIndex - startIndex) + " messages");
       outstandingPublishesForPartition.add(publisher.publish(request));
       startIndex = endIndex;
