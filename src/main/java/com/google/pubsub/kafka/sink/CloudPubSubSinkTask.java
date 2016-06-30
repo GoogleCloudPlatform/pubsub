@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.kafka;
+package com.google.pubsub.kafka.sink;
 
 import com.google.api.client.util.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -54,15 +54,9 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final int PARTITION_ATTRIBUTE_SIZE = PARTITION_ATTRIBUTE.length();
   private static final String TOPIC_FORMAT = "projects/%s/topics/%s";
 
-  private class UnpublishedMessages {
-    public List<PubsubMessage> messages = new ArrayList<>();
-    public int size = 0;
-  }
-
   private String cpsTopic;
   private int minBatchSize;
-  private Map<Integer, List<ListenableFuture<PublishResponse>>> outstandingPublishes =
-      Maps.newHashMap();
+  private Map<Integer, List<ListenableFuture<PublishResponse>>> outstandingPublishes = Maps.newHashMap();
   private Map<Integer, UnpublishedMessages> unpublishedMessages = Maps.newHashMap();
   private CloudPubSubPublisher publisher;
 
@@ -98,16 +92,11 @@ public class CloudPubSubSinkTask extends SinkTask {
 
       final Map<String, String> attributes = Maps.newHashMap();
       ByteString value = (ByteString)record.value();
-      String key = "";
-      String partition = "";
-      if (record.key() != null) {
-        key = record.key().toString();
-        attributes.put(KEY_ATTRIBUTE, key.toString());
+      if (record.key() != null) {;
+        attributes.put(KEY_ATTRIBUTE, record.key().toString());
       }
-      if (record.kafkaPartition() != null) {
-        partition = record.kafkaPartition().toString();
-        attributes.put(PARTITION_ATTRIBUTE, partition.toString());
-      }
+      attributes.put(PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
+
       PubsubMessage message = builder
           .setData(value)
           .putAllAttributes(attributes)
@@ -120,8 +109,8 @@ public class CloudPubSubSinkTask extends SinkTask {
         unpublishedMessages.put(record.kafkaPartition(), messagesForPartition);
       }
 
-      int messageSize = key.length() + partition.length() + value.size() +
-                        KEY_ATTRIBUTE_SIZE + PARTITION_ATTRIBUTE_SIZE;
+      int messageSize = record.key().toString().length() + record.kafkaPartition().toString().length() + value.size()
+              + KEY_ATTRIBUTE_SIZE + PARTITION_ATTRIBUTE_SIZE;
       int newUnpublishedSize = messagesForPartition.size + messageSize;
       if (newUnpublishedSize > MAX_REQUEST_SIZE) {
         publishMessagesForPartition(record.kafkaPartition(), messagesForPartition.messages);
@@ -194,5 +183,10 @@ public class CloudPubSubSinkTask extends SinkTask {
       startIndex = endIndex;
       endIndex = Math.min(endIndex + MAX_MESSAGES_PER_REQUEST, messages.size());
     }
+  }
+  
+  private class UnpublishedMessages {
+    public List<PubsubMessage> messages = new ArrayList<>();
+    public int size = 0;
   }
 }

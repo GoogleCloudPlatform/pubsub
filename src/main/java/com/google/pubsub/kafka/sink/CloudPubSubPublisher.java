@@ -13,17 +13,21 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.kafka;
+package com.google.pubsub.kafka.sink;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
+import com.google.pubsub.v1.PullRequest;
+import com.google.pubsub.v1.PullResponse;
 
 /***
  * An interface for clients that want to publish data to
  * <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public interface CloudPubSubPublisher {
+
   public ListenableFuture<PublishResponse> publish(PublishRequest request);
+
 }

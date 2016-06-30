@@ -13,10 +13,12 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.kafka;
+package com.google.pubsub.kafka.common;
 
 import com.google.protobuf.ByteString;
 
+import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
+import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;

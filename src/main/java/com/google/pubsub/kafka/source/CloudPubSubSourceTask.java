@@ -13,17 +13,27 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.kafka;
+package com.google.pubsub.kafka.source;
 
+import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
 import org.apache.kafka.connect.source.SourceTask;
 import org.apache.kafka.connect.source.SourceRecord;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.Map;
 
 class CloudPubSubSourceTask extends SourceTask {
 
-  CloudPubSubSourceTask() {
+  @Override
+  public String version() {
+    return null;
+  }
+
+  @Override
+  public void start(Map<String, String> map) {
+
   }
 
   @Override
@@ -32,15 +42,7 @@ class CloudPubSubSourceTask extends SourceTask {
   }
 
   @Override
-  public synchronized void stop() {
-  }
+  public void stop() {
 
-  @Override
-  public void start(Map<String, String> map) {
-  }
-
-  @Override
-  public String version() {
-    return null;
   }
 }

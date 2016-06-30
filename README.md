@@ -3,7 +3,7 @@
 The CloudPubSubConnector is a connector to be used with
 [Kafka Connect](http://kafka.apache.org/documentation.html#connect) to publish
 messages from [Kafka](http://kafka.apache.org) to
-[Google Cloud Pub/Sub](https://cloud.google.com/pubsub/). CloudPubSubConnector
+[Google Cloud Pub/Sub](https://cloud.google.com/pubsub/) and vice versa. CloudPubSubConnector
 provides both a sink connector (to copy messages from Kafka to Cloud Pub/Sub)
 and a source connector (to copy messages from Cloud Pub/Sub to Kafka).
 
@@ -45,7 +45,7 @@ configuration file is provided at configs/cps-sink-connector.properites.
 only configuration item that must be set specially for the Cloud Pub/Sub
 connector to work is the value converter:
 
-`value.converter=com.google.pubsub.kafka.ByteStringConverter`
+`value.converter=com.google.pubsub.kafka.common.ByteStringConverter`
 
 More information on the configuration for Kafka connect can be found in the
 [Kafka Users Guide](http://kafka.apache.org/documentation.html#connect_running).
