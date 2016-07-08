@@ -42,9 +42,8 @@ import java.util.Map;
  * <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public class CloudPubSubSinkTask extends SinkTask {
-  private static final String SCHEMA_NAME = ByteString.class.getName();
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
-
+  private static final String SCHEMA_NAME = ByteString.class.getName();
   private static final int NUM_PUBLISHERS = 10;
   private static final int MAX_REQUEST_SIZE = (10<<20) - 1024; // Leave a little room for overhead.
   private static final int MAX_MESSAGES_PER_REQUEST = 1000;
@@ -56,9 +55,18 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   private String cpsTopic;
   private int minBatchSize;
-  private Map<Integer, List<ListenableFuture<PublishResponse>>> outstandingPublishes = Maps.newHashMap();
-  private Map<Integer, UnpublishedMessages> unpublishedMessages = Maps.newHashMap();
+  private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures = Maps.newHashMap();
+  private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages = Maps.newHashMap();
   private CloudPubSubPublisher publisher;
+
+  private class OutstandingFuturesForPartition {
+    public List<ListenableFuture<PublishResponse>> futures = new ArrayList<>();
+  }
+
+  private class UnpublishedMessagesForPartition {
+    public List<PubsubMessage> messages = new ArrayList<>();
+    public int size = 0;
+  }
 
   public CloudPubSubSinkTask() {}
 
@@ -84,109 +92,123 @@ public class CloudPubSubSinkTask extends SinkTask {
     log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
     PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
+      // Verify that the schema of the data coming in from Kafka Connect is of type ByteString.
       if (record.valueSchema().type() != Schema.Type.BYTES ||
           !record.valueSchema().name().equals(SCHEMA_NAME)) {
         throw new DataException("Unexpected record of type " + record.valueSchema());
       }
       log.trace("Received record: " + record.toString());
-
+      // TODO(rramkumar, aboulhosn): Why does this need to be final?
       final Map<String, String> attributes = Maps.newHashMap();
-      ByteString value = (ByteString)record.value();
+      // We know this can be cast to ByteString because of the schema check above.
+      ByteString value = (ByteString) record.value();
+      attributes.put(PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
+      // The key could possibly be null so we add the null check.
       if (record.key() != null) {;
         attributes.put(KEY_ATTRIBUTE, record.key().toString());
       }
-      attributes.put(PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
-
       PubsubMessage message = builder
           .setData(value)
           .putAllAttributes(attributes)
           .build();
-      builder.clear();
-
-      UnpublishedMessages messagesForPartition = unpublishedMessages.get(record.kafkaPartition());
-      if (messagesForPartition == null) {
-        messagesForPartition = new UnpublishedMessages();
-        unpublishedMessages.put(record.kafkaPartition(), messagesForPartition);
+      // Get a map containing all the unpublished messages per partition for this topic.
+      Map<Integer, UnpublishedMessagesForPartition> unpublishedMessagesForTopic =
+          allUnpublishedMessages.get(record.topic());
+      if (unpublishedMessagesForTopic == null) {
+        unpublishedMessagesForTopic = Maps.newHashMap();
+        allUnpublishedMessages.put(record.topic(), unpublishedMessagesForTopic);
       }
-
-      int messageSize = record.key().toString().length() + record.kafkaPartition().toString().length() + value.size()
-              + KEY_ATTRIBUTE_SIZE + PARTITION_ATTRIBUTE_SIZE;
-      int newUnpublishedSize = messagesForPartition.size + messageSize;
+      // Get the object containing the unpublished messages for the
+      // specific topic and partition this Sink Record is associated with.
+      UnpublishedMessagesForPartition unpublishedMessages = unpublishedMessagesForTopic.get(record.kafkaPartition());
+      if (unpublishedMessages == null) {
+        unpublishedMessages = new UnpublishedMessagesForPartition();
+        unpublishedMessagesForTopic.put(record.kafkaPartition(), unpublishedMessages);
+      }
+      // Get the total number of bytes in this message and add it to the total number of bytes.
+      int messageSize = message.toByteArray().length;
+      int newUnpublishedSize = unpublishedMessages.size + messageSize;
+      // Publish messages in this partition if the total number of bytes goes over limit.
       if (newUnpublishedSize > MAX_REQUEST_SIZE) {
-        publishMessagesForPartition(record.kafkaPartition(), messagesForPartition.messages);
+        publishMessagesForPartition(record.topic(), record.kafkaPartition(), unpublishedMessages.messages);
         newUnpublishedSize = messageSize;
-        messagesForPartition.messages.clear();
+        unpublishedMessages.messages.clear();
       }
-
-      messagesForPartition.size = newUnpublishedSize;
-      messagesForPartition.messages.add(message);
-
-      if (messagesForPartition.messages.size() >= minBatchSize) {
-        publishMessagesForPartition(record.kafkaPartition(), messagesForPartition.messages);
-        unpublishedMessages.remove(record.kafkaPartition());
+      unpublishedMessages.size = newUnpublishedSize;
+      unpublishedMessages.messages.add(message);
+      if (unpublishedMessages.messages.size() >= minBatchSize) {
+        publishMessagesForPartition(record.topic(), record.kafkaPartition(), unpublishedMessages.messages);
+        unpublishedMessages.messages.clear();
       }
     }
   }
 
   @Override
   public void flush(Map<TopicPartition, OffsetAndMetadata> partitionOffsets) {
-    for (Map.Entry<Integer, UnpublishedMessages> messagesForPartition :
-        unpublishedMessages.entrySet()) {
-      publishMessagesForPartition(messagesForPartition.getKey(),
-                                  messagesForPartition.getValue().messages);
+    // TODO(rramkumar): Why do we publish every unpublished message here?
+    for (Map.Entry<String, Map<Integer, UnpublishedMessagesForPartition>> entry :
+        allUnpublishedMessages.entrySet()) {
+      for (Map.Entry<Integer,UnpublishedMessagesForPartition> innerEntry :
+          entry.getValue().entrySet())
+        publishMessagesForPartition(entry.getKey(),
+            innerEntry.getKey(), innerEntry.getValue().messages);
+      }
     }
-    unpublishedMessages.clear();
-
+    allUnpublishedMessages.clear();
     for (Map.Entry<TopicPartition, OffsetAndMetadata> partitionOffset :
         partitionOffsets.entrySet()) {
       log.debug("Received flush for partition " + partitionOffset.getKey().toString());
-      List<ListenableFuture<PublishResponse>> outstandingPublishesForPartition =
-          outstandingPublishes.get(partitionOffset.getKey().partition());
+      Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =
+          allOutstandingFutures.get(partitionOffset.getKey().topic());
       if (outstandingPublishesForPartition == null) {
         continue;
       }
-
+      OutstandingFuturesForPartition outstandingFutures = outstandingFuturesForTopic.get(partitionOffset.getKey().topic());
+      if (oustandingFutures == null ) {
+        continue;
+      }
       try {
-        for (ListenableFuture<PublishResponse> publishRequest : outstandingPublishesForPartition) {
+        for (ListenableFuture<PublishResponse> publishRequest : outstandingFutures.futures) {
           publishRequest.get();
         }
-        outstandingPublishes.remove(partitionOffset.getKey().partition());
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
     }
+    allOutstandingFutures.clear();
   }
 
   @Override
   public void stop() {}
 
-  private void publishMessagesForPartition(Integer partition, List<PubsubMessage> messages) {
-    List<ListenableFuture<PublishResponse>> outstandingPublishesForPartition =
-        outstandingPublishes.get(partition);
+  private void publishMessagesForPartition(String topic, Integer partition, List<PubsubMessage> messages) {
+    // Get a map containing all futures per partition for the passed in topic.
+    Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic = allOutstandingFutures.get(topic);
     if (outstandingPublishesForPartition == null) {
-      outstandingPublishesForPartition = new ArrayList<>();
-      outstandingPublishes.put(partition, outstandingPublishesForPartition);
+      outstandingFuturesForTopic = Maps.newHashMap();
+      allOutstandingFutures.put(topic, outstandingFuturesForTopic);
     }
-
+    // Get the object containing the outstanding futures for this topic and partition..
+    OutstandingFuturesForPartition oustandingFutures = outstandingFuturesForTopic.get(partition);
+    if (outstandingFutures == null) {
+      outstandingFutures = new OutstandingFuturesForPartition();
+      outstandingFuturesForTopic.put(partition, outstandingFutures);
+    }
     int startIndex = 0;
     int endIndex = Math.min(MAX_MESSAGES_PER_REQUEST, messages.size());
-
     PublishRequest.Builder builder = PublishRequest.newBuilder();
+    // TODO(rramkumar): What is going on here?
     while (startIndex < messages.size()) {
       PublishRequest request = builder
           .setTopic(cpsTopic)
           .addAllMessages(messages.subList(startIndex, endIndex))
           .build();
+      // TODO(rramkumar): Do we need builder.clear()?
       builder.clear();
       // log.info("Publishing: " + (endIndex - startIndex) + " messages");
-      outstandingPublishesForPartition.add(publisher.publish(request));
+      outstandingFutures.add(publisher.publish(request));
       startIndex = endIndex;
       endIndex = Math.min(endIndex + MAX_MESSAGES_PER_REQUEST, messages.size());
     }
-  }
-  
-  private class UnpublishedMessages {
-    public List<PubsubMessage> messages = new ArrayList<>();
-    public int size = 0;
   }
 }

@@ -37,6 +37,7 @@ import io.grpc.auth.ClientAuthInterceptor;
 import io.grpc.internal.ManagedChannelImpl;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

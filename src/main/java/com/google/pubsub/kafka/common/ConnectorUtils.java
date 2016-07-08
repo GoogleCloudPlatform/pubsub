@@ -1,6 +1,22 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.common;
 
 import com.google.auth.oauth2.GoogleCredentials;
+
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import io.grpc.auth.ClientAuthInterceptor;
@@ -24,16 +40,12 @@ public class ConnectorUtils {
   private ConnectorUtils() {}
 
   public static Channel getChannel() throws IOException{
-    final ManagedChannelImpl channelImpl =
+     ManagedChannelImpl channelImpl =
         NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
-    try {
-      final ClientAuthInterceptor interceptor =
-          new ClientAuthInterceptor(
-              GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE),
-              Executors.newCachedThreadPool());
-      return ClientInterceptors.intercept(channelImpl, interceptor);
-    } catch (IOException e) {
-      throw e;
-    }
+    final ClientAuthInterceptor interceptor =
+        new ClientAuthInterceptor(
+            GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE),
+            Executors.newCachedThreadPool());
+    return ClientInterceptors.intercept(channelImpl, interceptor);
   }
 }

@@ -34,35 +34,70 @@ import java.util.Map;
  * A {@link SourceConnector} that writes messages to a specific topic in Kafka.
  */
 public class CloudPubSubSourceConnector extends SourceConnector {
+  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
+
+  private static int DEFAULT_MIN_BATCH_SIZE = 100;
+
+  public static final String CPS_PROJECT_CONFIG = "cps.project";
+  public static final String CPS_TOPIC_CONFIG = "cps.topic";
+  public static final String CPS_MIN_BATCH_SIZE = "cps.minBatchSize";
+
+  private String cpsProject;
+  private String cpsTopic;
+  private Integer minBatchSize = DEFAULT_MIN_BATCH_SIZE;
 
   @Override
   public String version() {
-    return null;
+    return AppInfoParser.getVersion();
   }
 
   @Override
-  public void start(Map<String, String> map) {
-
+  public void start(Map<String, String> props) {
+    this.cpsProject = props.get(CPS_PROJECT_CONFIG);
+    this.cpsTopic = props.get(CPS_TOPIC_CONFIG);
+    if (props.get(CPS_MIN_BATCH_SIZE) != null) {
+        this.minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE));
+    }
+    log.debug("Start connector for project " + cpsProject + " and topic " + cpsTopic);
   }
 
   @Override
   public Class<? extends Task> taskClass() {
-    return null;
+    return CloudPubSubSourceTask.class;
   }
 
   @Override
-  public List<Map<String, String>> taskConfigs(int i) {
-    return null;
-  }
-
-  @Override
-  public void stop() {
-
+  public List<Map<String, String>> taskConfigs(int maxTasks) {
+    // Each task will get the exact same configurations.
+    ArrayList<Map<String, String>> configs = new ArrayList<>();
+    for (int i = 0; i < maxTasks; i++) {
+      Map<String, String> config = new HashMap<>();
+      config.put(CPS_PROJECT_CONFIG, cpsProject);
+      config.put(CPS_TOPIC_CONFIG, cpsTopic);
+      config.put(CPS_MIN_BATCH_SIZE, minBatchSize.toString());
+      configs.add(config);
+    }
+    return configs;
   }
 
   @Override
   public ConfigDef config() {
-    return null;
+    // Defines Cloud Pub/Sub specific configurations that should be specified in the properties file for this connector.
+    return new ConfigDef()
+        .define(
+            CPS_PROJECT_CONFIG,
+            Type.STRING,
+            Importance.HIGH,
+            "The project containing the topic to which to publish.")
+        .define(CPS_TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic to which to publish.")
+        .define(
+            CPS_MIN_BATCH_SIZE,
+            Type.INT,
+            Importance.HIGH,
+            "The minimum number of messages to batch before publishing to Kafka.");
   }
+
+  @Override
+  public void stop() {}
 }
 
