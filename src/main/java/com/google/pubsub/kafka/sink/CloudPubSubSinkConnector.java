@@ -57,7 +57,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
     this.cpsProject = props.get(CPS_PROJECT_CONFIG);
     this.cpsTopic = props.get(CPS_TOPIC_CONFIG);
     if (props.get(CPS_MIN_BATCH_SIZE) != null) {
-        this.minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE));
+      this.minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE));
     }
     log.debug("Start connector for project " + cpsProject + " and topic " + cpsTopic);
   }
@@ -100,5 +100,4 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public void stop() {}
-
 }

@@ -36,15 +36,15 @@ import java.util.Map;
 public class CloudPubSubSourceConnector extends SourceConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
 
-  private static int DEFAULT_MIN_BATCH_SIZE = 100;
+  private static final DEFAULT_MAX_BATCH_SIZE = 100;
 
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
-  public static final String CPS_MIN_BATCH_SIZE = "cps.minBatchSize";
+  public static final String CPS_MAX_BATCH_SIZE = "cps.maxBatchSize"
 
   private String cpsProject;
   private String cpsTopic;
-  private Integer minBatchSize = DEFAULT_MIN_BATCH_SIZE;
+  private int maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
 
   @Override
   public String version() {
@@ -55,9 +55,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public void start(Map<String, String> props) {
     this.cpsProject = props.get(CPS_PROJECT_CONFIG);
     this.cpsTopic = props.get(CPS_TOPIC_CONFIG);
-    if (props.get(CPS_MIN_BATCH_SIZE) != null) {
-        this.minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE));
-    }
+    this.maxBatchSize = props.get(CPS_MAX_BATCH_SIZE);
     log.debug("Start connector for project " + cpsProject + " and topic " + cpsTopic);
   }
 
@@ -74,7 +72,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       Map<String, String> config = new HashMap<>();
       config.put(CPS_PROJECT_CONFIG, cpsProject);
       config.put(CPS_TOPIC_CONFIG, cpsTopic);
-      config.put(CPS_MIN_BATCH_SIZE, minBatchSize.toString());
+      configs.put(CPS_MAX_BATCH_SIZE, maxBatchSize);
       configs.add(config);
     }
     return configs;
@@ -90,11 +88,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Importance.HIGH,
             "The project containing the topic to which to publish.")
         .define(CPS_TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic to which to publish.")
-        .define(
-            CPS_MIN_BATCH_SIZE,
-            Type.INT,
-            Importance.HIGH,
-            "The minimum number of messages to batch before publishing to Kafka.");
   }
 
   @Override

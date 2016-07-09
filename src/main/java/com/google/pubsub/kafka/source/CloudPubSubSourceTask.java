@@ -25,24 +25,71 @@ import java.util.List;
 import java.util.Map;
 
 class CloudPubSubSourceTask extends SourceTask {
+  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
+  private static final String SCHEMA_NAME = ByteString.class.getName();
+  private static final int NUM_PUBLISHERS = 10;
+  private static final int MAX_REQUEST_SIZE = (10<<20) - 1024; // Leave a little room for overhead.
+  private static final int MAX_MESSAGES_PER_REQUEST = 1000;
+  private static final String KEY_ATTRIBUTE = "key";
+  private static final int KEY_ATTRIBUTE_SIZE = KEY_ATTRIBUTE.length();
+  private static final String PARTITION_ATTRIBUTE = "partition";
+  private static final int PARTITION_ATTRIBUTE_SIZE = PARTITION_ATTRIBUTE.length();
+  private static final String KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
+  private static final int KAFKA_TOPIC_ATTRIBUTE_SIZE = KAFKA_TOPIC_ATTRIBUTE.length();
+  private static final String TOPIC_FORMAT = "projects/%s/topics/%s";
+
+  private String cpsTopic;
+  private int maxBatchSize;
+  private CloudPubSubSubscriber subscriber;
+  private Subscription subscription;
+
+  public CloudPubSubSourceTask() {}
 
   @Override
   public String version() {
-    return null;
+    return new CloudPubSubSourceConnector().version();
   }
 
   @Override
   public void start(Map<String, String> map) {
-
+    this.cpsTopic =
+        String.format(
+            TOPIC_FORMAT,
+            props.get(CloudPubSubSinkConnector.CPS_PROJECT_CONFIG),
+            props.get(CloudPubSubSinkConnector.CPS_TOPIC_CONFIG));
+    this.maxBatchSize = props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE);
+    log.info("Start connector task for topic " + cpsTopic + " min batch size = " + minBatchSize);
+    this.subscriber = new CloudPubSubGRPCSubscriber();
+    try {
+      Subscription s = Subscription.newBuilder().setTopic(cpsTopic).build();
+      subscription = subscriber.subscribe(s).get();
+    } catch (InterruptedException | ExecutionException e) {
+      throw new RuntimeException("Could not subscribe to the specified CPS topic: " + e);
   }
 
   @Override
   public List<SourceRecord> poll() throws InterruptedException {
-    return null;
-  }
+    PullRequest request = PullRequest.newBuilder()
+        .setSubscription(subscription.name())
+        .returnImmediately(false)
+        .setMaxMessages(maxBatchSize)
+        .build();
+    PullResponse response = subscriber.pull(request).get();
+    List<String> ackIds = new ArrayList<>();
+    List<SourceRecord> sourceRecords = new ArrayList<>();
+    for (ReceivedMessage rm : response.receivedMessages()) {
+      PubsubMessage message = rm.message();
+      ackIds.add(rm.ackId());
+    }
+    ackMessages(ackIds);
 
+    // Pull a batch of messages and ack these messages.
+    // Create a SourceRecord for each message in the batch and return a list of SourceRecord objects
+    //
+  }
+  
+  private void ackMessages(List<String> ackIds) {
+  }
   @Override
-  public void stop() {
-
-  }
+  public void stop() {}
 }

@@ -41,8 +41,7 @@ public class CloudPubSubGRPCPublisher implements CloudPubSubPublisher {
     try {
       publisher = PublisherGrpc.newFutureStub(ConnectorUtils.getChannel());
     } catch (IOException e) {
-      // TODO(rramkumar): Do we need to stop the connector here?
-      log.error("Could not create publisher stub; no publishes can occur.");
+      throw new RuntimeException("Could not create publisher stub; no publishes can occur.");
     }
   }
 

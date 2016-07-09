@@ -51,18 +51,29 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final int KEY_ATTRIBUTE_SIZE = KEY_ATTRIBUTE.length();
   private static final String PARTITION_ATTRIBUTE = "partition";
   private static final int PARTITION_ATTRIBUTE_SIZE = PARTITION_ATTRIBUTE.length();
+  private static final String KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
+  private static final int KAFKA_TOPIC_ATTRIBUTE_SIZE = KAFKA_TOPIC_ATTRIBUTE.length();
   private static final String TOPIC_FORMAT = "projects/%s/topics/%s";
 
   private String cpsTopic;
   private int minBatchSize;
-  private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures = Maps.newHashMap();
-  private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages = Maps.newHashMap();
   private CloudPubSubPublisher publisher;
+  /** Maps a topic to another map which contains the outstanding futures per partition */
+  private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures = Maps.newHashMap();
+  /** Maps a topic to another map which contains the unpublished messages per partition */
+  private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages = Maps.newHashMap();
 
+  /**
+   * Holds a list of the futures that have not been processed for a single partition.
+   */
   private class OutstandingFuturesForPartition {
     public List<ListenableFuture<PublishResponse>> futures = new ArrayList<>();
   }
 
+  /**
+   * Holds a list of the unpublished messages for a single partition and also
+   * holds the total size in bytes of the protobuf messages in the list.
+   */
   private class UnpublishedMessagesForPartition {
     public List<PubsubMessage> messages = new ArrayList<>();
     public int size = 0;
@@ -72,6 +83,7 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   @Override
   public String version() {
+    // TODO(rramkumar): Why do we create a Connector object?
     return new CloudPubSubSinkConnector().version();
   }
 
@@ -98,14 +110,17 @@ public class CloudPubSubSinkTask extends SinkTask {
         throw new DataException("Unexpected record of type " + record.valueSchema());
       }
       log.trace("Received record: " + record.toString());
-      // TODO(rramkumar, aboulhosn): Why does this need to be final?
+      // TODO(rramkumar): Why does this need to be final?
       final Map<String, String> attributes = Maps.newHashMap();
       // We know this can be cast to ByteString because of the schema check above.
       ByteString value = (ByteString) record.value();
       attributes.put(PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
+      // Get the total number of bytes in this message.
+      int messageSize = value.size() + PARTITION_ATTRIBUTE_SIZE + record.kafkaPartition().toString().length();
       // The key could possibly be null so we add the null check.
       if (record.key() != null) {;
         attributes.put(KEY_ATTRIBUTE, record.key().toString());
+        messageSize += KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
       }
       PubsubMessage message = builder
           .setData(value)
@@ -125,45 +140,44 @@ public class CloudPubSubSinkTask extends SinkTask {
         unpublishedMessages = new UnpublishedMessagesForPartition();
         unpublishedMessagesForTopic.put(record.kafkaPartition(), unpublishedMessages);
       }
-      // Get the total number of bytes in this message and add it to the total number of bytes.
-      int messageSize = message.toByteArray().length;
       int newUnpublishedSize = unpublishedMessages.size + messageSize;
       // Publish messages in this partition if the total number of bytes goes over limit.
       if (newUnpublishedSize > MAX_REQUEST_SIZE) {
         publishMessagesForPartition(record.topic(), record.kafkaPartition(), unpublishedMessages.messages);
         newUnpublishedSize = messageSize;
-        unpublishedMessages.messages.clear();
       }
       unpublishedMessages.size = newUnpublishedSize;
       unpublishedMessages.messages.add(message);
       if (unpublishedMessages.messages.size() >= minBatchSize) {
         publishMessagesForPartition(record.topic(), record.kafkaPartition(), unpublishedMessages.messages);
-        unpublishedMessages.messages.clear();
       }
     }
   }
 
   @Override
   public void flush(Map<TopicPartition, OffsetAndMetadata> partitionOffsets) {
-    // TODO(rramkumar): Why do we publish every unpublished message here?
+    // Publish all messages that have not been published yet.
     for (Map.Entry<String, Map<Integer, UnpublishedMessagesForPartition>> entry :
         allUnpublishedMessages.entrySet()) {
       for (Map.Entry<Integer,UnpublishedMessagesForPartition> innerEntry :
           entry.getValue().entrySet())
-        publishMessagesForPartition(entry.getKey(),
-            innerEntry.getKey(), innerEntry.getValue().messages);
+        publishMessagesForPartition(
+            entry.getKey(),
+            innerEntry.getKey(),
+            innerEntry.getValue().messages);
       }
     }
     allUnpublishedMessages.clear();
+    // Process results of all the outstanding futures specified by each TopicPartition object.
     for (Map.Entry<TopicPartition, OffsetAndMetadata> partitionOffset :
         partitionOffsets.entrySet()) {
       log.debug("Received flush for partition " + partitionOffset.getKey().toString());
       Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =
           allOutstandingFutures.get(partitionOffset.getKey().topic());
-      if (outstandingPublishesForPartition == null) {
+      if (outstandingFuturesForTopic == null) {
         continue;
       }
-      OutstandingFuturesForPartition outstandingFutures = outstandingFuturesForTopic.get(partitionOffset.getKey().topic());
+      OutstandingFuturesForPartition outstandingFutures = outstandingFuturesForTopic.get(partitionOffset.getKey().partition());
       if (oustandingFutures == null ) {
         continue;
       }
@@ -210,5 +224,6 @@ public class CloudPubSubSinkTask extends SinkTask {
       startIndex = endIndex;
       endIndex = Math.min(endIndex + MAX_MESSAGES_PER_REQUEST, messages.size());
     }
+    messages.clear();
   }
 }
