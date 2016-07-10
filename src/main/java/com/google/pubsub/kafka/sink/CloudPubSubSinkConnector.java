@@ -37,7 +37,7 @@ import java.util.Map;
 public class CloudPubSubSinkConnector extends SinkConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkConnector.class);
 
-  private static int DEFAULT_MIN_BATCH_SIZE = 100;
+  private static final int DEFAULT_MIN_BATCH_SIZE = 100;
 
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
@@ -83,7 +83,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public ConfigDef config() {
-    // Defines Cloud Pub/Sub specific configurations that should be specified in the properties file for this connector.
+    // Defines Cloud Pub/Sub specific configurations.
     return new ConfigDef()
         .define(
             CPS_PROJECT_CONFIG,

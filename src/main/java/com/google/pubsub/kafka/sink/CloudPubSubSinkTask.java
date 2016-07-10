@@ -18,6 +18,7 @@ package com.google.pubsub.kafka.sink;
 import com.google.api.client.util.Maps;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
+import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PubsubMessage;
@@ -43,17 +44,9 @@ import java.util.Map;
  */
 public class CloudPubSubSinkTask extends SinkTask {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
-  private static final String SCHEMA_NAME = ByteString.class.getName();
   private static final int NUM_PUBLISHERS = 10;
   private static final int MAX_REQUEST_SIZE = (10<<20) - 1024; // Leave a little room for overhead.
   private static final int MAX_MESSAGES_PER_REQUEST = 1000;
-  private static final String KEY_ATTRIBUTE = "key";
-  private static final int KEY_ATTRIBUTE_SIZE = KEY_ATTRIBUTE.length();
-  private static final String PARTITION_ATTRIBUTE = "partition";
-  private static final int PARTITION_ATTRIBUTE_SIZE = PARTITION_ATTRIBUTE.length();
-  private static final String KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
-  private static final int KAFKA_TOPIC_ATTRIBUTE_SIZE = KAFKA_TOPIC_ATTRIBUTE.length();
-  private static final String TOPIC_FORMAT = "projects/%s/topics/%s";
 
   private String cpsTopic;
   private int minBatchSize;
@@ -91,7 +84,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   public void start(Map<String, String> props) {
     this.cpsTopic =
         String.format(
-            TOPIC_FORMAT,
+            ConnectorUtils.TOPIC_FORMAT,
             props.get(CloudPubSubSinkConnector.CPS_PROJECT_CONFIG),
             props.get(CloudPubSubSinkConnector.CPS_TOPIC_CONFIG));
     this.minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE));
@@ -106,7 +99,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     for (SinkRecord record : sinkRecords) {
       // Verify that the schema of the data coming in from Kafka Connect is of type ByteString.
       if (record.valueSchema().type() != Schema.Type.BYTES ||
-          !record.valueSchema().name().equals(SCHEMA_NAME)) {
+          !record.valueSchema().name().equals(ConnectorUtils.SCHEMA_NAME)) {
         throw new DataException("Unexpected record of type " + record.valueSchema());
       }
       log.trace("Received record: " + record.toString());
@@ -114,13 +107,14 @@ public class CloudPubSubSinkTask extends SinkTask {
       final Map<String, String> attributes = Maps.newHashMap();
       // We know this can be cast to ByteString because of the schema check above.
       ByteString value = (ByteString) record.value();
-      attributes.put(PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
+      attributes.put(ConnectorUtils.PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
       // Get the total number of bytes in this message.
-      int messageSize = value.size() + PARTITION_ATTRIBUTE_SIZE + record.kafkaPartition().toString().length();
+      int messageSize = value.size() + ConnectorUtils.PARTITION_ATTRIBUTE_SIZE
+          + record.kafkaPartition().toString().length();
       // The key could possibly be null so we add the null check.
       if (record.key() != null) {;
-        attributes.put(KEY_ATTRIBUTE, record.key().toString());
-        messageSize += KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
+        attributes.put(ConnectorUtils.KEY_ATTRIBUTE, record.key().toString());
+        messageSize += ConnectorUtils.KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
       }
       PubsubMessage message = builder
           .setData(value)
@@ -160,7 +154,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     for (Map.Entry<String, Map<Integer, UnpublishedMessagesForPartition>> entry :
         allUnpublishedMessages.entrySet()) {
       for (Map.Entry<Integer,UnpublishedMessagesForPartition> innerEntry :
-          entry.getValue().entrySet())
+          entry.getValue().entrySet()) {
         publishMessagesForPartition(
             entry.getKey(),
             innerEntry.getKey(),
@@ -178,7 +172,7 @@ public class CloudPubSubSinkTask extends SinkTask {
         continue;
       }
       OutstandingFuturesForPartition outstandingFutures = outstandingFuturesForTopic.get(partitionOffset.getKey().partition());
-      if (oustandingFutures == null ) {
+      if (outstandingFutures == null ) {
         continue;
       }
       try {
@@ -198,12 +192,12 @@ public class CloudPubSubSinkTask extends SinkTask {
   private void publishMessagesForPartition(String topic, Integer partition, List<PubsubMessage> messages) {
     // Get a map containing all futures per partition for the passed in topic.
     Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic = allOutstandingFutures.get(topic);
-    if (outstandingPublishesForPartition == null) {
+    if (outstandingFuturesForTopic == null) {
       outstandingFuturesForTopic = Maps.newHashMap();
       allOutstandingFutures.put(topic, outstandingFuturesForTopic);
     }
     // Get the object containing the outstanding futures for this topic and partition..
-    OutstandingFuturesForPartition oustandingFutures = outstandingFuturesForTopic.get(partition);
+    OutstandingFuturesForPartition outstandingFutures = outstandingFuturesForTopic.get(partition);
     if (outstandingFutures == null) {
       outstandingFutures = new OutstandingFuturesForPartition();
       outstandingFuturesForTopic.put(partition, outstandingFutures);
@@ -220,7 +214,7 @@ public class CloudPubSubSinkTask extends SinkTask {
       // TODO(rramkumar): Do we need builder.clear()?
       builder.clear();
       // log.info("Publishing: " + (endIndex - startIndex) + " messages");
-      outstandingFutures.add(publisher.publish(request));
+      outstandingFutures.futures.add(publisher.publish(request));
       startIndex = endIndex;
       endIndex = Math.min(endIndex + MAX_MESSAGES_PER_REQUEST, messages.size());
     }

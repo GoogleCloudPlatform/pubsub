@@ -23,13 +23,11 @@ import java.util.concurrent.Executors;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import com.google.protobuf.Empty;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.sink.CloudPubSubGRPCPublisher;
-import com.google.pubsub.v1.PublisherGrpc;
-import com.google.pubsub.v1.SubscriberGrpc;
+import com.google.pubsub.v1.*;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
-import com.google.pubsub.v1.PullRequest;
-import com.google.pubsub.v1.PullResponse;
 
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
@@ -56,5 +54,13 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
 
   public ListenableFuture<PullResponse> pull(PullRequest request) {
     return subscriber.pull(request);
+  }
+
+  public ListenableFuture<Subscription> createSubscription(Subscription request) {
+    return subscriber.createSubscription(request);
+  }
+
+  public ListenableFuture<Empty> ackMessages(AcknowledgeRequest request) {
+    return subscriber.acknowledge(request);
   }
 }

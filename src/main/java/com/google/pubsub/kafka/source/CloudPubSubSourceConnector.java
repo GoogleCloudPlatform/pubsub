@@ -36,15 +36,15 @@ import java.util.Map;
 public class CloudPubSubSourceConnector extends SourceConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
 
-  private static final DEFAULT_MAX_BATCH_SIZE = 100;
+  private static final int DEFAULT_MAX_BATCH_SIZE = 100;
 
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
-  public static final String CPS_MAX_BATCH_SIZE = "cps.maxBatchSize"
+  public static final String CPS_MAX_BATCH_SIZE = "cps.maxBatchSize";
 
   private String cpsProject;
   private String cpsTopic;
-  private int maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
+  private Integer maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
 
   @Override
   public String version() {
@@ -55,7 +55,10 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public void start(Map<String, String> props) {
     this.cpsProject = props.get(CPS_PROJECT_CONFIG);
     this.cpsTopic = props.get(CPS_TOPIC_CONFIG);
-    this.maxBatchSize = props.get(CPS_MAX_BATCH_SIZE);
+    if (props.get(CPS_MAX_BATCH_SIZE) != null) {
+      this.maxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE));
+    }
+
     log.debug("Start connector for project " + cpsProject + " and topic " + cpsTopic);
   }
 
@@ -72,7 +75,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       Map<String, String> config = new HashMap<>();
       config.put(CPS_PROJECT_CONFIG, cpsProject);
       config.put(CPS_TOPIC_CONFIG, cpsTopic);
-      configs.put(CPS_MAX_BATCH_SIZE, maxBatchSize);
+      config.put(CPS_MAX_BATCH_SIZE, maxBatchSize.toString());
       configs.add(config);
     }
     return configs;
@@ -87,7 +90,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.STRING,
             Importance.HIGH,
             "The project containing the topic to which to publish.")
-        .define(CPS_TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic to which to publish.")
+        .define(CPS_TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic to which to publish.");
   }
 
   @Override

@@ -17,6 +17,7 @@ package com.google.pubsub.kafka.common;
 
 import com.google.auth.oauth2.GoogleCredentials;
 
+import com.google.protobuf.ByteString;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import io.grpc.auth.ClientAuthInterceptor;
@@ -33,9 +34,17 @@ import java.util.concurrent.Executors;
  * Created by rramkumar on 6/29/16.
  */
 public class ConnectorUtils {
-
   private static final String ENDPOINT = "pubsub-experimental.googleapis.com";
   private static final List<String> CPS_SCOPE = Arrays.asList("https://www.googleapis.com/auth/pubsub");
+
+  public static final String SCHEMA_NAME = ByteString.class.getName();
+  public static final String KEY_ATTRIBUTE = "key";
+  public static final int KEY_ATTRIBUTE_SIZE = KEY_ATTRIBUTE.length();
+  public static final String PARTITION_ATTRIBUTE = "partition";
+  public static final int PARTITION_ATTRIBUTE_SIZE = PARTITION_ATTRIBUTE.length();
+  public static final String KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
+  public static final int KAFKA_TOPIC_ATTRIBUTE_SIZE = KAFKA_TOPIC_ATTRIBUTE.length();
+  public static final String TOPIC_FORMAT = "projects/%s/topics/%s";
 
   private ConnectorUtils() {}
 
