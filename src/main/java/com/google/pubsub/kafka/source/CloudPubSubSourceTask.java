@@ -15,13 +15,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
-import com.google.protobuf.Empty;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
 import com.google.pubsub.kafka.sink.CloudPubSubSinkTask;
 import com.google.pubsub.v1.*;
+
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

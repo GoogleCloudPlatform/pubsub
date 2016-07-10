@@ -108,9 +108,11 @@ public class CloudPubSubSinkTask extends SinkTask {
       // We know this can be cast to ByteString because of the schema check above.
       ByteString value = (ByteString) record.value();
       attributes.put(ConnectorUtils.PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
+      attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, record.topic());
       // Get the total number of bytes in this message.
       int messageSize = value.size() + ConnectorUtils.PARTITION_ATTRIBUTE_SIZE
-          + record.kafkaPartition().toString().length();
+          + record.kafkaPartition().toString().length() + ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE_SIZE
+          + record.topic().length();
       // The key could possibly be null so we add the null check.
       if (record.key() != null) {;
         attributes.put(ConnectorUtils.KEY_ATTRIBUTE, record.key().toString());
