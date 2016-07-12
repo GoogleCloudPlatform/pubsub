@@ -36,7 +36,6 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.LogManager;
 import java.util.stream.LongStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -153,12 +152,15 @@ class Driver {
           + "sheets output is only turned on when spreadsheet_id is set to a non-empty value, so "
           + "data will only be stored to this directory if the spreadsheet_id flag is activated."
   )
-  private String dataStoreDirectory = 
+  private String dataStoreDirectory =
       System.getProperty("user.home") + "/.credentials/sheets.googleapis.com-loadtest-framework";
+  @Parameter(
+    names = {"--resource_dir"},
+    description = "The directory to look for resources to upload, if different than the default."
+  )
+  private String resourceDirectory = "src/main/resources/gce";
 
   public static void main(String[] args) {
-    // Turns off all java.util.logging.
-    LogManager.getLogManager().reset();
     Driver driver = new Driver();
     JCommander jCommander = new JCommander(driver, args);
     if (driver.help) {
@@ -178,6 +180,7 @@ class Driver {
       );
       Preconditions.checkArgument(
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
+      GCEController.resourceDirectory = resourceDirectory;
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
           new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null), cpsPublisherCount,
