@@ -58,7 +58,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     if (props.get(CPS_MAX_BATCH_SIZE) != null) {
       this.maxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE));
     }
-
     log.debug("Start connector for project " + cpsProject + " and topic " + cpsTopic);
   }
 
@@ -90,7 +89,13 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.STRING,
             Importance.HIGH,
             "The project containing the topic to which to publish.")
-        .define(CPS_TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic to which to publish.");
+        .define(CPS_TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic to which to publish.")
+        .define(
+            CPS_MAX_BATCH_SIZE,
+            Type.INT,
+            Importance.HIGH,
+            "The minimum number of messages to batch per pull request to Cloud Pub/Sub.");
+
   }
 
   @Override

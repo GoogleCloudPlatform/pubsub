@@ -18,8 +18,14 @@ package com.google.pubsub.kafka.source;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
 import com.google.pubsub.kafka.sink.CloudPubSubSinkTask;
-import com.google.pubsub.v1.*;
+import com.google.pubsub.v1.Subscription;
+import com.google.pubsub.v1.PullResponse;
+import com.google.pubsub.v1.PullRequest;
+import com.google.pubsub.v1.PubsubMessage;
+import com.google.pubsub.v1.ReceivedMessage;
+import com.google.pubsub.v1.AcknowledgeRequest;
 
+import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 
@@ -78,6 +84,23 @@ class CloudPubSubSourceTask extends SourceTask {
       for (ReceivedMessage rm : response.getReceivedMessagesList()) {
         PubsubMessage message = rm.getMessage();
         ackIds.add(rm.getAckId());
+        // TODO(rramkumar): Revisit attribute issue.
+        Map<String, String> messageAttributes = message.getAttributes();
+        Integer partition = null;
+        if (messageAttributes.get(ConnectorUtils.PARTITION_ATTRIBUTE) != null) {
+          partition = Integer.parseInt(messageAttributes.get(ConnectorUtils.PARTITION_ATTRIBUTE));
+        }
+        String key = messageAttributes.get(ConnectorUtils.KEY_ATTRIBUTE);
+        SourceRecord record = new SourceRecord(
+            null,
+            null,
+            messageAttributes.get(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE),
+            partition,
+            SchemaBuilder.string().build(),
+            key,
+            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
+            message.getData());
+        sourceRecords.add(record);
       }
       ackMessages(ackIds);
       return sourceRecords;
@@ -93,6 +116,7 @@ class CloudPubSubSourceTask extends SourceTask {
         .build();
     subscriber.ackMessages(request).get();
   }
+
   @Override
   public void stop() {}
 }

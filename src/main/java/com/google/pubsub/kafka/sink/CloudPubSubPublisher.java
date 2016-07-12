@@ -17,10 +17,9 @@ package com.google.pubsub.kafka.sink;
 
 import com.google.common.util.concurrent.ListenableFuture;
 
-import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
-import com.google.pubsub.v1.PullRequest;
-import com.google.pubsub.v1.PullResponse;
+import com.google.pubsub.v1.PublishRequest;
+import com.google.pubsub.v1.Topic;
 
 /***
  * An interface for clients that want to publish data to
@@ -30,4 +29,5 @@ public interface CloudPubSubPublisher {
 
   public ListenableFuture<PublishResponse> publish(PublishRequest request);
 
+  public ListenableFuture<Topic> createTopic(Topic topic);
 }

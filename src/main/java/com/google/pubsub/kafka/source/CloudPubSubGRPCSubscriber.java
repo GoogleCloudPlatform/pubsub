@@ -16,31 +16,22 @@
 package com.google.pubsub.kafka.source;
 
 import java.io.IOException;
-import java.util.List;
-import java.util.Arrays;
-import java.util.concurrent.Executors;
 
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.util.concurrent.ListenableFuture;
-
 import com.google.protobuf.Empty;
 import com.google.pubsub.kafka.common.ConnectorUtils;
-import com.google.pubsub.kafka.sink.CloudPubSubGRPCPublisher;
-import com.google.pubsub.v1.*;
+import com.google.pubsub.v1.PullRequest;
+import com.google.pubsub.v1.PullResponse;
+import com.google.pubsub.v1.AcknowledgeRequest;
+import com.google.pubsub.v1.Subscription;
+import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 
-import io.grpc.Channel;
-import io.grpc.ClientInterceptors;
-import io.grpc.auth.ClientAuthInterceptor;
-import io.grpc.internal.ManagedChannelImpl;
-import io.grpc.netty.NegotiationType;
-import io.grpc.netty.NettyChannelBuilder;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+/***
+ * A {@link CloudPubSubSubscriber} that uses <a href="http://www.grpc.io/">gRPC</a> to pull messages
+ * from <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
+ */
 public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
-  private static final Logger log = LoggerFactory.getLogger(CloudPubSubGRPCPublisher.class);
 
   private SubscriberFutureStub subscriber;
 

@@ -25,6 +25,7 @@ import com.google.pubsub.kafka.common.ConnectorUtils;
 
 import java.io.IOException;
 
+import com.google.pubsub.v1.Topic;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +34,6 @@ import org.slf4j.LoggerFactory;
  * to <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public class CloudPubSubGRPCPublisher implements CloudPubSubPublisher {
-  private static final Logger log = LoggerFactory.getLogger(CloudPubSubGRPCPublisher.class);
 
   private PublisherFutureStub publisher;
 
@@ -48,5 +48,10 @@ public class CloudPubSubGRPCPublisher implements CloudPubSubPublisher {
   @Override
   public ListenableFuture<PublishResponse> publish(PublishRequest request) {
     return publisher.publish(request);
+  }
+
+  public ListenableFuture<Topic> createTopic(Topic topic) {
+    return publisher.createTopic(topic);
+
   }
 }

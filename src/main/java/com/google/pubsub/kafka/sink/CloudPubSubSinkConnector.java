@@ -95,7 +95,8 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             CPS_MIN_BATCH_SIZE,
             Type.INT,
             Importance.HIGH,
-            "The minimum number of messages to batch per partition before sending a publish request to Cloud Pub/Sub.");
+            "The minimum number of messages to batch per partition before sending a publish " +
+                "request to Cloud Pub/Sub.");
   }
 
   @Override

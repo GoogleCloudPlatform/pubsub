@@ -31,11 +31,13 @@ import java.util.List;
 import java.util.concurrent.Executors;
 
 /**
- * Created by rramkumar on 6/29/16.
+ * Utility methods and constants.
  */
 public class ConnectorUtils {
+
   private static final String ENDPOINT = "pubsub-experimental.googleapis.com";
-  private static final List<String> CPS_SCOPE = Arrays.asList("https://www.googleapis.com/auth/pubsub");
+  private static final List<String> CPS_SCOPE = Arrays.asList(
+      "https://www.googleapis.com/auth/pubsub");
 
   public static final String SCHEMA_NAME = ByteString.class.getName();
   public static final String KEY_ATTRIBUTE = "key";
@@ -49,8 +51,9 @@ public class ConnectorUtils {
   private ConnectorUtils() {}
 
   public static Channel getChannel() throws IOException{
-     ManagedChannelImpl channelImpl =
-        NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
+     ManagedChannelImpl channelImpl = NettyChannelBuilder
+         .forAddress(ENDPOINT, 443)
+         .negotiationType(NegotiationType.TLS).build();
     final ClientAuthInterceptor interceptor =
         new ClientAuthInterceptor(
             GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE),

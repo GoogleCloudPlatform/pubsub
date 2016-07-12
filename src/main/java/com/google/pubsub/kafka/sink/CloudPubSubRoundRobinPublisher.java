@@ -16,11 +16,9 @@
 package com.google.pubsub.kafka.sink;
 
 import com.google.common.util.concurrent.ListenableFuture;
-
-import com.google.pubsub.kafka.sink.CloudPubSubGRPCPublisher;
-import com.google.pubsub.kafka.sink.CloudPubSubPublisher;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
+import com.google.pubsub.v1.Topic;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -30,6 +28,7 @@ import java.util.List;
  * {@link CloudPubSubGRPCPublisher}s.
  */
 public class CloudPubSubRoundRobinPublisher implements CloudPubSubPublisher {
+
   private List<CloudPubSubPublisher> publishers;
   private int currentPublisherIndex = 0;
 
@@ -44,5 +43,10 @@ public class CloudPubSubRoundRobinPublisher implements CloudPubSubPublisher {
   public ListenableFuture<PublishResponse> publish(PublishRequest request) {
     currentPublisherIndex = (currentPublisherIndex + 1) % publishers.size();
     return publishers.get(currentPublisherIndex).publish(request);
+  }
+
+  @Override
+  public ListenableFuture<Topic> createTopic(Topic topic) {
+    return publishers.get(0).createTopic(topic);
   }
 }
