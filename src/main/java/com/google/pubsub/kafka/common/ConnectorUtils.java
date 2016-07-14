@@ -48,8 +48,6 @@ public class ConnectorUtils {
   public static final int KAFKA_TOPIC_ATTRIBUTE_SIZE = KAFKA_TOPIC_ATTRIBUTE.length();
   public static final String TOPIC_FORMAT = "projects/%s/topics/%s";
 
-  private ConnectorUtils() {}
-
   public static Channel getChannel() throws IOException{
      ManagedChannelImpl channelImpl = NettyChannelBuilder
          .forAddress(ENDPOINT, 443)

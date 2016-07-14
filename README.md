@@ -31,15 +31,16 @@ These instructions assumes you are using [Maven](https://maven.apache.org/).
 
 The resulting jar is at target/cps-kafka-connector.jar.
 
-### Running a Sink Connector
+### Running a Connector
 
 1. Copy the cps-kafka-connector.jar to the place where you will run your Kafka
-connnector.
+connector.
 
 2. Create a configuration file for the Cloud Pub/Sub connector and copy it to
-the place where you will run Kafka connect. The configuraiton should set up the
-proper Kafka topics, Cloud Pub/Sub topic, and Cloud Pub/Sub project. A sample
-configuration file is provided at configs/cps-sink-connector.properites.
+the place where you will run Kafka connect. The configuration should set up the
+proper Kafka topics, Cloud Pub/Sub topic, and Cloud Pub/Sub project. Sample
+configuration files for the source and sink connectors are provided at
+configs/.
 
 3. Create an appropriate configuration for your Kafka connect instance. The
 only configuration item that must be set specially for the Cloud Pub/Sub
@@ -49,3 +50,17 @@ connector to work is the value converter:
 
 More information on the configuration for Kafka connect can be found in the
 [Kafka Users Guide](http://kafka.apache.org/documentation.html#connect_running).
+
+### Important Notes
+
+1. You need a Google Cloud Platform project to use the connector.
+
+2. If you are running the connector on Google Cloud Platform itself (Compute Engine, etc.),
+then you need to ensure that the machines running the connector have appropriate access to the
+Cloud Pub/Sub API's.
+
+3. If you are not running on Google Cloud Platform, then you will need to create a service account
+key that is associated with your project. This key should be provisioned in such a way that it
+gives proper access to the Cloud Pub/Sub API's. The machine running the connector should have an
+environment variable, GOOGLE_APPLICATION_CREDENTIALS, which is set to the path of a file
+containing the key.

@@ -38,6 +38,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/***
+ * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to Kafka.
+ */
 class CloudPubSubSourceTask extends SourceTask {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
 

@@ -53,10 +53,11 @@ public class CloudPubSubSinkTask extends SinkTask {
   private String cpsTopic;
   private int minBatchSize;
   private CloudPubSubPublisher publisher;
-  /** Maps a topic to another map which contains the outstanding futures per partition */
+
+  // Maps a topic to another map which contains the outstanding futures per partition
   private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
       new HashMap<>();
-  /** Maps a topic to another map which contains the unpublished messages per partition */
+  // Maps a topic to another map which contains the unpublished messages per partition
   private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages =
       new HashMap<>();
 
@@ -80,7 +81,6 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   @Override
   public String version() {
-    // TODO(rramkumar): Why do we create a Connector object?
     return new CloudPubSubSinkConnector().version();
   }
 
@@ -152,6 +152,7 @@ public class CloudPubSubSinkTask extends SinkTask {
       }
       unpublishedMessages.size = newUnpublishedSize;
       unpublishedMessages.messages.add(message);
+      // If the number of messages in this partition is greater than the batch size, then publish.
       if (unpublishedMessages.messages.size() >= minBatchSize) {
         publishMessagesForPartition(
             record.topic(),
@@ -226,7 +227,7 @@ public class CloudPubSubSinkTask extends SinkTask {
           .addAllMessages(messages.subList(startIndex, endIndex))
           .build();
       builder.clear();
-      // log.info("Publishing: " + (endIndex - startIndex) + " messages");
+      log.trace("Publishing: " + (endIndex - startIndex) + " messages");
       outstandingFutures.futures.add(publisher.publish(request));
       startIndex = endIndex;
       endIndex = Math.min(endIndex + MAX_MESSAGES_PER_REQUEST, messages.size());
