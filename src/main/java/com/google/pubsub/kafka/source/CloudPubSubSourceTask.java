@@ -18,6 +18,8 @@ package com.google.pubsub.kafka.source;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
 import com.google.pubsub.kafka.sink.CloudPubSubSinkTask;
+import com.google.pubsub.v1.SubscriberGrpc;
+import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.Subscription;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.PullRequest;
@@ -35,7 +37,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 
 class CloudPubSubSourceTask extends SourceTask {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
@@ -61,11 +62,12 @@ class CloudPubSubSourceTask extends SourceTask {
             props.get(CloudPubSubSinkConnector.CPS_TOPIC_CONFIG));
     this.maxBatchSize = Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE));
     log.info("Start connector task for topic " + cpsTopic + " max batch size = " + maxBatchSize);
-    this.subscriber = new CloudPubSubGRPCSubscriber();
+    this.subscriber = new CloudPubSubRoundRobinSubscriber(10);
     try {
+      SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
       Subscription request = Subscription.newBuilder().setTopic(cpsTopic).build();
-      subscription = subscriber.createSubscription(request).get();
-    } catch (InterruptedException | ExecutionException e) {
+      subscription = stub.createSubscription(request).get();
+    } catch (Exception e) {
       throw new RuntimeException("Could not subscribe to the specified CPS topic: " + e);
     }
   }

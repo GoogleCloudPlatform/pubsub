@@ -94,12 +94,6 @@ public class CloudPubSubSinkTask extends SinkTask {
     this.minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE));
     log.info("Start connector task for topic " + cpsTopic + " min batch size = " + minBatchSize);
     this.publisher = new CloudPubSubRoundRobinPublisher(NUM_PUBLISHERS);
-    Topic topic = Topic.newBuilder().setName(this.cpsTopic).build();
-    try {
-      this.publisher.createTopic(topic).get();
-    } catch (Exception e) {
-      throw new RuntimeException("Could not create CPS topic");
-    }
   }
 
   @Override

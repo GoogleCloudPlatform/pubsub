@@ -28,6 +28,4 @@ import com.google.pubsub.v1.Topic;
 public interface CloudPubSubPublisher {
 
   public ListenableFuture<PublishResponse> publish(PublishRequest request);
-
-  public ListenableFuture<Topic> createTopic(Topic topic);
 }

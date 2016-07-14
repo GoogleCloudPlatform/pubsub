@@ -44,9 +44,4 @@ public class CloudPubSubRoundRobinPublisher implements CloudPubSubPublisher {
     currentPublisherIndex = (currentPublisherIndex + 1) % publishers.size();
     return publishers.get(currentPublisherIndex).publish(request);
   }
-
-  @Override
-  public ListenableFuture<Topic> createTopic(Topic topic) {
-    return publishers.get(0).createTopic(topic);
-  }
 }

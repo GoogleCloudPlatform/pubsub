@@ -49,9 +49,4 @@ public class CloudPubSubGRPCPublisher implements CloudPubSubPublisher {
   public ListenableFuture<PublishResponse> publish(PublishRequest request) {
     return publisher.publish(request);
   }
-
-  public ListenableFuture<Topic> createTopic(Topic topic) {
-    return publisher.createTopic(topic);
-
-  }
 }

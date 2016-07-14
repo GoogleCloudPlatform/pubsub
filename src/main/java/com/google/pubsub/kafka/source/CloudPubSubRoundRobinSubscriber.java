@@ -15,38 +15,39 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
-import java.io.IOException;
-
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
-import com.google.pubsub.kafka.common.ConnectorUtils;
+import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
-import com.google.pubsub.v1.AcknowledgeRequest;
-import com.google.pubsub.v1.SubscriberGrpc;
-import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 
-/***
- * A {@link CloudPubSubSubscriber} that uses <a href="http://www.grpc.io/">gRPC</a> to pull messages
- * from <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
+import java.util.ArrayList;
+import java.util.List;
+
+/**
+ * Created by rramkumar on 7/14/16.
  */
-public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
+public class CloudPubSubRoundRobinSubscriber implements CloudPubSubSubscriber{
 
-  private SubscriberFutureStub subscriber;
+  private List<CloudPubSubSubscriber> subscribers;
+  private int currentSubscriberIndex = 0;
 
-  CloudPubSubGRPCSubscriber() {
-    try {
-      subscriber = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
-    } catch (IOException e) {
-      throw new RuntimeException("Could not create subscriber stub; no pulls can occur.");
+  public CloudPubSubRoundRobinSubscriber(int subscriberCount) {
+    subscribers = new ArrayList<>();
+    for (int i = 0; i < subscriberCount; ++i) {
+      subscribers.add(new CloudPubSubGRPCSubscriber());
     }
   }
 
+  @Override
   public ListenableFuture<PullResponse> pull(PullRequest request) {
-    return subscriber.pull(request);
+    currentSubscriberIndex = (currentSubscriberIndex+ 1) % subscribers.size();
+    return subscribers.get(currentSubscriberIndex).pull(request);
   }
 
+  @Override
   public ListenableFuture<Empty> ackMessages(AcknowledgeRequest request) {
-    return subscriber.acknowledge(request);
+    currentSubscriberIndex = (currentSubscriberIndex + 1) % subscribers.size();
+    return subscribers.get(currentSubscriberIndex).ackMessages(request);
   }
 }

@@ -16,8 +16,8 @@
 package com.google.pubsub.kafka.common;
 
 import com.google.auth.oauth2.GoogleCredentials;
-
 import com.google.protobuf.ByteString;
+
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import io.grpc.auth.ClientAuthInterceptor;

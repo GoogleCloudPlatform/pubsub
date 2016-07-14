@@ -20,7 +20,6 @@ import com.google.protobuf.Empty;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
-import com.google.pubsub.v1.Subscription;
 
 /***
  * An interface for clients that want to subscribe to messages from to
@@ -29,8 +28,6 @@ import com.google.pubsub.v1.Subscription;
 public interface CloudPubSubSubscriber {
 
   public ListenableFuture<PullResponse> pull(PullRequest request);
-
-  public ListenableFuture<Subscription> createSubscription(Subscription request);
 
   public ListenableFuture<Empty> ackMessages(AcknowledgeRequest request);
 }
