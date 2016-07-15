@@ -15,6 +15,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import com.google.pubsub.kafka.common.ConnectorUtils;
+import com.google.pubsub.v1.SubscriberGrpc;
+import com.google.pubsub.v1.Subscription;
+
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -38,13 +42,14 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   private static final int DEFAULT_MAX_BATCH_SIZE = 100;
 
-  public static final String CPS_PROJECT_CONFIG = "cps.project";
-  public static final String CPS_TOPIC_CONFIG = "cps.topic";
+  // Not a config, rather each tasks needs this to pull messages.
+  public static final String SUBSCRIPTION_NAME = "subscription_name";
   public static final String CPS_MAX_BATCH_SIZE = "cps.maxBatchSize";
 
   private String cpsProject;
   private String cpsTopic;
   private Integer maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
+  private String subscriptionName;
 
   @Override
   public String version() {
@@ -53,12 +58,21 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   @Override
   public void start(Map<String, String> props) {
-    this.cpsProject = props.get(CPS_PROJECT_CONFIG);
-    this.cpsTopic = props.get(CPS_TOPIC_CONFIG);
+    cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
+    cpsTopic = props.get(ConnectorUtils.CPS_TOPIC_CONFIG);
     if (props.get(CPS_MAX_BATCH_SIZE) != null) {
-      this.maxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE));
+      maxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE));
     }
-    log.debug("Start connector for project " + cpsProject + " and topic " + cpsTopic);
+    log.info("Start connector for project " + cpsProject + " and topic " + cpsTopic);
+    try {
+      SubscriberGrpc.SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
+      Subscription request = Subscription.newBuilder()
+          .setTopic(String.format(ConnectorUtils.TOPIC_FORMAT, cpsProject, cpsTopic))
+          .build();
+      subscriptionName = stub.createSubscription(request).get().getName();
+    } catch (Exception e) {
+      throw new RuntimeException("Could not subscribe to the specified CPS topic: " + e);
+    }
   }
 
   @Override
@@ -72,9 +86,10 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     ArrayList<Map<String, String>> configs = new ArrayList<>();
     for (int i = 0; i < maxTasks; i++) {
       Map<String, String> config = new HashMap<>();
-      config.put(CPS_PROJECT_CONFIG, cpsProject);
-      config.put(CPS_TOPIC_CONFIG, cpsTopic);
+      config.put(ConnectorUtils.CPS_PROJECT_CONFIG, cpsProject);
+      config.put(ConnectorUtils.CPS_TOPIC_CONFIG, cpsTopic);
       config.put(CPS_MAX_BATCH_SIZE, maxBatchSize.toString());
+      config.put(SUBSCRIPTION_NAME, subscriptionName);
       configs.add(config);
     }
     return configs;
@@ -85,11 +100,14 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     // Defines Cloud Pub/Sub specific configurations that should be specified in the properties file for this connector.
     return new ConfigDef()
         .define(
-            CPS_PROJECT_CONFIG,
+            ConnectorUtils.CPS_PROJECT_CONFIG,
             Type.STRING,
             Importance.HIGH,
             "The project containing the topic to which to publish.")
-        .define(CPS_TOPIC_CONFIG, Type.STRING, Importance.HIGH, "The topic to which to publish.")
+        .define(
+            ConnectorUtils.CPS_TOPIC_CONFIG,
+            Type.STRING, Importance.HIGH,
+            "The topic to " + "which to publish.")
         .define(
             CPS_MAX_BATCH_SIZE,
             Type.INT,

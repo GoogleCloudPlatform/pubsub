@@ -16,11 +16,6 @@
 package com.google.pubsub.kafka.source;
 
 import com.google.pubsub.kafka.common.ConnectorUtils;
-import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
-import com.google.pubsub.kafka.sink.CloudPubSubSinkTask;
-import com.google.pubsub.v1.SubscriberGrpc;
-import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
-import com.google.pubsub.v1.Subscription;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PubsubMessage;
@@ -41,13 +36,15 @@ import java.util.Map;
 /***
  * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to Kafka.
  */
-class CloudPubSubSourceTask extends SourceTask {
-  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
+public class CloudPubSubSourceTask extends SourceTask {
+  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceTask.class);
+
+  private static final int NUM_SUBSCRIBERS = 10;
 
   private String cpsTopic;
   private int maxBatchSize;
   private CloudPubSubSubscriber subscriber;
-  private Subscription subscription;
+  private String subscriptionName;
 
   public CloudPubSubSourceTask() {}
 
@@ -58,28 +55,22 @@ class CloudPubSubSourceTask extends SourceTask {
 
   @Override
   public void start(Map<String, String> props) {
-    this.cpsTopic =
+    cpsTopic =
         String.format(
             ConnectorUtils.TOPIC_FORMAT,
-            props.get(CloudPubSubSinkConnector.CPS_PROJECT_CONFIG),
-            props.get(CloudPubSubSinkConnector.CPS_TOPIC_CONFIG));
-    this.maxBatchSize = Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE));
+            props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
+            props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
+    maxBatchSize = Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE));
     log.info("Start connector task for topic " + cpsTopic + " max batch size = " + maxBatchSize);
-    this.subscriber = new CloudPubSubRoundRobinSubscriber(10);
-    try {
-      SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
-      Subscription request = Subscription.newBuilder().setTopic(cpsTopic).build();
-      subscription = stub.createSubscription(request).get();
-    } catch (Exception e) {
-      throw new RuntimeException("Could not subscribe to the specified CPS topic: " + e);
-    }
+    subscriber = new CloudPubSubRoundRobinSubscriber(NUM_SUBSCRIBERS);
+    subscriptionName = props.get(CloudPubSubSourceConnector.SUBSCRIPTION_NAME);
   }
 
   @Override
   public List<SourceRecord> poll() throws InterruptedException {
     PullRequest request = PullRequest.newBuilder()
-        .setSubscription(subscription.getName())
-        .setReturnImmediately(true)
+        .setSubscription(subscriptionName)
+        .setReturnImmediately(false)
         .setMaxMessages(maxBatchSize)
         .build();
     try {
@@ -89,7 +80,6 @@ class CloudPubSubSourceTask extends SourceTask {
       for (ReceivedMessage rm : response.getReceivedMessagesList()) {
         PubsubMessage message = rm.getMessage();
         ackIds.add(rm.getAckId());
-        // TODO(rramkumar): Revisit attribute issue.
         Map<String, String> messageAttributes = message.getAttributes();
         Integer partition = null;
         if (messageAttributes.get(ConnectorUtils.PARTITION_ATTRIBUTE) != null) {
@@ -100,6 +90,7 @@ class CloudPubSubSourceTask extends SourceTask {
           topic = messageAttributes.get(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE);
         }
         String key = messageAttributes.get(ConnectorUtils.KEY_ATTRIBUTE);
+        // TODO(rramkumar): Revisit the first two parameters in this constructor.
         SourceRecord record = new SourceRecord(
             null,
             null,
@@ -120,7 +111,7 @@ class CloudPubSubSourceTask extends SourceTask {
  
   private void ackMessages(List<String> ackIds) throws Exception{
     AcknowledgeRequest request = AcknowledgeRequest.newBuilder()
-        .setSubscription(subscription.getName())
+        .setSubscription(subscriptionName)
         .addAllAckIds(ackIds)
         .build();
     subscriber.ackMessages(request).get();

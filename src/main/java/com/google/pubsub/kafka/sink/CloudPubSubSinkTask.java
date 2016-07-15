@@ -86,19 +86,19 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   @Override
   public void start(Map<String, String> props) {
-    this.cpsTopic =
+    cpsTopic =
         String.format(
             ConnectorUtils.TOPIC_FORMAT,
-            props.get(CloudPubSubSinkConnector.CPS_PROJECT_CONFIG),
-            props.get(CloudPubSubSinkConnector.CPS_TOPIC_CONFIG));
-    this.minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE));
+            props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
+            props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
+    minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE));
     log.info("Start connector task for topic " + cpsTopic + " min batch size = " + minBatchSize);
-    this.publisher = new CloudPubSubRoundRobinPublisher(NUM_PUBLISHERS);
+    publisher = new CloudPubSubRoundRobinPublisher(NUM_PUBLISHERS);
   }
 
   @Override
   public void put(Collection<SinkRecord> sinkRecords) {
-    log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
+    log.info("Received " + sinkRecords.size() + " messages to send to CPS.");
     PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
       // Verify that the schema of the data coming is of type ByteString.
@@ -106,7 +106,7 @@ public class CloudPubSubSinkTask extends SinkTask {
           !record.valueSchema().name().equals(ConnectorUtils.SCHEMA_NAME)) {
         throw new DataException("Unexpected record of type " + record.valueSchema());
       }
-      log.trace("Received record: " + record.toString());
+      log.debug("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
       // We know this can be cast to ByteString because of the schema check above.
       ByteString value = (ByteString) record.value();
@@ -227,7 +227,7 @@ public class CloudPubSubSinkTask extends SinkTask {
           .addAllMessages(messages.subList(startIndex, endIndex))
           .build();
       builder.clear();
-      log.trace("Publishing: " + (endIndex - startIndex) + " messages");
+      log.debug("Publishing: " + (endIndex - startIndex) + " messages");
       outstandingFutures.futures.add(publisher.publish(request));
       startIndex = endIndex;
       endIndex = Math.min(endIndex + MAX_MESSAGES_PER_REQUEST, messages.size());
