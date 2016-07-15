@@ -95,11 +95,15 @@ class CloudPubSubSourceTask extends SourceTask {
         if (messageAttributes.get(ConnectorUtils.PARTITION_ATTRIBUTE) != null) {
           partition = Integer.parseInt(messageAttributes.get(ConnectorUtils.PARTITION_ATTRIBUTE));
         }
+        String topic = cpsTopic;
+        if (messageAttributes.get(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE) != null) {
+          topic = messageAttributes.get(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE);
+        }
         String key = messageAttributes.get(ConnectorUtils.KEY_ATTRIBUTE);
         SourceRecord record = new SourceRecord(
             null,
             null,
-            messageAttributes.get(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE),
+            topic,
             partition,
             SchemaBuilder.string().build(),
             key,
