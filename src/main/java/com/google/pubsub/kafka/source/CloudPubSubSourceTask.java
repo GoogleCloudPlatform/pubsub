@@ -90,7 +90,6 @@ public class CloudPubSubSourceTask extends SourceTask {
           topic = messageAttributes.get(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE);
         }
         String key = messageAttributes.get(ConnectorUtils.KEY_ATTRIBUTE);
-        // TODO(rramkumar): Revisit the first two parameters in this constructor.
         SourceRecord record = new SourceRecord(
             null,
             null,
