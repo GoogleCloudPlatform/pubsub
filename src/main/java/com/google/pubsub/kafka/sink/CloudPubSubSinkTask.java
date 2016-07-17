@@ -15,6 +15,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.sink;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
@@ -33,6 +35,7 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.List;
@@ -54,19 +57,9 @@ public class CloudPubSubSinkTask extends SinkTask {
   private int minBatchSize;
   private CloudPubSubPublisher publisher;
 
-  // Maps a topic to another map which contains the outstanding futures per partition
-  private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
-      new HashMap<>();
   // Maps a topic to another map which contains the unpublished messages per partition
   private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages =
       new HashMap<>();
-
-  /**
-   * Holds a list of the futures that have not been processed for a single partition.
-   */
-  private class OutstandingFuturesForPartition {
-    public List<ListenableFuture<PublishResponse>> futures = new ArrayList<>();
-  }
 
   /**
    * Holds a list of the unpublished messages for a single partition and also
@@ -176,48 +169,12 @@ public class CloudPubSubSinkTask extends SinkTask {
       }
     }
     allUnpublishedMessages.clear();
-    // Process results of all the outstanding futures specified by each TopicPartition object.
-    for (Map.Entry<TopicPartition, OffsetAndMetadata> partitionOffset :
-        partitionOffsets.entrySet()) {
-      log.debug("Received flush for partition " + partitionOffset.getKey().toString());
-      Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =
-          allOutstandingFutures.get(partitionOffset.getKey().topic());
-      if (outstandingFuturesForTopic == null) {
-        continue;
-      }
-      OutstandingFuturesForPartition outstandingFutures =
-          outstandingFuturesForTopic.get(partitionOffset.getKey().partition());
-      if (outstandingFutures == null ) {
-        continue;
-      }
-      try {
-        for (ListenableFuture<PublishResponse> publishRequest : outstandingFutures.futures) {
-          publishRequest.get();
-        }
-      } catch (Exception e) {
-        throw new RuntimeException(e);
-      }
-    }
-    allOutstandingFutures.clear();
   }
 
   @Override
   public void stop() {}
 
   private void publishMessagesForPartition(String topic, Integer partition, List<PubsubMessage> messages) {
-    // Get a map containing all futures per partition for the passed in topic.
-    Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =
-        allOutstandingFutures.get(topic);
-    if (outstandingFuturesForTopic == null) {
-      outstandingFuturesForTopic = new HashMap<>();
-      allOutstandingFutures.put(topic, outstandingFuturesForTopic);
-    }
-    // Get the object containing the outstanding futures for this topic and partition..
-    OutstandingFuturesForPartition outstandingFutures = outstandingFuturesForTopic.get(partition);
-    if (outstandingFutures == null) {
-      outstandingFutures = new OutstandingFuturesForPartition();
-      outstandingFuturesForTopic.put(partition, outstandingFutures);
-    }
     int startIndex = 0;
     int endIndex = Math.min(MAX_MESSAGES_PER_REQUEST, messages.size());
     PublishRequest.Builder builder = PublishRequest.newBuilder();
@@ -228,7 +185,16 @@ public class CloudPubSubSinkTask extends SinkTask {
           .build();
       builder.clear();
       log.debug("Publishing: " + (endIndex - startIndex) + " messages");
-      outstandingFutures.futures.add(publisher.publish(request));
+      ListenableFuture<PublishResponse> responseFuture = publisher.publish(request);
+      Futures.addCallback(responseFuture, new FutureCallback<PublishResponse>() {
+        @Override
+        public void onSuccess(@Nullable PublishResponse result) {}
+
+        @Override
+        public void onFailure(Throwable t) {
+          throw new RuntimeException(t);
+        }
+      });
       startIndex = endIndex;
       endIndex = Math.min(endIndex + MAX_MESSAGES_PER_REQUEST, messages.size());
     }
