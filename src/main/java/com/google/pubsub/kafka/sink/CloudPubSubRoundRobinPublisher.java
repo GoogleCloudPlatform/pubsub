@@ -23,7 +23,7 @@ import com.google.pubsub.v1.Topic;
 import java.util.ArrayList;
 import java.util.List;
 
-/***
+/**
  * A {@link CloudPubSubPublisher} that distributes publishes in round-robin fashion over a set of
  * {@link CloudPubSubGRPCPublisher}s.
  */

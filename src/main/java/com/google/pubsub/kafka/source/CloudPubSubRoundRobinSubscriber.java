@@ -17,6 +17,8 @@ package com.google.pubsub.kafka.source;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
+import com.google.pubsub.kafka.sink.CloudPubSubGRPCPublisher;
+import com.google.pubsub.kafka.sink.CloudPubSubPublisher;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
@@ -25,7 +27,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Created by rramkumar on 7/14/16.
+ * A {@link CloudPubSubSubscriber} that distributes a single subscription in round-robin fashion
+ * over a set of {@link CloudPubSubGRPCSubscriber}s.
  */
 public class CloudPubSubRoundRobinSubscriber implements CloudPubSubSubscriber{
 

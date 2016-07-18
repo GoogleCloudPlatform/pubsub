@@ -23,7 +23,6 @@ import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.v1.Topic;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -35,7 +34,6 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 import java.util.Collection;
 import java.util.Map;
 import java.util.List;
@@ -63,14 +61,12 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   /**
    * Holds a list of the unpublished messages for a single partition and also
-   * holds the total size in bytes of the protobuf messages in the list.
+   * holds the total size in bytes of the messages in the list.
    */
   private class UnpublishedMessagesForPartition {
     public List<PubsubMessage> messages = new ArrayList<>();
     public int size = 0;
   }
-
-  public CloudPubSubSinkTask() {}
 
   @Override
   public String version() {
@@ -84,8 +80,9 @@ public class CloudPubSubSinkTask extends SinkTask {
             ConnectorUtils.TOPIC_FORMAT,
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
-    minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE));
-    log.info("Start connector task for topic " + cpsTopic + " min batch size = " + minBatchSize);
+    minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
+    log.info("Start sink connector task for topic " + cpsTopic + " min batch size = "
+        + minBatchSize);
     publisher = new CloudPubSubRoundRobinPublisher(NUM_PUBLISHERS);
   }
 
@@ -106,6 +103,7 @@ public class CloudPubSubSinkTask extends SinkTask {
       attributes.put(ConnectorUtils.PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
       attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, record.topic());
       // Get the total number of bytes in this message.
+      // TODO(rramkumar): Revisit this calculation
       int messageSize = value.size() + ConnectorUtils.PARTITION_ATTRIBUTE_SIZE
           + record.kafkaPartition().toString().length() + ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE_SIZE
           + record.topic().length();
@@ -172,12 +170,15 @@ public class CloudPubSubSinkTask extends SinkTask {
   }
 
   @Override
-  public void stop() {}
+  public void stop() {
+    // TODO(rramkumar): Find out how to implement this.
+  }
 
   private void publishMessagesForPartition(String topic, Integer partition, List<PubsubMessage> messages) {
     int startIndex = 0;
     int endIndex = Math.min(MAX_MESSAGES_PER_REQUEST, messages.size());
     PublishRequest.Builder builder = PublishRequest.newBuilder();
+    // Publish all the messages for this partition in batches.
     while (startIndex < messages.size()) {
       PublishRequest request = builder
           .setTopic(cpsTopic)
@@ -186,9 +187,10 @@ public class CloudPubSubSinkTask extends SinkTask {
       builder.clear();
       log.debug("Publishing: " + (endIndex - startIndex) + " messages");
       ListenableFuture<PublishResponse> responseFuture = publisher.publish(request);
+      // Callback to the completion of the computation of this publish action.
       Futures.addCallback(responseFuture, new FutureCallback<PublishResponse>() {
         @Override
-        public void onSuccess(@Nullable PublishResponse result) {}
+        public void onSuccess(PublishResponse result) {}
 
         @Override
         public void onFailure(Throwable t) {

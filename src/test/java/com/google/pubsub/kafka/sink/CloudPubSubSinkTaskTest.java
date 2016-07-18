@@ -1,4 +1,4 @@
-package com.google.pubsub.kafka;
+package com.google.pubsub.kafka.sink;
 
 /**
  * Created by rramkumar on 7/16/16.

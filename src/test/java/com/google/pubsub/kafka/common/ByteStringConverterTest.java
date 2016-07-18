@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.kafka;
+package com.google.pubsub.kafka.common;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
@@ -30,8 +30,6 @@ import org.apache.kafka.connect.errors.DataException;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.nio.charset.Charset;
-import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 
 /**
@@ -39,11 +37,13 @@ import java.util.Collections;
  */
 public class ByteStringConverterTest {
 
-  String topic = "test";
-  ByteStringConverter converter = new ByteStringConverter();
+  private static final String TOPIC = "test";
+
+  private ByteStringConverter converter;
 
   @Before
   public void setup() {
+    converter = new ByteStringConverter();
     converter.configure(Collections.emptyMap(), false);
   }
 
@@ -52,9 +52,9 @@ public class ByteStringConverterTest {
     byte[] value = "This is a test".getBytes();
     SchemaAndValue expected = new SchemaAndValue(
         SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(), ByteString.copyFrom(value));
-    assertEquals(expected, converter.toConnectData(topic, value));
+    assertEquals(expected, converter.toConnectData(TOPIC, value));
     // Check case when byte array parameter is null.
-    assertEquals(SchemaAndValue.NULL, converter.toConnectData(topic, null));
+    assertEquals(SchemaAndValue.NULL, converter.toConnectData(TOPIC, null));
   }
 
   public void testToConnectDataExceptionCase() {
@@ -65,14 +65,14 @@ public class ByteStringConverterTest {
   public void testFromConnectData() {
     String expected = "this is a test";
     Schema schema = SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build();
-    byte[] result = converter.fromConnectData(topic, schema, ByteString.copyFromUtf8(expected));
+    byte[] result = converter.fromConnectData(TOPIC, schema, ByteString.copyFromUtf8(expected));
     assertEquals(expected, new String(result));
-    assertNull(converter.fromConnectData(topic, schema, null));
+    assertNull(converter.fromConnectData(TOPIC, schema, null));
   }
 
   @Test(expected=DataException.class)
   public void testFromConnectDataExceptionCase() {
     Schema schema = SchemaBuilder.bytes().name("dummy name").build();
-    converter.fromConnectData(topic, schema, null);
+    converter.fromConnectData(TOPIC, schema, null);
   }
 }

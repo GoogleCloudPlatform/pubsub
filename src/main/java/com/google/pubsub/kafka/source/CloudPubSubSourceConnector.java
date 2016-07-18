@@ -35,21 +35,22 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * A {@link SourceConnector} that writes messages to a specific topic in Kafka.
+ * A {@link SourceConnector} that writes messages to a specific topic in
+ * <a href="http://kafka.apache.org/">Apache Kafka</a>.
  */
 public class CloudPubSubSourceConnector extends SourceConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
 
-  private static final int DEFAULT_MAX_BATCH_SIZE = 100;
-
-  // Not a config, rather each tasks needs this to pull messages.
+  public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
+  // Not a connector config, rather each tasks needs this subscription name to pull messages.
   public static final String SUBSCRIPTION_NAME = "subscription_name";
-  public static final String CPS_MAX_BATCH_SIZE = "cps.maxBatchSize";
 
-  private String cpsProject;
-  private String cpsTopic;
-  private Integer maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
-  private String subscriptionName;
+  protected static final int DEFAULT_MAX_BATCH_SIZE = 100;
+
+  protected String cpsProject;
+  protected String cpsTopic;
+  protected int maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
+  protected String subscriptionName;
 
   @Override
   public String version() {
@@ -60,19 +61,12 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public void start(Map<String, String> props) {
     cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
     cpsTopic = props.get(ConnectorUtils.CPS_TOPIC_CONFIG);
-    if (props.get(CPS_MAX_BATCH_SIZE) != null) {
-      maxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE));
+    if (props.get(CPS_MAX_BATCH_SIZE_CONFIG) != null) {
+      maxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE_CONFIG));
     }
-    log.info("Start connector for project " + cpsProject + " and topic " + cpsTopic);
-    try {
-      SubscriberGrpc.SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
-      Subscription request = Subscription.newBuilder()
-          .setTopic(String.format(ConnectorUtils.TOPIC_FORMAT, cpsProject, cpsTopic))
-          .build();
-      subscriptionName = stub.createSubscription(request).get().getName();
-    } catch (Exception e) {
-      throw new RuntimeException("Could not subscribe to the specified CPS topic: " + e);
-    }
+    subscriptionName = createSubscription();
+    log.info("Start source connector for project " + cpsProject + " and topic " + cpsTopic);
+    createSubscription();
   }
 
   @Override
@@ -88,7 +82,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       Map<String, String> config = new HashMap<>();
       config.put(ConnectorUtils.CPS_PROJECT_CONFIG, cpsProject);
       config.put(ConnectorUtils.CPS_TOPIC_CONFIG, cpsTopic);
-      config.put(CPS_MAX_BATCH_SIZE, maxBatchSize.toString());
+      config.put(CPS_MAX_BATCH_SIZE_CONFIG, String.valueOf(maxBatchSize));
       config.put(SUBSCRIPTION_NAME, subscriptionName);
       configs.add(config);
     }
@@ -109,7 +103,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.STRING, Importance.HIGH,
             "The topic to " + "which to publish.")
         .define(
-            CPS_MAX_BATCH_SIZE,
+            CPS_MAX_BATCH_SIZE_CONFIG,
             Type.INT,
             Importance.HIGH,
             "The minimum number of messages to batch per pull request to Cloud Pub/Sub.");
@@ -117,6 +111,21 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   }
 
   @Override
-  public void stop() {}
+  public void stop() {
+    // TODO(rramkumar): Find out how to implement this.
+  }
+
+  protected String createSubscription() {
+    try {
+      SubscriberGrpc.SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(
+          ConnectorUtils.getChannel());
+      Subscription request = Subscription.newBuilder()
+          .setTopic(String.format(ConnectorUtils.TOPIC_FORMAT, cpsProject, cpsTopic))
+          .build();
+     return stub.createSubscription(request).get().getName();
+    } catch (Exception e) {
+      throw new RuntimeException("Could not subscribe to the specified CPS topic: " + e);
+    }
+  }
 }
 

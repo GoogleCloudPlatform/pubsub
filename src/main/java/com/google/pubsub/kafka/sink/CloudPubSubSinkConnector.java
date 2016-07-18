@@ -38,13 +38,13 @@ import java.util.Map;
 public class CloudPubSubSinkConnector extends SinkConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkConnector.class);
 
-  private static final int DEFAULT_MIN_BATCH_SIZE = 100;
+  public static final String CPS_MIN_BATCH_SIZE_CONFIG = "cps.minBatchSize";
 
-  public static final String CPS_MIN_BATCH_SIZE = "cps.minBatchSize";
+  protected static final int DEFAULT_MIN_BATCH_SIZE = 100;
 
-  private String cpsProject;
-  private String cpsTopic;
-  private Integer minBatchSize = DEFAULT_MIN_BATCH_SIZE;
+  protected String cpsProject;
+  protected String cpsTopic;
+  protected int minBatchSize = DEFAULT_MIN_BATCH_SIZE;
 
   @Override
   public String version() {
@@ -55,10 +55,10 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   public void start(Map<String, String> props) {
     this.cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
     this.cpsTopic = props.get(ConnectorUtils.CPS_TOPIC_CONFIG);
-    if (props.get(CPS_MIN_BATCH_SIZE) != null) {
-      this.minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE));
+    if (props.get(CPS_MIN_BATCH_SIZE_CONFIG) != null) {
+      this.minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE_CONFIG));
     }
-    log.debug("Start connector for project " + cpsProject + " and topic " + cpsTopic);
+    log.info("Start sink connector for project " + cpsProject + " and topic " + cpsTopic);
   }
 
   @Override
@@ -74,7 +74,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
       Map<String, String> config = new HashMap<>();
       config.put(ConnectorUtils.CPS_PROJECT_CONFIG, cpsProject);
       config.put(ConnectorUtils.CPS_TOPIC_CONFIG, cpsTopic);
-      config.put(CPS_MIN_BATCH_SIZE, minBatchSize.toString());
+      config.put(CPS_MIN_BATCH_SIZE_CONFIG, String.valueOf(minBatchSize));
       configs.add(config);
     }
     return configs;
@@ -95,7 +95,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             Importance.HIGH,
             "The topic to " + "which to " + "publish.")
         .define(
-            CPS_MIN_BATCH_SIZE,
+            CPS_MIN_BATCH_SIZE_CONFIG,
             Type.INT,
             Importance.HIGH,
             "The minimum number of messages to batch per partition before sending a publish " +
@@ -103,5 +103,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   }
 
   @Override
-  public void stop() {}
+  public void stop() {
+    // TODO(rramkumar): Find out how to implement this.
+  }
 }
