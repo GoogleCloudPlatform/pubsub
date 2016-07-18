@@ -1,6 +1,23 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.sink;
 
 import com.google.pubsub.kafka.common.ConnectorUtils;
+
+import static org.junit.Assert.assertEquals;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -8,12 +25,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
 /**
- * Created by rramkumar on 7/16/16.
+ * Tests for {@link CloudPubSubSinkConnector}.
  */
 public class CloudPubSubSinkConnectorTest {
 
@@ -22,7 +37,6 @@ public class CloudPubSubSinkConnectorTest {
   private static final String CPS_MIN_BATCH_SIZE = "1000";
 
   private CloudPubSubSinkConnector connector;
-
   private Map<String, String> sinkProps;
 
   @Before
@@ -54,6 +68,7 @@ public class CloudPubSubSinkConnectorTest {
 
   @Test
   public void testTaskConfigs() {
+    // Avoid calling connector.start().
     connector.cpsTopic = CPS_TOPIC;
     connector.cpsProject = CPS_PROJECT;
     connector.minBatchSize = Integer.parseInt(CPS_MIN_BATCH_SIZE);

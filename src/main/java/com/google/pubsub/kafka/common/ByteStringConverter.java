@@ -34,17 +34,16 @@ import java.util.Map;
  */
 public class ByteStringConverter implements Converter {
 
-  public ByteStringConverter() {}
-
   @Override
-  public void configure(Map<String, ?> configs, boolean isKey) {}
+  public void configure(Map<String, ?> configs, boolean isKey) {
+    // TODO(rramkumar): Figure out if we need to implement this.
+  }
 
   @Override
   public byte[] fromConnectData(String topic, Schema schema, Object value) {
     if (!schema.name().equals(ConnectorUtils.SCHEMA_NAME)) {
-      throw new DataException(
-          "Object of type " + schema.name() +
-              "cannot be converted by ByteStringConverter.");
+      throw new DataException("Object of type " + schema.name()
+          + "cannot be converted by ByteStringConverter.");
     }
     return value == null ? null : ((ByteString)value).toByteArray();
   }
@@ -59,7 +58,7 @@ public class ByteStringConverter implements Converter {
           SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
           ByteString.copyFrom(value));
     } catch (Exception e) {
-      throw new DataException("Could not convert value: ", e);
+      throw new DataException("Could not convert value: " + value);
     }
   }
 }

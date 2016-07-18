@@ -40,13 +40,13 @@ public class ConnectorUtils {
       "https://www.googleapis.com/auth/pubsub");
 
   public static final String SCHEMA_NAME = ByteString.class.getName();
+  public static final String CPS_TOPIC_FORMAT = "projects/%s/topics/%s";
   public static final String KEY_ATTRIBUTE = "key";
   public static final int KEY_ATTRIBUTE_SIZE = KEY_ATTRIBUTE.length();
   public static final String PARTITION_ATTRIBUTE = "partition";
   public static final int PARTITION_ATTRIBUTE_SIZE = PARTITION_ATTRIBUTE.length();
   public static final String KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
   public static final int KAFKA_TOPIC_ATTRIBUTE_SIZE = KAFKA_TOPIC_ATTRIBUTE.length();
-  public static final String TOPIC_FORMAT = "projects/%s/topics/%s";
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
 

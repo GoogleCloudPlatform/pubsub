@@ -16,6 +16,7 @@
 package com.google.pubsub.kafka.sink;
 
 import com.google.pubsub.kafka.common.ConnectorUtils;
+
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -53,10 +54,10 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public void start(Map<String, String> props) {
-    this.cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
-    this.cpsTopic = props.get(ConnectorUtils.CPS_TOPIC_CONFIG);
+    cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
+    cpsTopic = props.get(ConnectorUtils.CPS_TOPIC_CONFIG);
     if (props.get(CPS_MIN_BATCH_SIZE_CONFIG) != null) {
-      this.minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE_CONFIG));
+      minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE_CONFIG));
     }
     log.info("Start sink connector for project " + cpsProject + " and topic " + cpsTopic);
   }
@@ -98,8 +99,8 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             CPS_MIN_BATCH_SIZE_CONFIG,
             Type.INT,
             Importance.HIGH,
-            "The minimum number of messages to batch per partition before sending a publish " +
-                "request to Cloud Pub/Sub.");
+            "The minimum number of messages to batch per partition before sending a publish "
+                + "request to Cloud Pub/Sub.");
   }
 
   @Override

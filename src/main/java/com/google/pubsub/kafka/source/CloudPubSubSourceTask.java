@@ -17,7 +17,6 @@ package com.google.pubsub.kafka.source;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.pubsub.kafka.common.ConnectorUtils;
-import com.google.pubsub.kafka.sink.CloudPubSubSinkTask;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PubsubMessage;
@@ -58,7 +57,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   public void start(Map<String, String> props) {
     cpsTopic =
         String.format(
-            ConnectorUtils.TOPIC_FORMAT,
+            ConnectorUtils.CPS_TOPIC_FORMAT,
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     maxBatchSize = Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
@@ -113,12 +112,17 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
   }
 
-  protected void ackMessages(List<String> ackIds) throws Exception{
-    AcknowledgeRequest request = AcknowledgeRequest.newBuilder()
-        .setSubscription(subscriptionName)
-        .addAllAckIds(ackIds)
-        .build();
-    subscriber.ackMessages(request).get();
+  @VisibleForTesting
+  protected void ackMessages(List<String> ackIds) {
+    try {
+      AcknowledgeRequest request = AcknowledgeRequest.newBuilder()
+          .setSubscription(subscriptionName)
+          .addAllAckIds(ackIds)
+          .build();
+      subscriber.ackMessages(request).get();
+    } catch (Exception e) {
+      log.error("An exception occurred acking messages. Unacked messages will be resent.");
+    }
   }
 
   @Override

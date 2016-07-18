@@ -16,7 +16,6 @@
 package com.google.pubsub.kafka.sink;
 
 import com.google.common.util.concurrent.ListenableFuture;
-
 import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PublishRequest;

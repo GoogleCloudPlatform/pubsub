@@ -42,7 +42,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
 
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
-  // Not a connector config, rather each tasks needs this subscription name to pull messages.
+  // Not a connector config, rather each task needs this subscription name to pull messages.
   public static final String SUBSCRIPTION_NAME = "subscription_name";
 
   protected static final int DEFAULT_MAX_BATCH_SIZE = 100;
@@ -91,7 +91,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   @Override
   public ConfigDef config() {
-    // Defines Cloud Pub/Sub specific configurations that should be specified in the properties file for this connector.
+    // Defines Cloud Pub/Sub specific configurations that should be specified in the
+    // properties file for this connector.
     return new ConfigDef()
         .define(
             ConnectorUtils.CPS_PROJECT_CONFIG,
@@ -120,9 +121,9 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       SubscriberGrpc.SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(
           ConnectorUtils.getChannel());
       Subscription request = Subscription.newBuilder()
-          .setTopic(String.format(ConnectorUtils.TOPIC_FORMAT, cpsProject, cpsTopic))
+          .setTopic(String.format(ConnectorUtils.CPS_TOPIC_FORMAT, cpsProject, cpsTopic))
           .build();
-     return stub.createSubscription(request).get().getName();
+      return stub.createSubscription(request).get().getName();
     } catch (Exception e) {
       throw new RuntimeException("Could not subscribe to the specified CPS topic: " + e);
     }
