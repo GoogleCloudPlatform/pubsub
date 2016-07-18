@@ -18,17 +18,17 @@ package com.google.pubsub.kafka.common;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
-import org.junit.Before;
-import org.junit.Test;
-
 import com.google.protobuf.ByteString;
+
+import java.util.Collections;
 
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
 
-import java.util.Collections;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * Tests for {@link ByteStringConverter}.
@@ -69,7 +69,7 @@ public class ByteStringConverterTest {
     assertNull(converter.fromConnectData(TOPIC, schema, null));
   }
 
-  @Test(expected=DataException.class)
+  @Test(expected = DataException.class)
   public void testFromConnectDataExceptionCase() {
     Schema schema = SchemaBuilder.bytes().name("dummy name").build();
     converter.fromConnectData(TOPIC, schema, null);

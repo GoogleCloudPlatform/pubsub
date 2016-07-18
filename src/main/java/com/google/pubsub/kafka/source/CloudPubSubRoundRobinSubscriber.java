@@ -17,12 +17,9 @@ package com.google.pubsub.kafka.source;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
-import com.google.pubsub.kafka.sink.CloudPubSubGRPCPublisher;
-import com.google.pubsub.kafka.sink.CloudPubSubPublisher;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
-
 import java.util.ArrayList;
 import java.util.List;
 
@@ -44,7 +41,7 @@ public class CloudPubSubRoundRobinSubscriber implements CloudPubSubSubscriber{
 
   @Override
   public ListenableFuture<PullResponse> pull(PullRequest request) {
-    currentSubscriberIndex = (currentSubscriberIndex+ 1) % subscribers.size();
+    currentSubscriberIndex = (currentSubscriberIndex + 1) % subscribers.size();
     return subscribers.get(currentSubscriberIndex).pull(request);
   }
 

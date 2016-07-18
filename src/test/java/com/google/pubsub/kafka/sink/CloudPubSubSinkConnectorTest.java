@@ -15,17 +15,17 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.sink;
 
-import com.google.pubsub.kafka.common.ConnectorUtils;
-
 import static org.junit.Assert.assertEquals;
-import org.junit.Before;
-import org.junit.Test;
+import static org.mockito.Mockito.spy;
+
+import com.google.pubsub.kafka.common.ConnectorUtils;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.mockito.Mockito.spy;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * Tests for {@link CloudPubSubSinkConnector}.

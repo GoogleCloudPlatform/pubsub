@@ -18,7 +18,6 @@ package com.google.pubsub.kafka.sink;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
-import com.google.pubsub.v1.Topic;
 
 import java.util.ArrayList;
 import java.util.List;

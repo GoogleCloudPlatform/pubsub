@@ -15,27 +15,19 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
+
 import com.google.pubsub.kafka.common.ConnectorUtils;
-import org.apache.kafka.connect.connector.ConnectorContext;
-
-import org.junit.Before;
-import org.junit.Test;
-
-import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
-import org.mockito.Spy;
-import org.mockito.runners.MockitoJUnitRunner;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.spy;
+import org.junit.Before;
+import org.junit.Test;
 
 /**
  * Tests for {@link CloudPubSubSourceConnector}.

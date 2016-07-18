@@ -16,14 +16,18 @@
 package com.google.pubsub.kafka.sink;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PubsubMessage;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -35,12 +39,6 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Collection;
-import java.util.Map;
-import java.util.List;
-import java.util.HashMap;
-import java.util.ArrayList;
-
 /***
  * A {@link SinkTask} used by a {@link CloudPubSubSinkConnector} to write messages to
  * <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
@@ -49,7 +47,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
 
   private static final int NUM_PUBLISHERS = 10;
-  private static final int MAX_REQUEST_SIZE = (10<<20) - 1024; // Leave a little room for overhead.
+  private static final int MAX_REQUEST_SIZE = (10 << 20) - 1024; // Leave room for overhead.
   private static final int MAX_MESSAGES_PER_REQUEST = 1000;
 
   private String cpsTopic;
@@ -104,8 +102,8 @@ public class CloudPubSubSinkTask extends SinkTask {
     PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
       // Verify that the schema of the data coming is of type ByteString.
-      if (record.valueSchema().type() != Schema.Type.BYTES ||
-          !record.valueSchema().name().equals(ConnectorUtils.SCHEMA_NAME)) {
+      if (record.valueSchema().type() != Schema.Type.BYTES
+          || !record.valueSchema().name().equals(ConnectorUtils.SCHEMA_NAME)) {
         throw new DataException("Unexpected record of type " + record.valueSchema());
       }
       log.debug("Received record: " + record.toString());
@@ -115,12 +113,12 @@ public class CloudPubSubSinkTask extends SinkTask {
       attributes.put(ConnectorUtils.PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
       attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, record.topic());
       // Get the total number of bytes in this message.
-      // TODO(rramkumar): Revisit this calculation
+      // TODO(rramkumar): Revisit this calculation. Not sure I did this right.
       int messageSize = value.size() + ConnectorUtils.PARTITION_ATTRIBUTE_SIZE
           + record.kafkaPartition().toString().length() + ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE_SIZE
           + record.topic().length();
       // The key could possibly be null so we add the null check.
-      if (record.key() != null) {;
+      if (record.key() != null) {
         attributes.put(ConnectorUtils.KEY_ATTRIBUTE, record.key().toString());
         // The maximum number of bytes to encode a character in the key string will be 2 bytes.
         messageSize += ConnectorUtils.KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
@@ -170,7 +168,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     // Publish all messages that have not been published yet.
     for (Map.Entry<String, Map<Integer, UnpublishedMessagesForPartition>> entry :
         allUnpublishedMessages.entrySet()) {
-      for (Map.Entry<Integer,UnpublishedMessagesForPartition> innerEntry :
+      for (Map.Entry<Integer, UnpublishedMessagesForPartition> innerEntry :
           entry.getValue().entrySet()) {
         publishMessagesForPartition(
             entry.getKey(),
@@ -190,7 +188,7 @@ public class CloudPubSubSinkTask extends SinkTask {
       }
       OutstandingFuturesForPartition outstandingFutures =
           outstandingFuturesForTopic.get(partitionOffset.getKey().partition());
-      if (outstandingFutures == null ) {
+      if (outstandingFutures == null) {
         continue;
       }
       try {

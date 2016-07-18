@@ -18,14 +18,12 @@ package com.google.pubsub.kafka.common;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
 import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
-
+import java.util.Map;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.storage.Converter;
-
-import java.util.Map;
 
 /***
  *  A {@link Converter} for use with the {@link CloudPubSubSinkConnector} and
@@ -45,7 +43,7 @@ public class ByteStringConverter implements Converter {
       throw new DataException("Object of type " + schema.name()
           + "cannot be converted by ByteStringConverter.");
     }
-    return value == null ? null : ((ByteString)value).toByteArray();
+    return value == null ? null : ((ByteString) value).toByteArray();
   }
 
   @Override

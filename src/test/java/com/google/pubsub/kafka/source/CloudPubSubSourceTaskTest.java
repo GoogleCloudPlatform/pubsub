@@ -15,27 +15,28 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import org.mockito.Mockito;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Matchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.source.SourceRecord;
-
-import static org.junit.Assert.assertEquals;
-import org.junit.Before;
-import org.junit.Test;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import org.mockito.Mockito;
-import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.source.SourceRecord;
+import org.junit.Before;
+import org.junit.Test;
+
 
 /**
  * Created by rramkumar on 7/16/16.

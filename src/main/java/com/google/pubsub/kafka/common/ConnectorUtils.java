@@ -17,14 +17,12 @@ package com.google.pubsub.kafka.common;
 
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.protobuf.ByteString;
-
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import io.grpc.auth.ClientAuthInterceptor;
 import io.grpc.internal.ManagedChannelImpl;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;

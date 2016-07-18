@@ -16,17 +16,14 @@
 package com.google.pubsub.kafka.sink;
 
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.pubsub.v1.PublisherGrpc;
-import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
+import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
-import com.google.pubsub.kafka.common.ConnectorUtils;
+import com.google.pubsub.v1.PublisherGrpc;
+import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 
 import java.io.IOException;
 
-import com.google.pubsub.v1.Topic;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /***
  * A {@link CloudPubSubPublisher} that uses <a href="http://www.grpc.io/">gRPC</a> to send messages
