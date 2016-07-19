@@ -29,9 +29,7 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Tests for {@link CloudPubSubSourceConnector}.
- */
+/** Tests for {@link CloudPubSubSourceConnector}. */
 public class CloudPubSubSourceConnectorTest {
 
   private static final String CPS_TOPIC = "test";
@@ -68,8 +66,8 @@ public class CloudPubSubSourceConnectorTest {
     connector.start(sourceProps);
     assertEquals(connector.cpsTopic, sourceProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     assertEquals(connector.cpsProject, sourceProps.get(ConnectorUtils.CPS_PROJECT_CONFIG));
-    int maxBatchSizeResult = Integer.parseInt(
-        sourceProps.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
+    int maxBatchSizeResult =
+        Integer.parseInt(sourceProps.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
     assertEquals(connector.maxBatchSize, maxBatchSizeResult);
     assertEquals(connector.subscriptionName, SUBSCRIPTION_NAME);
   }
@@ -92,10 +90,11 @@ public class CloudPubSubSourceConnectorTest {
     for (int i = 0; i < 10; ++i) {
       assertEquals(CPS_TOPIC, configs.get(i).get(ConnectorUtils.CPS_TOPIC_CONFIG));
       assertEquals(CPS_PROJECT, configs.get(i).get(ConnectorUtils.CPS_PROJECT_CONFIG));
-      assertEquals(CPS_MAX_BATCH_SIZE,
+      assertEquals(
+          CPS_MAX_BATCH_SIZE,
           configs.get(i).get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
-      assertEquals(SUBSCRIPTION_NAME,
-          configs.get(i).get(CloudPubSubSourceConnector.SUBSCRIPTION_NAME));
+      assertEquals(
+          SUBSCRIPTION_NAME, configs.get(i).get(CloudPubSubSourceConnector.SUBSCRIPTION_NAME));
     }
   }
 

@@ -27,9 +27,7 @@ import java.util.Map;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Tests for {@link CloudPubSubSinkConnector}.
- */
+/** Tests for {@link CloudPubSubSinkConnector}. */
 public class CloudPubSubSinkConnectorTest {
 
   private static final String CPS_TOPIC = "test";
@@ -61,8 +59,8 @@ public class CloudPubSubSinkConnectorTest {
     connector.start(sinkProps);
     assertEquals(connector.cpsTopic, sinkProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     assertEquals(connector.cpsProject, sinkProps.get(ConnectorUtils.CPS_PROJECT_CONFIG));
-    int minBatchSizeResult = Integer.parseInt(
-        sinkProps.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
+    int minBatchSizeResult =
+        Integer.parseInt(sinkProps.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
     assertEquals(connector.minBatchSize, minBatchSizeResult);
   }
 
@@ -77,7 +75,8 @@ public class CloudPubSubSinkConnectorTest {
     for (int i = 0; i < 10; ++i) {
       assertEquals(CPS_TOPIC, configs.get(i).get(ConnectorUtils.CPS_TOPIC_CONFIG));
       assertEquals(CPS_PROJECT, configs.get(i).get(ConnectorUtils.CPS_PROJECT_CONFIG));
-      assertEquals(CPS_MIN_BATCH_SIZE,
+      assertEquals(
+          CPS_MIN_BATCH_SIZE,
           configs.get(i).get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
     }
   }

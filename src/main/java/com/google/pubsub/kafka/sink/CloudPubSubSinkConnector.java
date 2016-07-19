@@ -32,9 +32,9 @@ import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/***
- * A {@link SinkConnector} that writes messages to a specified topic in
- * <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
+/**
+ * * A {@link SinkConnector} that writes messages to a specified topic in <a
+ * href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public class CloudPubSubSinkConnector extends SinkConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkConnector.class);

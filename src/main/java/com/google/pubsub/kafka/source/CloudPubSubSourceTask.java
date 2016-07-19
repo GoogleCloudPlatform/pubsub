@@ -34,9 +34,9 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/***
- * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to
- * <a href="http://kafka.apache.org/">Apache Kafka</a>.
+/**
+ * * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to <a
+ * href="http://kafka.apache.org/">Apache Kafka</a>.
  */
 public class CloudPubSubSourceTask extends SourceTask {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceTask.class);
@@ -46,7 +46,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   protected String cpsTopic;
   protected int maxBatchSize;
   protected CloudPubSubSubscriber subscriber;
-  protected String subscriptionName;
+  protected String subscriptionName;;
 
   @Override
   public String version() {
@@ -60,8 +60,8 @@ public class CloudPubSubSourceTask extends SourceTask {
             ConnectorUtils.CPS_TOPIC_FORMAT,
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
-    maxBatchSize = Integer.parseInt(
-        props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
+    maxBatchSize =
+        Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
     log.info("Start connector task for topic " + cpsTopic + " max batch size = " + maxBatchSize);
     subscriber = new CloudPubSubRoundRobinSubscriber(NUM_SUBSCRIBERS);
     subscriptionName = props.get(CloudPubSubSourceConnector.SUBSCRIPTION_NAME);
@@ -69,11 +69,12 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   @Override
   public List<SourceRecord> poll() throws InterruptedException {
-    PullRequest request = PullRequest.newBuilder()
-        .setSubscription(subscriptionName)
-        .setReturnImmediately(false)
-        .setMaxMessages(maxBatchSize)
-        .build();
+    PullRequest request =
+        PullRequest.newBuilder()
+            .setSubscription(subscriptionName)
+            .setReturnImmediately(false)
+            .setMaxMessages(maxBatchSize)
+            .build();
     try {
       PullResponse response = subscriber.pull(request).get();
       // Stores ackIds for all received messages.
@@ -95,15 +96,16 @@ public class CloudPubSubSourceTask extends SourceTask {
         String key = messageAttributes.get(ConnectorUtils.KEY_ATTRIBUTE);
         // We don't need to check that the message data is a byte string because we know the
         // data is coming from CPS so it must be of that type.
-        SourceRecord record = new SourceRecord(
-            null,
-            null,
-            topic,
-            partition,
-            SchemaBuilder.string().build(),
-            key,
-            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            message.getData());
+        SourceRecord record =
+            new SourceRecord(
+                null,
+                null,
+                topic,
+                partition,
+                SchemaBuilder.string().build(),
+                key,
+                SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
+                message.getData());
         sourceRecords.add(record);
       }
       ackMessages(ackIds);
@@ -116,10 +118,11 @@ public class CloudPubSubSourceTask extends SourceTask {
   @VisibleForTesting
   protected void ackMessages(List<String> ackIds) {
     try {
-      AcknowledgeRequest request = AcknowledgeRequest.newBuilder()
-          .setSubscription(subscriptionName)
-          .addAllAckIds(ackIds)
-          .build();
+      AcknowledgeRequest request =
+          AcknowledgeRequest.newBuilder()
+              .setSubscription(subscriptionName)
+              .addAllAckIds(ackIds)
+              .build();
       subscriber.ackMessages(request).get();
     } catch (Exception e) {
       log.error("An exception occurred acking messages. Unacked messages will be resent.");

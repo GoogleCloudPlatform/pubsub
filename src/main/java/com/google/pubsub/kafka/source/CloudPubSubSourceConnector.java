@@ -35,8 +35,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A {@link SourceConnector} that writes messages to a specific topic in
- * <a href="http://kafka.apache.org/">Apache Kafka</a>.
+ * A {@link SourceConnector} that writes messages to a specific topic in <a
+ * href="http://kafka.apache.org/">Apache Kafka</a>.
  */
 public class CloudPubSubSourceConnector extends SourceConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
@@ -101,23 +101,24 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             "The project containing the topic to which to publish.")
         .define(
             ConnectorUtils.CPS_TOPIC_CONFIG,
-            Type.STRING, Importance.HIGH,
+            Type.STRING,
+            Importance.HIGH,
             "The topic to " + "which to publish.")
         .define(
             CPS_MAX_BATCH_SIZE_CONFIG,
             Type.INT,
             Importance.HIGH,
             "The minimum number of messages to batch per pull request to Cloud Pub/Sub.");
-
   }
 
   protected String createSubscription() {
     try {
-      SubscriberGrpc.SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(
-          ConnectorUtils.getChannel());
-      Subscription request = Subscription.newBuilder()
-          .setTopic(String.format(ConnectorUtils.CPS_TOPIC_FORMAT, cpsProject, cpsTopic))
-          .build();
+      SubscriberGrpc.SubscriberFutureStub stub =
+          SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
+      Subscription request =
+          Subscription.newBuilder()
+              .setTopic(String.format(ConnectorUtils.CPS_TOPIC_FORMAT, cpsProject, cpsTopic))
+              .build();
       return stub.createSubscription(request).get().getName();
     } catch (Exception e) {
       throw new RuntimeException("Could not subscribe to the specified CPS topic: " + e);
@@ -127,4 +128,3 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   @Override
   public void stop() {}
 }
-

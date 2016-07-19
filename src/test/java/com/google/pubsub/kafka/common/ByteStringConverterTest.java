@@ -30,9 +30,7 @@ import org.apache.kafka.connect.errors.DataException;
 import org.junit.Before;
 import org.junit.Test;
 
-/**
- * Tests for {@link ByteStringConverter}.
- */
+/** Tests for {@link ByteStringConverter}. */
 public class ByteStringConverterTest {
 
   private static final String TOPIC = "test";
@@ -48,15 +46,17 @@ public class ByteStringConverterTest {
   @Test
   public void testToConnectData() {
     byte[] value = "This is a test".getBytes();
-    SchemaAndValue expected = new SchemaAndValue(
-        SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(), ByteString.copyFrom(value));
+    SchemaAndValue expected =
+        new SchemaAndValue(
+            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
+            ByteString.copyFrom(value));
     assertEquals(expected, converter.toConnectData(TOPIC, value));
     // Check case when byte array parameter is null.
     assertEquals(SchemaAndValue.NULL, converter.toConnectData(TOPIC, null));
   }
 
   public void testToConnectDataExceptionCase() {
-   // TODO(rramkumar): Implement.
+    // TODO(rramkumar): Implement.
   }
 
   @Test

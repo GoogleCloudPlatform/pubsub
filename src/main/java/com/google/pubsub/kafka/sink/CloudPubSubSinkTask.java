@@ -39,9 +39,9 @@ import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/***
- * A {@link SinkTask} used by a {@link CloudPubSubSinkConnector} to write messages to
- * <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
+/**
+ * * A {@link SinkTask} used by a {@link CloudPubSubSinkConnector} to write messages to <a
+ * href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public class CloudPubSubSinkTask extends SinkTask {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
@@ -70,8 +70,8 @@ public class CloudPubSubSinkTask extends SinkTask {
   }
 
   /**
-   * Holds a list of the unpublished messages for a single partition and also
-   * holds the total size in bytes of the messages in the list.
+   * Holds a list of the unpublished messages for a single partition and also holds the total size
+   * in bytes of the messages in the list.
    */
   private class UnpublishedMessagesForPartition {
     public List<PubsubMessage> messages = new ArrayList<>();
@@ -91,14 +91,14 @@ public class CloudPubSubSinkTask extends SinkTask {
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
-    log.info("Start sink connector task for topic " + cpsTopic + " min batch size = "
-        + minBatchSize);
+    log.info(
+        "Start sink connector task for topic " + cpsTopic + " min batch size = " + minBatchSize);
     publisher = new CloudPubSubRoundRobinPublisher(NUM_PUBLISHERS);
   }
 
   @Override
   public void put(Collection<SinkRecord> sinkRecords) {
-    log.info("Received " + sinkRecords.size() + " messages to send to CPS.");
+    log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
     PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
       // Verify that the schema of the data coming is of type ByteString.
@@ -106,7 +106,7 @@ public class CloudPubSubSinkTask extends SinkTask {
           || !record.valueSchema().name().equals(ConnectorUtils.SCHEMA_NAME)) {
         throw new DataException("Unexpected record of type " + record.valueSchema());
       }
-      log.debug("Received record: " + record.toString());
+      log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
       // We know this can be cast to ByteString because of the schema check above.
       ByteString value = (ByteString) record.value();
@@ -114,18 +114,18 @@ public class CloudPubSubSinkTask extends SinkTask {
       attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, record.topic());
       // Get the total number of bytes in this message.
       // TODO(rramkumar): Revisit this calculation. Not sure I did this right.
-      int messageSize = value.size() + ConnectorUtils.PARTITION_ATTRIBUTE_SIZE
-          + record.kafkaPartition().toString().length() + ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE_SIZE
-          + record.topic().length();
+      int messageSize =
+          value.size()
+              + ConnectorUtils.PARTITION_ATTRIBUTE_SIZE
+              + record.kafkaPartition().toString().length()
+              + ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE_SIZE
+              + record.topic().length();
       if (record.key() != null) {
         attributes.put(ConnectorUtils.KEY_ATTRIBUTE, record.key().toString());
         // The maximum number of bytes to encode a character in the key string will be 2 bytes.
         messageSize += ConnectorUtils.KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
       }
-      PubsubMessage message = builder
-          .setData(value)
-          .putAllAttributes(attributes)
-          .build();
+      PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
       // Get a map containing all the unpublished messages per partition for this topic.
       Map<Integer, UnpublishedMessagesForPartition> unpublishedMessagesForTopic =
           allUnpublishedMessages.get(record.topic());
@@ -145,9 +145,7 @@ public class CloudPubSubSinkTask extends SinkTask {
       // Publish messages in this partition if the total number of bytes goes over limit.
       if (newUnpublishedSize > MAX_REQUEST_SIZE) {
         publishMessagesForPartition(
-            record.topic(),
-            record.kafkaPartition(),
-            unpublishedMessages.messages);
+            record.topic(), record.kafkaPartition(), unpublishedMessages.messages);
         newUnpublishedSize = messageSize;
       }
       unpublishedMessages.size = newUnpublishedSize;
@@ -155,31 +153,28 @@ public class CloudPubSubSinkTask extends SinkTask {
       // If the number of messages in this partition is greater than the batch size, then publish.
       if (unpublishedMessages.messages.size() >= minBatchSize) {
         publishMessagesForPartition(
-            record.topic(),
-            record.kafkaPartition(),
-            unpublishedMessages.messages);
+            record.topic(), record.kafkaPartition(), unpublishedMessages.messages);
       }
     }
   }
 
   @Override
   public void flush(Map<TopicPartition, OffsetAndMetadata> partitionOffsets) {
+    log.debug("Flushing...");
     // Publish all messages that have not been published yet.
     for (Map.Entry<String, Map<Integer, UnpublishedMessagesForPartition>> entry :
         allUnpublishedMessages.entrySet()) {
       for (Map.Entry<Integer, UnpublishedMessagesForPartition> innerEntry :
           entry.getValue().entrySet()) {
         publishMessagesForPartition(
-            entry.getKey(),
-            innerEntry.getKey(),
-            innerEntry.getValue().messages);
+            entry.getKey(), innerEntry.getKey(), innerEntry.getValue().messages);
       }
     }
     allUnpublishedMessages.clear();
     // Process results of all the outstanding futures specified by each TopicPartition object.
     for (Map.Entry<TopicPartition, OffsetAndMetadata> partitionOffset :
         partitionOffsets.entrySet()) {
-      log.debug("Received flush for partition " + partitionOffset.getKey().toString());
+      log.trace("Received flush for partition " + partitionOffset.getKey().toString());
       Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =
           allOutstandingFutures.get(partitionOffset.getKey().topic());
       if (outstandingFuturesForTopic == null) {
@@ -202,9 +197,8 @@ public class CloudPubSubSinkTask extends SinkTask {
   }
 
   @VisibleForTesting
-  protected void publishMessagesForPartition(String topic,
-                                             Integer partition,
-                                             List<PubsubMessage> messages) {
+  protected void publishMessagesForPartition(
+      String topic, Integer partition, List<PubsubMessage> messages) {
     // Get a map containing all futures per partition for the passed in topic.
     Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =
         allOutstandingFutures.get(topic);
@@ -223,12 +217,10 @@ public class CloudPubSubSinkTask extends SinkTask {
     PublishRequest.Builder builder = PublishRequest.newBuilder();
     // Publish all the messages for this partition in batches.
     while (startIndex < messages.size()) {
-      PublishRequest request = builder
-          .setTopic(cpsTopic)
-          .addAllMessages(messages.subList(startIndex, endIndex))
-          .build();
+      PublishRequest request =
+          builder.setTopic(cpsTopic).addAllMessages(messages.subList(startIndex, endIndex)).build();
       builder.clear();
-      log.info("Publishing: " + (endIndex - startIndex) + " messages");
+      log.trace("Publishing: " + (endIndex - startIndex) + " messages");
       outstandingFutures.futures.add(publisher.publish(request));
       startIndex = endIndex;
       endIndex = Math.min(endIndex + MAX_MESSAGES_PER_REQUEST, messages.size());

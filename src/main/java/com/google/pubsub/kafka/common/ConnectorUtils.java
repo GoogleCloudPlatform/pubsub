@@ -28,14 +28,12 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 
-/**
- * Utility methods and constants.
- */
+/** Utility methods and constants. */
 public class ConnectorUtils {
 
   private static final String ENDPOINT = "pubsub.googleapis.com";
-  private static final List<String> CPS_SCOPE = Arrays.asList(
-      "https://www.googleapis.com/auth/pubsub");
+  private static final List<String> CPS_SCOPE =
+      Arrays.asList("https://www.googleapis.com/auth/pubsub");
 
   public static final String SCHEMA_NAME = ByteString.class.getName();
   public static final String CPS_TOPIC_FORMAT = "projects/%s/topics/%s";
@@ -48,10 +46,9 @@ public class ConnectorUtils {
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
 
-  public static Channel getChannel() throws IOException{
-     ManagedChannelImpl channelImpl = NettyChannelBuilder
-         .forAddress(ENDPOINT, 443)
-         .negotiationType(NegotiationType.TLS).build();
+  public static Channel getChannel() throws IOException {
+    ManagedChannelImpl channelImpl =
+        NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
     final ClientAuthInterceptor interceptor =
         new ClientAuthInterceptor(
             GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE),

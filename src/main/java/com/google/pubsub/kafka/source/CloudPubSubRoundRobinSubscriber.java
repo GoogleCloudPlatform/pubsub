@@ -27,7 +27,7 @@ import java.util.List;
  * A {@link CloudPubSubSubscriber} that distributes a single subscription in round-robin fashion
  * over a set of {@link CloudPubSubGRPCSubscriber}s.
  */
-public class CloudPubSubRoundRobinSubscriber implements CloudPubSubSubscriber{
+public class CloudPubSubRoundRobinSubscriber implements CloudPubSubSubscriber {
 
   private List<CloudPubSubSubscriber> subscribers;
   private int currentSubscriberIndex = 0;

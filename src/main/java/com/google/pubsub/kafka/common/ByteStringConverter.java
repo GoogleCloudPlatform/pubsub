@@ -17,7 +17,6 @@ package com.google.pubsub.kafka.common;
 
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
-import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
 import java.util.Map;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -25,23 +24,18 @@ import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.storage.Converter;
 
-/***
- *  A {@link Converter} for use with the {@link CloudPubSubSinkConnector} and
- * {@link CloudPubSubSourceConnector} that converts between Kafka data and connector data via a
- * {@link ByteString}.
+/**
+ * * A {@link Converter} for use with the {@link CloudPubSubSinkConnector} and {@link
+ * CloudPubSubSourceConnector} that converts between Kafka data and connector data via a {@link
+ * ByteString}.
  */
 public class ByteStringConverter implements Converter {
 
   @Override
-  public void configure(Map<String, ?> configs, boolean isKey) {
-    // TODO(rramkumar): Figure out if we need to implement this.
-  }
-
-  @Override
   public byte[] fromConnectData(String topic, Schema schema, Object value) {
     if (!schema.name().equals(ConnectorUtils.SCHEMA_NAME)) {
-      throw new DataException("Object of type " + schema.name()
-          + "cannot be converted by ByteStringConverter.");
+      throw new DataException(
+          "Object of type " + schema.name() + "cannot be converted by ByteStringConverter.");
     }
     return value == null ? null : ((ByteString) value).toByteArray();
   }
@@ -59,4 +53,7 @@ public class ByteStringConverter implements Converter {
       throw new DataException("Could not convert value: " + value);
     }
   }
+
+  @Override
+  public void configure(Map<String, ?> configs, boolean isKey) {}
 }

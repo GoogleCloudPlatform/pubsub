@@ -15,8 +15,5 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.sink;
 
-/**
- * Tests for {@link CloudPubSubSinkTask}.
- */
-public class CloudPubSubSinkTaskTest {
-}
+/** Tests for {@link CloudPubSubSinkTask}. */
+public class CloudPubSubSinkTaskTest {}

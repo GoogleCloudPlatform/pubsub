@@ -37,10 +37,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.Before;
 import org.junit.Test;
 
-
-/**
- * Tests for {@link CloudPubSubSourceTask}.
- */
+/** Tests for {@link CloudPubSubSourceTask}. */
 public class CloudPubSubSourceTaskTest {
 
   private static final String CPS_TOPIC = "test";
@@ -68,16 +65,14 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testStart() {
     sourceTask.start(taskProps);
-    assertEquals(sourceTask.cpsTopic, String.format(
-        ConnectorUtils.CPS_TOPIC_FORMAT, CPS_PROJECT, CPS_TOPIC));
+    assertEquals(
+        sourceTask.cpsTopic,
+        String.format(ConnectorUtils.CPS_TOPIC_FORMAT, CPS_PROJECT, CPS_TOPIC));
     assertEquals(sourceTask.maxBatchSize, Integer.parseInt(CPS_MAX_BATCH_SIZE));
     assertEquals(sourceTask.subscriptionName, SUBSCRIPTION_NAME);
   }
 
-
-  /**
-   * Tests when no messages are received from the CPS PullResponse.
-   */
+  /** Tests when no messages are received from the CPS PullResponse. */
   @Test
   public void testPollCase1() throws Exception {
     setupSourceTaskManually();
@@ -86,9 +81,7 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(0, sourceTask.poll().size());
   }
 
-  /**
-   * Tests when the message(s) retrieved from CPS have all expected attributes.
-   */
+  /** Tests when the message(s) retrieved from CPS have all expected attributes. */
   @Test
   public void testPollCase2() throws Exception {
     setupSourceTaskManually();
@@ -96,27 +89,28 @@ public class CloudPubSubSourceTaskTest {
     messageAttributes.put(ConnectorUtils.KEY_ATTRIBUTE, KEY);
     messageAttributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, KAFKA_TOPIC);
     messageAttributes.put(ConnectorUtils.PARTITION_ATTRIBUTE, PARTITION);
-    PubsubMessage message = PubsubMessage.newBuilder()
-        .setData(ByteString.copyFromUtf8(MESSAGE))
-        .putAllAttributes(messageAttributes)
-        .build();
+    PubsubMessage message =
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8(MESSAGE))
+            .putAllAttributes(messageAttributes)
+            .build();
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
     PullResponse stubResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubResponse);
     List<SourceRecord> result = sourceTask.poll();
     assertEquals(1, result.size());
-    SourceRecord expected = new SourceRecord(
-        null,
-        null,
-        KAFKA_TOPIC,
-        Integer.parseInt(PARTITION),
-        SchemaBuilder.string().build(),
-        KEY,
-        SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-        ByteString.copyFromUtf8(MESSAGE));
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            Integer.parseInt(PARTITION),
+            SchemaBuilder.string().build(),
+            KEY,
+            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
+            ByteString.copyFromUtf8(MESSAGE));
     assertEquals(expected, result.get(0));
   }
-
 
   /**
    * Tests when the message(s) retrieved from CPS have all expected attributes except the key
@@ -128,27 +122,28 @@ public class CloudPubSubSourceTaskTest {
     Map<String, String> messageAttributes = new HashMap<>();
     messageAttributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, KAFKA_TOPIC);
     messageAttributes.put(ConnectorUtils.PARTITION_ATTRIBUTE, PARTITION);
-    PubsubMessage message = PubsubMessage.newBuilder()
-        .setData(ByteString.copyFromUtf8(MESSAGE))
-        .putAllAttributes(messageAttributes)
-        .build();
+    PubsubMessage message =
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8(MESSAGE))
+            .putAllAttributes(messageAttributes)
+            .build();
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
     PullResponse stubResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubResponse);
     List<SourceRecord> result = sourceTask.poll();
     assertEquals(1, result.size());
-    SourceRecord expected = new SourceRecord(
-        null,
-        null,
-        KAFKA_TOPIC,
-        Integer.parseInt(PARTITION),
-        SchemaBuilder.string().build(),
-        null,
-        SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-        ByteString.copyFromUtf8(MESSAGE));
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            Integer.parseInt(PARTITION),
+            SchemaBuilder.string().build(),
+            null,
+            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
+            ByteString.copyFromUtf8(MESSAGE));
     assertEquals(expected, result.get(0));
   }
-
 
   /**
    * Tests when the message(s) retrieved from CPS have all expected attributes except the
@@ -160,31 +155,32 @@ public class CloudPubSubSourceTaskTest {
     Map<String, String> messageAttributes = new HashMap<>();
     messageAttributes.put(ConnectorUtils.KEY_ATTRIBUTE, KEY);
     messageAttributes.put(ConnectorUtils.PARTITION_ATTRIBUTE, PARTITION);
-    PubsubMessage message = PubsubMessage.newBuilder()
-        .setData(ByteString.copyFromUtf8(MESSAGE))
-        .putAllAttributes(messageAttributes)
-        .build();
+    PubsubMessage message =
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8(MESSAGE))
+            .putAllAttributes(messageAttributes)
+            .build();
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
     PullResponse stubResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubResponse);
     List<SourceRecord> result = sourceTask.poll();
     assertEquals(1, result.size());
-    SourceRecord expected = new SourceRecord(
-        null,
-        null,
-        sourceTask.cpsTopic,
-        Integer.parseInt(PARTITION),
-        SchemaBuilder.string().build(),
-        KEY,
-        SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-        ByteString.copyFromUtf8(MESSAGE));
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            sourceTask.cpsTopic,
+            Integer.parseInt(PARTITION),
+            SchemaBuilder.string().build(),
+            KEY,
+            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
+            ByteString.copyFromUtf8(MESSAGE));
     assertEquals(expected, result.get(0));
   }
 
-
   /**
-   * Tests when the message(s) retrieved from CPS have all expected attributes except the
-   * partition attribute.
+   * Tests when the message(s) retrieved from CPS have all expected attributes except the partition
+   * attribute.
    */
   @Test
   public void testPollCase5() throws Exception {
@@ -192,24 +188,26 @@ public class CloudPubSubSourceTaskTest {
     Map<String, String> messageAttributes = new HashMap<>();
     messageAttributes.put(ConnectorUtils.KEY_ATTRIBUTE, KEY);
     messageAttributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, KAFKA_TOPIC);
-    PubsubMessage message = PubsubMessage.newBuilder()
-        .setData(ByteString.copyFromUtf8(MESSAGE))
-        .putAllAttributes(messageAttributes)
-        .build();
+    PubsubMessage message =
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8(MESSAGE))
+            .putAllAttributes(messageAttributes)
+            .build();
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
     PullResponse stubResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubResponse);
     List<SourceRecord> result = sourceTask.poll();
     assertEquals(1, result.size());
-    SourceRecord expected = new SourceRecord(
-        null,
-        null,
-        KAFKA_TOPIC,
-        0,
-        SchemaBuilder.string().build(),
-        KEY,
-        SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-        ByteString.copyFromUtf8(MESSAGE));
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            0,
+            SchemaBuilder.string().build(),
+            KEY,
+            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
+            ByteString.copyFromUtf8(MESSAGE));
     assertEquals(expected, result.get(0));
   }
 
@@ -222,9 +220,7 @@ public class CloudPubSubSourceTaskTest {
     sourceTask.poll();
   }
 
-  /**
-   * Performs the setup for the task without calling start().
-   */
+  /** Performs the setup for the task without calling start(). */
   private void setupSourceTaskManually() {
     sourceTask.cpsTopic = String.format(ConnectorUtils.CPS_TOPIC_FORMAT, CPS_PROJECT, CPS_TOPIC);
     sourceTask.maxBatchSize = Integer.parseInt(CPS_MAX_BATCH_SIZE);

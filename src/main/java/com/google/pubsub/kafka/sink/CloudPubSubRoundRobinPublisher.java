@@ -32,7 +32,7 @@ public class CloudPubSubRoundRobinPublisher implements CloudPubSubPublisher {
   private int currentPublisherIndex = 0;
 
   CloudPubSubRoundRobinPublisher(int publisherCount) {
-    publishers  = new ArrayList<>(publisherCount);
+    publishers = new ArrayList<>(publisherCount);
     for (int i = 0; i < publisherCount; ++i) {
       publishers.add(new CloudPubSubGRPCPublisher());
     }
