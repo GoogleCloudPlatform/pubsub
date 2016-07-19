@@ -19,7 +19,7 @@ messages will be larger than that limit.
 
 ### Building
 
-These instructions assumes you are using [Maven](https://maven.apache.org/).
+These instructions assume you are using [Maven](https://maven.apache.org/).
 
 1. Clone the repository, ensuring to do so recursively to pick up submodules:
 
