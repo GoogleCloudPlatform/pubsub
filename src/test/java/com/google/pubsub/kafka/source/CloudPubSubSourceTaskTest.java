@@ -39,7 +39,7 @@ import org.junit.Test;
 
 
 /**
- * Created by rramkumar on 7/16/16.
+ * Tests for {@link CloudPubSubSourceTask}.
  */
 public class CloudPubSubSourceTaskTest {
 

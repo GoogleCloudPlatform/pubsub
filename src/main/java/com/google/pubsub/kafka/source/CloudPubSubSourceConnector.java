@@ -76,7 +76,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   @Override
   public List<Map<String, String>> taskConfigs(int maxTasks) {
-    // Each task will get the exact same configurations.
+    // Each task will get the exact same configuration.
     ArrayList<Map<String, String>> configs = new ArrayList<>();
     for (int i = 0; i < maxTasks; i++) {
       Map<String, String> config = new HashMap<>();
@@ -111,11 +111,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   }
 
-  @Override
-  public void stop() {
-    // TODO(rramkumar): Find out how to implement this.
-  }
-
   protected String createSubscription() {
     try {
       SubscriberGrpc.SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(
@@ -128,5 +123,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       throw new RuntimeException("Could not subscribe to the specified CPS topic: " + e);
     }
   }
+
+  @Override
+  public void stop() {}
 }
 

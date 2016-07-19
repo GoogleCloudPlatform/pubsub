@@ -117,7 +117,6 @@ public class CloudPubSubSinkTask extends SinkTask {
       int messageSize = value.size() + ConnectorUtils.PARTITION_ATTRIBUTE_SIZE
           + record.kafkaPartition().toString().length() + ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE_SIZE
           + record.topic().length();
-      // The key could possibly be null so we add the null check.
       if (record.key() != null) {
         attributes.put(ConnectorUtils.KEY_ATTRIBUTE, record.key().toString());
         // The maximum number of bytes to encode a character in the key string will be 2 bytes.
@@ -135,7 +134,7 @@ public class CloudPubSubSinkTask extends SinkTask {
         allUnpublishedMessages.put(record.topic(), unpublishedMessagesForTopic);
       }
       // Get the object containing the unpublished messages for the
-      // specific topic and partition this Sink Record is associated with.
+      // specific topic and partition this SinkRecord is associated with.
       UnpublishedMessagesForPartition unpublishedMessages =
           unpublishedMessagesForTopic.get(record.kafkaPartition());
       if (unpublishedMessages == null) {
@@ -202,13 +201,6 @@ public class CloudPubSubSinkTask extends SinkTask {
     allOutstandingFutures.clear();
   }
 
-
-  @Override
-  public void stop() {
-    // TODO(rramkumar): Find out how to implement this.
-  }
-
-
   @VisibleForTesting
   protected void publishMessagesForPartition(String topic,
                                              Integer partition,
@@ -243,4 +235,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     }
     messages.clear();
   }
+
+  @Override
+  public void stop() {}
 }

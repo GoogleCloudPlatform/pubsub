@@ -7,13 +7,6 @@
   <name>Archetype - kafka-connector</name>
   <url>http://maven.apache.org</url>
 
-  <repositories>
-    <repository>
-      <id>grpc-snapshot</id>
-      <url>https://oss.sonatype.org/content/repositories/snapshots/</url>
-    </repository>
-  </repositories>
-
   <dependencies>
     <dependency>
       <groupId>junit</groupId>

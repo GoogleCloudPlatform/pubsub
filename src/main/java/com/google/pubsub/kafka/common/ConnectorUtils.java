@@ -33,7 +33,7 @@ import java.util.concurrent.Executors;
  */
 public class ConnectorUtils {
 
-  private static final String ENDPOINT = "pubsub-experimental.googleapis.com";
+  private static final String ENDPOINT = "pubsub.googleapis.com";
   private static final List<String> CPS_SCOPE = Arrays.asList(
       "https://www.googleapis.com/auth/pubsub");
 

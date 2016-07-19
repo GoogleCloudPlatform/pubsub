@@ -69,7 +69,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public List<Map<String, String>> taskConfigs(int maxTasks) {
-    // Each task will get the exact same configurations.
+    // Each task will get the exact same configuration.
     ArrayList<Map<String, String>> configs = new ArrayList<>();
     for (int i = 0; i < maxTasks; i++) {
       Map<String, String> config = new HashMap<>();
@@ -94,7 +94,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             ConnectorUtils.CPS_TOPIC_CONFIG,
             Type.STRING,
             Importance.HIGH,
-            "The topic to " + "which to " + "publish.")
+            "The topic to which to publish.")
         .define(
             CPS_MIN_BATCH_SIZE_CONFIG,
             Type.INT,
@@ -104,7 +104,5 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   }
 
   @Override
-  public void stop() {
-    // TODO(rramkumar): Find out how to implement this.
-  }
+  public void stop() {}
 }

@@ -60,7 +60,8 @@ public class CloudPubSubSourceTask extends SourceTask {
             ConnectorUtils.CPS_TOPIC_FORMAT,
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
-    maxBatchSize = Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
+    maxBatchSize = Integer.parseInt(
+        props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
     log.info("Start connector task for topic " + cpsTopic + " max batch size = " + maxBatchSize);
     subscriber = new CloudPubSubRoundRobinSubscriber(NUM_SUBSCRIBERS);
     subscriptionName = props.get(CloudPubSubSourceConnector.SUBSCRIPTION_NAME);
@@ -126,7 +127,5 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   @Override
-  public void stop() {
-    // TODO(rramkumar): Find out how to implement this.
-  }
+  public void stop() {}
 }
