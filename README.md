@@ -23,13 +23,33 @@ These instructions assumes you are using [Maven](https://maven.apache.org/).
 
 1. Clone the repository, ensuring to do so recursively to pick up submodules:
 
- `git clone --recursive ADD LINK ONCE REPO LOCATION IS DETERMINED`
+    `git clone --recursive ADD LINK ONCE REPO LOCATION IS DETERMINED`
 
 2. Make the jar that contains the connector:
 
- `mvn package`
+    `mvn package`
 
 The resulting jar is at target/cps-kafka-connector.jar.
+
+### Pre-Running Steps
+
+1. Depending on where you run the connector, different steps will have to be taken. 
+If you will be running the connector on Google Cloud Platform, then go to step 3. 
+Otherwise go to step 2.
+
+2. Create project on Google Cloud Platform. By default, this project will have multiple
+service accounts associated with it (see "IAM & Admin" within GCP console). Find
+the service account named "Compute Engine default service account". You should
+be able to create a private JSON key associated with this account. This key
+file needs to be placed on the machine running the connector. An environment
+variable named GOOGLE_APPLICATION_CREDENTIALS should point to this file.
+(Tip: export this environment variable as part of your shell startup file).
+
+    `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key/file`
+
+3.  You need to ensure that the GCP VM running the connector has appropriate API scopes.
+Specifically, your VM needs to be able to access the Cloud Pub/Sub API's. This can be
+provisioned when going through the creation process for the VM.
 
 ### Running a Connector
 
@@ -46,22 +66,10 @@ configs/.
 only configuration item that must be set specially for the Cloud Pub/Sub
 connector to work is the value converter:
 
-`value.converter=com.google.pubsub.kafka.common.ByteStringConverter`
+    `value.converter=com.google.pubsub.kafka.common.ByteStringConverter`
 
+If the messages you plan on publishing to Kafka also contain keys, then make
+sure that the key.converter is a class that will be able to work with the 
+schema of your keys.
 More information on the configuration for Kafka connect can be found in the
 [Kafka Users Guide](http://kafka.apache.org/documentation.html#connect_running).
-
-### Important Notes
-
-1. You need a Google Cloud Platform project to use the connector.
-
-2. If you are running the connector on Google Cloud Platform itself, then you need to ensure that
- the machine(s) running the connector have appropriate access to the
-Cloud Pub/Sub API's (add instructions on how to do that).
-
-3. If you are not running on Google Cloud Platform, then you will need to create a service account
-key that is associated with your project. This key should be provisioned in such a way that it
-gives proper access to the Cloud Pub/Sub API's (give instructions on how to do this. The machine
-running the connector should have an environment variable, GOOGLE_APPLICATION_CREDENTIALS, which
-is set to the path of a file
-containing the key.
