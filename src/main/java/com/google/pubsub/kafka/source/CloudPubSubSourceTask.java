@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.kafka.common.network.KafkaChannel;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
@@ -43,10 +44,14 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   protected static final int NUM_SUBSCRIBERS = 10;
 
+  protected String keyAttribute;
+  protected String kafkaTopic;
   protected String cpsTopic;
+  protected String cpsSubscription;
   protected int maxBatchSize;
   protected CloudPubSubSubscriber subscriber;
-  protected String subscriptionName;;
+  List<String> ackIds = new ArrayList<>();
+
 
   @Override
   public String version() {
@@ -64,51 +69,47 @@ public class CloudPubSubSourceTask extends SourceTask {
         Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
     log.info("Start connector task for topic " + cpsTopic + " max batch size = " + maxBatchSize);
     subscriber = new CloudPubSubRoundRobinSubscriber(NUM_SUBSCRIBERS);
-    subscriptionName = props.get(CloudPubSubSourceConnector.SUBSCRIPTION_NAME);
+    cpsSubscription = props.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG);
+    kafkaTopic = props.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG);
+    keyAttribute = props.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
   }
 
   @Override
   public List<SourceRecord> poll() throws InterruptedException {
+    ackMessages(ackIds);
     PullRequest request =
         PullRequest.newBuilder()
-            .setSubscription(subscriptionName)
+            .setSubscription(cpsSubscription)
             .setReturnImmediately(false)
             .setMaxMessages(maxBatchSize)
             .build();
     try {
       PullResponse response = subscriber.pull(request).get();
       // Stores ackIds for all received messages.
-      List<String> ackIds = new ArrayList<>();
       List<SourceRecord> sourceRecords = new ArrayList<>();
       for (ReceivedMessage rm : response.getReceivedMessagesList()) {
         PubsubMessage message = rm.getMessage();
         ackIds.add(rm.getAckId());
         // Get the message attributes and parse out the relevant ones.
         Map<String, String> messageAttributes = message.getAttributes();
-        Integer partition = 0;
-        if (messageAttributes.get(ConnectorUtils.PARTITION_ATTRIBUTE) != null) {
-          partition = Integer.parseInt(messageAttributes.get(ConnectorUtils.PARTITION_ATTRIBUTE));
+        String key = null;
+        if (messageAttributes.get(keyAttribute) != null) {
+          key = messageAttributes.get(keyAttribute);
         }
-        String topic = cpsTopic;
-        if (messageAttributes.get(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE) != null) {
-          topic = messageAttributes.get(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE);
-        }
-        String key = messageAttributes.get(ConnectorUtils.KEY_ATTRIBUTE);
         // We don't need to check that the message data is a byte string because we know the
         // data is coming from CPS so it must be of that type.
         SourceRecord record =
             new SourceRecord(
                 null,
                 null,
-                topic,
-                partition,
+                kafkaTopic,
+                0,
                 SchemaBuilder.string().build(),
                 key,
                 SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
                 message.getData());
         sourceRecords.add(record);
       }
-      ackMessages(ackIds);
       return sourceRecords;
     } catch (Exception e) {
       throw new InterruptedException(e.getMessage());
@@ -117,15 +118,20 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   @VisibleForTesting
   protected void ackMessages(List<String> ackIds) {
-    try {
-      AcknowledgeRequest request =
-          AcknowledgeRequest.newBuilder()
-              .setSubscription(subscriptionName)
-              .addAllAckIds(ackIds)
-              .build();
-      subscriber.ackMessages(request).get();
-    } catch (Exception e) {
-      log.error("An exception occurred acking messages. Unacked messages will be resent.");
+    if (ackIds.size() != 0) {
+      try {
+        AcknowledgeRequest request =
+            AcknowledgeRequest.newBuilder()
+                .setSubscription(cpsSubscription)
+                .addAllAckIds(ackIds)
+                .build();
+        // No need to check if the acks succeeded because if they did not then the messages
+        // will just be resent.
+        subscriber.ackMessages(request);
+        ackIds.clear();
+      } catch (Exception e) {
+        log.error("An exception occurred acking messages. Unacked messages will be resent.");
+      }
     }
   }
 

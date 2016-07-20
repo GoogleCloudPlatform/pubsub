@@ -37,6 +37,7 @@ public class ConnectorUtils {
 
   public static final String SCHEMA_NAME = ByteString.class.getName();
   public static final String CPS_TOPIC_FORMAT = "projects/%s/topics/%s";
+  public static final String CPS_SUBSCRIPTION_FORMAT = "projects/%s/subscriptions/%s";
   public static final String KEY_ATTRIBUTE = "key";
   public static final int KEY_ATTRIBUTE_SIZE = KEY_ATTRIBUTE.length();
   public static final String PARTITION_ATTRIBUTE = "partition";

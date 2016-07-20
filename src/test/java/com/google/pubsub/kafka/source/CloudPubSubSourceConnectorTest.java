@@ -16,6 +16,7 @@
 package com.google.pubsub.kafka.source;
 
 import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
@@ -32,10 +33,12 @@ import org.junit.Test;
 /** Tests for {@link CloudPubSubSourceConnector}. */
 public class CloudPubSubSourceConnectorTest {
 
-  private static final String CPS_TOPIC = "test";
-  private static final String CPS_PROJECT = "test";
+  private static final String CPS_TOPIC = "the";
+  private static final String CPS_PROJECT = "quick";
   private static final String CPS_MAX_BATCH_SIZE = "1000";
-  private static final String SUBSCRIPTION_NAME = "testsubscription";
+  private static final String CPS_SUBSCRIPTION = "brown";
+  private static final String KAFKA_TOPIC = "fox";
+  private static final String KAFKA_MESSAGE_KEY = "jumped";
 
   private CloudPubSubSourceConnector connector;
 
@@ -47,21 +50,26 @@ public class CloudPubSubSourceConnectorTest {
     sourceProps = new HashMap<>();
     sourceProps.put(ConnectorUtils.CPS_TOPIC_CONFIG, CPS_TOPIC);
     sourceProps.put(ConnectorUtils.CPS_PROJECT_CONFIG, CPS_PROJECT);
+    sourceProps.put(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG, CPS_SUBSCRIPTION);
+    sourceProps.put(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG, KAFKA_TOPIC);
+    sourceProps.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG, KAFKA_MESSAGE_KEY);
   }
 
   @Test
   public void testStart() {
-    doReturn(SUBSCRIPTION_NAME).when(connector).createSubscription();
+    doNothing().when(connector).verifySubscription();
     connector.start(sourceProps);
     assertEquals(connector.cpsTopic, sourceProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     assertEquals(connector.cpsProject, sourceProps.get(ConnectorUtils.CPS_PROJECT_CONFIG));
     assertEquals(connector.maxBatchSize, CloudPubSubSourceConnector.DEFAULT_MAX_BATCH_SIZE);
-    assertEquals(connector.subscriptionName, SUBSCRIPTION_NAME);
+    assertEquals(connector.cpsSubscription, CPS_SUBSCRIPTION);
+    assertEquals(connector.kafkaTopic, KAFKA_TOPIC);
+    assertEquals(connector.keyAttribute, KAFKA_MESSAGE_KEY);
   }
 
   @Test
   public void testStartWithBatchSizeSet() {
-    doReturn(SUBSCRIPTION_NAME).when(connector).createSubscription();
+    doNothing().when(connector).verifySubscription();
     sourceProps.put(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG, CPS_MAX_BATCH_SIZE);
     connector.start(sourceProps);
     assertEquals(connector.cpsTopic, sourceProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
@@ -69,12 +77,15 @@ public class CloudPubSubSourceConnectorTest {
     int maxBatchSizeResult =
         Integer.parseInt(sourceProps.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
     assertEquals(connector.maxBatchSize, maxBatchSizeResult);
-    assertEquals(connector.subscriptionName, SUBSCRIPTION_NAME);
+    assertEquals(connector.cpsSubscription, CPS_SUBSCRIPTION);
+    assertEquals(connector.kafkaTopic, KAFKA_TOPIC);
+    assertEquals(connector.keyAttribute, KAFKA_MESSAGE_KEY);
   }
 
   @Test(expected = RuntimeException.class)
   public void testStartExceptionCase() {
-    doThrow(new RuntimeException()).when(connector).createSubscription();
+    doThrow(new RuntimeException()).when(connector).verifySubscription();
+
     connector.start(sourceProps);
   }
 
@@ -84,7 +95,9 @@ public class CloudPubSubSourceConnectorTest {
     connector.cpsTopic = CPS_TOPIC;
     connector.cpsProject = CPS_PROJECT;
     connector.maxBatchSize = Integer.parseInt(CPS_MAX_BATCH_SIZE);
-    connector.subscriptionName = SUBSCRIPTION_NAME;
+    connector.cpsSubscription = CPS_SUBSCRIPTION;
+    connector.kafkaTopic = KAFKA_TOPIC;
+    connector.keyAttribute = KAFKA_MESSAGE_KEY;
     List<Map<String, String>> configs = connector.taskConfigs(10);
     assertEquals(configs.size(), 10);
     for (int i = 0; i < 10; ++i) {
@@ -94,7 +107,12 @@ public class CloudPubSubSourceConnectorTest {
           CPS_MAX_BATCH_SIZE,
           configs.get(i).get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
       assertEquals(
-          SUBSCRIPTION_NAME, configs.get(i).get(CloudPubSubSourceConnector.SUBSCRIPTION_NAME));
+          CPS_SUBSCRIPTION, configs.get(i).get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG));
+      assertEquals(
+          KAFKA_TOPIC, configs.get(i).get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG));
+      assertEquals(
+          KAFKA_MESSAGE_KEY, configs.get(i).get(CloudPubSubSourceConnector
+              .KAFKA_MESSAGE_KEY_CONFIG));
     }
   }
 

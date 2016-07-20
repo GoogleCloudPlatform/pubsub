@@ -17,6 +17,7 @@ package com.google.pubsub.kafka.common;
 
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
+import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
 import java.util.Map;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
@@ -25,8 +26,8 @@ import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.storage.Converter;
 
 /**
- * * A {@link Converter} for use with the {@link CloudPubSubSinkConnector} and {@link
- * CloudPubSubSourceConnector} that converts between Kafka data and connector data via a {@link
+ * * A {@link Converter} for use with the {@link CloudPubSubSinkConnector} and
+ * {@link CloudPubSubSourceConnector} that converts between Kafka data and connector data via a {@link
  * ByteString}.
  */
 public class ByteStringConverter implements Converter {
