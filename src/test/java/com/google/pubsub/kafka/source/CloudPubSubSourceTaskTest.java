@@ -85,12 +85,26 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(0, sourceTask.poll().size());
   }
 
+  /** Tests that when a call to ackMessages() fails, that the message is not sent again to Kafka
+   * if the message is received again by Cloud Pub/Sub.
+   */
+  @Test
+  public void testPollCase2() throws Exception {
+    setupSourceTaskManually();
+    sourceTask.ackIds.add("ackId1");
+    ReceivedMessage rm = ReceivedMessage.newBuilder().setAckId("ackId1").build();
+    PullResponse stubResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubResponse);
+    List<SourceRecord> result = sourceTask.poll();
+    assertEquals(0, result.size());
+  }
+
   /**
    * Tests when the message(s) retrieved from CPS does not have an attribute that matches {@link
    * #KAFKA_MESSAGE_KEY}
    */
   @Test
-  public void testPollCase2() throws Exception {
+  public void testPollCase3() throws Exception {
     setupSourceTaskManually();
     Map<String, String> messageAttributes = new HashMap<>();
     PubsubMessage message =
@@ -121,7 +135,7 @@ public class CloudPubSubSourceTaskTest {
    * #KAFKA_MESSAGE_KEY}
    */
   @Test
-  public void testPollCase3() throws Exception {
+  public void testPollCase4() throws Exception {
     setupSourceTaskManually();
     Map<String, String> messageAttributes = new HashMap<>();
     messageAttributes.put(ConnectorUtils.KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
@@ -159,7 +173,7 @@ public class CloudPubSubSourceTaskTest {
 
   /** Performs the setup for the task without calling start(). */
   private void setupSourceTaskManually() {
-    doNothing().when(sourceTask).ackMessages(anyList());
+    doNothing().when(sourceTask).ackMessages();
     sourceTask.cpsTopic = String.format(ConnectorUtils.CPS_TOPIC_FORMAT, CPS_PROJECT, CPS_TOPIC);
     sourceTask.maxBatchSize = Integer.parseInt(CPS_MAX_BATCH_SIZE);
     sourceTask.cpsSubscription = CPS_SUBSCRIPTION;

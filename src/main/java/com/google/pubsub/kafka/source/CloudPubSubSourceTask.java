@@ -23,8 +23,10 @@ import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
@@ -46,7 +48,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   protected String cpsSubscription;
   protected int maxBatchSize;
   protected CloudPubSubSubscriber subscriber;
-  List<String> ackIds = new ArrayList<>();
+  Set<String> ackIds = new HashSet<>();
 
   @Override
   public String version() {
@@ -71,7 +73,7 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   @Override
   public List<SourceRecord> poll() throws InterruptedException {
-    ackMessages(ackIds);
+    ackMessages();
     PullRequest request =
         PullRequest.newBuilder()
             .setSubscription(cpsSubscription)
@@ -84,7 +86,12 @@ public class CloudPubSubSourceTask extends SourceTask {
       List<SourceRecord> sourceRecords = new ArrayList<>();
       for (ReceivedMessage rm : response.getReceivedMessagesList()) {
         PubsubMessage message = rm.getMessage();
-        ackIds.add(rm.getAckId());
+        String ackId = rm.getAckId();
+        // If we are receiving this message a second (or more) times because the ack for it failed
+        // then do not create a SourceRecord for this message.
+        if (ackIds.contains(ackId)) {
+          continue;
+        }
         // Get the message attributes and parse out the relevant ones.
         Map<String, String> messageAttributes = message.getAttributes();
         String key = null;
@@ -112,7 +119,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   @VisibleForTesting
-  protected void ackMessages(List<String> ackIds) {
+  protected void ackMessages() {
     if (ackIds.size() != 0) {
       try {
         AcknowledgeRequest request =
@@ -120,12 +127,10 @@ public class CloudPubSubSourceTask extends SourceTask {
                 .setSubscription(cpsSubscription)
                 .addAllAckIds(ackIds)
                 .build();
-        // No need to check if the acks succeeded because if they did not then the messages
-        // will just be resent.
         subscriber.ackMessages(request);
         ackIds.clear();
       } catch (Exception e) {
-        log.error("An exception occurred acking messages. Unacked messages will be resent.");
+        log.error("An exception occurred acking messages. Will try to ack messages again.");
       }
     }
   }
