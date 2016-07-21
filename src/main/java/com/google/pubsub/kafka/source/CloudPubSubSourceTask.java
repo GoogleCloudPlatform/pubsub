@@ -15,7 +15,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.protobuf.Empty;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PubsubMessage;
@@ -32,6 +36,8 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import javax.annotation.Nullable;
 
 /**
  * * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to <a
@@ -121,17 +127,23 @@ public class CloudPubSubSourceTask extends SourceTask {
   @VisibleForTesting
   protected void ackMessages() {
     if (ackIds.size() != 0) {
-      try {
-        AcknowledgeRequest request =
-            AcknowledgeRequest.newBuilder()
-                .setSubscription(cpsSubscription)
-                .addAllAckIds(ackIds)
-                .build();
-        subscriber.ackMessages(request);
-        ackIds.clear();
-      } catch (Exception e) {
-        log.error("An exception occurred acking messages. Will try to ack messages again.");
-      }
+      AcknowledgeRequest request =
+          AcknowledgeRequest.newBuilder()
+              .setSubscription(cpsSubscription)
+              .addAllAckIds(ackIds)
+              .build();
+      ListenableFuture<Empty> response = subscriber.ackMessages(request);
+      Futures.addCallback(response, new FutureCallback<Empty>() {
+        @Override
+        public void onSuccess(Empty result) {
+          ackIds.clear();
+        }
+
+        @Override
+        public void onFailure(Throwable t) {
+          log.error("An exception occurred acking messages. Will try to ack messages again.");
+        }
+      });
     }
   }
 
