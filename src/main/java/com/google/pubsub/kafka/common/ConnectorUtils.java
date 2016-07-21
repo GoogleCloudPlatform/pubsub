@@ -28,9 +28,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 
-/**
- * Utility methods and constants.
- */
+/** Utility methods and constants. */
 public class ConnectorUtils {
 
   private static final String ENDPOINT = "pubsub.googleapis.com";
@@ -57,5 +55,13 @@ public class ConnectorUtils {
             GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE),
             Executors.newCachedThreadPool());
     return ClientInterceptors.intercept(channelImpl, interceptor);
+  }
+
+  public static void validateConfigs(String... configs) {
+    for (String config : configs) {
+      if (config == null || config.isEmpty()) {
+        throw new ConnectException("Missing a required config. Consult README for list...");
+      }
+    }
   }
 }

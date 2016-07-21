@@ -17,7 +17,6 @@ package com.google.pubsub.kafka.source;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
-
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -86,8 +85,9 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(0, sourceTask.poll().size());
   }
 
-  /** Tests that when a call to ackMessages() fails, that the message is not sent again to Kafka
-   * if the message is received again by Cloud Pub/Sub.
+  /**
+   * Tests that when a call to ackMessages() fails, that the message is not sent again to Kafka if
+   * the message is received again by Cloud Pub/Sub.
    */
   @Test
   public void testPollCase2() throws Exception {

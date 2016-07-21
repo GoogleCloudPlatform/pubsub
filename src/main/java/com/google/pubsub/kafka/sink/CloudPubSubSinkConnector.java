@@ -54,6 +54,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   public void start(Map<String, String> props) {
     cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
     cpsTopic = props.get(ConnectorUtils.CPS_TOPIC_CONFIG);
+    ConnectorUtils.validateConfigs(new String[] {cpsProject, cpsTopic});
     if (props.get(CPS_MIN_BATCH_SIZE_CONFIG) != null) {
       minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE_CONFIG));
     }

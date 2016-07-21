@@ -40,7 +40,7 @@ import org.slf4j.LoggerFactory;
 public class CloudPubSubSourceConnector extends SourceConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
 
-  public static final String KAFKA_PARTITIONS_CONFIG = "kafka.partitions";
+  public static final String KAFKA_PARTITIONS_CONFIG = "kafka.partitions.count";
   public static final String KAFKA_PARTITION_SCHEME_CONFIG = "partition.scheme";
   public static final String KAFKA_MESSAGE_KEY_CONFIG = "key.attribute";
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";
@@ -53,7 +53,9 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   @VisibleForTesting
   protected enum PartitionScheme {
-    ROUND_ROBIN("round_robin"), HASH_KEY("hash_key"), HASH_VALUE("hash_value");
+    ROUND_ROBIN("round_robin"),
+    HASH_KEY("hash_key"),
+    HASH_VALUE("hash_value");
 
     private String stringRepresentation;
 
@@ -87,6 +89,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     cpsTopic = props.get(ConnectorUtils.CPS_TOPIC_CONFIG);
     cpsSubscription = props.get(CPS_SUBSCRIPTION_CONFIG);
     keyAttribute = props.get(KAFKA_MESSAGE_KEY_CONFIG);
+    ConnectorUtils.validateConfigs(
+        new String[] {kafkaTopic, cpsProject, cpsTopic, cpsSubscription});
     if (props.get(CPS_MAX_BATCH_SIZE_CONFIG) != null) {
       maxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE_CONFIG));
     }

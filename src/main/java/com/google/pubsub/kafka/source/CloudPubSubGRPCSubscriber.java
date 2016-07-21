@@ -26,8 +26,8 @@ import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import java.io.IOException;
 
 /**
- * A {@link CloudPubSubSubscriber} that uses <a href="http://www.grpc.io/">gRPC</a> to pull
- * messages from <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
+ * A {@link CloudPubSubSubscriber} that uses <a href="http://www.grpc.io/">gRPC</a> to pull messages
+ * from <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
 
