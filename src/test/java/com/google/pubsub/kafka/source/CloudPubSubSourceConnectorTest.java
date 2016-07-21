@@ -17,16 +17,13 @@ package com.google.pubsub.kafka.source;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.spy;
 
 import com.google.pubsub.kafka.common.ConnectorUtils;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.junit.Before;
 import org.junit.Test;
 
@@ -108,11 +105,10 @@ public class CloudPubSubSourceConnectorTest {
           configs.get(i).get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
       assertEquals(
           CPS_SUBSCRIPTION, configs.get(i).get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG));
+      assertEquals(KAFKA_TOPIC, configs.get(i).get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG));
       assertEquals(
-          KAFKA_TOPIC, configs.get(i).get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG));
-      assertEquals(
-          KAFKA_MESSAGE_KEY, configs.get(i).get(CloudPubSubSourceConnector
-              .KAFKA_MESSAGE_KEY_CONFIG));
+          KAFKA_MESSAGE_KEY,
+          configs.get(i).get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG));
     }
   }
 

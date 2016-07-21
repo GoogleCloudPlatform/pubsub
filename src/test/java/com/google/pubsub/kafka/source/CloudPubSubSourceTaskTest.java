@@ -15,7 +15,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
-import org.mockito.Mockito;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyList;
@@ -30,15 +29,14 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.Before;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 /** Tests for {@link CloudPubSubSourceTask}. */
 public class CloudPubSubSourceTaskTest {
@@ -50,7 +48,6 @@ public class CloudPubSubSourceTaskTest {
   private static final String KAFKA_TOPIC = "fox";
   private static final String KAFKA_MESSAGE_KEY = "jumped";
   private static final String MESSAGE = "over";
-
 
   private CloudPubSubSourceTask sourceTask;
   private Map<String, String> taskProps;
@@ -89,8 +86,8 @@ public class CloudPubSubSourceTaskTest {
   }
 
   /**
-   * Tests when the message(s) retrieved from CPS does not have an attribute that
-   * matches {@link #KAFKA_MESSAGE_KEY}
+   * Tests when the message(s) retrieved from CPS does not have an attribute that matches {@link
+   * #KAFKA_MESSAGE_KEY}
    */
   @Test
   public void testPollCase2() throws Exception {
@@ -120,8 +117,8 @@ public class CloudPubSubSourceTaskTest {
   }
 
   /**
-   * Tests when the message(s) retrieved from CPS does have an attribute that matches
-   * {@link #KAFKA_MESSAGE_KEY}
+   * Tests when the message(s) retrieved from CPS does have an attribute that matches {@link
+   * #KAFKA_MESSAGE_KEY}
    */
   @Test
   public void testPollCase3() throws Exception {

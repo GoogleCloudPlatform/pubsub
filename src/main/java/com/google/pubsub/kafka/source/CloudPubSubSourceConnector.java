@@ -17,20 +17,19 @@ package com.google.pubsub.kafka.source;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.pubsub.kafka.common.ConnectorUtils;
+import com.google.pubsub.v1.GetSubscriptionRequest;
+import com.google.pubsub.v1.SubscriberGrpc;
+import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import com.google.pubsub.v1.GetSubscriptionRequest;
-import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
-import com.google.pubsub.v1.SubscriberGrpc;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.utils.AppInfoParser;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.source.SourceConnector;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -70,8 +69,13 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     if (props.get(CPS_MAX_BATCH_SIZE_CONFIG) != null) {
       maxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE_CONFIG));
     }
-    log.info("Start source connector for project " + cpsProject + " and topic " + cpsTopic
-        + " and subscription " + cpsSubscription);
+    log.info(
+        "Start source connector for project "
+            + cpsProject
+            + " and topic "
+            + cpsTopic
+            + " and subscription "
+            + cpsSubscription);
     verifySubscription();
   }
 
@@ -137,12 +141,13 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   @VisibleForTesting
   protected void verifySubscription() {
     try {
-      SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(
-          ConnectorUtils.getChannel());
-      GetSubscriptionRequest request = GetSubscriptionRequest.newBuilder()
-          .setSubscription(
-              String.format(ConnectorUtils.CPS_SUBSCRIPTION_FORMAT, cpsProject, cpsSubscription))
-          .build();
+      SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
+      GetSubscriptionRequest request =
+          GetSubscriptionRequest.newBuilder()
+              .setSubscription(
+                  String.format(
+                      ConnectorUtils.CPS_SUBSCRIPTION_FORMAT, cpsProject, cpsSubscription))
+              .build();
       stub.getSubscription(request).get();
     } catch (Exception e) {
       throw new RuntimeException("The subscription " + cpsSubscription + " does not exist.");

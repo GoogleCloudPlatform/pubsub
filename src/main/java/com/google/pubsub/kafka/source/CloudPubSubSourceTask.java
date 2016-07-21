@@ -22,16 +22,12 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-
-import org.apache.kafka.common.network.KafkaChannel;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,7 +47,6 @@ public class CloudPubSubSourceTask extends SourceTask {
   protected int maxBatchSize;
   protected CloudPubSubSubscriber subscriber;
   List<String> ackIds = new ArrayList<>();
-
 
   @Override
   public String version() {
