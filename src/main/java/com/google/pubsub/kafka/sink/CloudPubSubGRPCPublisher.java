@@ -24,7 +24,7 @@ import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import java.io.IOException;
 
 /**
- * * A {@link CloudPubSubPublisher} that uses <a href="http://www.grpc.io/">gRPC</a> to send
+ * A {@link CloudPubSubPublisher} that uses <a href="http://www.grpc.io/">gRPC</a> to send
  * messages to <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public class CloudPubSubGRPCPublisher implements CloudPubSubPublisher {

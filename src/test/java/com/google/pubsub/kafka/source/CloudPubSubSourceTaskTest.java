@@ -17,7 +17,7 @@ package com.google.pubsub.kafka.source;
 
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyList;
+
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
@@ -47,7 +47,8 @@ public class CloudPubSubSourceTaskTest {
   private static final String CPS_SUBSCRIPTION = "brown";
   private static final String KAFKA_TOPIC = "fox";
   private static final String KAFKA_MESSAGE_KEY = "jumped";
-  private static final String MESSAGE = "over";
+  private static final String CPS_MESSAGE_KEY_ATTRIBUTE_VALUE = "over";
+  private static final String CPS_MESSAGE = "the";
 
   private CloudPubSubSourceTask sourceTask;
   private Map<String, String> taskProps;
@@ -107,9 +108,10 @@ public class CloudPubSubSourceTaskTest {
   public void testPollCase3() throws Exception {
     setupSourceTaskManually();
     Map<String, String> messageAttributes = new HashMap<>();
+    ByteString messageByteString = ByteString.copyFromUtf8(CPS_MESSAGE);
     PubsubMessage message =
         PubsubMessage.newBuilder()
-            .setData(ByteString.copyFromUtf8(MESSAGE))
+            .setData(messageByteString)
             .putAllAttributes(messageAttributes)
             .build();
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
@@ -126,7 +128,7 @@ public class CloudPubSubSourceTaskTest {
             SchemaBuilder.string().build(),
             null,
             SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            ByteString.copyFromUtf8(MESSAGE));
+            messageByteString);
     assertEquals(expected, result.get(0));
   }
 
@@ -138,10 +140,11 @@ public class CloudPubSubSourceTaskTest {
   public void testPollCase4() throws Exception {
     setupSourceTaskManually();
     Map<String, String> messageAttributes = new HashMap<>();
-    messageAttributes.put(ConnectorUtils.KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
+    messageAttributes.put(KAFKA_MESSAGE_KEY, CPS_MESSAGE_KEY_ATTRIBUTE_VALUE);
+    ByteString messageByteString = ByteString.copyFromUtf8(CPS_MESSAGE);
     PubsubMessage message =
         PubsubMessage.newBuilder()
-            .setData(ByteString.copyFromUtf8(MESSAGE))
+            .setData(messageByteString)
             .putAllAttributes(messageAttributes)
             .build();
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
@@ -156,9 +159,9 @@ public class CloudPubSubSourceTaskTest {
             KAFKA_TOPIC,
             0,
             SchemaBuilder.string().build(),
-            KAFKA_MESSAGE_KEY,
+            CPS_MESSAGE_KEY_ATTRIBUTE_VALUE,
             SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            ByteString.copyFromUtf8(MESSAGE));
+            messageByteString);
     assertEquals(expected, result.get(0));
   }
 

@@ -37,12 +37,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * * A {@link SinkTask} used by a {@link CloudPubSubSinkConnector} to write messages to <a
+ * A {@link SinkTask} used by a {@link CloudPubSubSinkConnector} to write messages to <a
  * href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public class CloudPubSubSinkTask extends SinkTask {
-  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
 
+  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
   private static final int NUM_PUBLISHERS = 10;
   private static final int MAX_REQUEST_SIZE = (10 << 20) - 1024; // Leave room for overhead.
   private static final int MAX_MESSAGES_PER_REQUEST = 1000;

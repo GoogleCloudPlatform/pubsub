@@ -37,6 +37,7 @@ public class CloudPubSubSourceConnectorTest {
   private static final String KAFKA_TOPIC = "fox";
   private static final String KAFKA_MESSAGE_KEY = "jumped";
 
+
   private CloudPubSubSourceConnector connector;
 
   private Map<String, String> sourceProps;

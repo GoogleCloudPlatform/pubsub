@@ -40,12 +40,31 @@ import org.slf4j.LoggerFactory;
 public class CloudPubSubSourceConnector extends SourceConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
 
+  public static final String KAFKA_PARTITIONS_CONFIG = "kafka.partitions";
+  public static final String KAFKA_PARTITION_SCHEME_CONFIG = "partition.scheme";
   public static final String KAFKA_MESSAGE_KEY_CONFIG = "key.attribute";
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";
   public static final String CPS_SUBSCRIPTION_CONFIG = "subscription";
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
 
   protected static final int DEFAULT_MAX_BATCH_SIZE = 100;
+  protected static final int DEFAULT_PARTITIONS = 0;
+  protected static final PartitionScheme DEFAULT_PARTITION_SCHEME = PartitionScheme.ROUND_ROBIN;
+
+  @VisibleForTesting
+  protected enum PartitionScheme {
+    ROUND_ROBIN("round_robin"), HASH_KEY("hash_key"), HASH_VALUE("hash_value");
+
+    private String stringRepresentation;
+
+    PartitionScheme(String stringRepresentation) {
+      this.stringRepresentation = stringRepresentation;
+    }
+
+    public String toString() {
+      return stringRepresentation;
+    }
+  }
 
   protected String kafkaTopic;
   protected String cpsProject;
@@ -53,6 +72,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   protected String cpsSubscription;
   protected String keyAttribute;
   protected int maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
+  protected int partitions = DEFAULT_PARTITIONS;
+  protected PartitionScheme partitionScheme = DEFAULT_PARTITION_SCHEME;
 
   @Override
   public String version() {
@@ -68,6 +89,18 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     keyAttribute = props.get(KAFKA_MESSAGE_KEY_CONFIG);
     if (props.get(CPS_MAX_BATCH_SIZE_CONFIG) != null) {
       maxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE_CONFIG));
+    }
+    if (props.get(KAFKA_PARTITIONS_CONFIG) != null) {
+      partitions = Integer.parseInt(props.get(KAFKA_PARTITIONS_CONFIG));
+    }
+    if (props.get(KAFKA_PARTITION_SCHEME_CONFIG) != null) {
+      String scheme = props.get(KAFKA_PARTITION_SCHEME_CONFIG);
+      if (scheme.equals(PartitionScheme.HASH_KEY.toString())) {
+        partitionScheme = PartitionScheme.HASH_KEY;
+      }
+      if (scheme.equals(PartitionScheme.HASH_VALUE.toString())) {
+        partitionScheme = PartitionScheme.HASH_VALUE;
+      }
     }
     log.info(
         "Start source connector for project "
@@ -96,6 +129,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       config.put(CPS_MAX_BATCH_SIZE_CONFIG, String.valueOf(maxBatchSize));
       config.put(CPS_SUBSCRIPTION_CONFIG, cpsSubscription);
       config.put(KAFKA_MESSAGE_KEY_CONFIG, keyAttribute);
+      config.put(KAFKA_PARTITIONS_CONFIG, String.valueOf(partitions));
+      config.put(KAFKA_PARTITION_SCHEME_CONFIG, partitionScheme.toString());
       configs.add(config);
     }
     return configs;
@@ -135,7 +170,17 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             KAFKA_MESSAGE_KEY_CONFIG,
             Type.STRING,
             Importance.MEDIUM,
-            "The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka.");
+            "The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka.")
+        .define(
+            KAFKA_PARTITIONS_CONFIG,
+            Type.INT,
+            Importance.MEDIUM,
+            "The number of partitions for the Kafka topic in which messages will be published to.")
+        .define(
+            KAFKA_PARTITION_SCHEME_CONFIG,
+            Type.STRING,
+            Importance.MEDIUM,
+            "The scheme for assigning a message to a partition.");
   }
 
   @VisibleForTesting

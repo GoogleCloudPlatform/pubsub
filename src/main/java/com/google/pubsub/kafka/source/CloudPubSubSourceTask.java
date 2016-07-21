@@ -15,6 +15,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import com.google.protobuf.ByteString;
+import com.google.pubsub.kafka.source.CloudPubSubSourceConnector.PartitionScheme;
+import com.google.api.client.http.MultipartContent;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.protobuf.Empty;
@@ -27,6 +30,7 @@ import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -37,24 +41,26 @@ import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.annotation.Nullable;
 
 /**
- * * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to <a
+ * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to <a
  * href="http://kafka.apache.org/">Apache Kafka</a>.
  */
 public class CloudPubSubSourceTask extends SourceTask {
-  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceTask.class);
 
-  protected static final int NUM_SUBSCRIBERS = 10;
+  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceTask.class);
+  private static final int NUM_SUBSCRIBERS = 10;
 
   protected String keyAttribute;
   protected String kafkaTopic;
   protected String cpsTopic;
   protected String cpsSubscription;
   protected int maxBatchSize;
+  protected int partitions;
+  protected PartitionScheme partitionScheme;
   protected CloudPubSubSubscriber subscriber;
-  Set<String> ackIds = new HashSet<>();
+  protected Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
+  protected int currentRoundRobinPartition = 0;
 
   @Override
   public String version() {
@@ -70,11 +76,14 @@ public class CloudPubSubSourceTask extends SourceTask {
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     maxBatchSize =
         Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
-    log.info("Start connector task for topic " + cpsTopic + " max batch size = " + maxBatchSize);
+    partitions = Integer.parseInt(props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG));
     subscriber = new CloudPubSubRoundRobinSubscriber(NUM_SUBSCRIBERS);
     cpsSubscription = props.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG);
     kafkaTopic = props.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG);
     keyAttribute = props.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
+    partitionScheme = PartitionScheme.valueOf(
+        props.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
+    log.info("Start connector task for topic " + cpsTopic + " max batch size = " + maxBatchSize);
   }
 
   @Override
@@ -104,6 +113,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         if (messageAttributes.get(keyAttribute) != null) {
           key = messageAttributes.get(keyAttribute);
         }
+        ByteString value = message.getData();
         // We don't need to check that the message data is a byte string because we know the
         // data is coming from CPS so it must be of that type.
         SourceRecord record =
@@ -111,11 +121,11 @@ public class CloudPubSubSourceTask extends SourceTask {
                 null,
                 null,
                 kafkaTopic,
-                0,
+                selectPartition(key, value),
                 SchemaBuilder.string().build(),
                 key,
                 SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-                message.getData());
+                value);
         sourceRecords.add(record);
       }
       return sourceRecords;
@@ -144,6 +154,17 @@ public class CloudPubSubSourceTask extends SourceTask {
           log.error("An exception occurred acking messages. Will try to ack messages again.");
         }
       });
+    }
+  }
+
+  @VisibleForTesting
+  protected int selectPartition(Object key, Object value) {
+    if (partitionScheme.equals(PartitionScheme.HASH_KEY)) {
+      return key == null ? 0 : key.hashCode() % partitions;
+    } else if (partitionScheme.equals(PartitionScheme.HASH_VALUE)) {
+      return value.hashCode() % partitions;
+    } else {
+      return currentRoundRobinPartition++ % partitions;
     }
   }
 

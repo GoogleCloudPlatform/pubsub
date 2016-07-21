@@ -28,7 +28,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 
-/** Utility methods and constants. */
+/**
+ * Utility methods and constants.
+ */
 public class ConnectorUtils {
 
   private static final String ENDPOINT = "pubsub.googleapis.com";
