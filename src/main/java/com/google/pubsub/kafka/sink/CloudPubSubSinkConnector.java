@@ -36,14 +36,13 @@ import org.slf4j.LoggerFactory;
 public class CloudPubSubSinkConnector extends SinkConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkConnector.class);
+  private static final int DEFAULT_CPS_MIN_BATCH_SIZE = 100;
 
-  public static final String CPS_MIN_BATCH_SIZE_CONFIG = "cps.minBatchSize";
-
-  private static final int DEFAULT_MIN_BATCH_SIZE = 100;
+  public static final String CPS_MIN_BATCH_SIZE_CONFIG = "cps.cpsMinBatchSize";
 
   private String cpsProject;
   private String cpsTopic;
-  private int minBatchSize = DEFAULT_MIN_BATCH_SIZE;
+  private int cpsMinBatchSize = DEFAULT_CPS_MIN_BATCH_SIZE;
 
   @Override
   public String version() {
@@ -55,7 +54,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
     cpsProject = ConnectorUtils.getAndValidate(props, ConnectorUtils.CPS_PROJECT_CONFIG);
     cpsTopic = ConnectorUtils.getAndValidate(props, ConnectorUtils.CPS_TOPIC_CONFIG);
     if (props.get(CPS_MIN_BATCH_SIZE_CONFIG) != null) {
-      minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE_CONFIG));
+      cpsMinBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE_CONFIG));
     }
     log.info("Start sink connector for project " + cpsProject + " and topic " + cpsTopic);
   }
@@ -73,7 +72,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
       Map<String, String> config = new HashMap<>();
       config.put(ConnectorUtils.CPS_PROJECT_CONFIG, cpsProject);
       config.put(ConnectorUtils.CPS_TOPIC_CONFIG, cpsTopic);
-      config.put(CPS_MIN_BATCH_SIZE_CONFIG, String.valueOf(minBatchSize));
+      config.put(CPS_MIN_BATCH_SIZE_CONFIG, String.valueOf(cpsMinBatchSize));
       configs.add(config);
     }
     return configs;
@@ -96,7 +95,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
         .define(
             CPS_MIN_BATCH_SIZE_CONFIG,
             Type.INT,
-            Importance.HIGH,
+            Importance.MEDIUM,
             "The minimum number of messages to batch per partition before sending a publish "
                 + "request to Cloud Pub/Sub.");
   }

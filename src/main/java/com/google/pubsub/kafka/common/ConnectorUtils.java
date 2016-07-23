@@ -23,12 +23,17 @@ import io.grpc.auth.ClientAuthInterceptor;
 import io.grpc.internal.ManagedChannelImpl;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import org.apache.kafka.connect.errors.ConnectException;
+
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 
-/** Utility methods and constants. */
+/**
+ * Utility methods and constants.
+ */
 public class ConnectorUtils {
 
   private static final String ENDPOINT = "pubsub.googleapis.com";
@@ -38,15 +43,21 @@ public class ConnectorUtils {
   public static final String SCHEMA_NAME = ByteString.class.getName();
   public static final String CPS_TOPIC_FORMAT = "projects/%s/topics/%s";
   public static final String CPS_SUBSCRIPTION_FORMAT = "projects/%s/subscriptions/%s";
-  public static final String KEY_ATTRIBUTE = "key";
-  public static final int KEY_ATTRIBUTE_SIZE = KEY_ATTRIBUTE.length();
-  public static final String PARTITION_ATTRIBUTE = "partition";
-  public static final int PARTITION_ATTRIBUTE_SIZE = PARTITION_ATTRIBUTE.length();
-  public static final String KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
-  public static final int KAFKA_TOPIC_ATTRIBUTE_SIZE = KAFKA_TOPIC_ATTRIBUTE.length();
+  public static final String CPS_MESSAGE_KEY_ATTRIBUTE = "key";
+  public static final int CPS_MESSAGE_KEY_ATTRIBUTE_SIZE = CPS_MESSAGE_KEY_ATTRIBUTE.length();
+  public static final String CPS_MESSAGE_PARTITION_ATTRIBUTE = "partition";
+  public static final int CPS_MESSAGE_PARTITION_ATTRIBUTE_SIZE =
+      CPS_MESSAGE_PARTITION_ATTRIBUTE.length();
+  public static final String CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
+  public static final int CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE =
+      CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE.length();
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
 
+  /**
+   * @return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's.
+   * @throws IOException
+   */
   public static Channel getChannel() throws IOException {
     ManagedChannelImpl channelImpl =
         NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
@@ -57,6 +68,12 @@ public class ConnectorUtils {
     return ClientInterceptors.intercept(channelImpl, interceptor);
   }
 
+  /**
+   * Validates whether a required configuration value exists and is valid.
+   * @param props the map of properties for a sink or source connector.
+   * @param configKey the key used for this config in the properties file.
+   * @return whether a value for this key was given by the user.
+   */
   public static String getAndValidate(Map<String, String> props, String configKey) {
     String configValue = props.get(configKey);
     if (configValue == null || configValue.isEmpty()) {
