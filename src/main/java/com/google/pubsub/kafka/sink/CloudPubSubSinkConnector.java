@@ -80,7 +80,6 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public ConfigDef config() {
-    // Defines Cloud Pub/Sub specific configurations.
     return new ConfigDef()
         .define(
             ConnectorUtils.CPS_PROJECT_CONFIG,

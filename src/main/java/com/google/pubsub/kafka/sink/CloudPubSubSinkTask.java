@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.sink;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
@@ -114,7 +115,7 @@ public class CloudPubSubSinkTask extends SinkTask {
               + ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE
               + record.topic().length(); // Assumes the topic name is in ASCII.
       if (record.key() != null) {
-        // TODO(rramkumar): Need to check the schema of the key because it might not be a string.
+        // TODO(rramkumar): If key is not of type string, toString() will not be right.
         attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, record.key().toString());
         // Maximum number of bytes to encode a character in the key string will be 2 bytes.
         messageSize += ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
@@ -165,7 +166,7 @@ public class CloudPubSubSinkTask extends SinkTask {
       }
     }
     allUnpublishedMessages.clear();
-    // Process results of all the outstanding futures specified by each TopicPartition object.
+    // Process results of all the outstanding futures specified by each TopicPartition.
     for (Map.Entry<TopicPartition, OffsetAndMetadata> partitionOffset :
         partitionOffsets.entrySet()) {
       log.trace("Received flush for partition " + partitionOffset.getKey().toString());
@@ -190,6 +191,11 @@ public class CloudPubSubSinkTask extends SinkTask {
     allOutstandingFutures.clear();
   }
 
+
+  /**
+   * Publish all the messages in a partition and store the Future's for each publish request.
+   */
+  @VisibleForTesting
   private void publishMessagesForPartition(
       String topic, Integer partition, List<PubsubMessage> messages) {
     // Get a map containing all futures per partition for the passed in topic.

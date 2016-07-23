@@ -23,6 +23,8 @@ import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
+import org.apache.kafka.connect.errors.ConnectException;
+
 import java.io.IOException;
 
 /**
@@ -37,7 +39,7 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
     try {
       subscriber = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
     } catch (IOException e) {
-      throw new RuntimeException("Could not create subscriber stub; no pulls can occur.");
+      throw new ConnectException("Could not create subscriber stub; no pulls can occur.");
     }
   }
 

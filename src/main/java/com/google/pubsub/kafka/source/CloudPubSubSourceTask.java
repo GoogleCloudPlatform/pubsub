@@ -47,18 +47,18 @@ import org.slf4j.LoggerFactory;
 public class CloudPubSubSourceTask extends SourceTask {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceTask.class);
-  private static final int NUM_SUBSCRIBERS = 10;
+  private static final int NUM_CPS_SUBSCRIBERS = 10;
 
-  private String keyAttribute;
   private String kafkaTopic;
   private String cpsTopic;
   private String cpsSubscription;
-  private int maxBatchSize;
-  private int partitions;
-  private PartitionScheme partitionScheme;
+  private int cpsMaxBatchSize;
+  private int kafkaPartitions;
+  private String kafkaMessageKeyAttribute;
+  private PartitionScheme kafkaPartitionScheme;
   private CloudPubSubSubscriber subscriber;
-  private Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
   private int currentRoundRobinPartition = 0;
+  private Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
 
   @Override
   public String version() {
@@ -72,17 +72,17 @@ public class CloudPubSubSourceTask extends SourceTask {
             ConnectorUtils.CPS_TOPIC_FORMAT,
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
-    maxBatchSize =
+    cpsMaxBatchSize =
         Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
-    partitions = Integer.parseInt(props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG));
-    subscriber = new CloudPubSubRoundRobinSubscriber(NUM_SUBSCRIBERS);
+    kafkaPartitions = Integer.parseInt(props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG));
     cpsSubscription = props.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG);
     kafkaTopic = props.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG);
-    keyAttribute = props.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
-    partitionScheme =
+    kafkaMessageKeyAttribute = props.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
+    kafkaPartitionScheme =
         PartitionScheme.valueOf(
             props.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
-    log.info("Start connector task for topic " + cpsTopic + " max batch size = " + maxBatchSize);
+    subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);
+    log.info("Start connector task for topic " + cpsTopic + " max batch size = " + cpsMaxBatchSize);
   }
 
   @Override
@@ -92,7 +92,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         PullRequest.newBuilder()
             .setSubscription(cpsSubscription)
             .setReturnImmediately(false)
-            .setMaxMessages(maxBatchSize)
+            .setMaxMessages(cpsMaxBatchSize)
             .build();
     try {
       PullResponse response = subscriber.pull(request).get();
@@ -109,8 +109,8 @@ public class CloudPubSubSourceTask extends SourceTask {
         // Get the message attributes and parse out the relevant ones.
         Map<String, String> messageAttributes = message.getAttributes();
         String key = null;
-        if (messageAttributes.get(keyAttribute) != null) {
-          key = messageAttributes.get(keyAttribute);
+        if (messageAttributes.get(kafkaMessageKeyAttribute) != null) {
+          key = messageAttributes.get(kafkaMessageKeyAttribute);
         }
         ByteString value = message.getData();
         // We don't need to check that the message data is a byte string because we know the
@@ -133,6 +133,10 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
   }
 
+  /**
+   *
+   */
+  @VisibleForTesting
   private void ackMessages() {
     if (ackIds.size() != 0) {
       AcknowledgeRequest request =
@@ -157,13 +161,20 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
   }
 
+  /**
+   *
+   * @param key
+   * @param value
+   * @return
+   */
+  @VisibleForTesting
   private int selectPartition(Object key, Object value) {
-    if (partitionScheme.equals(PartitionScheme.HASH_KEY)) {
-      return key == null ? 0 : key.hashCode() % partitions;
-    } else if (partitionScheme.equals(PartitionScheme.HASH_VALUE)) {
-      return value.hashCode() % partitions;
+    if (kafkaPartitionScheme.equals(PartitionScheme.HASH_KEY)) {
+      return key == null ? 0 : key.hashCode() % kafkaPartitions;
+    } else if (kafkaPartitionScheme.equals(PartitionScheme.HASH_VALUE)) {
+      return value.hashCode() % kafkaPartitions;
     } else {
-      return currentRoundRobinPartition++ % partitions;
+      return currentRoundRobinPartition++ % kafkaPartitions;
     }
   }
 

@@ -15,7 +15,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.GetSubscriptionRequest;
 import com.google.pubsub.v1.SubscriberGrpc;
@@ -29,6 +28,7 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.utils.AppInfoParser;
 import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.apache.kafka.connect.source.SourceConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,32 +38,35 @@ import org.slf4j.LoggerFactory;
  * href="http://kafka.apache.org/">Apache Kafka</a>.
  */
 public class CloudPubSubSourceConnector extends SourceConnector {
-  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
 
-  public static final String KAFKA_PARTITIONS_CONFIG = "kafka.partitions.count";
+  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
+  private static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
+  private static final int DEFAULT_KAFKA_PARTITIONS = 0;
+  private static final PartitionScheme DEFAULT_KAFKA_PARTITION_SCHEME = PartitionScheme.ROUND_ROBIN;
+
+  public static final String KAFKA_PARTITIONS_CONFIG = "kafka.kafkaPartitions.count";
   public static final String KAFKA_PARTITION_SCHEME_CONFIG = "partition.scheme";
   public static final String KAFKA_MESSAGE_KEY_CONFIG = "key.attribute";
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";
   public static final String CPS_SUBSCRIPTION_CONFIG = "subscription";
-  public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
+  public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.cpsMaxBatchSize";
 
-  private static final int DEFAULT_MAX_BATCH_SIZE = 100;
-  private static final int DEFAULT_PARTITIONS = 0;
-  private static final PartitionScheme DEFAULT_PARTITION_SCHEME = PartitionScheme.ROUND_ROBIN;
-
-  private enum PartitionScheme {
+  /**
+   * Defines the accepted values for the {@link #KAFKA_PARTITION_SCHEME_CONFIG}.
+   */
+  public enum PartitionScheme {
     ROUND_ROBIN("round_robin"),
     HASH_KEY("hash_key"),
     HASH_VALUE("hash_value");
 
-    private String stringRepresentation;
+    private String value;
 
-    PartitionScheme(String stringRepresentation) {
-      this.stringRepresentation = stringRepresentation;
+    PartitionScheme(String value) {
+      this.value = value;
     }
 
     public String toString() {
-      return stringRepresentation;
+      return value;
     }
   }
 
@@ -71,10 +74,10 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   private String cpsProject;
   private String cpsTopic;
   private String cpsSubscription;
-  private String keyAttribute;
-  private int maxBatchSize = DEFAULT_MAX_BATCH_SIZE;
-  private int partitions = DEFAULT_PARTITIONS;
-  private PartitionScheme partitionScheme = DEFAULT_PARTITION_SCHEME;
+  private String kafkaMessageKeyAttribute;
+  private int cpsMaxBatchSize = DEFAULT_CPS_MAX_BATCH_SIZE;
+  private int kafkaPartitions = DEFAULT_KAFKA_PARTITIONS;
+  private PartitionScheme kafkaPartitionScheme = DEFAULT_KAFKA_PARTITION_SCHEME;
 
   @Override
   public String version() {
@@ -87,22 +90,23 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     cpsProject = ConnectorUtils.getAndValidate(props, ConnectorUtils.CPS_PROJECT_CONFIG);
     cpsTopic = ConnectorUtils.getAndValidate(props, ConnectorUtils.CPS_TOPIC_CONFIG);
     cpsSubscription = ConnectorUtils.getAndValidate(props, CPS_SUBSCRIPTION_CONFIG);
-    keyAttribute = props.get(KAFKA_MESSAGE_KEY_CONFIG);
+    kafkaMessageKeyAttribute = props.get(KAFKA_MESSAGE_KEY_CONFIG);
     if (props.get(CPS_MAX_BATCH_SIZE_CONFIG) != null) {
-      maxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE_CONFIG));
+      cpsMaxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE_CONFIG));
     }
     if (props.get(KAFKA_PARTITIONS_CONFIG) != null) {
-      partitions = Integer.parseInt(props.get(KAFKA_PARTITIONS_CONFIG));
+      kafkaPartitions = Integer.parseInt(props.get(KAFKA_PARTITIONS_CONFIG));
     }
     if (props.get(KAFKA_PARTITION_SCHEME_CONFIG) != null) {
       String scheme = props.get(KAFKA_PARTITION_SCHEME_CONFIG);
       if (scheme.equals(PartitionScheme.HASH_KEY.toString())) {
-        partitionScheme = PartitionScheme.HASH_KEY;
+        kafkaPartitionScheme = PartitionScheme.HASH_KEY;
       }
       if (scheme.equals(PartitionScheme.HASH_VALUE.toString())) {
-        partitionScheme = PartitionScheme.HASH_VALUE;
+        kafkaPartitionScheme = PartitionScheme.HASH_VALUE;
       }
     }
+    verifySubscription();
     log.info(
         "Start source connector for project "
             + cpsProject
@@ -110,7 +114,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             + cpsTopic
             + " and subscription "
             + cpsSubscription);
-    verifySubscription();
   }
 
   @Override
@@ -127,11 +130,11 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       config.put(KAFKA_TOPIC_CONFIG, kafkaTopic);
       config.put(ConnectorUtils.CPS_PROJECT_CONFIG, cpsProject);
       config.put(ConnectorUtils.CPS_TOPIC_CONFIG, cpsTopic);
-      config.put(CPS_MAX_BATCH_SIZE_CONFIG, String.valueOf(maxBatchSize));
+      config.put(CPS_MAX_BATCH_SIZE_CONFIG, String.valueOf(cpsMaxBatchSize));
       config.put(CPS_SUBSCRIPTION_CONFIG, cpsSubscription);
-      config.put(KAFKA_MESSAGE_KEY_CONFIG, keyAttribute);
-      config.put(KAFKA_PARTITIONS_CONFIG, String.valueOf(partitions));
-      config.put(KAFKA_PARTITION_SCHEME_CONFIG, partitionScheme.toString());
+      config.put(KAFKA_MESSAGE_KEY_CONFIG, kafkaMessageKeyAttribute);
+      config.put(KAFKA_PARTITIONS_CONFIG, String.valueOf(kafkaPartitions));
+      config.put(KAFKA_PARTITION_SCHEME_CONFIG, kafkaPartitionScheme.toString());
       configs.add(config);
     }
     return configs;
@@ -139,8 +142,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   @Override
   public ConfigDef config() {
-    // Defines Cloud Pub/Sub specific configurations that should be specified in the
-    // properties file for this connector.
     return new ConfigDef()
         .define(
             KAFKA_TOPIC_CONFIG,
@@ -156,7 +157,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             ConnectorUtils.CPS_TOPIC_CONFIG,
             Type.STRING,
             Importance.HIGH,
-            "The topic from which to pull messages")
+            "The topic from which to pull messages.")
         .define(
             CPS_SUBSCRIPTION_CONFIG,
             Type.STRING,
@@ -165,7 +166,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         .define(
             CPS_MAX_BATCH_SIZE_CONFIG,
             Type.INT,
-            Importance.HIGH,
+            Importance.MEDIUM,
             "The minimum number of messages to batch per pull request to Cloud Pub/Sub.")
         .define(
             KAFKA_MESSAGE_KEY_CONFIG,
@@ -176,14 +177,18 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             KAFKA_PARTITIONS_CONFIG,
             Type.INT,
             Importance.MEDIUM,
-            "The number of partitions for the Kafka topic in which messages will be published to.")
+            "The number of kafkaPartitions for the Kafka topic in which messages will be published to.")
         .define(
             KAFKA_PARTITION_SCHEME_CONFIG,
             Type.STRING,
             Importance.MEDIUM,
-            "The scheme for assigning a message to a partition.");
+            "The scheme for assigning a message to a partition in Kafka.");
   }
 
+  /**
+   * Check whether the user provided Cloud Pub/Sub subscription name specified by
+   * {@link #CPS_SUBSCRIPTION_CONFIG} exists or not.
+   */
   private void verifySubscription() {
     try {
       SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
@@ -195,7 +200,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
               .build();
       stub.getSubscription(request).get();
     } catch (Exception e) {
-      throw new RuntimeException("The subscription " + cpsSubscription + " does not exist.");
+      throw new ConnectException("The subscription " + cpsSubscription + " does not exist.");
     }
   }
 
