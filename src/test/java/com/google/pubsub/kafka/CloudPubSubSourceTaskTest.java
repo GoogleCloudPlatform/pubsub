@@ -18,7 +18,13 @@ package com.google.pubsub.kafka;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.Matchers.anyObject;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
@@ -57,8 +63,7 @@ public class CloudPubSubSourceTaskTest {
 
   @Before
   public void setup() {
-    task = spy(new CloudPubSubSourceTask());
-    task.subscriber = mock(CloudPubSubSubscriber.class);
+    task = spy(new CloudPubSubSourceTask(mock(CloudPubSubSubscriber.class, RETURNS_DEEP_STUBS)));
     props = new HashMap<>();
     props.put(ConnectorUtils.CPS_TOPIC_CONFIG, CPS_TOPIC);
     props.put(ConnectorUtils.CPS_PROJECT_CONFIG, CPS_PROJECT);
@@ -77,8 +82,8 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testPollCase1() throws Exception {
     task.start(props);
-    doNothing().when(task).ackMessages();
     PullResponse stubbedPullResponse = PullResponse.newBuilder().build();
+    doNothing().when(task).ackMessages();
     when(task.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     assertEquals(0, task.poll().size());
   }
@@ -121,6 +126,7 @@ public class CloudPubSubSourceTaskTest {
             .setData(messageByteString)
             .putAllAttributes(new HashMap<>())
             .build();
+    task.start(props);
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     doNothing().when(task).ackMessages();
@@ -190,8 +196,8 @@ public class CloudPubSubSourceTaskTest {
   public void testSelectPartitionHashKey() {
     props.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
         CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString());
-    Object value = new Object();
     task.start(props);
+    Object value = new Object();
     int expectedPartition = KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE.hashCode() %
         Integer.parseInt(KAFKA_PARTITIONS);
     assertEquals(expectedPartition, task.selectPartition(KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE, value));
@@ -202,6 +208,7 @@ public class CloudPubSubSourceTaskTest {
   public void testSelectPartitionHashValue() {
     props.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
         CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString());
+    task.start(props);
     Object key = new Object();
     String value = CPS_MESSAGE;
     int expectedPartition = CPS_MESSAGE.hashCode() % Integer.parseInt(KAFKA_PARTITIONS);
@@ -210,6 +217,7 @@ public class CloudPubSubSourceTaskTest {
 
   @Test(expected = InterruptedException.class)
   public void testPollExceptionCase() throws Exception {
+    task.start(props);
     // Could also throw ExecutionException if we wanted to...
     when(task.subscriber.pull(any(PullRequest.class)).get())
         .thenThrow(new InterruptedException());

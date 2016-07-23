@@ -69,6 +69,11 @@ public class CloudPubSubSourceTask extends SourceTask {
     return new CloudPubSubSourceConnector().version();
   }
 
+  @VisibleForTesting
+  public CloudPubSubSourceTask(CloudPubSubSubscriber subscriber) {
+    this.subscriber = subscriber;
+  }
+
   @Override
   public void start(Map<String, String> props) {
     cpsTopic =
@@ -76,16 +81,23 @@ public class CloudPubSubSourceTask extends SourceTask {
             ConnectorUtils.CPS_TOPIC_FORMAT,
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
+    cpsSubscription =
+        String.format(
+            ConnectorUtils.CPS_SUBSCRIPTION_FORMAT,
+            props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
+            props.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG));
     cpsMaxBatchSize =
         Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
     kafkaPartitions = Integer.parseInt(props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG));
-    cpsSubscription = props.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG);
     kafkaTopic = props.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG);
     kafkaMessageKeyAttribute = props.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
     kafkaPartitionScheme =
-        PartitionScheme.valueOf(
+        PartitionScheme.getEnum(
             props.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
-    subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);
+    if (subscriber == null) {
+      // Only do this if we did not set through the constructor.
+      subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);
+    }
     log.info("Start connector task for topic " + cpsTopic + " max batch size = " + cpsMaxBatchSize);
   }
 

@@ -46,6 +46,14 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final int NUM_CPS_PUBLISHERS = 10;
   private static final int CPS_MAX_REQUEST_SIZE = (10 << 20) - 1024; // Leave room for overhead.
   private static final int CPS_MAX_MESSAGES_PER_REQUEST = 1000;
+  private static final String CPS_MESSAGE_KEY_ATTRIBUTE = "key";
+  private static final int CPS_MESSAGE_KEY_ATTRIBUTE_SIZE = CPS_MESSAGE_KEY_ATTRIBUTE.length();
+  private static final String CPS_MESSAGE_PARTITION_ATTRIBUTE = "partition";
+  private static final int CPS_MESSAGE_PARTITION_ATTRIBUTE_SIZE =
+      CPS_MESSAGE_PARTITION_ATTRIBUTE.length();
+  private static final String CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
+  private static final int CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE =
+      CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE.length();
 
   // Maps a topic to another map which contains the outstanding futures per partition
   private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
@@ -105,20 +113,20 @@ public class CloudPubSubSinkTask extends SinkTask {
       log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
       ByteString value = (ByteString) record.value();
-      attributes.put(ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
-      attributes.put(ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE, record.topic());
+      attributes.put(CPS_MESSAGE_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
+      attributes.put(CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE, record.topic());
       // Get the total number of bytes in this message.
       int messageSize =
           value.size()
-              + ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE_SIZE
+              + CPS_MESSAGE_PARTITION_ATTRIBUTE_SIZE
               + record.kafkaPartition().toString().length()
-              + ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE
+              + CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE
               + record.topic().length(); // Assumes the topic name is in ASCII.
       if (record.key() != null) {
         // TODO(rramkumar): If key is not of type string, toString() will not be right.
-        attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, record.key().toString());
+        attributes.put(CPS_MESSAGE_KEY_ATTRIBUTE, record.key().toString());
         // Maximum number of bytes to encode a character in the key string will be 2 bytes.
-        messageSize += ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
+        messageSize += CPS_MESSAGE_KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
       }
       PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
       // Get a map containing all the unpublished messages per partition for this topic.

@@ -32,7 +32,7 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 
 /**
- * Utility methods and constants.
+ * Utility methods and constants that are repeated across one or more classes.
  */
 public class ConnectorUtils {
 
@@ -41,16 +41,8 @@ public class ConnectorUtils {
       Arrays.asList("https://www.googleapis.com/auth/pubsub");
 
   public static final String SCHEMA_NAME = ByteString.class.getName();
-  public static final String CPS_TOPIC_FORMAT = "projects/%s/topics/%s";
   public static final String CPS_SUBSCRIPTION_FORMAT = "projects/%s/subscriptions/%s";
-  public static final String CPS_MESSAGE_KEY_ATTRIBUTE = "key";
-  public static final int CPS_MESSAGE_KEY_ATTRIBUTE_SIZE = CPS_MESSAGE_KEY_ATTRIBUTE.length();
-  public static final String CPS_MESSAGE_PARTITION_ATTRIBUTE = "partition";
-  public static final int CPS_MESSAGE_PARTITION_ATTRIBUTE_SIZE =
-      CPS_MESSAGE_PARTITION_ATTRIBUTE.length();
-  public static final String CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
-  public static final int CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE =
-      CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE.length();
+  public static final String CPS_TOPIC_FORMAT = "projects/%s/topics/%s";
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
 

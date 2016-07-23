@@ -16,9 +16,9 @@
 package com.google.pubsub.kafka;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.*;
 
+import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
 import com.google.pubsub.kafka.source.CloudPubSubSourceTask;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -39,11 +39,6 @@ public class CloudPubSubSourceConnectorTest {
 
   @Test(expected = ConnectException.class)
   public void testStartExceptionCase1() {
-    doThrow(new ConnectException("error")).when(connector).verifySubscription();
-  }
-
-  @Test(expected = ConnectException.class)
-  public void testStartExceptionCase2() {
     connector.start(new HashMap<>());
   }
 

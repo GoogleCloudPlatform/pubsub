@@ -69,6 +69,18 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     public String toString() {
       return value;
     }
+
+    public static PartitionScheme getEnum(String value) {
+      if (value.equals("round_robin")) {
+        return PartitionScheme.ROUND_ROBIN;
+      } else if (value.equals("hash_key")) {
+        return PartitionScheme.HASH_KEY;
+      } else if (value.equals("hash_value")) {
+        return PartitionScheme.HASH_VALUE;
+      } else {
+        return null;
+      }
+    }
   }
 
   private String kafkaTopic;
