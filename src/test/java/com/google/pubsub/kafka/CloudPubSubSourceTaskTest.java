@@ -13,9 +13,10 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.kafka.source;
+package com.google.pubsub.kafka;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.mock;
@@ -24,6 +25,9 @@ import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
+import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
+import com.google.pubsub.kafka.source.CloudPubSubSourceTask;
+import com.google.pubsub.kafka.source.CloudPubSubSubscriber;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
@@ -45,9 +49,12 @@ public class CloudPubSubSourceTaskTest {
   private static final String CPS_MAX_BATCH_SIZE = "1000";
   private static final String CPS_SUBSCRIPTION = "brown";
   private static final String KAFKA_TOPIC = "fox";
-  private static final String KAFKA_MESSAGE_KEY = "jumped";
-  private static final String CPS_MESSAGE_KEY_ATTRIBUTE_VALUE = "over";
-  private static final String CPS_MESSAGE = "the";
+  private static final String KAFKA_MESSAGE_KEY_ATTRIBUTE = "jumped";
+  private static final String KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE = "over";
+  private static final String KAFKA_PARTITIONS = "3";
+  private static final String CPS_MESSAGE = "lazy";
+  private static final String ACK_ID1 = "ackID1";
+  private static final String ACK_ID2 = "ackID2";
 
   private CloudPubSubSourceTask sourceTask;
   private Map<String, String> taskProps;
@@ -55,68 +62,70 @@ public class CloudPubSubSourceTaskTest {
   @Before
   public void setup() {
     sourceTask = spy(new CloudPubSubSourceTask());
+    sourceTask.subscriber = mock(CloudPubSubSubscriber.class);
     taskProps = new HashMap<>();
     taskProps.put(ConnectorUtils.CPS_TOPIC_CONFIG, CPS_TOPIC);
     taskProps.put(ConnectorUtils.CPS_PROJECT_CONFIG, CPS_PROJECT);
     taskProps.put(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG, CPS_MAX_BATCH_SIZE);
     taskProps.put(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG, CPS_SUBSCRIPTION);
     taskProps.put(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG, KAFKA_TOPIC);
-    taskProps.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG, KAFKA_MESSAGE_KEY);
+    taskProps.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG, KAFKA_MESSAGE_KEY_ATTRIBUTE);
+    taskProps.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
+        CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString())
   }
 
-  @Test
-  public void testStart() {
-    sourceTask.start(taskProps);
-    assertEquals(
-        sourceTask.cpsTopic,
-        String.format(ConnectorUtils.CPS_TOPIC_FORMAT, CPS_PROJECT, CPS_TOPIC));
-    assertEquals(sourceTask.maxBatchSize, Integer.parseInt(CPS_MAX_BATCH_SIZE));
-    assertEquals(sourceTask.cpsSubscription, CPS_SUBSCRIPTION);
-    assertEquals(sourceTask.kafkaTopic, KAFKA_TOPIC);
-    assertEquals(sourceTask.keyAttribute, KAFKA_MESSAGE_KEY);
-  }
-
-  /** Tests when no messages are received from the CPS PullResponse. */
+  /**
+   * Tests when no messages are received from the Cloud Pub/Sub PullResponse.
+   */
   @Test
   public void testPollCase1() throws Exception {
-    setupSourceTaskManually();
-    PullResponse stubResponse = PullResponse.newBuilder().build();
-    when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubResponse);
+    sourceTask.start(taskProps);
+    doNothing().when(sourceTask).ackMessages();
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().build();
+    when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     assertEquals(0, sourceTask.poll().size());
   }
 
   /**
    * Tests that when a call to ackMessages() fails, that the message is not sent again to Kafka if
-   * the message is received again by Cloud Pub/Sub.
+   * the message is received again by Cloud Pub/Sub. Also tests that ack ids are added properly
+   * if the ack id has not been seen before. Implicitly test that
    */
   @Test
   public void testPollCase2() throws Exception {
-    setupSourceTaskManually();
-    sourceTask.ackIds.add("ackId1");
-    ReceivedMessage rm = ReceivedMessage.newBuilder().setAckId("ackId1").build();
-    PullResponse stubResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubResponse);
+    sourceTask.start(taskProps);
+    sourceTask.ackIds.add(ACK_ID1);
+    // Doing this mimics the situation when sending the acks fails.
+    doNothing().when(sourceTask).ackMessages();
+    // Mimics how Cloud Pub/Sub will resend messages if they were not acked properly.
+    ReceivedMessage rm1 = ReceivedMessage.newBuilder().setAckId(ACK_ID1).build();
+    ReceivedMessage rm2 = ReceivedMessage.newBuilder().setAckId(ACK_ID2).build();
+    PullResponse stubbedPullResponse = PullResponse.newBuilder()
+        .addReceivedMessages(rm1)
+        .addReceivedMessages(rm2)
+        .build();
+    when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = sourceTask.poll();
-    assertEquals(0, result.size());
+    assertEquals(1, result.size());
+    assertTrue(sourceTask.ackIds.contains(ACK_ID2));
+    assertTrue(sourceTask.ackIds.contains(ACK_ID1));
   }
 
   /**
-   * Tests when the message(s) retrieved from CPS does not have an attribute that matches {@link
-   * #KAFKA_MESSAGE_KEY}
+   * Tests when the message(s) retrieved from Cloud Pub/Sub do not have an attribute that matches
+   * {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
    */
   @Test
   public void testPollCase3() throws Exception {
-    setupSourceTaskManually();
-    Map<String, String> messageAttributes = new HashMap<>();
     ByteString messageByteString = ByteString.copyFromUtf8(CPS_MESSAGE);
     PubsubMessage message =
         PubsubMessage.newBuilder()
             .setData(messageByteString)
-            .putAllAttributes(messageAttributes)
+            .putAllAttributes(new HashMap<>())
             .build();
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
-    PullResponse stubResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubResponse);
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = sourceTask.poll();
     assertEquals(1, result.size());
     SourceRecord expected =
@@ -133,23 +142,23 @@ public class CloudPubSubSourceTaskTest {
   }
 
   /**
-   * Tests when the message(s) retrieved from CPS does have an attribute that matches {@link
-   * #KAFKA_MESSAGE_KEY}
+   * Tests when the message(s) retrieved from Cloud Pub/Sub do have an attribute that
+   * matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
    */
   @Test
   public void testPollCase4() throws Exception {
-    setupSourceTaskManually();
-    Map<String, String> messageAttributes = new HashMap<>();
-    messageAttributes.put(KAFKA_MESSAGE_KEY, CPS_MESSAGE_KEY_ATTRIBUTE_VALUE);
+    sourceTask.start(taskProps);
     ByteString messageByteString = ByteString.copyFromUtf8(CPS_MESSAGE);
+    Map<String, String> attributes = new HashMap<>();
+    attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
     PubsubMessage message =
         PubsubMessage.newBuilder()
             .setData(messageByteString)
-            .putAllAttributes(messageAttributes)
+            .putAllAttributes(attributes)
             .build();
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
-    PullResponse stubResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubResponse);
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = sourceTask.poll();
     assertEquals(1, result.size());
     SourceRecord expected =
@@ -159,29 +168,48 @@ public class CloudPubSubSourceTaskTest {
             KAFKA_TOPIC,
             0,
             SchemaBuilder.string().build(),
-            CPS_MESSAGE_KEY_ATTRIBUTE_VALUE,
+            KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
+            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
+            messageByteString);
+    assertEquals(expected, result.get(0));
+  }
+
+  /**
+   * Tests that partitions are properly assigned when the partition scheme matches
+   * is {@link PartitionScheme.ROUND_ROBIN}
+   */
+  @Test
+  public void testPollCase5() throws Exception {
+    sourceTask.start(taskProps);
+    ByteString messageByteString = ByteString.copyFromUtf8(CPS_MESSAGE);
+    PubsubMessage message =
+        PubsubMessage.newBuilder()
+            .setData(messageByteString)
+            .putAllAttributes(new HashMap<>())
+            .build();
+    ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
+    PullResponse stubResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(sourceTask.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubResponse);
+    List<SourceRecord> result = sourceTask.poll();
+    assertEquals(4, result.size());
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            0,
+            SchemaBuilder.string().build(),
+            null,
             SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
             messageByteString);
     assertEquals(expected, result.get(0));
   }
 
   @Test(expected = InterruptedException.class)
-  public void testPollExceptionCase1() throws Exception {
-    setupSourceTaskManually();
-    // Could also throw ExecutionException...
+  public void testPollExceptionCase() throws Exception {
+    // Could also throw ExecutionException if we wanted to...
     when(sourceTask.subscriber.pull(any(PullRequest.class)).get())
         .thenThrow(new InterruptedException());
     sourceTask.poll();
-  }
-
-  /** Performs the setup for the task without calling start(). */
-  private void setupSourceTaskManually() {
-    doNothing().when(sourceTask).ackMessages();
-    sourceTask.cpsTopic = String.format(ConnectorUtils.CPS_TOPIC_FORMAT, CPS_PROJECT, CPS_TOPIC);
-    sourceTask.maxBatchSize = Integer.parseInt(CPS_MAX_BATCH_SIZE);
-    sourceTask.cpsSubscription = CPS_SUBSCRIPTION;
-    sourceTask.subscriber = mock(CloudPubSubSubscriber.class, Mockito.RETURNS_DEEP_STUBS);
-    sourceTask.kafkaTopic = KAFKA_TOPIC;
-    sourceTask.keyAttribute = KAFKA_MESSAGE_KEY;
   }
 }

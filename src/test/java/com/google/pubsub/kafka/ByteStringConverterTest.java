@@ -13,13 +13,16 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.kafka.common;
+package com.google.pubsub.kafka;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;
 
 import com.google.protobuf.ByteString;
 import java.util.Collections;
+
+import com.google.pubsub.kafka.common.ByteStringConverter;
+import com.google.pubsub.kafka.common.ConnectorUtils;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;

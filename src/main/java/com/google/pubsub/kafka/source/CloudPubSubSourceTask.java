@@ -56,9 +56,14 @@ public class CloudPubSubSourceTask extends SourceTask {
   private int kafkaPartitions;
   private String kafkaMessageKeyAttribute;
   private PartitionScheme kafkaPartitionScheme;
-  private CloudPubSubSubscriber subscriber;
-  private int currentRoundRobinPartition = 0;
-  private Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
+  // Keeps track of the current partition to publish to if the partition scheme is round robin.
+  @VisibleForTesting
+  public int currentRoundRobinPartition = 0;
+  // Keep track of all ack ids that have not been sent correctly acked yet.
+  @VisibleForTesting
+  public Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
+  @VisibleForTesting
+  public CloudPubSubSubscriber subscriber;
 
   @Override
   public String version() {
@@ -96,7 +101,6 @@ public class CloudPubSubSourceTask extends SourceTask {
             .build();
     try {
       PullResponse response = subscriber.pull(request).get();
-      // Stores ackIds for all received messages.
       List<SourceRecord> sourceRecords = new ArrayList<>();
       for (ReceivedMessage rm : response.getReceivedMessagesList()) {
         PubsubMessage message = rm.getMessage();
@@ -106,7 +110,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         if (ackIds.contains(ackId)) {
           continue;
         }
-        // Get the message attributes and parse out the relevant ones.
+        ackIds.add(ackId);
         Map<String, String> messageAttributes = message.getAttributes();
         String key = null;
         if (messageAttributes.get(kafkaMessageKeyAttribute) != null) {
@@ -134,10 +138,12 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   /**
-   *
+   * Attempt to ack all ids in {@link #ackIds}. If the ack request was unsuccessful then
+   * do not clear the list of acks. Instead, wait for the next call to this function to
+   * ack those ids.
    */
   @VisibleForTesting
-  private void ackMessages() {
+  public void ackMessages() {
     if (ackIds.size() != 0) {
       AcknowledgeRequest request =
           AcknowledgeRequest.newBuilder()
@@ -162,12 +168,8 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   /**
-   *
-   * @param key
-   * @param value
-   * @return
+   * Return the partition a message should be published to based {@link #kafkaPartitionScheme}.
    */
-  @VisibleForTesting
   private int selectPartition(Object key, Object value) {
     if (kafkaPartitionScheme.equals(PartitionScheme.HASH_KEY)) {
       return key == null ? 0 : key.hashCode() % kafkaPartitions;

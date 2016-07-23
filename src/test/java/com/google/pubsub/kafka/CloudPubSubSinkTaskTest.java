@@ -13,7 +13,9 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.kafka.sink;
+package com.google.pubsub.kafka;
+
+import com.google.pubsub.kafka.sink.CloudPubSubSinkTask;
 
 /** Tests for {@link CloudPubSubSinkTask}. */
 public class CloudPubSubSinkTaskTest {}
