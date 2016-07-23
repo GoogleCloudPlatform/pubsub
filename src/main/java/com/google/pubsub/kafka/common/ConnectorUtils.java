@@ -55,8 +55,7 @@ public class ConnectorUtils {
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
 
   /**
-   * @return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's.
-   * @throws IOException
+   * Return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's.
    */
   public static Channel getChannel() throws IOException {
     ManagedChannelImpl channelImpl =
@@ -70,9 +69,6 @@ public class ConnectorUtils {
 
   /**
    * Validates whether a required configuration value exists and is valid.
-   * @param props the map of properties for a sink or source connector.
-   * @param configKey the key used for this config in the properties file.
-   * @return whether a value for this key was given by the user.
    */
   public static String getAndValidate(Map<String, String> props, String configKey) {
     String configValue = props.get(configKey);
