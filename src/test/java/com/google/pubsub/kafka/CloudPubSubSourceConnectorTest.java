@@ -16,32 +16,39 @@
 package com.google.pubsub.kafka;
 
 import static org.junit.Assert.assertEquals;
-import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
-import com.google.pubsub.kafka.sink.CloudPubSubSinkTask;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
+
 import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
 import com.google.pubsub.kafka.source.CloudPubSubSourceTask;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
 
-/** Tests for {@link CloudPubSubSourceConnector} and {@link CloudPubSubSinkConnector}. */
-public class CloudPubSubConnectorTest {
+import java.util.HashMap;
 
-  private CloudPubSubSourceConnector sourceConnector;
-  private CloudPubSubSinkConnector sinkConnector;
+/** Tests for {@link CloudPubSubSourceConnector}. */
+public class CloudPubSubSourceConnectorTest {
+
+  private CloudPubSubSourceConnector connector;
 
   @Before
   public void setup() {
-    sourceConnector = new CloudPubSubSourceConnector();
-    sinkConnector = new CloudPubSubSinkConnector();
+    connector = spy(new CloudPubSubSourceConnector());
+  }
+
+  @Test(expected = ConnectException.class)
+  public void testStartExceptionCase1() {
+    doThrow(new ConnectException("error")).when(connector).verifySubscription();
+  }
+
+  @Test(expected = ConnectException.class)
+  public void testStartExceptionCase2() {
+    connector.start(new HashMap<>());
   }
 
   @Test
   public void testSourceConnectorTaskClass() {
-    assertEquals(CloudPubSubSourceTask.class, sourceConnector.taskClass());
-  }
-
-  @Test
-  public void testSinkConnectorTaskClass() {
-    assertEquals(CloudPubSubSinkTask.class, sinkConnector.taskClass());
+    assertEquals(CloudPubSubSourceTask.class, connector.taskClass());
   }
 }

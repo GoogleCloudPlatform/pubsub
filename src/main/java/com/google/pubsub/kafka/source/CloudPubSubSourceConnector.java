@@ -190,7 +190,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
    * Check whether the user provided Cloud Pub/Sub subscription name specified by
    * {@link #CPS_SUBSCRIPTION_CONFIG} exists or not.
    */
-  private void verifySubscription() {
+  @VisibleForTesting
+  public void verifySubscription() {
     try {
       SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
       GetSubscriptionRequest request =

@@ -57,8 +57,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   private String kafkaMessageKeyAttribute;
   private PartitionScheme kafkaPartitionScheme;
   // Keeps track of the current partition to publish to if the partition scheme is round robin.
-  @VisibleForTesting
-  public int currentRoundRobinPartition = 0;
+  private int currentRoundRobinPartition = 0;
   // Keep track of all ack ids that have not been sent correctly acked yet.
   @VisibleForTesting
   public Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
@@ -170,7 +169,8 @@ public class CloudPubSubSourceTask extends SourceTask {
   /**
    * Return the partition a message should be published to based {@link #kafkaPartitionScheme}.
    */
-  private int selectPartition(Object key, Object value) {
+  @VisibleForTesting
+  public int selectPartition(Object key, Object value) {
     if (kafkaPartitionScheme.equals(PartitionScheme.HASH_KEY)) {
       return key == null ? 0 : key.hashCode() % kafkaPartitions;
     } else if (kafkaPartitionScheme.equals(PartitionScheme.HASH_VALUE)) {
