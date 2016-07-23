@@ -193,8 +193,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     allOutstandingFutures.clear();
   }
 
-  @VisibleForTesting
-  protected void publishMessagesForPartition(
+  private void publishMessagesForPartition(
       String topic, Integer partition, List<PubsubMessage> messages) {
     // Get a map containing all futures per partition for the passed in topic.
     Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =

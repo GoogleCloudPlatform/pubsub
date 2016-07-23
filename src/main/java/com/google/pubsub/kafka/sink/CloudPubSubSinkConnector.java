@@ -39,11 +39,11 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   public static final String CPS_MIN_BATCH_SIZE_CONFIG = "cps.minBatchSize";
 
-  protected static final int DEFAULT_MIN_BATCH_SIZE = 100;
+  private static final int DEFAULT_MIN_BATCH_SIZE = 100;
 
-  protected String cpsProject;
-  protected String cpsTopic;
-  protected int minBatchSize = DEFAULT_MIN_BATCH_SIZE;
+  private String cpsProject;
+  private String cpsTopic;
+  private int minBatchSize = DEFAULT_MIN_BATCH_SIZE;
 
   @Override
   public String version() {
@@ -52,9 +52,8 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public void start(Map<String, String> props) {
-    cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
-    cpsTopic = props.get(ConnectorUtils.CPS_TOPIC_CONFIG);
-    ConnectorUtils.validateConfigs(new String[] {cpsProject, cpsTopic});
+    cpsProject = ConnectorUtils.getAndValidate(props, ConnectorUtils.CPS_PROJECT_CONFIG);
+    cpsTopic = ConnectorUtils.getAndValidate(props, ConnectorUtils.CPS_TOPIC_CONFIG);
     if (props.get(CPS_MIN_BATCH_SIZE_CONFIG) != null) {
       minBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE_CONFIG));
     }

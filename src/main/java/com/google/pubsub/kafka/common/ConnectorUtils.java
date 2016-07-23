@@ -57,11 +57,11 @@ public class ConnectorUtils {
     return ClientInterceptors.intercept(channelImpl, interceptor);
   }
 
-  public static void validateConfigs(String... configs) {
-    for (String config : configs) {
-      if (config == null || config.isEmpty()) {
-        throw new ConnectException("Missing a required config. Consult README for list...");
-      }
+  public static String getAndValidate(Map<String, String> props, String configKey) {
+    String configValue = props.get(configKey);
+    if (configValue == null || configValue.isEmpty()) {
+      throw new ConnectException("Missing the required config: " + configKey);
     }
+    return configValue;
   }
 }

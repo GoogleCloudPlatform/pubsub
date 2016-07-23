@@ -49,16 +49,16 @@ public class CloudPubSubSourceTask extends SourceTask {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceTask.class);
   private static final int NUM_SUBSCRIBERS = 10;
 
-  protected String keyAttribute;
-  protected String kafkaTopic;
-  protected String cpsTopic;
-  protected String cpsSubscription;
-  protected int maxBatchSize;
-  protected int partitions;
-  protected PartitionScheme partitionScheme;
-  protected CloudPubSubSubscriber subscriber;
-  protected Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
-  protected int currentRoundRobinPartition = 0;
+  private String keyAttribute;
+  private String kafkaTopic;
+  private String cpsTopic;
+  private String cpsSubscription;
+  private int maxBatchSize;
+  private int partitions;
+  private PartitionScheme partitionScheme;
+  private CloudPubSubSubscriber subscriber;
+  private Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
+  private int currentRoundRobinPartition = 0;
 
   @Override
   public String version() {
@@ -133,8 +133,7 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
   }
 
-  @VisibleForTesting
-  protected void ackMessages() {
+  private void ackMessages() {
     if (ackIds.size() != 0) {
       AcknowledgeRequest request =
           AcknowledgeRequest.newBuilder()
@@ -158,8 +157,7 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
   }
 
-  @VisibleForTesting
-  protected int selectPartition(Object key, Object value) {
+  private int selectPartition(Object key, Object value) {
     if (partitionScheme.equals(PartitionScheme.HASH_KEY)) {
       return key == null ? 0 : key.hashCode() % partitions;
     } else if (partitionScheme.equals(PartitionScheme.HASH_VALUE)) {
