@@ -33,25 +33,25 @@ The resulting jar is at target/cps-kafka-connector.jar.
 
 ### Pre-Running Steps
 
-1.  Depending on where you run the connector, different steps will have to be
-    taken. If you will be running the connector on Google Cloud Platform, then
-    go to step 3. Otherwise go to step 2.
+1.  Regardless of whether you are running on Google Cloud Platform or not, you
+    need to create a project and create service key that allows you access to
+    the Cloud Pub/Sub API's and default quotas.
 
 2.  Create project on Google Cloud Platform. By default, this project will have
     multiple service accounts associated with it (see "IAM & Admin" within GCP
-    console). Find the service account named "Compute Engine default service
-    account". You should be able to create a private JSON key associated with
-    this account. This key file needs to be placed on the machine running the
-    connector. An environment variable named GOOGLE_APPLICATION_CREDENTIALS
-    should point to this file. (Tip: export this environment variable as part of
-    your shell startup file).
+    console). Within this section, find the tab for "Service Accounts". Create a
+    new service account and make sure to select "Furnish a new private key".
+    Doing this will create the service account and download a private key file
+    to your local machine.
+
+3.  Go to the "IAM" tab, find the service account you just created and click on
+    the dropdown menu named "Role(s)". Under the "Pub/Sub" submenu, select
+    "Pub/Sub Admin". Finally, the key file that was downloaded to your machine
+    needs to be placed on the machine running the framework. An environment
+    variable named GOOGLE_APPLICATION_CREDENTIALS must point to this file. (Tip:
+    export this environment variable as part of your shell startup file).
 
     `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key/file`
-
-3.  You need to ensure that the GCP VM running the connector has appropriate API
-    scopes. Specifically, your VM needs to be able to access the Cloud Pub/Sub
-    API's. This can be provisioned when going through the creation process for
-    the VM.
 
 ### Running a Connector
 
