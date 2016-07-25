@@ -99,10 +99,10 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   @Override
   public void start(Map<String, String> props) {
-    kafkaTopic = ConnectorUtils.getAndValidate(props, KAFKA_TOPIC_CONFIG);
-    cpsProject = ConnectorUtils.getAndValidate(props, ConnectorUtils.CPS_PROJECT_CONFIG);
-    cpsTopic = ConnectorUtils.getAndValidate(props, ConnectorUtils.CPS_TOPIC_CONFIG);
-    cpsSubscription = ConnectorUtils.getAndValidate(props, CPS_SUBSCRIPTION_CONFIG);
+    kafkaTopic = ConnectorUtils.validateConfig(props, KAFKA_TOPIC_CONFIG);
+    cpsProject = ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_PROJECT_CONFIG);
+    cpsTopic = ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_TOPIC_CONFIG);
+    cpsSubscription = ConnectorUtils.validateConfig(props, CPS_SUBSCRIPTION_CONFIG);
     kafkaMessageKeyAttribute = props.get(KAFKA_MESSAGE_KEY_CONFIG);
     if (props.get(CPS_MAX_BATCH_SIZE_CONFIG) != null) {
       cpsMaxBatchSize = Integer.parseInt(props.get(CPS_MAX_BATCH_SIZE_CONFIG));

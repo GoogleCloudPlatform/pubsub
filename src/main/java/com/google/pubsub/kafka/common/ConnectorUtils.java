@@ -62,7 +62,7 @@ public class ConnectorUtils {
   /**
    * Validates whether a required configuration value exists and is valid.
    */
-  public static String getAndValidate(Map<String, String> props, String configKey) {
+  public static String validateConfig(Map<String, String> props, String configKey) {
     String configValue = props.get(configKey);
     if (configValue == null || configValue.isEmpty()) {
       throw new ConnectException("Missing the required config: " + configKey);

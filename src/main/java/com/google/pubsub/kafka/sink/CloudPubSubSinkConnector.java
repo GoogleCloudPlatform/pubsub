@@ -26,6 +26,7 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.utils.AppInfoParser;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
+import org.apache.log4j.PropertyConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -51,8 +52,8 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public void start(Map<String, String> props) {
-    cpsProject = ConnectorUtils.getAndValidate(props, ConnectorUtils.CPS_PROJECT_CONFIG);
-    cpsTopic = ConnectorUtils.getAndValidate(props, ConnectorUtils.CPS_TOPIC_CONFIG);
+    cpsProject = ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_PROJECT_CONFIG);
+    cpsTopic = ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_TOPIC_CONFIG);
     if (props.get(CPS_MIN_BATCH_SIZE_CONFIG) != null) {
       cpsMinBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE_CONFIG));
     }
