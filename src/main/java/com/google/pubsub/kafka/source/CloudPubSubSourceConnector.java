@@ -190,7 +190,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             KAFKA_PARTITIONS_CONFIG,
             Type.INT,
             Importance.MEDIUM,
-            "The number of kafkaPartitions for the Kafka topic in which messages will be published to.")
+            "The number of Kafka partitions for the Kafka topic in which messages will be " +
+                "published to.")
         .define(
             KAFKA_PARTITION_SCHEME_CONFIG,
             Type.STRING,
