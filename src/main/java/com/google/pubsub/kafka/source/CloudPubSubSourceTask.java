@@ -48,21 +48,21 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceTask.class);
   private static final int NUM_CPS_SUBSCRIBERS = 10;
+  private static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
+  private static final int DEFAULT_KAFKA_PARTITIONS = 0;
+  private static final PartitionScheme DEFAULT_KAFKA_PARTITION_SCHEME = PartitionScheme.ROUND_ROBIN;
 
   private String kafkaTopic;
-  private String cpsTopic;
   private String cpsSubscription;
-  private int cpsMaxBatchSize;
-  private int kafkaPartitions;
   private String kafkaMessageKeyAttribute;
-  private PartitionScheme kafkaPartitionScheme;
+  private int kafkaPartitions = DEFAULT_KAFKA_PARTITIONS;
+  private PartitionScheme kafkaPartitionScheme = DEFAULT_KAFKA_PARTITION_SCHEME;
+  private int cpsMaxBatchSize = DEFAULT_CPS_MAX_BATCH_SIZE;
   // Keeps track of the current partition to publish to if the partition scheme is round robin.
   private int currentRoundRobinPartition = 0;
   // Keep track of all ack ids that have not been sent correctly acked yet.
-  @VisibleForTesting
-  public Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
-  @VisibleForTesting
-  public CloudPubSubSubscriber subscriber;
+  private Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
+  private CloudPubSubSubscriber subscriber;
 
   @Override
   public String version() {
@@ -76,29 +76,32 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   @Override
   public void start(Map<String, String> props) {
-    cpsTopic =
-        String.format(
-            ConnectorUtils.CPS_TOPIC_FORMAT,
-            props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
-            props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     cpsSubscription =
         String.format(
             ConnectorUtils.CPS_SUBSCRIPTION_FORMAT,
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG));
-    cpsMaxBatchSize =
-        Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
-    kafkaPartitions = Integer.parseInt(props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG));
-    kafkaTopic = props.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG);
-    kafkaMessageKeyAttribute = props.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
-    kafkaPartitionScheme =
-        PartitionScheme.getEnum(
-            props.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
+    kafkaTopic = ConnectorUtils.validateConfig(
+        props, CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG);
+    kafkaMessageKeyAttribute = ConnectorUtils.validateConfig(
+        props, CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
+    if (props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG) != null) {
+      cpsMaxBatchSize = Integer.parseInt(
+          props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
+    }
+    if (props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG) != null) {
+      kafkaPartitions = Integer.parseInt(
+          props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG));
+    }
+    if (props.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG) != null) {
+      String scheme = props.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG);
+      kafkaPartitionScheme = PartitionScheme.getEnum(scheme);
+    }
     if (subscriber == null) {
       // Only do this if we did not set through the constructor.
       subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);
     }
-    log.info("Start connector task for topic " + cpsTopic + " max batch size = " + cpsMaxBatchSize);
+    log.info("Start CloudPubSubSourceTask");
   }
 
   @Override
@@ -153,8 +156,7 @@ public class CloudPubSubSourceTask extends SourceTask {
    * do not clear the list of acks. Instead, wait for the next call to this function to
    * ack those ids.
    */
-  @VisibleForTesting
-  public void ackMessages() {
+  private void ackMessages() {
     if (ackIds.size() != 0) {
       AcknowledgeRequest request =
           AcknowledgeRequest.newBuilder()
@@ -181,8 +183,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   /**
    * Return the partition a message should be published to based {@link #kafkaPartitionScheme}.
    */
-  @VisibleForTesting
-  public int selectPartition(Object key, Object value) {
+  private int selectPartition(Object key, Object value) {
     if (kafkaPartitionScheme.equals(PartitionScheme.HASH_KEY)) {
       return key == null ? 0 : key.hashCode() % kafkaPartitions;
     } else if (kafkaPartitionScheme.equals(PartitionScheme.HASH_VALUE)) {
@@ -194,4 +195,9 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   @Override
   public void stop() {}
+
+  @VisibleForTesting
+  public CloudPubSubSubscriber getSubscriber() {
+    return subscriber;
+  }
 }

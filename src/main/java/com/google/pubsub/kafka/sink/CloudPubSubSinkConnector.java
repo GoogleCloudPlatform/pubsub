@@ -37,13 +37,10 @@ import org.slf4j.LoggerFactory;
 public class CloudPubSubSinkConnector extends SinkConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkConnector.class);
-  private static final int DEFAULT_CPS_MIN_BATCH_SIZE = 100;
 
   public static final String CPS_MIN_BATCH_SIZE_CONFIG = "cps.cpsMinBatchSize";
 
-  private String cpsProject;
-  private String cpsTopic;
-  private int cpsMinBatchSize = DEFAULT_CPS_MIN_BATCH_SIZE;
+  private Map<String, String> props;
 
   @Override
   public String version() {
@@ -52,12 +49,8 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public void start(Map<String, String> props) {
-    cpsProject = ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_PROJECT_CONFIG);
-    cpsTopic = ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_TOPIC_CONFIG);
-    if (props.get(CPS_MIN_BATCH_SIZE_CONFIG) != null) {
-      cpsMinBatchSize = Integer.parseInt(props.get(CPS_MIN_BATCH_SIZE_CONFIG));
-    }
-    log.info("Start sink connector for project " + cpsProject + " and topic " + cpsTopic);
+    this.props = props;
+    log.info("Started the CloudPubSubSinkConnector.");
   }
 
   @Override
@@ -67,13 +60,10 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public List<Map<String, String>> taskConfigs(int maxTasks) {
-    // Each task will get the exact same configuration.
+    // Each task will get the exact same configuration. Delegate all config validation to the task.
     ArrayList<Map<String, String>> configs = new ArrayList<>();
     for (int i = 0; i < maxTasks; i++) {
-      Map<String, String> config = new HashMap<>();
-      config.put(ConnectorUtils.CPS_PROJECT_CONFIG, cpsProject);
-      config.put(ConnectorUtils.CPS_TOPIC_CONFIG, cpsTopic);
-      config.put(CPS_MIN_BATCH_SIZE_CONFIG, String.valueOf(cpsMinBatchSize));
+      Map<String, String> config = new HashMap<>(props);
       configs.add(config);
     }
     return configs;

@@ -54,6 +54,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final String CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
   private static final int CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE =
       CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE.length();
+  private static final int DEFAULT_CPS_MIN_BATCH_SIZE = 100;
 
   // Maps a topic to another map which contains the outstanding futures per partition
   private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
@@ -62,7 +63,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages =
       new HashMap<>();
   private String cpsTopic;
-  private int minBatchSize;
+  private int minBatchSize = DEFAULT_CPS_MIN_BATCH_SIZE;
   private CloudPubSubPublisher publisher;
 
   /**
@@ -88,15 +89,19 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   @Override
   public void start(Map<String, String> props) {
+    ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_PROJECT_CONFIG);
+    ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_TOPIC_CONFIG);
     cpsTopic =
         String.format(
             ConnectorUtils.CPS_TOPIC_FORMAT,
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
-    minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
-    log.info(
-        "Start sink connector task for topic " + cpsTopic + " min batch size = " + minBatchSize);
+    if (props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG) != null) {
+      minBatchSize = Integer.parseInt(
+          props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
+    }
     publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
+    log.info("Start CloudPubSubSinkTask");
   }
 
   @Override
@@ -104,8 +109,6 @@ public class CloudPubSubSinkTask extends SinkTask {
     log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
     PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
-      // TODO(rramkumar) : Do we need this check since ByteStringConverter does this for us?
-      // Verify that the schema of the data coming is of type ByteString.
       if (record.valueSchema().type() != Schema.Type.BYTES
           || !record.valueSchema().name().equals(ConnectorUtils.SCHEMA_NAME)) {
         throw new DataException("Unexpected record of type " + record.valueSchema());
@@ -203,7 +206,6 @@ public class CloudPubSubSinkTask extends SinkTask {
   /**
    * Publish all the messages in a partition and store the Future's for each publish request.
    */
-  @VisibleForTesting
   private void publishMessagesForPartition(
       String topic, Integer partition, List<PubsubMessage> messages) {
     // Get a map containing all futures per partition for the passed in topic.

@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.kafka;
+package com.google.pubsub.kafka.source;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
@@ -26,11 +26,15 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
+import com.google.protobuf.Empty;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
 import com.google.pubsub.kafka.source.CloudPubSubSourceTask;
 import com.google.pubsub.kafka.source.CloudPubSubSubscriber;
+import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
@@ -38,6 +42,11 @@ import com.google.pubsub.v1.ReceivedMessage;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.Before;
@@ -80,11 +89,12 @@ public class CloudPubSubSourceTaskTest {
    * Tests when no messages are received from the Cloud Pub/Sub PullResponse.
    */
   @Test
-  public void testPollCase1() throws Exception {
+  public void testPollCaseWithNoMessages() throws Exception {
     task.start(props);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().build();
-    doNothing().when(task).ackMessages();
-    when(task.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
+    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
     assertEquals(0, task.poll().size());
   }
 
@@ -94,24 +104,26 @@ public class CloudPubSubSourceTaskTest {
    * if the ack id has not been seen before.
    */
   @Test
-  public void testPollCase2() throws Exception {
-    props.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
-        CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString());
+  public void testPollWithDuplicateReceivedMessages() throws Exception {
     task.start(props);
-    task.ackIds.add(ACK_ID1);
     ReceivedMessage rm1 = ReceivedMessage.newBuilder().setAckId(ACK_ID1).build();
-    ReceivedMessage rm2 = ReceivedMessage.newBuilder().setAckId(ACK_ID2).build();
     PullResponse stubbedPullResponse = PullResponse.newBuilder()
+        .addReceivedMessages(rm1)
+        .build();
+    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    ListenableFuture<Empty> failedFuture = Futures.immediateFailedFuture(new Throwable());
+    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(failedFuture);
+    List<SourceRecord> result = task.poll();
+    assertEquals(1, result.size());
+    ReceivedMessage rm2 = ReceivedMessage.newBuilder().setAckId(ACK_ID2).build();
+    stubbedPullResponse = PullResponse.newBuilder()
         .addReceivedMessages(rm1)
         .addReceivedMessages(rm2)
         .build();
-    doNothing().when(task).ackMessages();
-    when(task.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    doReturn(0).when(task).selectPartition(anyObject(), anyObject());
-    List<SourceRecord> result = task.poll();
+    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
+    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
     assertEquals(1, result.size());
-    assertTrue(task.ackIds.contains(ACK_ID2));
-    assertTrue(task.ackIds.contains(ACK_ID1));
   }
 
   /**
@@ -119,7 +131,7 @@ public class CloudPubSubSourceTaskTest {
    * {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
    */
   @Test
-  public void testPollCase3() throws Exception {
+  public void testPollWithNoMessageKeyAttribute() throws Exception {
     ByteString messageByteString = ByteString.copyFromUtf8(CPS_MESSAGE);
     PubsubMessage message =
         PubsubMessage.newBuilder()
@@ -129,9 +141,9 @@ public class CloudPubSubSourceTaskTest {
     task.start(props);
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    doNothing().when(task).ackMessages();
-    when(task.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    doReturn(0).when(task).selectPartition(anyObject(), anyObject());
+    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
+    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
     SourceRecord expected =
@@ -152,7 +164,7 @@ public class CloudPubSubSourceTaskTest {
    * matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
    */
   @Test
-  public void testPollCase4() throws Exception {
+  public void testPollWithMessageKeyAttribute() throws Exception {
     task.start(props);
     ByteString messageByteString = ByteString.copyFromUtf8(CPS_MESSAGE);
     Map<String, String> attributes = new HashMap<>();
@@ -164,9 +176,9 @@ public class CloudPubSubSourceTaskTest {
             .build();
     ReceivedMessage rm = ReceivedMessage.newBuilder().setMessage(message).build();
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    doNothing().when(task).ackMessages();
-    when(task.subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    doReturn(0).when(task).selectPartition(anyObject(), anyObject());
+    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
+    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
     SourceRecord expected =
@@ -182,44 +194,11 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(expected, result.get(0));
   }
 
-  @Test
-  public void testSelectPartitionRoundRobin() {
-    task.start(props);
-    Object key = new Object();
-    Object value = new Object();
-    for (int i = 0; i < Integer.parseInt(KAFKA_PARTITIONS); ++i) {
-      assertEquals(i, task.selectPartition(key, value));
-    }
-  }
-
-  @Test
-  public void testSelectPartitionHashKey() {
-    props.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
-        CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString());
-    task.start(props);
-    Object value = new Object();
-    int expectedPartition = KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE.hashCode() %
-        Integer.parseInt(KAFKA_PARTITIONS);
-    assertEquals(expectedPartition, task.selectPartition(KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE, value));
-    assertEquals(0, task.selectPartition(null, value));
-  }
-
-  @Test
-  public void testSelectPartitionHashValue() {
-    props.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
-        CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString());
-    task.start(props);
-    Object key = new Object();
-    String value = CPS_MESSAGE;
-    int expectedPartition = CPS_MESSAGE.hashCode() % Integer.parseInt(KAFKA_PARTITIONS);
-    assertEquals(expectedPartition, task.selectPartition(key, value));
-  }
-
   @Test(expected = InterruptedException.class)
   public void testPollExceptionCase() throws Exception {
     task.start(props);
     // Could also throw ExecutionException if we wanted to...
-    when(task.subscriber.pull(any(PullRequest.class)).get())
+    when(task.getSubscriber().pull(any(PullRequest.class)).get())
         .thenThrow(new InterruptedException());
     task.poll();
   }

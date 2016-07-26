@@ -46,15 +46,9 @@ public class ByteStringConverter implements Converter {
     if (value == null) {
       return SchemaAndValue.NULL;
     }
-    try {
-      // TODO(rramkumar): Do we need try catch here? When will there ever be a situation when we
-      // cannot convert a byte array to a ByteString?
-      return new SchemaAndValue(
-          SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-          ByteString.copyFrom(value));
-    } catch (Exception e) {
-      throw new DataException("Could not convert value: " + value);
-    }
+    return new SchemaAndValue(
+        SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
+        ByteString.copyFrom(value));
   }
 
   @Override

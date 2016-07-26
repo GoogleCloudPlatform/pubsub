@@ -60,7 +60,7 @@ public class ConnectorUtils {
   }
 
   /**
-   * Validates whether a required configuration value exists and is valid.
+   * Validates whether a required configuration value exists and is valid. Returns the value.
    */
   public static String validateConfig(Map<String, String> props, String configKey) {
     String configValue = props.get(configKey);

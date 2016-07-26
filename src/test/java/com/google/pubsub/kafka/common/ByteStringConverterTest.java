@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.kafka;
+package com.google.pubsub.kafka.common;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNull;

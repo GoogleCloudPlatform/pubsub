@@ -39,7 +39,7 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
     try {
       subscriber = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
     } catch (IOException e) {
-      throw new ConnectException("Could not create subscriber stub; no pulls can occur.");
+      throw new RuntimeException("Could not create subscriber stub; no pulls can occur.");
     }
   }
 
