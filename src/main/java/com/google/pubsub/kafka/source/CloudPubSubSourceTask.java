@@ -101,7 +101,7 @@ public class CloudPubSubSourceTask extends SourceTask {
       // Only do this if we did not set through the constructor.
       subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);
     }
-    log.info("Start CloudPubSubSourceTask");
+    log.info("Started a CloudPubSubSourceTask.");
   }
 
   @Override
@@ -117,6 +117,7 @@ public class CloudPubSubSourceTask extends SourceTask {
       PullResponse response = subscriber.pull(request).get();
       List<SourceRecord> sourceRecords = new ArrayList<>();
       for (ReceivedMessage rm : response.getReceivedMessagesList()) {
+        log.info("got here");
         PubsubMessage message = rm.getMessage();
         String ackId = rm.getAckId();
         // If we are receiving this message a second (or more) times because the ack for it failed
@@ -145,6 +146,7 @@ public class CloudPubSubSourceTask extends SourceTask {
                 value);
         sourceRecords.add(record);
       }
+      log.info(sourceRecords.size() + "");
       return sourceRecords;
     } catch (Exception e) {
       throw new InterruptedException(e.getMessage());

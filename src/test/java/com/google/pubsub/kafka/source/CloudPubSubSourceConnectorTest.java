@@ -50,6 +50,9 @@ public class CloudPubSubSourceConnectorTest {
     props.put(ConnectorUtils.CPS_PROJECT_CONFIG, CPS_PROJECT);
   }
 
+  /**
+   * Test that when the subscription does not exist, an exception is thrown.
+   */
   @Test(expected = ConnectException.class)
   public void testStartWhenSubscriptionNonexistant() {
     doThrow(new ConnectException("")).when(connector).verifySubscription(anyString(), anyString());
