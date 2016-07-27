@@ -168,7 +168,7 @@ public class CloudPubSubSourceTask extends SourceTask {
           new FutureCallback<Empty>() {
             @Override
             public void onSuccess(Empty result) {
-              log.info("Successfuly acked a set of messages.");
+              log.trace("Successfuly acked a set of messages.");
               ackIds.clear();
             }
 
