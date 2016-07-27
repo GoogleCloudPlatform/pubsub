@@ -13,7 +13,7 @@ public class ConnectorUtilsTests {
 
   private static final String TEST_KEY1 = "hello";
   private static final String TEST_KEY2 = "big";
-  private static final String TEST_KEY3 = "fat";
+  private static final String TEST_KEY3 = "nice";
   private static final String TEST_VALUE = "world";
   private Map<String, String> props;
 

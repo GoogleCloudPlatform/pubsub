@@ -42,7 +42,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
 
-  public static final String KAFKA_PARTITIONS_CONFIG = "kafka.partitions.count";
+  public static final String KAFKA_PARTITIONS_CONFIG = "kafka.partition.count";
   public static final String KAFKA_PARTITION_SCHEME_CONFIG = "kafka.partition.scheme";
   public static final String KAFKA_MESSAGE_KEY_CONFIG = "kafka.key.attribute";
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";

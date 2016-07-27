@@ -19,7 +19,10 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.common.util.concurrent.Futures;
@@ -60,10 +63,12 @@ public class CloudPubSubSourceTaskTest {
 
   private CloudPubSubSourceTask task;
   private Map<String, String> props;
+  private CloudPubSubSubscriber subscriber;
 
   @Before
   public void setup() {
-    task = spy(new CloudPubSubSourceTask(mock(CloudPubSubSubscriber.class, RETURNS_DEEP_STUBS)));
+    subscriber = mock(CloudPubSubSubscriber.class, RETURNS_DEEP_STUBS);
+    task = spy(new CloudPubSubSourceTask(subscriber));
     props = new HashMap<>();
     props.put(ConnectorUtils.CPS_TOPIC_CONFIG, CPS_TOPIC);
     props.put(ConnectorUtils.CPS_PROJECT_CONFIG, CPS_PROJECT);
@@ -77,16 +82,45 @@ public class CloudPubSubSourceTaskTest {
   }
 
 
-  /** Tests when no messages are received from the Cloud Pub/Sub PullResponse. */
+
+
+  /**
+   * Tests when no messages are received from the Cloud Pub/Sub PullResponse.
+   */
   @Test
   public void testPollCaseWithNoMessages() throws Exception {
     task.start(props);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().build();
-    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
-    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     assertEquals(0, task.poll().size());
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
   }
+
+  /**
+   * Tests that when ackMessages() succeeds and the subsequent call to poll() has no messages,
+   * that the subscriber does not invoke ackMessages because there should be no acks.
+   */
+  @Test
+  public void testPollInRegularCase() throws Exception {
+    task.start(props);
+    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
+    PullResponse stubbedPullResponse = PullResponse.newBuilder()
+        .addReceivedMessages(rm1)
+        .build();
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    List<SourceRecord> result = task.poll();
+    assertEquals(1, result.size());
+    stubbedPullResponse = PullResponse.newBuilder().build();
+    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
+    when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    result = task.poll();
+    assertEquals(0, result.size());
+    result = task.poll();
+    assertEquals(0, result.size());
+    verify(subscriber, times(1)).ackMessages(any(AcknowledgeRequest.class));
+  }
+
 
   /**
    * Tests that when a call to ackMessages() fails, that the message is not sent again to Kafka if
@@ -100,19 +134,19 @@ public class CloudPubSubSourceTaskTest {
     PullResponse stubbedPullResponse = PullResponse.newBuilder()
         .addReceivedMessages(rm1)
         .build();
-    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    ListenableFuture<Empty> failedFuture = Futures.immediateFailedFuture(new Throwable());
-    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(failedFuture);
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
     ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<>());
     stubbedPullResponse =
         PullResponse.newBuilder().addReceivedMessages(0, rm1).addReceivedMessages(1, rm2).build();
-    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
-    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    ListenableFuture<Empty> failedFuture = Futures.immediateFailedFuture(new Throwable());
+    when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(failedFuture);
     result = task.poll();
     assertEquals(1, result.size());
+    verify(subscriber, times(1)).ackMessages(any(AcknowledgeRequest.class));
+
   }
 
   /**
@@ -124,10 +158,9 @@ public class CloudPubSubSourceTaskTest {
     task.start(props);
     ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
-    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
     assertEquals(1, result.size());
     SourceRecord expected =
         new SourceRecord(
@@ -153,10 +186,9 @@ public class CloudPubSubSourceTaskTest {
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
     ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
-    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
     assertEquals(1, result.size());
     SourceRecord expected =
         new SourceRecord(
@@ -190,10 +222,9 @@ public class CloudPubSubSourceTaskTest {
             .addReceivedMessages(0, withKey)
             .addReceivedMessages(1, withoutKey)
             .build();
-    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
-    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
     assertEquals(2, result.size());
     SourceRecord expectedForMessageWithKey =
         new SourceRecord(
@@ -219,7 +250,9 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(expectedForMessageWithoutKey, result.get(1));
   }
 
-  /** Tests that the correct partition is assigned when the partition scheme is "hash_value". */
+  /**
+   * Tests that the correct partition is assigned when the partition scheme is "hash_value".
+   */
   @Test
   public void testPollWithPartitionSchemeHashValue() throws Exception {
     props.put(
@@ -228,10 +261,9 @@ public class CloudPubSubSourceTaskTest {
     task.start(props);
     ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
-    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
     assertEquals(1, result.size());
     SourceRecord expected =
         new SourceRecord(
@@ -265,10 +297,9 @@ public class CloudPubSubSourceTaskTest {
             .addReceivedMessages(2, rm3)
             .addReceivedMessages(3, rm4)
             .build();
-    when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
-    when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
     assertEquals(4, result.size());
     SourceRecord expected1 =
         new SourceRecord(
@@ -320,7 +351,7 @@ public class CloudPubSubSourceTaskTest {
   public void testPollExceptionCase() throws Exception {
     task.start(props);
     // Could also throw ExecutionException if we wanted to...
-    when(task.getSubscriber().pull(any(PullRequest.class)).get())
+    when(subscriber.pull(any(PullRequest.class)).get())
         .thenThrow(new InterruptedException());
     task.poll();
   }
