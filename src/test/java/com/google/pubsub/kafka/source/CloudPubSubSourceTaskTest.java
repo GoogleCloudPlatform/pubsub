@@ -76,6 +76,7 @@ public class CloudPubSubSourceTaskTest {
         CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString());
   }
 
+
   /** Tests when no messages are received from the Cloud Pub/Sub PullResponse. */
   @Test
   public void testPollCaseWithNoMessages() throws Exception {
@@ -110,6 +111,7 @@ public class CloudPubSubSourceTaskTest {
     when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
     when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
+    result = task.poll();
     assertEquals(1, result.size());
   }
 

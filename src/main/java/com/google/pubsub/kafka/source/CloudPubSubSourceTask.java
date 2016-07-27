@@ -117,7 +117,6 @@ public class CloudPubSubSourceTask extends SourceTask {
       PullResponse response = subscriber.pull(request).get();
       List<SourceRecord> sourceRecords = new ArrayList<>();
       for (ReceivedMessage rm : response.getReceivedMessagesList()) {
-        log.info("got here");
         PubsubMessage message = rm.getMessage();
         String ackId = rm.getAckId();
         // If we are receiving this message a second (or more) times because the ack for it failed
@@ -146,7 +145,6 @@ public class CloudPubSubSourceTask extends SourceTask {
                 value);
         sourceRecords.add(record);
       }
-      log.info(sourceRecords.size() + "");
       return sourceRecords;
     } catch (Exception e) {
       throw new InterruptedException(e.getMessage());
@@ -170,6 +168,7 @@ public class CloudPubSubSourceTask extends SourceTask {
           new FutureCallback<Empty>() {
             @Override
             public void onSuccess(Empty result) {
+              log.info("Cleared");
               ackIds.clear();
             }
 
