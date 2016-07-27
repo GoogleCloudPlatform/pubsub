@@ -16,12 +16,8 @@
 package com.google.pubsub.kafka.source;
 
 import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
 import static org.mockito.Matchers.any;
-import static org.mockito.Matchers.anyObject;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
-import static org.mockito.Mockito.doNothing;
-import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.when;
@@ -31,24 +27,14 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.pubsub.kafka.common.ConnectorUtils;
-import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
-import com.google.pubsub.kafka.source.CloudPubSubSourceTask;
-import com.google.pubsub.kafka.source.CloudPubSubSubscriber;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
-
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.Before;
@@ -90,9 +76,7 @@ public class CloudPubSubSourceTaskTest {
         CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString());
   }
 
-  /**
-   * Tests when no messages are received from the Cloud Pub/Sub PullResponse.
-   */
+  /** Tests when no messages are received from the Cloud Pub/Sub PullResponse. */
   @Test
   public void testPollCaseWithNoMessages() throws Exception {
     task.start(props);
@@ -105,8 +89,8 @@ public class CloudPubSubSourceTaskTest {
 
   /**
    * Tests that when a call to ackMessages() fails, that the message is not sent again to Kafka if
-   * the message is received again by Cloud Pub/Sub. Also tests that ack ids are added properly
-   * if the ack id has not been seen before.
+   * the message is received again by Cloud Pub/Sub. Also tests that ack ids are added properly if
+   * the ack id has not been seen before.
    */
   @Test
   public void testPollWithDuplicateReceivedMessages() throws Exception {
@@ -121,10 +105,8 @@ public class CloudPubSubSourceTaskTest {
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
     ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<>());
-    stubbedPullResponse = PullResponse.newBuilder()
-        .addReceivedMessages(0, rm1)
-        .addReceivedMessages(1, rm2)
-        .build();
+    stubbedPullResponse =
+        PullResponse.newBuilder().addReceivedMessages(0, rm1).addReceivedMessages(1, rm2).build();
     when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
     when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
@@ -188,22 +170,24 @@ public class CloudPubSubSourceTaskTest {
   }
 
   /**
-   * Tests that the correct partition is assigned when the partition scheme is "hash_key".
-   * The test has two cases, one where a key does exist and one where it does not.
+   * Tests that the correct partition is assigned when the partition scheme is "hash_key". The test
+   * has two cases, one where a key does exist and one where it does not.
    */
   @Test
-  public void testPollWithPartitionSchemeHashKey() throws Exception{
-    props.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
+  public void testPollWithPartitionSchemeHashKey() throws Exception {
+    props.put(
+        CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
         CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString());
     task.start(props);
     Map<String, String> attributes = new HashMap<>();
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
     ReceivedMessage withoutKey = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
     ReceivedMessage withKey = createReceivedMessage(ACK_ID2, CPS_MESSAGE, attributes);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder()
-        .addReceivedMessages(0, withKey)
-        .addReceivedMessages(1, withoutKey)
-        .build();
+    PullResponse stubbedPullResponse =
+        PullResponse.newBuilder()
+            .addReceivedMessages(0, withKey)
+            .addReceivedMessages(1, withoutKey)
+            .build();
     when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
     when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
@@ -231,15 +215,13 @@ public class CloudPubSubSourceTaskTest {
             CPS_MESSAGE);
     assertEquals(expectedForMessageWithKey, result.get(0));
     assertEquals(expectedForMessageWithoutKey, result.get(1));
-
   }
 
-  /**
-   * Tests that the correct partition is assigned when the partition scheme is "hash_value".
-   */
+  /** Tests that the correct partition is assigned when the partition scheme is "hash_value". */
   @Test
-  public void testPollWithPartitionSchemeHashValue() throws Exception{
-    props.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
+  public void testPollWithPartitionSchemeHashValue() throws Exception {
+    props.put(
+        CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
         CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString());
     task.start(props);
     ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
@@ -263,9 +245,9 @@ public class CloudPubSubSourceTaskTest {
   }
 
   /**
-   * Tests that the correct partition is assigned when the partition scheme is "round_robin".
-   * The tests makes sure to submit an approrpriate number of messages to poll() so that
-   * all partitions in the round robin are hit once.
+   * Tests that the correct partition is assigned when the partition scheme is "round_robin". The
+   * tests makes sure to submit an approrpriate number of messages to poll() so that all partitions
+   * in the round robin are hit once.
    */
   @Test
   public void testPollWithPartitionSchemeRoundRobin() throws Exception {
@@ -274,12 +256,13 @@ public class CloudPubSubSourceTaskTest {
     ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<>());
     ReceivedMessage rm3 = createReceivedMessage(ACK_ID3, CPS_MESSAGE, new HashMap<>());
     ReceivedMessage rm4 = createReceivedMessage(ACK_ID4, CPS_MESSAGE, new HashMap<>());
-    PullResponse stubbedPullResponse = PullResponse.newBuilder()
-        .addReceivedMessages(0, rm1)
-        .addReceivedMessages(1, rm2)
-        .addReceivedMessages(2, rm3)
-        .addReceivedMessages(3, rm4)
-        .build();
+    PullResponse stubbedPullResponse =
+        PullResponse.newBuilder()
+            .addReceivedMessages(0, rm1)
+            .addReceivedMessages(1, rm2)
+            .addReceivedMessages(2, rm3)
+            .addReceivedMessages(3, rm4)
+            .build();
     when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
     when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
@@ -341,11 +324,9 @@ public class CloudPubSubSourceTaskTest {
   }
 
   private ReceivedMessage createReceivedMessage(
-      String ackId, ByteString data,  Map<String, String> attributes) {
-    PubsubMessage message = PubsubMessage.newBuilder().
-        setData(data).
-        putAllAttributes(attributes)
-        .build();
+      String ackId, ByteString data, Map<String, String> attributes) {
+    PubsubMessage message =
+        PubsubMessage.newBuilder().setData(data).putAllAttributes(attributes).build();
     return ReceivedMessage.newBuilder().setAckId(ackId).setMessage(message).build();
   }
 }

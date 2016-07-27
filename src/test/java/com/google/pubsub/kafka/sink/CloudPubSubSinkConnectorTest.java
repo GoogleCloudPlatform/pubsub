@@ -1,19 +1,15 @@
 package com.google.pubsub.kafka.sink;
 
-import org.junit.Before;
-import org.junit.Test;
+import static org.junit.Assert.assertEquals;
+import static org.mockito.Mockito.spy;
+
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.junit.Before;
+import org.junit.Test;
 
-import static org.junit.Assert.assertEquals;
-import static org.mockito.Matchers.anyMap;
-import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.spy;
-
-/**
- * Tests for {@link CloudPubSubSinkConnector}.
- */
+/** Tests for {@link CloudPubSubSinkConnector}. */
 public class CloudPubSubSinkConnectorTest {
 
   private static final String TEST_KEY = "hello";

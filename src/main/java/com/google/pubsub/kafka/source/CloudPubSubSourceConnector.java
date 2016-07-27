@@ -49,9 +49,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String CPS_SUBSCRIPTION_CONFIG = "cps.subscription";
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.cpsMaxBatchSize";
 
-  /**
-   * Defines the accepted values for the {@link #KAFKA_PARTITION_SCHEME_CONFIG}.
-   */
+  /** Defines the accepted values for the {@link #KAFKA_PARTITION_SCHEME_CONFIG}. */
   public enum PartitionScheme {
     ROUND_ROBIN("round_robin"),
     HASH_KEY("hash_key"),
@@ -92,7 +90,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     // We need to do the validation of these two configs here instead of inside the task
     // because we only want to verify the subscription once.
     String cpsProject = ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_PROJECT_CONFIG);
-    String cpsSubscription =  ConnectorUtils.validateConfig(props, CPS_SUBSCRIPTION_CONFIG);
+    String cpsSubscription = ConnectorUtils.validateConfig(props, CPS_SUBSCRIPTION_CONFIG);
     verifySubscription(cpsProject, cpsSubscription);
     this.props = props;
     log.info("Started the CloudPubSubSourceConnector");
@@ -151,8 +149,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             KAFKA_PARTITIONS_CONFIG,
             Type.INT,
             Importance.MEDIUM,
-            "The number of Kafka partitions for the Kafka topic in which messages will be " +
-                "published to.")
+            "The number of Kafka partitions for the Kafka topic in which messages will be "
+                + "published to.")
         .define(
             KAFKA_PARTITION_SCHEME_CONFIG,
             Type.STRING,
@@ -161,8 +159,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   }
 
   /**
-   * Check whether the user provided Cloud Pub/Sub subscription name specified by
-   * {@link #CPS_SUBSCRIPTION_CONFIG} exists or not.
+   * Check whether the user provided Cloud Pub/Sub subscription name specified by {@link
+   * #CPS_SUBSCRIPTION_CONFIG} exists or not.
    */
   @VisibleForTesting
   public void verifySubscription(String cpsProject, String cpsSubscription) {

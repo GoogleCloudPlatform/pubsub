@@ -1,17 +1,14 @@
 package com.google.pubsub.kafka.common;
 
+import static org.junit.Assert.assertEquals;
+
+import java.util.HashMap;
+import java.util.Map;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
 
-import java.util.HashMap;
-import java.util.Map;
-
-import static org.junit.Assert.assertEquals;
-
-/**
- * Created by rramkumar on 7/26/16.
- */
+/** Created by rramkumar on 7/26/16. */
 public class ConnectorUtilsTests {
 
   private static final String TEST_KEY1 = "hello";

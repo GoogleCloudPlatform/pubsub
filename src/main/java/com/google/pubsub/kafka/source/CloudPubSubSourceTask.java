@@ -81,17 +81,17 @@ public class CloudPubSubSourceTask extends SourceTask {
             ConnectorUtils.CPS_SUBSCRIPTION_FORMAT,
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG));
-    kafkaTopic = ConnectorUtils.validateConfig(
-        props, CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG);
-    kafkaMessageKeyAttribute = ConnectorUtils.validateConfig(
-        props, CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
+    kafkaTopic =
+        ConnectorUtils.validateConfig(props, CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG);
+    kafkaMessageKeyAttribute =
+        ConnectorUtils.validateConfig(props, CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
     if (props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG) != null) {
-      cpsMaxBatchSize = Integer.parseInt(
-          props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
+      cpsMaxBatchSize =
+          Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
     }
     if (props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG) != null) {
-      kafkaPartitions = Integer.parseInt(
-          props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG));
+      kafkaPartitions =
+          Integer.parseInt(props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG));
     }
     if (props.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG) != null) {
       String scheme = props.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG);
@@ -154,9 +154,8 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   /**
-   * Attempt to ack all ids in {@link #ackIds}. If the ack request was unsuccessful then
-   * do not clear the list of acks. Instead, wait for the next call to this function to
-   * ack those ids.
+   * Attempt to ack all ids in {@link #ackIds}. If the ack request was unsuccessful then do not
+   * clear the list of acks. Instead, wait for the next call to this function to ack those ids.
    */
   private void ackMessages() {
     if (ackIds.size() != 0) {
@@ -182,9 +181,7 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
   }
 
-  /**
-   * Return the partition a message should be published to based {@link #kafkaPartitionScheme}.
-   */
+  /** Return the partition a message should be published to based {@link #kafkaPartitionScheme}. */
   private int selectPartition(Object key, Object value) {
     if (kafkaPartitionScheme.equals(PartitionScheme.HASH_KEY)) {
       return key == null ? 0 : key.hashCode() % kafkaPartitions;

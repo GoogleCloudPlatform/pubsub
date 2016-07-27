@@ -15,7 +15,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.sink;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
@@ -66,16 +65,14 @@ public class CloudPubSubSinkTask extends SinkTask {
   private int minBatchSize = DEFAULT_CPS_MIN_BATCH_SIZE;
   private CloudPubSubPublisher publisher;
 
-  /**
-   * Holds a list of the publishing futures that have not been processed for a single partition.
-   */
+  /** Holds a list of the publishing futures that have not been processed for a single partition. */
   private class OutstandingFuturesForPartition {
     public List<ListenableFuture<PublishResponse>> futures = new ArrayList<>();
   }
 
   /**
-   * Holds a list of the unpublished messages for a single partition and the total size
-   * in bytes of the messages in the list.
+   * Holds a list of the unpublished messages for a single partition and the total size in bytes of
+   * the messages in the list.
    */
   private class UnpublishedMessagesForPartition {
     public List<PubsubMessage> messages = new ArrayList<>();
@@ -97,8 +94,8 @@ public class CloudPubSubSinkTask extends SinkTask {
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     if (props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG) != null) {
-      minBatchSize = Integer.parseInt(
-          props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
+      minBatchSize =
+          Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
     }
     publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
     log.info("Start CloudPubSubSinkTask");
@@ -203,9 +200,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   }
 
 
-  /**
-   * Publish all the messages in a partition and store the Future's for each publish request.
-   */
+  /** Publish all the messages in a partition and store the Future's for each publish request. */
   private void publishMessagesForPartition(
       String topic, Integer partition, List<PubsubMessage> messages) {
     // Get a map containing all futures per partition for the passed in topic.

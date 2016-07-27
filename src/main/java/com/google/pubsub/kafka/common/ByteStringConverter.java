@@ -47,8 +47,7 @@ public class ByteStringConverter implements Converter {
       return SchemaAndValue.NULL;
     }
     return new SchemaAndValue(
-        SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-        ByteString.copyFrom(value));
+        SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(), ByteString.copyFrom(value));
   }
 
   @Override

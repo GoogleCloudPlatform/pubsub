@@ -23,17 +23,14 @@ import io.grpc.auth.ClientAuthInterceptor;
 import io.grpc.internal.ManagedChannelImpl;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
-import org.apache.kafka.connect.errors.ConnectException;
-
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import org.apache.kafka.connect.errors.ConnectException;
 
-/**
- * Utility methods and constants that are repeated across one or more classes.
- */
+/** Utility methods and constants that are repeated across one or more classes. */
 public class ConnectorUtils {
 
   private static final String ENDPOINT = "pubsub.googleapis.com";
@@ -46,9 +43,7 @@ public class ConnectorUtils {
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
 
-  /**
-   * Return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's.
-   */
+  /** Return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's. */
   public static Channel getChannel() throws IOException {
     ManagedChannelImpl channelImpl =
         NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
@@ -59,9 +54,7 @@ public class ConnectorUtils {
     return ClientInterceptors.intercept(channelImpl, interceptor);
   }
 
-  /**
-   * Validates whether a required configuration value exists and is valid. Returns the value.
-   */
+  /** Validates whether a required configuration value exists and is valid. Returns the value. */
   public static String validateConfig(Map<String, String> props, String configKey) {
     String configValue = props.get(configKey);
     if (configValue == null || configValue.isEmpty()) {
