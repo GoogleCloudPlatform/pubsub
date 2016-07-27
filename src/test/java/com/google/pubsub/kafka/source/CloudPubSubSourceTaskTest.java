@@ -57,7 +57,6 @@ public class CloudPubSubSourceTaskTest {
   private static final String ACK_ID3 = "ackID3";
   private static final String ACK_ID4 = "ackID4";
 
-
   private CloudPubSubSourceTask task;
   private Map<String, String> props;
 
@@ -72,7 +71,8 @@ public class CloudPubSubSourceTaskTest {
     props.put(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG, KAFKA_TOPIC);
     props.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG, KAFKA_MESSAGE_KEY_ATTRIBUTE);
     props.put(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG, KAFKA_PARTITIONS);
-    props.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
+    props.put(
+        CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
         CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString());
   }
 
@@ -97,9 +97,7 @@ public class CloudPubSubSourceTaskTest {
   public void testPollWithDuplicateReceivedMessages() throws Exception {
     task.start(props);
     ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
-    PullResponse stubbedPullResponse = PullResponse.newBuilder()
-        .addReceivedMessages(rm1)
-        .build();
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm1).build();
     when(task.getSubscriber().pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     ListenableFuture<Empty> failedFuture = Futures.immediateFailedFuture(new Throwable());
     when(task.getSubscriber().ackMessages(any(AcknowledgeRequest.class))).thenReturn(failedFuture);
@@ -143,8 +141,8 @@ public class CloudPubSubSourceTaskTest {
   }
 
   /**
-   * Tests when the message(s) retrieved from Cloud Pub/Sub do have an attribute that
-   * matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
+   * Tests when the message(s) retrieved from Cloud Pub/Sub do have an attribute that matches {@link
+   * #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
    */
   @Test
   public void testPollWithMessageKeyAttribute() throws Exception {
