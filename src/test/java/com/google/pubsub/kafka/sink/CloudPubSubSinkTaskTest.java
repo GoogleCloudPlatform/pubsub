@@ -75,7 +75,7 @@ public class CloudPubSubSinkTaskTest {
     props.put(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG, CPS_MIN_BATCH_SIZE2);
   }
 
-  /** Tests that an exception is thrown when the schema of the value is not ByteString. */
+  /** Tests that an exception is thrown when the schema of the value is not BYTES. */
   @Test(expected = DataException.class)
   public void testPutWhenValueSchemaIsNotByteString() {
     task.start(props);
@@ -98,8 +98,7 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /**
-   * Tests that is no publishes are started from put(), that the publisher never invokes its
-   * publish() function.
+   * Tests that if there are not enough messages buffered, publisher.publish() is not invoked.
    */
   @Test
   public void testPutWhereNoPublishesAreInvoked() {
@@ -110,7 +109,7 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /**
-   * Tests that if publishes are started from put(), that the PublishRequest sent to the publisher
+   * Tests that if there are enough messages buffered, that the PublishRequest sent to the publisher
    * is correct.
    */
   @Test
@@ -126,11 +125,11 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /**
-   * Tests that a call to flush() processes the Future's that were generated during this same call
-   * to flush() (i.e put() did not publish anything).
+   * Tests that a call to flush() processes the Futures that were generated during this same call
+   * to flush() (i.e buffered messages were not published until the call to flush()).
    */
   @Test
-  public void testFlush() throws Exception {
+  public void testFlushWithNoPublishInPut() throws Exception {
     task.start(props);
     Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
     partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
@@ -142,6 +141,29 @@ public class CloudPubSubSinkTaskTest {
     task.flush(partitionOffsets);
     verify(publisher, times(1)).publish(any(PublishRequest.class));
     verify(goodFuture, times(1)).get();
+  }
+
+  /**
+   * Tests that a call to flush() processes the Futures that were generated during a previous
+   * call to put() (i.e enough messages were buffered in put() to trigger a publish).
+   */
+  @Test
+  public void testFlushWithPublishInPut() throws Exception {
+    props.put(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG, CPS_MIN_BATCH_SIZE1);
+    task.start(props);
+    List<SinkRecord> records = getSampleRecords();
+    ListenableFuture<PublishResponse> goodFuture =
+        spy(Futures.immediateFuture(PublishResponse.getDefaultInstance()));
+    when(publisher.publish(any(PublishRequest.class))).thenReturn(goodFuture);
+    task.put(records);
+    Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
+    partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
+    task.flush(partitionOffsets);
+    verify(goodFuture, times(1)).get();
+    ArgumentCaptor<PublishRequest> captor = ArgumentCaptor.forClass(PublishRequest.class);
+    verify(publisher, times(1)).publish(captor.capture());
+    PublishRequest requestArg = captor.getValue();
+    assertEquals(requestArg.getMessagesList(), getPubsubMessagesFromSampleRecords());
   }
 
   /**
