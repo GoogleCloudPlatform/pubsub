@@ -67,7 +67,7 @@ public class CloudPubSubSourceTaskTest {
   @Before
   public void setup() {
     subscriber = mock(CloudPubSubSubscriber.class, RETURNS_DEEP_STUBS);
-    task = spy(new CloudPubSubSourceTask(subscriber));
+    task = new CloudPubSubSourceTask(subscriber);
     props = new HashMap<>();
     props.put(ConnectorUtils.CPS_TOPIC_CONFIG, CPS_TOPIC);
     props.put(ConnectorUtils.CPS_PROJECT_CONFIG, CPS_PROJECT);
@@ -80,9 +80,6 @@ public class CloudPubSubSourceTaskTest {
         CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
         CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString());
   }
-
-
-
 
   /**
    * Tests when no messages are received from the Cloud Pub/Sub PullResponse.

@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.sink;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
@@ -45,28 +46,26 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final int NUM_CPS_PUBLISHERS = 10;
   private static final int CPS_MAX_REQUEST_SIZE = (10 << 20) - 1024; // Leave room for overhead.
   private static final int CPS_MAX_MESSAGES_PER_REQUEST = 1000;
-  private static final String CPS_MESSAGE_KEY_ATTRIBUTE = "key";
-  private static final int CPS_MESSAGE_KEY_ATTRIBUTE_SIZE = CPS_MESSAGE_KEY_ATTRIBUTE.length();
-  private static final String CPS_MESSAGE_PARTITION_ATTRIBUTE = "partition";
+  private static final int CPS_MESSAGE_KEY_ATTRIBUTE_SIZE =
+      ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE.length();
   private static final int CPS_MESSAGE_PARTITION_ATTRIBUTE_SIZE =
-      CPS_MESSAGE_PARTITION_ATTRIBUTE.length();
-  private static final String CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
+      ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE.length();
   private static final int CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE =
-      CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE.length();
+      ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE.length();
   private static final int DEFAULT_CPS_MIN_BATCH_SIZE = 100;
 
   // Maps a topic to another map which contains the outstanding futures per partition
-  private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
-      new HashMap<>();
+  private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures
+      = new HashMap<>();
   // Maps a topic to another map which contains the unpublished messages per partition
-  private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages =
-      new HashMap<>();
+  private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages
+      = new HashMap<>();
   private String cpsTopic;
   private int minBatchSize = DEFAULT_CPS_MIN_BATCH_SIZE;
   private CloudPubSubPublisher publisher;
 
   /** Holds a list of the publishing futures that have not been processed for a single partition. */
-  private class OutstandingFuturesForPartition {
+  protected class OutstandingFuturesForPartition {
     public List<ListenableFuture<PublishResponse>> futures = new ArrayList<>();
   }
 
@@ -74,9 +73,14 @@ public class CloudPubSubSinkTask extends SinkTask {
    * Holds a list of the unpublished messages for a single partition and the total size in bytes of
    * the messages in the list.
    */
-  private class UnpublishedMessagesForPartition {
+  protected class UnpublishedMessagesForPartition {
     public List<PubsubMessage> messages = new ArrayList<>();
     public int size = 0;
+  }
+
+  @VisibleForTesting
+  public CloudPubSubSinkTask(CloudPubSubPublisher publisher) {
+    this.publisher = publisher;
   }
 
   @Override
@@ -97,7 +101,12 @@ public class CloudPubSubSinkTask extends SinkTask {
       minBatchSize =
           Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
     }
-    publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
+    if (publisher == null) {
+      // Only do this if we did not use the constructor.
+      publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
+      allOutstandingFutures = new HashMap<>();
+      allUnpublishedMessages = new HashMap<>();
+    }
     log.info("Start CloudPubSubSinkTask");
   }
 
@@ -113,8 +122,9 @@ public class CloudPubSubSinkTask extends SinkTask {
       log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
       ByteString value = (ByteString) record.value();
-      attributes.put(CPS_MESSAGE_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
-      attributes.put(CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE, record.topic());
+      attributes.put(ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE, record.kafkaPartition()
+          .toString());
+      attributes.put(ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE, record.topic());
       // Get the total number of bytes in this message.
       int messageSize =
           value.size()
@@ -123,8 +133,7 @@ public class CloudPubSubSinkTask extends SinkTask {
               + CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE
               + record.topic().length(); // Assumes the topic name is in ASCII.
       if (record.key() != null) {
-        // TODO(rramkumar): If key is not of type string, toString() will not be right.
-        attributes.put(CPS_MESSAGE_KEY_ATTRIBUTE, record.key().toString());
+        attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, record.key().toString());
         // Maximum number of bytes to encode a character in the key string will be 2 bytes.
         messageSize += CPS_MESSAGE_KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
       }
@@ -189,8 +198,8 @@ public class CloudPubSubSinkTask extends SinkTask {
         continue;
       }
       try {
-        for (ListenableFuture<PublishResponse> publishRequest : outstandingFutures.futures) {
-          publishRequest.get();
+        for (ListenableFuture<PublishResponse> publishFuture : outstandingFutures.futures) {
+          publishFuture.get();
         }
       } catch (Exception e) {
         throw new RuntimeException(e);
