@@ -20,7 +20,6 @@ import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -81,9 +80,7 @@ public class CloudPubSubSourceTaskTest {
         CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString());
   }
 
-  /**
-   * Tests when no messages are received from the Cloud Pub/Sub PullResponse.
-   */
+  /** Tests when no messages are received from the Cloud Pub/Sub PullResponse. */
   @Test
   public void testPollCaseWithNoMessages() throws Exception {
     task.start(props);
@@ -94,16 +91,14 @@ public class CloudPubSubSourceTaskTest {
   }
 
   /**
-   * Tests that when ackMessages() succeeds and the subsequent call to poll() has no messages,
-   * that the subscriber does not invoke ackMessages because there should be no acks.
+   * Tests that when ackMessages() succeeds and the subsequent call to poll() has no messages, that
+   * the subscriber does not invoke ackMessages because there should be no acks.
    */
   @Test
   public void testPollInRegularCase() throws Exception {
     task.start(props);
     ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
-    PullResponse stubbedPullResponse = PullResponse.newBuilder()
-        .addReceivedMessages(rm1)
-        .build();
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm1).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
@@ -128,9 +123,7 @@ public class CloudPubSubSourceTaskTest {
   public void testPollWithDuplicateReceivedMessages() throws Exception {
     task.start(props);
     ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
-    PullResponse stubbedPullResponse = PullResponse.newBuilder()
-        .addReceivedMessages(rm1)
-        .build();
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm1).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
@@ -247,9 +240,7 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(expectedForMessageWithoutKey, result.get(1));
   }
 
-  /**
-   * Tests that the correct partition is assigned when the partition scheme is "hash_value".
-   */
+  /** Tests that the correct partition is assigned when the partition scheme is "hash_value". */
   @Test
   public void testPollWithPartitionSchemeHashValue() throws Exception {
     props.put(
@@ -348,8 +339,7 @@ public class CloudPubSubSourceTaskTest {
   public void testPollExceptionCase() throws Exception {
     task.start(props);
     // Could also throw ExecutionException if we wanted to...
-    when(subscriber.pull(any(PullRequest.class)).get())
-        .thenThrow(new InterruptedException());
+    when(subscriber.pull(any(PullRequest.class)).get()).thenThrow(new InterruptedException());
     task.poll();
   }
 

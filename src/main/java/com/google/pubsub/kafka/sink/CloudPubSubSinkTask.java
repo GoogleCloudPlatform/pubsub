@@ -55,17 +55,17 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final int DEFAULT_CPS_MIN_BATCH_SIZE = 100;
 
   // Maps a topic to another map which contains the outstanding futures per partition
-  private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures
-      = new HashMap<>();
+  private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
+      new HashMap<>();
   // Maps a topic to another map which contains the unpublished messages per partition
-  private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages
-      = new HashMap<>();
+  private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages =
+      new HashMap<>();
   private String cpsTopic;
   private int minBatchSize = DEFAULT_CPS_MIN_BATCH_SIZE;
   private CloudPubSubPublisher publisher;
 
   /** Holds a list of the publishing futures that have not been processed for a single partition. */
-  protected class OutstandingFuturesForPartition {
+  private class OutstandingFuturesForPartition {
     public List<ListenableFuture<PublishResponse>> futures = new ArrayList<>();
   }
 
@@ -73,7 +73,7 @@ public class CloudPubSubSinkTask extends SinkTask {
    * Holds a list of the unpublished messages for a single partition and the total size in bytes of
    * the messages in the list.
    */
-  protected class UnpublishedMessagesForPartition {
+  private class UnpublishedMessagesForPartition {
     public List<PubsubMessage> messages = new ArrayList<>();
     public int size = 0;
   }
@@ -104,8 +104,6 @@ public class CloudPubSubSinkTask extends SinkTask {
     if (publisher == null) {
       // Only do this if we did not use the constructor.
       publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
-      allOutstandingFutures = new HashMap<>();
-      allUnpublishedMessages = new HashMap<>();
     }
     log.info("Start CloudPubSubSinkTask");
   }
@@ -122,8 +120,8 @@ public class CloudPubSubSinkTask extends SinkTask {
       log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
       ByteString value = (ByteString) record.value();
-      attributes.put(ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE, record.kafkaPartition()
-          .toString());
+      attributes.put(
+          ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
       attributes.put(ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE, record.topic());
       // Get the total number of bytes in this message.
       int messageSize =

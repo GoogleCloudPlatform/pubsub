@@ -32,6 +32,10 @@ import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PubsubMessage;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
@@ -42,14 +46,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-
-/**
- * Tests for {@link CloudPubSubSinkTask}.
- */
+/** Tests for {@link CloudPubSubSinkTask}. */
 public class CloudPubSubSinkTaskTest {
 
   private static final String CPS_TOPIC = "the";
@@ -78,9 +75,7 @@ public class CloudPubSubSinkTaskTest {
     props.put(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG, CPS_MIN_BATCH_SIZE2);
   }
 
-  /**
-   * Tests that an exception is thrown when the schema of the value is not ByteString.
-   */
+  /** Tests that an exception is thrown when the schema of the value is not ByteString. */
   @Test(expected = DataException.class)
   public void testPutWhenValueSchemaIsNotByteString() {
     task.start(props);
@@ -89,12 +84,9 @@ public class CloudPubSubSinkTaskTest {
     List<SinkRecord> list = new ArrayList<>();
     list.add(record);
     task.put(list);
-
   }
 
-  /**
-   * Tests that an exception is thrown when the schema name of the value is not ByteString.
-   */
+  /** Tests that an exception is thrown when the schema name of the value is not ByteString. */
   @Test(expected = DataException.class)
   public void testPutWhenValueSchemaNameIsNotByteString() {
     task.start(props);
@@ -106,8 +98,8 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /**
-   * Tests that is no publishes are started from put(), that the publisher never
-   * invokes its publish() function.
+   * Tests that is no publishes are started from put(), that the publisher never invokes its
+   * publish() function.
    */
   @Test
   public void testPutWhereNoPublishesAreInvoked() {
@@ -118,8 +110,8 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /**
-   * Tests that if publishes are started from put(), that the PublishRequest sent to the
-   * publisher is correct.
+   * Tests that if publishes are started from put(), that the PublishRequest sent to the publisher
+   * is correct.
    */
   @Test
   public void testPutWherePublishesAreInvoked() {
@@ -134,11 +126,11 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /**
-   * Tests that a call to flush() processes the Future's that were generated during this
-   * same call to flush() (i.e put() did not publish anything).
+   * Tests that a call to flush() processes the Future's that were generated during this same call
+   * to flush() (i.e put() did not publish anything).
    */
   @Test
-  public void testFlush() throws Exception{
+  public void testFlush() throws Exception {
     task.start(props);
     Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
     partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
@@ -153,11 +145,11 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /**
-   * Tests that if a Future that is being processed in flush() failed with an exception,
-   * that an exception is thrown.
+   * Tests that if a Future that is being processed in flush() failed with an exception, that an
+   * exception is thrown.
    */
   @Test(expected = RuntimeException.class)
-  public void testFlushExceptionCase() throws Exception{
+  public void testFlushExceptionCase() throws Exception {
     task.start(props);
     Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
     partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
@@ -171,22 +163,33 @@ public class CloudPubSubSinkTaskTest {
     verify(badFuture, times(1)).get();
   }
 
-
-  /**
-   * Get some sample SinkRecords's to use in the tests.
-   */
+  /** Get some sample SinkRecords's to use in the tests. */
   private List<SinkRecord> getSampleRecords() {
     List<SinkRecord> records = new ArrayList<>();
-    records.add(new SinkRecord(KAFKA_TOPIC, 0, STRING_SCHEMA, KAFKA_MESSAGE_KEY,
-        BYTE_STRING_SCHEMA, KAFKA_MESSAGE1, -1));
-    records.add(new SinkRecord(KAFKA_TOPIC, 0, STRING_SCHEMA, KAFKA_MESSAGE_KEY,
-        BYTE_STRING_SCHEMA, KAFKA_MESSAGE2, -1));
+    records.add(
+        new SinkRecord(
+            KAFKA_TOPIC,
+            0,
+            STRING_SCHEMA,
+            KAFKA_MESSAGE_KEY,
+            BYTE_STRING_SCHEMA,
+            KAFKA_MESSAGE1,
+            -1));
+    records.add(
+        new SinkRecord(
+            KAFKA_TOPIC,
+            0,
+            STRING_SCHEMA,
+            KAFKA_MESSAGE_KEY,
+            BYTE_STRING_SCHEMA,
+            KAFKA_MESSAGE2,
+            -1));
     return records;
   }
 
   /**
-   * Get some PubsubMessage's which correspond to the SinkRecord's created
-   * in {@link #getSampleRecords()}.
+   * Get some PubsubMessage's which correspond to the SinkRecord's created in {@link
+   * #getSampleRecords()}.
    */
   private List<PubsubMessage> getPubsubMessagesFromSampleRecords() {
     List<PubsubMessage> messages = new ArrayList<>();
@@ -201,4 +204,3 @@ public class CloudPubSubSinkTaskTest {
     return messages;
   }
 }
-
