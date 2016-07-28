@@ -64,14 +64,16 @@ public class CloudPubSubSourceTask extends SourceTask {
   private Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
   private CloudPubSubSubscriber subscriber;
 
-  @Override
-  public String version() {
-    return new CloudPubSubSourceConnector().version();
-  }
-
+  public CloudPubSubSourceTask() {}
+  
   @VisibleForTesting
   public CloudPubSubSourceTask(CloudPubSubSubscriber subscriber) {
     this.subscriber = subscriber;
+  }
+
+  @Override
+  public String version() {
+    return new CloudPubSubSourceConnector().version();
   }
 
   @Override

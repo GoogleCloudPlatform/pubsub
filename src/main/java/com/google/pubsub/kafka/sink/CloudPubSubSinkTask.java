@@ -78,6 +78,8 @@ public class CloudPubSubSinkTask extends SinkTask {
     public int size = 0;
   }
 
+  public CloudPubSubSinkTask() {}
+
   @VisibleForTesting
   public CloudPubSubSinkTask(CloudPubSubPublisher publisher) {
     this.publisher = publisher;
