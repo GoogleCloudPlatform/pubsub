@@ -21,24 +21,42 @@ import static org.mockito.Mockito.spy;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.google.pubsub.kafka.common.ConnectorUtils;
+import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
 
 /** Tests for {@link CloudPubSubSinkConnector}. */
 public class CloudPubSubSinkConnectorTest {
 
-  private static final String TEST_KEY = "hello";
-  private static final String TEST_VALUE = "world";
   private static final int NUM_TASKS = 10;
+  private static final String CPS_PROJECT = "hello";
+  private static final String CPS_TOPIC = "world";
+  private static final String INVALID_CPS_MIN_BATCH_SIZE = "Not an int";
 
   private CloudPubSubSinkConnector connector;
   private Map<String, String> props;
 
   @Before
   public void setup() {
-    connector = spy(new CloudPubSubSinkConnector());
+    connector = new CloudPubSubSinkConnector();
     props = new HashMap<>();
-    props.put(TEST_KEY, TEST_VALUE);
+    props.put(ConnectorUtils.CPS_PROJECT_CONFIG, CPS_PROJECT);
+    props.put(ConnectorUtils.CPS_TOPIC_CONFIG, CPS_TOPIC);
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testStartWhenRequiredConfigMissing() {
+    connector.start(new HashMap<>());
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testStartWhenConfigHasInvalidMinBatchSize() {
+    props.put(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG, INVALID_CPS_MIN_BATCH_SIZE);
+    connector.start(props);
   }
 
   @Test

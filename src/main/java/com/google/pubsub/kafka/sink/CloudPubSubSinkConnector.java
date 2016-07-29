@@ -38,6 +38,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkConnector.class);
 
   public static final String CPS_MIN_BATCH_SIZE_CONFIG = "cps.cpsMinBatchSize";
+  public static final int DEFAULT_CPS_MIN_BATCH_SIZE = 100;
 
   private Map<String, String> props;
 
@@ -48,6 +49,8 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public void start(Map<String, String> props) {
+    // Validate the configs.
+    config().parse(props);
     this.props = props;
     log.info("Started the CloudPubSubSinkConnector.");
   }
@@ -84,6 +87,8 @@ public class CloudPubSubSinkConnector extends SinkConnector {
         .define(
             CPS_MIN_BATCH_SIZE_CONFIG,
             Type.INT,
+            DEFAULT_CPS_MIN_BATCH_SIZE,
+            ConfigDef.Range.between(1, Integer.MAX_VALUE),
             Importance.MEDIUM,
             "The minimum number of messages to batch per partition before sending a publish "
                 + "request to Cloud Pub/Sub.");

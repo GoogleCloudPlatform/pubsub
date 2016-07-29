@@ -27,6 +27,7 @@ import java.util.Map;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.utils.AppInfoParser;
 import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.errors.ConnectException;
@@ -48,6 +49,9 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";
   public static final String CPS_SUBSCRIPTION_CONFIG = "cps.subscription";
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.cpsMaxBatchSize";
+  public static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
+  public static final int DEFAULT_KAFKA_PARTITIONS = 1;
+  public static final String DEFAULT_KAFKA_PARTITION_SCHEME = "round_robin";
 
   /** Defines the accepted values for the {@link #KAFKA_PARTITION_SCHEME_CONFIG}. */
   public enum PartitionScheme {
@@ -76,6 +80,24 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         return null;
       }
     }
+
+    /**
+     * Validator class for {@link CloudPubSubSourceConnector.PartitionScheme}.
+     */
+    public static class Validator implements ConfigDef.Validator {
+
+      @Override
+      public void ensureValid(String name, Object o) {
+        String value = (String) o;
+        if (!value.equals(CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString())
+            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString())
+            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString())) {
+          throw new ConfigException("Valid values for " +
+              CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG +
+              " are hash_value, hash_key and round_robin");
+        }
+      }
+    }
   }
 
   private Map<String, String> props;
@@ -87,10 +109,11 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   @Override
   public void start(Map<String, String> props) {
-    // We need to do the validation of these two configs here instead of inside the task
-    // because we only want to verify the subscription once.
-    String cpsProject = ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_PROJECT_CONFIG);
-    String cpsSubscription = ConnectorUtils.validateConfig(props, CPS_SUBSCRIPTION_CONFIG);
+    // Validate the configs.
+    config().parse(props);
+    // Extract these configs so we can verify the subscription here once.
+    String cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
+    String cpsSubscription = props.get(CPS_SUBSCRIPTION_CONFIG);
     verifySubscription(cpsProject, cpsSubscription);
     this.props = props;
     log.info("Started the CloudPubSubSourceConnector");
@@ -126,11 +149,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Importance.HIGH,
             "The project containing the topic from which to pull messages.")
         .define(
-            ConnectorUtils.CPS_TOPIC_CONFIG,
-            Type.STRING,
-            Importance.HIGH,
-            "The topic from which to pull messages.")
-        .define(
             CPS_SUBSCRIPTION_CONFIG,
             Type.STRING,
             Importance.HIGH,
@@ -138,22 +156,29 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         .define(
             CPS_MAX_BATCH_SIZE_CONFIG,
             Type.INT,
+            DEFAULT_CPS_MAX_BATCH_SIZE,
+            ConfigDef.Range.between(1, Integer.MAX_VALUE),
             Importance.MEDIUM,
             "The minimum number of messages to batch per pull request to Cloud Pub/Sub.")
         .define(
             KAFKA_MESSAGE_KEY_CONFIG,
             Type.STRING,
+            null,
             Importance.MEDIUM,
             "The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka.")
         .define(
             KAFKA_PARTITIONS_CONFIG,
             Type.INT,
+            DEFAULT_KAFKA_PARTITIONS,
+            ConfigDef.Range.between(1, Integer.MAX_VALUE),
             Importance.MEDIUM,
             "The number of Kafka partitions for the Kafka topic in which messages will be "
                 + "published to.")
         .define(
             KAFKA_PARTITION_SCHEME_CONFIG,
             Type.STRING,
+            DEFAULT_KAFKA_PARTITION_SCHEME,
+            new PartitionScheme.Validator(),
             Importance.MEDIUM,
             "The scheme for assigning a message to a partition in Kafka.");
   }
@@ -174,7 +199,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
               .build();
       stub.getSubscription(request).get();
     } catch (Exception e) {
-      throw new ConnectException("The subscription " + cpsSubscription + " does not exist.");
+      throw new ConnectException("The subscription " + cpsSubscription +
+          " does not exist for the project" + cpsProject);
     }
   }
 

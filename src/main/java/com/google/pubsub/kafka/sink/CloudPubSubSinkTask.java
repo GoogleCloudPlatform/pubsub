@@ -52,7 +52,6 @@ public class CloudPubSubSinkTask extends SinkTask {
       ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE.length();
   private static final int CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE =
       ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE.length();
-  private static final int DEFAULT_CPS_MIN_BATCH_SIZE = 100;
 
   // Maps a topic to another map which contains the outstanding futures per partition
   private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
@@ -61,7 +60,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages =
       new HashMap<>();
   private String cpsTopic;
-  private int minBatchSize = DEFAULT_CPS_MIN_BATCH_SIZE;
+  private int minBatchSize;
   private CloudPubSubPublisher publisher;
 
   /** Holds a list of the publishing futures that have not been processed for a single partition. */
@@ -92,17 +91,12 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   @Override
   public void start(Map<String, String> props) {
-    ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_PROJECT_CONFIG);
-    ConnectorUtils.validateConfig(props, ConnectorUtils.CPS_TOPIC_CONFIG);
     cpsTopic =
         String.format(
             ConnectorUtils.CPS_TOPIC_FORMAT,
             props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
-    if (props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG) != null) {
-      minBatchSize =
-          Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
-    }
+    minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
     if (publisher == null) {
       // Only do this if we did not use the constructor.
       publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);

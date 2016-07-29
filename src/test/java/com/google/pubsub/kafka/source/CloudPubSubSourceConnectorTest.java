@@ -25,6 +25,9 @@ import com.google.pubsub.kafka.common.ConnectorUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
@@ -34,7 +37,11 @@ public class CloudPubSubSourceConnectorTest {
 
   private static final int NUM_TASKS = 10;
   private static final String CPS_PROJECT = "hello";
-  private static final String CPS_SUBSCRIPTION = "world";
+  private static final String CPS_SUBSCRIPTION = "big";
+  private static final String KAFKA_TOPIC = "world";
+  private static final String INVALID_CPS_MAX_BATCH_SIZE = "Not an int";
+  private static final String INVALID_KAFKA_PARTITION_SCHEME = "Not a scheme";
+  private static final String INVALID_KAFKA_PARTITION_COUNT = "0";
 
   private CloudPubSubSourceConnector connector;
   private Map<String, String> props;
@@ -45,12 +52,36 @@ public class CloudPubSubSourceConnectorTest {
     props = new HashMap<>();
     props.put(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG, CPS_SUBSCRIPTION);
     props.put(ConnectorUtils.CPS_PROJECT_CONFIG, CPS_PROJECT);
+    props.put(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG, KAFKA_TOPIC);
   }
 
-  /** Test that when the subscription does not exist, an exception is thrown. */
   @Test(expected = ConnectException.class)
   public void testStartWhenSubscriptionNonexistant() {
     doThrow(new ConnectException("")).when(connector).verifySubscription(anyString(), anyString());
+    connector.start(props);
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testStartWhenRequiredConfigMissing() {
+    connector.start(new HashMap<>());
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testStartWhenConfigHasInvalidMaxBatchSize() {
+    props.put(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG, INVALID_CPS_MAX_BATCH_SIZE);
+    connector.start(props);
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testStartWhenConfigHasInvalidPartitionScheme() {
+    props.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
+        INVALID_KAFKA_PARTITION_SCHEME);
+    connector.start(props);
+  }
+
+  @Test(expected = ConfigException.class)
+  public void testStartWhenConfigHasInvalidPartitionCount() {
+    props.put(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG, INVALID_KAFKA_PARTITION_COUNT);
     connector.start(props);
   }
 

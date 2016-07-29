@@ -45,15 +45,14 @@ import org.junit.Test;
 /** Tests for {@link CloudPubSubSourceTask}. */
 public class CloudPubSubSourceTaskTest {
 
-  private static final String CPS_TOPIC = "the";
-  private static final String CPS_PROJECT = "quick";
+  private static final String CPS_PROJECT = "the";
   private static final String CPS_MAX_BATCH_SIZE = "1000";
-  private static final String CPS_SUBSCRIPTION = "brown";
-  private static final String KAFKA_TOPIC = "fox";
-  private static final String KAFKA_MESSAGE_KEY_ATTRIBUTE = "jumped";
-  private static final String KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE = "over";
+  private static final String CPS_SUBSCRIPTION = "quick";
+  private static final String KAFKA_TOPIC = "brown";
+  private static final String KAFKA_MESSAGE_KEY_ATTRIBUTE = "fox";
+  private static final String KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE = "jumped";
   private static final String KAFKA_PARTITIONS = "3";
-  private static final ByteString CPS_MESSAGE = ByteString.copyFromUtf8("lazy");
+  private static final ByteString CPS_MESSAGE = ByteString.copyFromUtf8("over");
   private static final String ACK_ID1 = "ackID1";
   private static final String ACK_ID2 = "ackID2";
   private static final String ACK_ID3 = "ackID3";
@@ -68,7 +67,6 @@ public class CloudPubSubSourceTaskTest {
     subscriber = mock(CloudPubSubSubscriber.class, RETURNS_DEEP_STUBS);
     task = new CloudPubSubSourceTask(subscriber);
     props = new HashMap<>();
-    props.put(ConnectorUtils.CPS_TOPIC_CONFIG, CPS_TOPIC);
     props.put(ConnectorUtils.CPS_PROJECT_CONFIG, CPS_PROJECT);
     props.put(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG, CPS_MAX_BATCH_SIZE);
     props.put(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG, CPS_SUBSCRIPTION);
@@ -266,6 +264,7 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(expected, result.get(0));
   }
 
+
   /**
    * Tests that the correct partition is assigned when the partition scheme is "round_robin". The
    * tests makes sure to submit an approrpriate number of messages to poll() so that all partitions
@@ -335,7 +334,7 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(expected4, result.get(3));
   }
 
-  @Test(expected = InterruptedException.class)
+  @Test(expected = RuntimeException.class)
   public void testPollExceptionCase() throws Exception {
     task.start(props);
     // Could also throw ExecutionException if we wanted to...
