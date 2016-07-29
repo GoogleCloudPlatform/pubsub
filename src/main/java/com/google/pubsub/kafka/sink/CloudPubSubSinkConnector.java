@@ -49,8 +49,6 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   @Override
   public void start(Map<String, String> props) {
-    // Validate the configs.
-    config().parse(props);
     this.props = props;
     log.info("Started the CloudPubSubSinkConnector.");
   }

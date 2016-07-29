@@ -48,17 +48,6 @@ public class CloudPubSubSinkConnectorTest {
     props.put(ConnectorUtils.CPS_TOPIC_CONFIG, CPS_TOPIC);
   }
 
-  @Test(expected = ConfigException.class)
-  public void testStartWhenRequiredConfigMissing() {
-    connector.start(new HashMap<>());
-  }
-
-  @Test(expected = ConfigException.class)
-  public void testStartWhenConfigHasInvalidMinBatchSize() {
-    props.put(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG, INVALID_CPS_MIN_BATCH_SIZE);
-    connector.start(props);
-  }
-
   @Test
   public void testTaskConfigs() {
     connector.start(props);

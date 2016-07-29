@@ -91,12 +91,13 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   @Override
   public void start(Map<String, String> props) {
+    Map<String, Object> validatedProps = new CloudPubSubSinkConnector().config().parse(props);
     cpsTopic =
         String.format(
             ConnectorUtils.CPS_TOPIC_FORMAT,
-            props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
-            props.get(ConnectorUtils.CPS_TOPIC_CONFIG));
-    minBatchSize = Integer.parseInt(props.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG));
+            validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG),
+            validatedProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
+    minBatchSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG);
     if (publisher == null) {
       // Only do this if we did not use the constructor.
       publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);

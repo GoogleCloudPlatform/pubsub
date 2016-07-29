@@ -75,19 +75,21 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   @Override
   public void start(Map<String, String> props) {
+    Map<String, Object> validatedProps = new CloudPubSubSourceConnector().config().parse(props);
     cpsSubscription =
         String.format(
             ConnectorUtils.CPS_SUBSCRIPTION_FORMAT,
-            props.get(ConnectorUtils.CPS_PROJECT_CONFIG),
-            props.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG));
-    kafkaTopic = props.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG);
-    cpsMaxBatchSize =
-        Integer.parseInt(props.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG));
-    kafkaPartitions =
-        Integer.parseInt(props.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG));
-    kafkaMessageKeyAttribute = props.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
+            validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG).toString(),
+            validatedProps.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG).toString());
+    kafkaTopic = validatedProps.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG).toString();
+    cpsMaxBatchSize = (Integer) validatedProps.get(CloudPubSubSourceConnector
+        .CPS_MAX_BATCH_SIZE_CONFIG);
+    kafkaPartitions = (Integer) validatedProps.get(CloudPubSubSourceConnector
+        .KAFKA_PARTITIONS_CONFIG);
+    kafkaMessageKeyAttribute = validatedProps.get(CloudPubSubSourceConnector
+        .KAFKA_MESSAGE_KEY_CONFIG).toString();
     kafkaPartitionScheme = PartitionScheme.getEnum(
-        props.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
+        (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
     if (subscriber == null) {
       // Only do this if we did not set through the constructor.
       subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);

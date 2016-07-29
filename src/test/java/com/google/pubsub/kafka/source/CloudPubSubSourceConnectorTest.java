@@ -39,9 +39,6 @@ public class CloudPubSubSourceConnectorTest {
   private static final String CPS_PROJECT = "hello";
   private static final String CPS_SUBSCRIPTION = "big";
   private static final String KAFKA_TOPIC = "world";
-  private static final String INVALID_CPS_MAX_BATCH_SIZE = "Not an int";
-  private static final String INVALID_KAFKA_PARTITION_SCHEME = "Not a scheme";
-  private static final String INVALID_KAFKA_PARTITION_COUNT = "0";
 
   private CloudPubSubSourceConnector connector;
   private Map<String, String> props;
@@ -64,25 +61,6 @@ public class CloudPubSubSourceConnectorTest {
   @Test(expected = ConfigException.class)
   public void testStartWhenRequiredConfigMissing() {
     connector.start(new HashMap<>());
-  }
-
-  @Test(expected = ConfigException.class)
-  public void testStartWhenConfigHasInvalidMaxBatchSize() {
-    props.put(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG, INVALID_CPS_MAX_BATCH_SIZE);
-    connector.start(props);
-  }
-
-  @Test(expected = ConfigException.class)
-  public void testStartWhenConfigHasInvalidPartitionScheme() {
-    props.put(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
-        INVALID_KAFKA_PARTITION_SCHEME);
-    connector.start(props);
-  }
-
-  @Test(expected = ConfigException.class)
-  public void testStartWhenConfigHasInvalidPartitionCount() {
-    props.put(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG, INVALID_KAFKA_PARTITION_COUNT);
-    connector.start(props);
   }
 
   @Test

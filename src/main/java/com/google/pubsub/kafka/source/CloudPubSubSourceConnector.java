@@ -109,9 +109,9 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   @Override
   public void start(Map<String, String> props) {
-    // Validate the configs.
+    // Do a validation of configs here too so that we do not pass null objects to
+    // {@link #verifySubscription}.
     config().parse(props);
-    // Extract these configs so we can verify the subscription here once.
     String cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
     String cpsSubscription = props.get(CPS_SUBSCRIPTION_CONFIG);
     verifySubscription(cpsProject, cpsSubscription);
