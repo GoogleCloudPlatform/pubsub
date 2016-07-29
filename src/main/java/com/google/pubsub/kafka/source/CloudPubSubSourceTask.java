@@ -164,7 +164,7 @@ public class CloudPubSubSourceTask extends SourceTask {
           new FutureCallback<Empty>() {
             @Override
             public void onSuccess(Empty result) {
-              log.trace("Successfuly acked a set of messages.");
+              log.trace("Successfully acked a set of messages.");
               ackIds.clear();
             }
 
@@ -183,7 +183,11 @@ public class CloudPubSubSourceTask extends SourceTask {
     } else if (kafkaPartitionScheme.equals(PartitionScheme.HASH_VALUE)) {
       return value.hashCode() % kafkaPartitions;
     } else {
-      return currentRoundRobinPartition++ % kafkaPartitions;
+      int partition = currentRoundRobinPartition % kafkaPartitions;
+      if (++currentRoundRobinPartition == Integer.MAX_VALUE) {
+        currentRoundRobinPartition = 0;
+      }
+      return partition;
     }
   }
 
