@@ -140,7 +140,6 @@ public class CloudPubSubSourceTask extends SourceTask {
                 SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
                 value);
         sourceRecords.add(record);
-
       }
       return sourceRecords;
     } catch (Exception e) {
@@ -186,11 +185,8 @@ public class CloudPubSubSourceTask extends SourceTask {
     } else if (kafkaPartitionScheme.equals(PartitionScheme.HASH_VALUE)) {
       return value.hashCode() % kafkaPartitions;
     } else {
-      int partition = currentRoundRobinPartition % kafkaPartitions;
-      if (++currentRoundRobinPartition == Integer.MAX_VALUE) {
-        currentRoundRobinPartition = 0;
-      }
-      return partition;
+      currentRoundRobinPartition = ++currentRoundRobinPartition % kafkaPartitions;
+      return currentRoundRobinPartition;
     }
   }
 

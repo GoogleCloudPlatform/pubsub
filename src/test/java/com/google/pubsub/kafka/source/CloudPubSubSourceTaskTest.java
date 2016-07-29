@@ -264,7 +264,6 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(expected, result.get(0));
   }
 
-
   /**
    * Tests that the correct partition is assigned when the partition scheme is "round_robin". The
    * tests makes sure to submit an approrpriate number of messages to poll() so that all partitions
