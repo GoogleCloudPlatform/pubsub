@@ -56,7 +56,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   private PartitionScheme kafkaPartitionScheme;
   private int cpsMaxBatchSize;
   // Keeps track of the current partition to publish to if the partition scheme is round robin.
-  private int currentRoundRobinPartition = 0;
+  private int currentRoundRobinPartition = -1;
   // Keep track of all ack ids that have not been sent correctly acked yet.
   private Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
   private CloudPubSubSubscriber subscriber;

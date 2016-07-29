@@ -75,3 +75,35 @@ sure that the key.converter is a class that will be able to work with the schema
 of your keys. More information on the configuration for Kafka connect can be
 found in the [Kafka Users Guide]
 (http://kafka.apache.org/documentation.html#connect_running).
+
+### CloudPubSubConnector Configs
+
+On Cloud Pub/Sub topics, and subscriptions are represented by their
+fully qualified path name. For example a topic "foo" that lives under
+the project "bar" will have a topic name of "projects/bar/topics/foo". 
+When specifying configs for the connector, do not include the fully
+qualified path name that you see on Cloud Pub/Sub. 
+Rather, just include the single-word name (i.e "foo" in this case).
+
+
+#### Sink Connector
+
+| Config           | Value Range         | Default                      | Description                                                                                               |
+|------------------|---------------------|------------------------------|-----------------------------------------------------------------------------------------------------------|
+| cps.topic        | String              | REQUIRED (No default)        | The topic to which to publish.                                                                            |
+| cps.project      | String              | REQUIRED (No default)        | The project containing the topic to which to publish.                                                     |
+| cps.minBatchSize | Integer             | 100                          | The minimum number of messages to batch per partition before sending a publish request to Cloud Pub/Sub.  |
+
+
+#### Source Connector
+
+| Config                 | Value Range   | Default               | Description
+|------------------------|---------------|-----------------------|--------------------------------------------------------------------------------------------------------------------|
+| cps.subscription       | String                                | REQUIRED (No default) | The name of the subscription to Cloud Pub/Sub.                                             |
+| cps.project            | String                                | REQUIRED (No default) | The project containing the topic from which to pull messages.                              |
+| kafka.topic            | String                                | REQUIRED (No default  | The topic in Kafka which will receive messages that were pulled from Cloud Pub/Sub.        |
+| cps.maxBatchSize       | Integer                               | 100                   | The minimum number of messages to batch per pull request to Cloud Pub/Sub.                 |
+| kafka.key.attribute    | String                                | null                  | The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka.       |
+| kafka.partition.count  | Integer                               | 1                     | The number of Kafka partitions for the Kafka topic in which messages will be published to. |
+| kafka.partition.scheme | round_robin, hash_key, hash_value     | round_robin           | The scheme for assigning a message to a partition in Kafka.                                |
+

@@ -37,7 +37,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkConnector.class);
 
-  public static final String CPS_MIN_BATCH_SIZE_CONFIG = "cps.cpsMinBatchSize";
+  public static final String CPS_MIN_BATCH_SIZE_CONFIG = "cps.minBatchSize";
   public static final int DEFAULT_CPS_MIN_BATCH_SIZE = 100;
 
   private Map<String, String> props;

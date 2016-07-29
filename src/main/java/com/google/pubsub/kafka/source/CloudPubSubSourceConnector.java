@@ -48,7 +48,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String KAFKA_MESSAGE_KEY_CONFIG = "kafka.key.attribute";
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";
   public static final String CPS_SUBSCRIPTION_CONFIG = "cps.subscription";
-  public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.cpsMaxBatchSize";
+  public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
   public static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
   public static final int DEFAULT_KAFKA_PARTITIONS = 1;
   public static final String DEFAULT_KAFKA_PARTITION_SCHEME = "round_robin";
@@ -109,7 +109,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   @Override
   public void start(Map<String, String> props) {
     // Do a validation of configs here too so that we do not pass null objects to
-    // {@link #verifySubscription}.
+    // verifySubscription().
     config().parse(props);
     String cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
     String cpsSubscription = props.get(CPS_SUBSCRIPTION_CONFIG);
@@ -125,7 +125,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   @Override
   public List<Map<String, String>> taskConfigs(int maxTasks) {
-    // Each task will get the exact same configuration.
+    // Each task will get the exact same configuration. Delegate config validation to the task.
     ArrayList<Map<String, String>> configs = new ArrayList<>();
     for (int i = 0; i < maxTasks; i++) {
       Map<String, String> config = new HashMap<>(props);
@@ -183,8 +183,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   }
 
   /**
-   * Check whether the user provided Cloud Pub/Sub subscription name specified by {@link
-   * #CPS_SUBSCRIPTION_CONFIG} exists or not.
+   * Check whether the user provided Cloud Pub/Sub subscription name specified by
+   * {@link #CPS_SUBSCRIPTION_CONFIG} exists or not.
    */
   @VisibleForTesting
   public void verifySubscription(String cpsProject, String cpsSubscription) {

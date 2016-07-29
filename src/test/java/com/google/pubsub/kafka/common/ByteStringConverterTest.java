@@ -48,12 +48,7 @@ public class ByteStringConverterTest {
             SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
             ByteString.copyFrom(value));
     assertEquals(expected, converter.toConnectData(TOPIC, value));
-    // Check case when byte array parameter is null.
     assertEquals(SchemaAndValue.NULL, converter.toConnectData(TOPIC, null));
-  }
-
-  public void testToConnectDataExceptionCase() {
-    // TODO(rramkumar): Implement.
   }
 
   @Test
@@ -62,7 +57,6 @@ public class ByteStringConverterTest {
     Schema schema = SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build();
     byte[] result = converter.fromConnectData(TOPIC, schema, ByteString.copyFromUtf8(expected));
     assertEquals(expected, new String(result));
-    // Check case when value object parameter is null.
     assertNull(converter.fromConnectData(TOPIC, schema, null));
   }
 
