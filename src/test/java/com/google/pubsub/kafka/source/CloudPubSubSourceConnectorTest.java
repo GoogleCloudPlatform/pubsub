@@ -25,8 +25,6 @@ import com.google.pubsub.kafka.common.ConnectorUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;

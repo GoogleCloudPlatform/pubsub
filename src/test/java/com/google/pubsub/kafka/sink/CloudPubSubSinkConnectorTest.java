@@ -16,16 +16,11 @@
 package com.google.pubsub.kafka.sink;
 
 import static org.junit.Assert.assertEquals;
-import static org.mockito.Mockito.spy;
 
+import com.google.pubsub.kafka.common.ConnectorUtils;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
-import com.google.pubsub.kafka.common.ConnectorUtils;
-import com.google.pubsub.kafka.source.CloudPubSubSourceConnector;
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.connect.errors.ConnectException;
 import org.junit.Before;
 import org.junit.Test;
 

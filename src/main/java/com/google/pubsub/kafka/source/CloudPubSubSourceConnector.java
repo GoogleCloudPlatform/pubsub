@@ -81,9 +81,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       }
     }
 
-    /**
-     * Validator class for {@link CloudPubSubSourceConnector.PartitionScheme}.
-     */
+    /** Validator class for {@link CloudPubSubSourceConnector.PartitionScheme}. */
     public static class Validator implements ConfigDef.Validator {
 
       @Override
@@ -92,9 +90,10 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         if (!value.equals(CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString())
             && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString())
             && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString())) {
-          throw new ConfigException("Valid values for " +
-              CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG +
-              " are hash_value, hash_key and round_robin");
+          throw new ConfigException(
+              "Valid values for "
+                  + CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG
+                  + " are hash_value, hash_key and round_robin");
         }
       }
     }
@@ -199,8 +198,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
               .build();
       stub.getSubscription(request).get();
     } catch (Exception e) {
-      throw new ConnectException("The subscription " + cpsSubscription +
-          " does not exist for the project" + cpsProject);
+      throw new ConnectException(
+          "The subscription " + cpsSubscription + " does not exist for the project" + cpsProject);
     }
   }
 

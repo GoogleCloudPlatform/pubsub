@@ -82,14 +82,15 @@ public class CloudPubSubSourceTask extends SourceTask {
             validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG).toString(),
             validatedProps.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG).toString());
     kafkaTopic = validatedProps.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG).toString();
-    cpsMaxBatchSize = (Integer) validatedProps.get(CloudPubSubSourceConnector
-        .CPS_MAX_BATCH_SIZE_CONFIG);
-    kafkaPartitions = (Integer) validatedProps.get(CloudPubSubSourceConnector
-        .KAFKA_PARTITIONS_CONFIG);
-    kafkaMessageKeyAttribute = validatedProps.get(CloudPubSubSourceConnector
-        .KAFKA_MESSAGE_KEY_CONFIG).toString();
-    kafkaPartitionScheme = PartitionScheme.getEnum(
-        (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
+    cpsMaxBatchSize =
+        (Integer) validatedProps.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG);
+    kafkaPartitions =
+        (Integer) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG);
+    kafkaMessageKeyAttribute =
+        validatedProps.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG).toString();
+    kafkaPartitionScheme =
+        PartitionScheme.getEnum(
+            (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
     if (subscriber == null) {
       // Only do this if we did not set through the constructor.
       subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);
@@ -178,7 +179,7 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
   }
 
-  /** Return the partition a message should go to based on {@link #kafkaPartitionScheme}.*/
+  /** Return the partition a message should go to based on {@link #kafkaPartitionScheme}. */
   private int selectPartition(Object key, Object value) {
     if (kafkaPartitionScheme.equals(PartitionScheme.HASH_KEY)) {
       return key == null ? 0 : key.hashCode() % kafkaPartitions;
