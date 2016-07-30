@@ -31,6 +31,8 @@ import org.junit.Test;
 public class ByteStringConverterTest {
 
   private static final String TOPIC = "test";
+  private static final String DATA = "This is a test";
+  private static final String SCHEMA_NAME = "dummy name";
 
   private ByteStringConverter converter;
 
@@ -42,7 +44,7 @@ public class ByteStringConverterTest {
 
   @Test
   public void testToConnectData() {
-    byte[] value = "This is a test".getBytes();
+    byte[] value = DATA.getBytes();
     SchemaAndValue expected =
         new SchemaAndValue(
             SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
@@ -53,7 +55,7 @@ public class ByteStringConverterTest {
 
   @Test
   public void testFromConnectData() {
-    String expected = "this is a test";
+    String expected = DATA;
     Schema schema = SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build();
     byte[] result = converter.fromConnectData(TOPIC, schema, ByteString.copyFromUtf8(expected));
     assertEquals(expected, new String(result));
@@ -62,7 +64,7 @@ public class ByteStringConverterTest {
 
   @Test(expected = DataException.class)
   public void testFromConnectDataExceptionCase() {
-    Schema schema = SchemaBuilder.bytes().name("dummy name").build();
+    Schema schema = SchemaBuilder.bytes().name(SCHEMA_NAME).build();
     converter.fromConnectData(TOPIC, schema, null);
   }
 }

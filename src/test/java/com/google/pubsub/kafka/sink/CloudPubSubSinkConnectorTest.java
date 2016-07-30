@@ -30,7 +30,6 @@ public class CloudPubSubSinkConnectorTest {
   private static final int NUM_TASKS = 10;
   private static final String CPS_PROJECT = "hello";
   private static final String CPS_TOPIC = "world";
-  private static final String INVALID_CPS_MIN_BATCH_SIZE = "Not an int";
 
   private CloudPubSubSinkConnector connector;
   private Map<String, String> props;
