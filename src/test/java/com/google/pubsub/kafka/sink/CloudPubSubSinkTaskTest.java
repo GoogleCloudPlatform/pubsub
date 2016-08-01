@@ -72,7 +72,7 @@ public class CloudPubSubSinkTaskTest {
     props = new HashMap<>();
     props.put(ConnectorUtils.CPS_TOPIC_CONFIG, CPS_TOPIC);
     props.put(ConnectorUtils.CPS_PROJECT_CONFIG, CPS_PROJECT);
-    props.put(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG, CPS_MIN_BATCH_SIZE2);
+    props.put(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG, CPS_MIN_BATCH_SIZE2);
   }
 
   /** Tests that an exception is thrown when the schema of the value is not BYTES. */
@@ -114,7 +114,7 @@ public class CloudPubSubSinkTaskTest {
    */
   @Test
   public void testPutWherePublishesAreInvoked() {
-    props.put(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG, CPS_MIN_BATCH_SIZE1);
+    props.put(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG, CPS_MIN_BATCH_SIZE1);
     task.start(props);
     List<SinkRecord> records = getSampleRecords();
     task.put(records);
@@ -149,7 +149,7 @@ public class CloudPubSubSinkTaskTest {
    */
   @Test
   public void testFlushWithPublishInPut() throws Exception {
-    props.put(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG, CPS_MIN_BATCH_SIZE1);
+    props.put(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG, CPS_MIN_BATCH_SIZE1);
     task.start(props);
     List<SinkRecord> records = getSampleRecords();
     ListenableFuture<PublishResponse> goodFuture =

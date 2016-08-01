@@ -60,7 +60,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages =
       new HashMap<>();
   private String cpsTopic;
-  private int minBatchSize;
+  private int maxBufferSize;
   private CloudPubSubPublisher publisher;
 
   /** Holds a list of the publishing futures that have not been processed for a single partition. */
@@ -97,7 +97,7 @@ public class CloudPubSubSinkTask extends SinkTask {
             ConnectorUtils.CPS_TOPIC_FORMAT,
             validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             validatedProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
-    minBatchSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.CPS_MIN_BATCH_SIZE_CONFIG);
+    maxBufferSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG);
     if (publisher == null) {
       // Only do this if we did not use the constructor.
       publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
@@ -158,7 +158,7 @@ public class CloudPubSubSinkTask extends SinkTask {
       unpublishedMessages.size = newUnpublishedSize;
       unpublishedMessages.messages.add(message);
       // If the number of messages in this partition is greater than the batch size, then publish.
-      if (unpublishedMessages.messages.size() >= minBatchSize) {
+      if (unpublishedMessages.messages.size() >= maxBufferSize) {
         publishMessagesForPartition(
             record.topic(), record.kafkaPartition(), unpublishedMessages.messages);
       }
