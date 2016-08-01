@@ -87,7 +87,7 @@ public class CloudPubSubSourceTask extends SourceTask {
     kafkaPartitions =
         (Integer) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG);
     kafkaMessageKeyAttribute =
-        validatedProps.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG).toString();
+        (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
     kafkaPartitionScheme =
         PartitionScheme.getEnum(
             (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
