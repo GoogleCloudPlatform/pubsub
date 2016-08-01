@@ -183,8 +183,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   }
 
   /**
-   * Check whether the user provided Cloud Pub/Sub subscription name specified by
-   * {@link #CPS_SUBSCRIPTION_CONFIG} exists or not.
+   * Check whether the user provided Cloud Pub/Sub subscription name specified by {@link
+   * #CPS_SUBSCRIPTION_CONFIG} exists or not.
    */
   @VisibleForTesting
   public void verifySubscription(String cpsProject, String cpsSubscription) {

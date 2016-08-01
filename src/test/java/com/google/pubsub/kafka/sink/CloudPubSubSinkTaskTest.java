@@ -210,8 +210,8 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /**
-   * Get some PubsubMessage's which correspond to the SinkRecord's created in
-   * {@link #getSampleRecords()}.
+   * Get some PubsubMessage's which correspond to the SinkRecord's created in {@link
+   * #getSampleRecords()}.
    */
   private List<PubsubMessage> getPubsubMessagesFromSampleRecords() {
     List<PubsubMessage> messages = new ArrayList<>();
