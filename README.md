@@ -89,17 +89,17 @@ Pub/Sub. Rather, just include the single-word name (i.e "foo" in this case).
 | Config        | Value Range | Default               | Description            |
 | ------------- | ----------- | --------------------- | ---------------------- |
 | cps.topic     | String      | REQUIRED (No default) | The topic to which to  |
-:               :             :                       : publish.               :
+|               |             |                       | publish.               |
 | cps.project   | String      | REQUIRED (No default) | The project containing |
-:               :             :                       : the topic to which to  :
-:               :             :                       : publish.               :
+|               |             |                       : the topic to which to  |
+|               |             |                       : publish.               |
 | maxBufferSize | Integer     | 100                   | The maximum number of  |
-:               :             :                       : messages that can be   :
-:               :             :                       : received for the       :
-:               :             :                       : messages on a topic    :
-:               :             :                       : partition before       :
-:               :             :                       : publishing them to     :
-:               :             :                       : Cloud Pub/Sub.         :
+|               |             |                       : messages that can be   |
+|               |             |                       : received for the       |
+|               |             |                       : messages on a topic    |
+|               |             |                       : partition before       |
+|               |             |                       : publishing them to     |
+|               |             |                       : Cloud Pub/Sub.         |
 
 #### Source Connector
 
