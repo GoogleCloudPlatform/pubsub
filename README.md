@@ -91,57 +91,57 @@ Pub/Sub. Rather, just include the single-word name (i.e "foo" in this case).
 | cps.topic     | String      | REQUIRED (No default) | The topic to which to  |
 |               |             |                       | publish.               |
 | cps.project   | String      | REQUIRED (No default) | The project containing |
-|               |             |                       : the topic to which to  |
-|               |             |                       : publish.               |
+|               |             |                       | the topic to which to  |
+|               |             |                       | publish.               |
 | maxBufferSize | Integer     | 100                   | The maximum number of  |
-|               |             |                       : messages that can be   |
-|               |             |                       : received for the       |
-|               |             |                       : messages on a topic    |
-|               |             |                       : partition before       |
-|               |             |                       : publishing them to     |
-|               |             |                       : Cloud Pub/Sub.         |
+|               |             |                       | messages that can be   |
+|               |             |                       | received for the       |
+|               |             |                       | messages on a topic    |
+|               |             |                       | partition before       |
+|               |             |                       | publishing them to     |
+|               |             |                       | Cloud Pub/Sub.         |
 
 #### Source Connector
 
 | Config                 | Value Range  | Default      | Description           |
 | ---------------------- | ------------ | ------------ | --------------------- |
 | cps.subscription       | String       | REQUIRED (No | The name of the       |
-:                        :              : default)     : subscription to Cloud :
-:                        :              :              : Pub/Sub.              :
+|                        |              | default)     | subscription to Cloud |
+|                        |              |              | Pub/Sub.              |
 | cps.project            | String       | REQUIRED (No | The project           |
-:                        :              : default)     : containing the topic  :
-:                        :              :              : from which to pull    :
-:                        :              :              : messages.             :
+|                        |              | default)     | containing the topic  |
+|                        |              |              | from which to pull    |
+|                        |              |              | messages.             |
 | kafka.topic            | String       | REQUIRED (No | The topic in Kafka    |
-:                        :              : default)     : which will receive    :
-:                        :              :              : messages that were    :
-:                        :              :              : pulled from Cloud     :
-:                        :              :              : Pub/Sub.              :
+|                        |              | default)      | which will receive   |
+|                        |              |               | messages that were   |
+|                        |              |               | pulled from Cloud    |
+|                        |              |               | Pub/Sub.             |
 | cps.maxBatchSize       | Integer      | 100          | The minimum number of |
-:                        :              :              : messages to batch per :
-:                        :              :              : pull request to Cloud :
-:                        :              :              : Pub/Sub.              :
+|                        |              |               | messages to batch per|
+|                        |              |               | pull request to Cloud|
+|                        |              |               | Pub/Sub.             |
 | kafka.key.attribute    | String       | null         | The Cloud Pub/Sub     |
-:                        :              :              : message attribute to  :
-:                        :              :              : use as a key for      :
-:                        :              :              : messages published to :
-:                        :              :              : Kafka.                :
+|                        |              |               | message attribute to |
+|                        |              |               | use as a key for     |
+|                        |              |              | messages published to |
+|                        |              |              | Kafka.                |
 | kafka.partition.count  | Integer      | 1            | The number of Kafka   |
-:                        :              :              : partitions for the    :
-:                        :              :              : Kafka topic in which  :
-:                        :              :              : messages will be      :
-:                        :              :              : published to.         :
+|                        |              |              | partitions for the    |
+|                        |              |              | Kafka topic in which  |
+|                        |              |              | messages will be      |
+|                        |              |              | published to.         |
 | kafka.partition.scheme | round_robin, | round_robin  | The scheme for        |
-:                        : hash_key,    :              : assigning a message   :
-:                        : hash_value   :              : to a partition in     :
-:                        :              :              : Kafka. The scheme     :
-:                        :              :              : "round_robin" assigns :
-:                        :              :              : partitions in a round :
-:                        :              :              : robin fashion, while  :
-:                        :              :              : the schemes           :
-:                        :              :              : "hash_key" and        :
-:                        :              :              : "hash_value" find the :
-:                        :              :              : partition by hashing  :
-:                        :              :              : the message key and   :
-:                        :              :              : message value         :
-:                        :              :              : respectively.         :
+|                        | hash_key,    |              | assigning a message   |
+|                        | hash_value   |              | to a partition in     |
+|                        |              |              | Kafka. The scheme     |
+|                        |              |              | "round_robin" assigns |
+|                        |              |              | partitions in a round |
+|                        |              |              | robin fashion, while  |
+|                        |              |              | the schemes           |
+|                        |              |              | "hash_key" and        |
+|                        |              |              | "hash_value" find the |
+|                        |              |              | partition by hashing  |
+|                        |              |              | the message key and   |
+|                        |              |              | message value         |
+|                        |              |              | respectively.         |
