@@ -23,7 +23,7 @@ These instructions assume you are using [Maven](https://maven.apache.org/).
 
 1.  Clone the repository, ensuring to do so recursively to pick up submodules:
 
-    `git clone --recursive https://github.com/GoogleCloudPlatform/cloud-pubsub-kafka
+    git clone --recursive https://github.com/GoogleCloudPlatform/cloud-pubsub-kafka
 
 2.  Make the jar that contains the connector:
 
