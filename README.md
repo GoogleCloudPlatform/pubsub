@@ -84,7 +84,7 @@ have a topic name of "projects/bar/topics/foo". When specifying configs for the
 connector, do not include the fully qualified path name that you see on Cloud
 Pub/Sub. Rather, just include the single-word name (i.e "foo" in this case).
 
-#### Sink Connector
+#### Source Connector
 
 | Config | Value Range | Default | Description |
 |------------------------|-----------------------------------|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
@@ -96,7 +96,7 @@ Pub/Sub. Rather, just include the single-word name (i.e "foo" in this case).
 | kafka.partition.count | Integer | 1 | The number of Kafka partitions for the Kafka topic in which messages will be published to. |
 | kafka.partition.scheme | round_robin, hash_key, hash_value | round_robin | The scheme for assigning a message to a partition in Kafka. The scheme "round_robin" assigns partitions in a round robin fashion, while the schemes "hash_key" and "hash_value" find the partition by hashing the message key and message value respectively. |
 
-##### Source Connector
+##### Sink Connector
 
 | Config | Value Range | Default | Description |
 |---------------|-------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
