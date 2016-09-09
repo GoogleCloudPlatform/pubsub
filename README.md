@@ -21,7 +21,7 @@ messages will be larger than that limit.
 
 These instructions assume you are using [Maven](https://maven.apache.org/).
 
-1.  Clone the repository, ensuring to do so recursively to pick up submodules:
+1.  Clone this repository, ensuring to do so recursively to pick up submodules:
 
     `git clone --recursive https://github.com/GoogleCloudPlatform/cloud-pubsub-kafka`
 
