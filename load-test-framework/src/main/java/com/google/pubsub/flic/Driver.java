@@ -130,7 +130,7 @@ public class Driver {
       }
     } catch (Exception e) {
       log.error("An error occurred...", e);
-      return;
+      System.exit(1);
     }
   }
 }
