@@ -54,7 +54,7 @@ The resulting jar is at target/flic.jar.
 
 It is important to first point out that we are providing a framework for load
 testing Cloud Pub/Sub. While it is possible to publish and consume messages to
-Kafka from this framework, the client code used to do so is not purposely
+Kafka from this framework, the client code used to do so has not yet been
 optimized to show off the things Kafka does well. On the other hand, the client
 code for Cloud Pub/Sub is optimized. A list of the optimizations and their
 benefits are as follows.
