@@ -60,13 +60,13 @@ public class Driver {
         if (baseArgs.isHelp()) {
           jCommander.usage();
         }
-        System.exit(0);
+        return;
       }
       if (jCommander.getParsedCommand().equals(CompareArguments.COMMAND)) {
         // Compares data dumps for correctness.
         Comparison c = new Comparison(dataComparisonArgs.getFile1(), dataComparisonArgs.getFile2());
         c.compare();
-        System.exit(0);
+        return;
       }
       // Use the builder to construct custom arguments for each task.
       TaskArgs.TaskArgsBuilder builder =
@@ -130,7 +130,7 @@ public class Driver {
       }
     } catch (Exception e) {
       log.error("An error occurred...", e);
-      System.exit(1);
+      return;
     }
   }
 }
