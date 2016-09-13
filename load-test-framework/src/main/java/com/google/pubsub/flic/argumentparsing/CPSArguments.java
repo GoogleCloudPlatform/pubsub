@@ -68,7 +68,6 @@ public class CPSArguments {
     return batchSize;
   }
 
-
   public int getNumClients() {
     return numClients;
   }
