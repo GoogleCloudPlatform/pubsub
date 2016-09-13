@@ -31,7 +31,7 @@ The resulting jar is at target/flic.jar.
 ### Pre-Running Steps
 
 1.  Regardless of whether you are running on Google Cloud Platform or not, you
-    need to create a project and create service key that allows you access to
+    need to create a project and create a service key that allows you access to
     the Cloud Pub/Sub API's and default quotas.
 
 2.  Create project on Google Cloud Platform. By default, this project will have
