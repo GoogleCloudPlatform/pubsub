@@ -4,3 +4,6 @@ available are:
 
 * [Kafka Connector](https://github.com/GoogleCloudPlatform/pubsub/tree/master/kafka-connector):
   Send and receive messages from [Apache Kafka](http://kafka.apache.org).
+* [Load Testing Framework](https://github.com/GoogleCloudPlatform/pubsub/tree/master/load-test-framework):
+  Set up comparative load tests between [Apache Kafka](http://kafka.apache.org)
+  and [Google Cloud Pub/Sub](https://cloud.google.com/pubsub/).
