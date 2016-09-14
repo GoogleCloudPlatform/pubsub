@@ -43,7 +43,18 @@ The resulting jar is at target/flic.jar.
 
 3.  Go to the "IAM" tab, find the service account you just created and click on
     the dropdown menu named "Role(s)". Under the "Pub/Sub" submenu, select
-    "Pub/Sub Admin". Finally, the key file that was downloaded to your machine
+    "Pub/Sub Admin".
+
+    If you don't see the service account in the list, add a new permission, use
+    the service account as the member name, and select "Pub/Sub Admin" from the
+    role dropdown menu in the window.
+
+    Now, the service account you just created should appear in the members list
+    on the IAM page with the role Pub/Sub Admin. If the member name is gray,
+    don't worry. It will take a few minutes for the account's new permissions to
+    make their way through the system.
+
+    Finally, the key file that was downloaded to your machine
     needs to be placed on the machine running the framework. An environment
     variable named GOOGLE_APPLICATION_CREDENTIALS must point to this file. (Tip:
     export this environment variable as part of your shell startup file).
