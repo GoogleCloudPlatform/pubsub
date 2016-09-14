@@ -88,6 +88,11 @@ performance of Cloud Pub/Sub and Kafka under the same scenarios, then either run
 your own Kafka load tests, or modify the existing Kafka client code in the
 framework to make it as optimized as you would like.
 
+Additionally, we invite anyone to submit pull requests including optimizations
+to our Kafka client. We intend this framework to provide as close to a 1:1
+comparison between Cloud Pub/Sub and Kafka as possible and have provided it
+open-source to allow the Kafka community to contribute to this goal.
+
 ### Quickstart
 
 1.  The jar file can be executed with numerous commands and options specified
