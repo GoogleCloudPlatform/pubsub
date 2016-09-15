@@ -70,8 +70,11 @@ public class CPSSubscribingTask extends CPSTask {
     AcknowledgeRequest.Builder ackBuilder = AcknowledgeRequest.newBuilder();
     // Create a subscription for each topic.
     for (String topic : args.getTopics()) {
-      Subscription request =
-          subBuilder.setTopic(Utils.getCPSTopic(topic, args.getCPSProject())).build();
+      // TODO(jrheizelman): Fix this with new command line arguments for both topic and sub-name
+      // TODO(jrheizelman): Fix already-exists error where each sub-name must be unique
+      subBuilder.setName(Utils.getCPSSubscription(topic, args.getCPSProject()));
+      subBuilder.setTopic(Utils.getCPSTopic("test-1", args.getCPSProject()));
+      Subscription request = subBuilder.build();
       Subscription response = subscriber.createSubscription(request).get();
       subscriptions.add(response);
       openPullsPerSubscription.put(response, new MutableInt(0));
