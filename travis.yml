@@ -1,0 +1,6 @@
+install:
+- mvn -f load-test-framework/pom.xml package
+- mvn -f kafka-connector/pom.xml package
+
+script:
+- ls
