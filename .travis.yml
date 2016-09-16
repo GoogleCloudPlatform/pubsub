@@ -2,7 +2,6 @@ language: java
 
 install:
 - mvn -X -f kafka-connector/pom.xml package
-- mvn -X -f load-test-framework/pom.xml package
 
 script:
 - ls
