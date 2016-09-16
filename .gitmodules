@@ -1,3 +1,0 @@
-[submodule "kafka-connector/src/main/proto"]
-	path = kafka-connector/src/main/proto
-	url = https://github.com/google/googleapis.git
