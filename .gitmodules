@@ -1,7 +1,6 @@
 [submodule "kafka-connector/src/main/proto"]
 	path = kafka-connector/src/main/proto
 	url = https://github.com/google/googleapis.git
-
 [submodule "load-test-framework/src/main/proto"]
 	path = load-test-framework/src/main/proto
-	url = https://github.com/google/googleapis.git
+	url = https://github.com/googleapis/googleapis.git
