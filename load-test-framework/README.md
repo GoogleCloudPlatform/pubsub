@@ -149,7 +149,7 @@ open-source to allow the Kafka community to contribute to this goal.
     from Cloud Pub/Sub. One feature of the Cloud Pub/Sub client code which
     consumes messages is that it indicates to you when to start publishing. This
     is necessary because the subscriptions need to be made before messages start
-    flowing into a topic.  The steps below show how to run this test:
+    flowing into a topic. The steps below show how to run this test:
 
     `./run.py --publish false --num_messages=1000
     --topics=mytopic:mysubscription cps --project=myproject
