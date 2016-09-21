@@ -30,7 +30,6 @@ import com.google.pubsub.flic.kafka.KafkaPublishingTask;
 import com.google.pubsub.flic.processing.Comparison;
 import com.google.pubsub.flic.processing.MessageProcessingHandler;
 import com.google.pubsub.flic.task.TaskArgs;
-import io.grpc.Status;
 import java.io.File;
 import java.util.logging.LogManager;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
@@ -104,16 +103,7 @@ public class Driver {
           cpsHandler.setLatencyType(MessageProcessingHandler.LatencyType.END_TO_END);
           CPSRoundRobinSubscriber subscriber = new CPSRoundRobinSubscriber(cpsArgs.getNumClients());
           log.info("Creating a task which consumes from CPS.");
-          try {
-            new CPSSubscribingTask(taskArgs, subscriber, cpsHandler).execute();
-          } catch(io.grpc.StatusRuntimeException e) {
-            // Catch error for already existing subscription, then creates a client
-            if(e.getStatus().getCode() == Status.ALREADY_EXISTS.getCode())  {
-              System.out.println("hi");
-            }
-            else
-              throw e;
-          }
+          new CPSSubscribingTask(taskArgs, subscriber, cpsHandler).execute();
         }
       } else {
         // The "kafka" command was invoked.
