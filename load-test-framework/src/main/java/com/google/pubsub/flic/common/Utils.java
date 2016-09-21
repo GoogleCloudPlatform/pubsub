@@ -55,7 +55,7 @@ public class Utils {
       try {
         int n = Integer.parseInt(value);
         if (n > 0) return;
-      } catch (NumberFormatException e) { }
+      } catch (NumberFormatException e) { } // Parameter was not a number
       throw new ParameterException(
             "Parameter " + name + " should be an int greater than 0 (found " + value + ")");
     }
