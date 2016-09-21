@@ -149,12 +149,21 @@ open-source to allow the Kafka community to contribute to this goal.
     from Cloud Pub/Sub. One feature of the Cloud Pub/Sub client code which
     consumes messages is that it indicates to you when to start publishing. This
     is necessary because the subscriptions need to be made before messages start
-    flowing into a topic. The steps below show how to run this test:
+    flowing into a topic.  The steps below show how to run this test:
 
-    `./run.py --publish false --num_messages=1000 --topics=mytopic cps
-    --project=myproject (Run this in a different shell)`.
+    `./run.py --publish false --num_messages=1000
+    --topics=mytopic:mysubscription cps --project=myproject
+    (Run this in a different shell)`.
 
     `./run.py --num_messages=1000 --topics=mytopic cps --project=myproject`.
+
+    Note: Running the subscription script will create a new subscription to your
+    pubsub topic, there is no need to create one before running. In fact, we
+    advise against using an already-existing subscription. The load test
+    requires a fresh subscription to avoid un-delivered messages published
+    before the test began counting to the latency numbers (because they could be
+    days old!). To avoid this, upon encountering a subscription that already
+    exists, the framework will delete it and recreate one with the same name.
 
 5.  The output for this test would look something like this: (We omit the output
     from the publisher, see step #2 for how that looks).
