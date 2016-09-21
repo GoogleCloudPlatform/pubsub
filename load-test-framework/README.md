@@ -190,7 +190,7 @@ creating some simple "integration" tests. The following steps would perform a
 simple integration test for the sink connector.
 
 1.  Create a topic on Kafka. Run two invocations of the framework, one that
-    consumes messages from Kafka and one tha publishes. Be sure to turn on data
+    consumes messages from Kafka and one that publishes. Be sure to turn on data
     dumps (This dumps consumed message data into a directory "data").
 
     `./run.py --publish false --dump_data --topics=mytopic kafka
