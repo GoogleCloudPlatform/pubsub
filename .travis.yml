@@ -7,4 +7,4 @@ install:
 - mvn -f load-test-framework/pom.xml package
 
 script:
-- ls
+- load-test-framework/run.py --num_messages=1000 --message_size=1024 --topics=mytopic cps --project=myproject --batch_size=1000 --num_clients=5 --response_threads=3 --rate_limit=100
