@@ -19,7 +19,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
 import com.google.pubsub.flic.common.Utils;
 import com.google.pubsub.v1.AcknowledgeRequest;
-import com.google.pubsub.v1.GetSubscriptionRequest;
+import com.google.pubsub.v1.DeleteSubscriptionRequest;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.SubscriberGrpc;
@@ -63,9 +63,10 @@ public class CPSRoundRobinSubscriber {
     return pullClients.get(0).createSubscription(request);
   }
   
-  public ListenableFuture<Subscription> getSubscription(Subscription request) {
-    GetSubscriptionRequest.Builder getBuilder = GetSubscriptionRequest.newBuilder();
-    getBuilder.setSubscription(request.getName());
-    return pullClients.get(0).getSubscription(getBuilder.build());
+  /** Delete a Subscription. */
+  public ListenableFuture<Empty> deleteSubscription(Subscription request) {
+    DeleteSubscriptionRequest.Builder deleteBuilder = DeleteSubscriptionRequest.newBuilder();
+    deleteBuilder.setSubscription(request.getName());
+    return pullClients.get(0).deleteSubscription(deleteBuilder.build());
   }
 }

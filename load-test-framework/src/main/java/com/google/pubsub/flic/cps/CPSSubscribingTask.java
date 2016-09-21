@@ -85,9 +85,11 @@ public class CPSSubscribingTask extends CPSTask {
         response = subscriber.createSubscription(request).get();
       } catch(ExecutionException e)  {
         Throwable cause = e.getCause();
+        // Check to see if creating the subscription failed bc subscription already existed
         if (cause instanceof StatusRuntimeException && 
             ((StatusRuntimeException) cause).getStatus().getCode().equals(Status.ALREADY_EXISTS.getCode())) {
-          response = subscriber.getSubscription(request).get();
+          subscriber.deleteSubscription(request).get();
+          response = subscriber.createSubscription(request).get();
         }
         else throw e;
       }
