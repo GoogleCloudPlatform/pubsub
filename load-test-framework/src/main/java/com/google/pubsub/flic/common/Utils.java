@@ -52,11 +52,12 @@ public class Utils {
 
     @Override
     public void validate(String name, String value) throws ParameterException {
-      int n = Integer.parseInt(value);
-      if (n <= 0) {
-        throw new ParameterException(
-            "Parameter " + name + " should be greater than 0 (found " + value + ")");
-      }
+      try {
+        int n = Integer.parseInt(value);
+        if (n > 0) return;
+      } catch (NumberFormatException e) { }
+      throw new ParameterException(
+            "Parameter " + name + " should be an int greater than 0 (found " + value + ")");
     }
   }
 

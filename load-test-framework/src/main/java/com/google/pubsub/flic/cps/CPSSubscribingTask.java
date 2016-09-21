@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic.cps;
 
+import com.beust.jcommander.ParameterException;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -29,12 +30,15 @@ import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
 import com.google.pubsub.v1.Subscription;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -70,12 +74,23 @@ public class CPSSubscribingTask extends CPSTask {
     AcknowledgeRequest.Builder ackBuilder = AcknowledgeRequest.newBuilder();
     // Create a subscription for each topic.
     for (String topic : args.getTopics()) {
-      // TODO(jrheizelman): Fix this with new command line arguments for both topic and sub-name
-      // TODO(jrheizelman): Fix already-exists error where each sub-name must be unique
-      subBuilder.setName(Utils.getCPSSubscription(topic, args.getCPSProject()));
-      subBuilder.setTopic(Utils.getCPSTopic("test-1", args.getCPSProject()));
+      String[] splitOnColon = topic.split(":");
+      if(splitOnColon.length != 2)
+        throw new ParameterException("Parameter topics should be formatted 'topic:subscription'");
+      subBuilder.setName(Utils.getCPSSubscription(splitOnColon[1], args.getCPSProject()));
+      subBuilder.setTopic(Utils.getCPSTopic(splitOnColon[0], args.getCPSProject()));
       Subscription request = subBuilder.build();
-      Subscription response = subscriber.createSubscription(request).get();
+      Subscription response;
+      try   {
+        response = subscriber.createSubscription(request).get();
+      } catch(ExecutionException e)  {
+        Throwable cause = e.getCause();
+        if (cause instanceof StatusRuntimeException && 
+            ((StatusRuntimeException) cause).getStatus().getCode().equals(Status.ALREADY_EXISTS.getCode())) {
+          response = subscriber.getSubscription(request).get();
+        }
+        else throw e;
+      }
       subscriptions.add(response);
       openPullsPerSubscription.put(response, new MutableInt(0));
     }
