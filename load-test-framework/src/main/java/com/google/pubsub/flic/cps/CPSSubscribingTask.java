@@ -77,8 +77,8 @@ public class CPSSubscribingTask extends CPSTask {
       String[] splitOnColon = topic.split(":");
       if(splitOnColon.length != 2)
         throw new ParameterException("Parameter topics should be formatted 'topic:subscription'");
-      subBuilder.setName(Utils.getCPSSubscription(splitOnColon[1], args.getCPSProject()));
-      subBuilder.setTopic(Utils.getCPSTopic(splitOnColon[0], args.getCPSProject()));
+      subBuilder.setName(Utils.getCPSSubscription(splitOnColon[1], args.getCPSProject()))
+                .setTopic(Utils.getCPSTopic(splitOnColon[0], args.getCPSProject()));
       Subscription request = subBuilder.build();
       Subscription response;
       try   {

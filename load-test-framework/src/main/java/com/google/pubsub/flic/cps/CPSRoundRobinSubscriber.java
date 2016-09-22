@@ -65,8 +65,8 @@ public class CPSRoundRobinSubscriber {
   
   /** Delete a Subscription. */
   public ListenableFuture<Empty> deleteSubscription(Subscription request) {
-    DeleteSubscriptionRequest.Builder deleteBuilder = DeleteSubscriptionRequest.newBuilder();
-    deleteBuilder.setSubscription(request.getName());
-    return pullClients.get(0).deleteSubscription(deleteBuilder.build());
+    return pullClients.get(0).deleteSubscription(DeleteSubscriptionRequest.newBuilder()
+        .setSubscription(request.getName())
+        .build());
   }
 }
