@@ -78,6 +78,7 @@ public class KafkaPublishingTask extends Task {
                   failureFlag.set(true);
                 }
                 long latency = System.currentTimeMillis() - metadata.timestamp();
+                log.debug("Latency: " + latency);
                 processingHandler.addStats(counter.intValue() - 1, latency, sentBytes.longValue());
               }
             }
@@ -89,6 +90,7 @@ public class KafkaPublishingTask extends Task {
       log.info("Waiting for all acks to arrive...");
       publisher.flush();
     }
+    log.debug("Printing stats");
     processingHandler.printStats(start, null, failureFlag);
     log.info("Done!");
   }
