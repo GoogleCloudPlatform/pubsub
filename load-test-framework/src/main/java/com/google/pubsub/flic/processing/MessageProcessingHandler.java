@@ -101,8 +101,10 @@ public class MessageProcessingHandler {
 
   /** Adds latency and throughput stats as well as decrementing the count for a barrier. */
   public synchronized void addStats(int num, long latency, long size) {
+    log.info("In add stats");
     if (lockHelper.barrier.getCount() != 0) {
       for (int i = 0; i < num; ++i) {
+        log.info("in add stats for loop");
         latencyStats.recordValue(latency);
         lockHelper.barrier.countDown();
         wakeUpCondition();
@@ -118,11 +120,13 @@ public class MessageProcessingHandler {
    */
   public void printStats(long start, DelayTrackingThreadPool executor, AtomicBoolean failureFlag)
       throws Exception {
+    log.info("In print stats");
     lockHelper.conditionLock.lock();
     while (!lockHelper.barrier.await(0, TimeUnit.MICROSECONDS) && !failureFlag.get()) {
       lockHelper.condition.await();
     }
     lockHelper.conditionLock.unlock();
+    log.info("Print woken up");
     if (failureFlag.get()) {
       return;
     }

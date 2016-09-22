@@ -22,7 +22,6 @@ import com.google.pubsub.flic.task.TaskArgs;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -41,13 +40,13 @@ public class KafkaPublishingTask extends Task {
   private static final String PRODUCER_PROPERTIES = "/producer.properties";
 
   private KafkaProducer<String, String> publisher;
-//  private MessageProcessingHandler processingHandler;
+  private MessageProcessingHandler processingHandler;
 
   public KafkaPublishingTask(
       TaskArgs args, KafkaProducer<String, String> publisher, MessageProcessingHandler processingHandler) {
     super(args);
     this.publisher = publisher;
-//    this.processingHandler = processingHandler;
+    this.processingHandler = processingHandler;
   }
 
   public void execute() throws Exception {
@@ -55,7 +54,6 @@ public class KafkaPublishingTask extends Task {
     String baseMessage = Utils.createMessage(args.getMessageSize(), 0);
     // Keep track of the number of bytes sent and number of messages
     AtomicLong sentBytes = new AtomicLong(0);
-    AtomicInteger counter = new AtomicInteger(1);
     long start = System.currentTimeMillis();
     log.info("Start: " + start);
     while (messageNo.intValue() <= args.getNumMessages() && !failureFlag.get()) {
@@ -79,8 +77,7 @@ public class KafkaPublishingTask extends Task {
                   failureFlag.set(true);
                 }
                 long latency = System.currentTimeMillis() - metadata.timestamp();
-                log.info("Latency: " + latency);
-//                processingHandler.addStats(counter.intValue() - 1, latency, sentBytes.longValue());
+                processingHandler.addStats(messageNo.intValue() - 1, latency, sentBytes.longValue());
               }
             }
           });
@@ -93,7 +90,7 @@ public class KafkaPublishingTask extends Task {
       log.info("Other size of flush");
     }
     log.info("Printing stats");
-//    processingHandler.printStats(start, null, failureFlag);
+    processingHandler.printStats(start, null, failureFlag);
     log.info("Done!");
   }
 
