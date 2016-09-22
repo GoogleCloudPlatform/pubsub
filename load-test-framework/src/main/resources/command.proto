@@ -1,0 +1,16 @@
+package pubsub;
+
+option java_package = "com.google.pubsub.flic.common";
+option java_outer_classname = "Command";
+
+message Command {
+  optional Timestamp start_time = 1;
+  optional Timestamp stop_time = 2;
+  optional int32 number_of_workers = 3;
+  optional bool restart_statistics = 4;
+  optional int32 max_messages_per_pull = 5;
+  optional string project = 6;
+  optional string topic = 7;
+  optional string subscription = 8;
+  // maybe a number of messages to expect rather than stop time?
+}
