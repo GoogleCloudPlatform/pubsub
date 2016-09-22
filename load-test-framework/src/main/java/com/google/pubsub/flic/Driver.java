@@ -115,7 +115,7 @@ public class Driver {
           KafkaProducer<String, String> publisher =
               KafkaPublishingTask.getInitializedProducer(taskArgs);
           log.info("Creating a task which publishes to Kafka");
-          new KafkaPublishingTask(taskArgs, publisher).execute();
+          new KafkaPublishingTask(taskArgs, publisher, bundle).execute();
         } else {
           // Create a task that consumes from Kafka.
           if (baseArgs.isDumpData()) {

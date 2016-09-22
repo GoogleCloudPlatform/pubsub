@@ -140,14 +140,16 @@ public class MessageProcessingHandler {
                 latencyStats.getValueAtPercentile(50),
                 latencyStats.getValueAtPercentile(95),
                 latencyStats.getValueAtPercentile(99)));
-    log.info(
-        "The average delay for processing "
-            + latencyType
-            + " latency was "
-            + executor.getAverageTaskWaitTime()
-            + ""
-            + " "
-            + "ms");
+    if(executor != null) {
+      log.info(
+          "The average delay for processing "
+              + latencyType
+              + " latency was "
+              + executor.getAverageTaskWaitTime()
+              + ""
+              + " "
+              + "ms");
+    }
     // Throughput stats.
     double diff = (double) (System.currentTimeMillis() - start) / 1000;
     long averageMessagesPerSec = (long) (getTotalItems() / diff);
