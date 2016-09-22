@@ -41,13 +41,13 @@ public class KafkaPublishingTask extends Task {
   private static final String PRODUCER_PROPERTIES = "/producer.properties";
 
   private KafkaProducer<String, String> publisher;
-  private MessageProcessingHandler processingHandler;
+//  private MessageProcessingHandler processingHandler;
 
   public KafkaPublishingTask(
       TaskArgs args, KafkaProducer<String, String> publisher, MessageProcessingHandler processingHandler) {
     super(args);
     this.publisher = publisher;
-    this.processingHandler = processingHandler;
+//    this.processingHandler = processingHandler;
   }
 
   public void execute() throws Exception {
@@ -80,7 +80,7 @@ public class KafkaPublishingTask extends Task {
                 }
                 long latency = System.currentTimeMillis() - metadata.timestamp();
                 log.info("Latency: " + latency);
-                processingHandler.addStats(counter.intValue() - 1, latency, sentBytes.longValue());
+//                processingHandler.addStats(counter.intValue() - 1, latency, sentBytes.longValue());
               }
             }
           });
@@ -93,7 +93,7 @@ public class KafkaPublishingTask extends Task {
       log.info("Other size of flush");
     }
     log.info("Printing stats");
-    processingHandler.printStats(start, null, failureFlag);
+//    processingHandler.printStats(start, null, failureFlag);
     log.info("Done!");
   }
 
