@@ -78,7 +78,7 @@ found in the [Kafka Users Guide]
 
 ### CloudPubSubConnector Configs
 
-Cloud Pub/Sub topics, and subscriptions are represented by their fully qualified
+Cloud Pub/Sub topics and subscriptions are represented by their fully qualified
 path name. For example a topic "foo" that lives under the project "bar" will
 have a topic name of "projects/bar/topics/foo". When specifying configs for the
 connector, do not include the fully qualified path name that you see on Cloud

@@ -45,17 +45,19 @@ public class Utils {
   public static final String KEY_ATTRIBUTE = "key";
   public static final String TIMESTAMP_ATTRIBUTE = "timestamp";
   public static final String CPS_TOPIC_FORMAT = "projects/%s/topics/%s";
+  public static final String CPS_SUBSCRIPTION_FORMAT = "projects/%s/subscriptions/%s";
 
   /** A validator that makes sure the parameter is an integer that is greater than 0. */
   public static class GreaterThanZeroValidator implements IParameterValidator {
 
     @Override
     public void validate(String name, String value) throws ParameterException {
-      int n = Integer.parseInt(value);
-      if (n <= 0) {
-        throw new ParameterException(
-            "Parameter " + name + " should be greater than 0 (found " + value + ")");
-      }
+      try {
+        int n = Integer.parseInt(value);
+        if (n > 0) return;
+      } catch (NumberFormatException e) { } // Parameter was not a number
+      throw new ParameterException(
+            "Parameter " + name + " should be an int greater than 0 (found " + value + ")");
     }
   }
 
@@ -98,5 +100,9 @@ public class Utils {
   /** Creates a full Cloud Pub/Sub topic name based on a single word topic and the project name. */
   public static String getCPSTopic(String topic, String cpsProject) {
     return String.format(Utils.CPS_TOPIC_FORMAT, cpsProject, topic);
+  }
+  
+  public static String getCPSSubscription(String subscription, String cpsProject) {
+    return String.format(Utils.CPS_SUBSCRIPTION_FORMAT, cpsProject, subscription);
   }
 }
