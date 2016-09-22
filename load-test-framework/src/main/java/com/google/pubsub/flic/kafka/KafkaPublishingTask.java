@@ -55,7 +55,6 @@ public class KafkaPublishingTask extends Task {
     // Keep track of the number of bytes sent and number of messages
     AtomicLong sentBytes = new AtomicLong(0);
     long start = System.currentTimeMillis();
-    log.info("Start: " + start);
     while (messageNo.intValue() <= args.getNumMessages() && !failureFlag.get()) {
       String messageToSend = baseMessage + messageNo;
       ProducerRecord<String, String> record =
@@ -87,9 +86,7 @@ public class KafkaPublishingTask extends Task {
     if (!failureFlag.get()) {
       log.info("Waiting for all acks to arrive...");
       publisher.flush();
-      log.info("Other size of flush");
     }
-    log.info("Printing stats");
     processingHandler.printStats(start, null, failureFlag);
     log.info("Done!");
   }

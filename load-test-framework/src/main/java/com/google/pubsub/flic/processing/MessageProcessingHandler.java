@@ -118,13 +118,11 @@ public class MessageProcessingHandler {
    */
   public void printStats(long start, DelayTrackingThreadPool executor, AtomicBoolean failureFlag)
       throws Exception {
-    log.info("In print stats");
     lockHelper.conditionLock.lock();
     while (!lockHelper.barrier.await(0, TimeUnit.MICROSECONDS) && !failureFlag.get()) {
       lockHelper.condition.await();
     }
     lockHelper.conditionLock.unlock();
-    log.info("Print woken up");
     if (failureFlag.get()) {
       return;
     }
