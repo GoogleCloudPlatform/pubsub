@@ -107,7 +107,8 @@ public class Driver {
         }
       } else {
         // The "kafka" command was invoked.
-        MessageProcessingHandler bundle = new MessageProcessingHandler(baseArgs.getNumMessages());
+        MessageProcessingHandler kafkaHandler = new MessageProcessingHandler(baseArgs.getNumMessages());
+        kafkaHandler.setLatencyType(MessageProcessingHandler.LatencyType.PUB_TO_ACK);
         builder = builder.broker(kafkaArgs.getBroker());
         if (baseArgs.isPublish()) {
           // Create a task that publishes to Kafka.
@@ -115,17 +116,17 @@ public class Driver {
           KafkaProducer<String, String> publisher =
               KafkaPublishingTask.getInitializedProducer(taskArgs);
           log.info("Creating a task which publishes to Kafka");
-          new KafkaPublishingTask(taskArgs, publisher, bundle).execute();
+          new KafkaPublishingTask(taskArgs, publisher, kafkaHandler).execute();
         } else {
           // Create a task that consumes from Kafka.
           if (baseArgs.isDumpData()) {
-            bundle.setFiledump(new File(Utils.KAFKA_FILEDUMP_PATH));
+            kafkaHandler.setFiledump(new File(Utils.KAFKA_FILEDUMP_PATH));
           }
           taskArgs = builder.broker(kafkaArgs.getBroker()).build();
           KafkaConsumer<String, String> consumer =
               KafkaConsumerTask.getInitializedConsumer(taskArgs);
           log.info("Creating a task which consumes from Kafka.");
-          new KafkaConsumerTask(taskArgs, consumer, bundle).execute();
+          new KafkaConsumerTask(taskArgs, consumer, kafkaHandler).execute();
         }
       }
     } catch (Exception e) {
