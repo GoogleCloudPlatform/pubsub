@@ -1,0 +1,6 @@
+message Command {
+  Timestamp start_time = 1;
+  Timestamp stop_time = 2;
+  int32 number_of_workers = 3;
+  bool restart_statistics = 4;
+}
