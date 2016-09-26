@@ -61,7 +61,7 @@ public class KafkaPublishingTask extends Task {
           new ProducerRecord<>(
               topics.get(messageNo.intValue() % topics.size()),
               null,
-              System.currentTimeMillis(),
+              null,
               String.valueOf(messageNo),
               messageToSend);
       sentBytes.addAndGet(messageToSend.getBytes().length);
