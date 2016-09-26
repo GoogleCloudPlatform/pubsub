@@ -57,6 +57,7 @@ public class KafkaPublishingTask extends Task {
     long start = System.currentTimeMillis();
     while (messageNo.intValue() <= args.getNumMessages() && !failureFlag.get()) {
       String messageToSend = baseMessage + messageNo;
+      // Construct record to send to broker. Timestamp passed in as null to be set by KafkaProducer
       ProducerRecord<String, String> record =
           new ProducerRecord<>(
               topics.get(messageNo.intValue() % topics.size()),

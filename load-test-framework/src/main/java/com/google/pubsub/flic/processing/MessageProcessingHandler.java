@@ -141,6 +141,7 @@ public class MessageProcessingHandler {
                 latencyStats.getValueAtPercentile(50),
                 latencyStats.getValueAtPercentile(95),
                 latencyStats.getValueAtPercentile(99)));
+    // Print delay on sender side for processing and batching delay in case of CPS, null w/ Kafka
     if(executor != null) {
       log.info(
           "The average delay for processing "
