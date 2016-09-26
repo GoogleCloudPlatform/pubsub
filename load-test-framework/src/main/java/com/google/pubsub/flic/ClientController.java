@@ -15,6 +15,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic;
 
+import com.google.protobuf.Empty;
+import com.google.pubsub.flic.common.Command;
+import com.google.pubsub.flic.common.Command.CommandRequest;
+import com.google.pubsub.flic.common.LoadtestFrameworkGrpc;
+import com.google.pubsub.flic.common.LoadtestFrameworkGrpc.LoadtestFrameworkStub;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.http.HttpTransport;
@@ -23,20 +28,26 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.*;
+import com.google.api.services.compute.model.NetworkInterface;
 import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Bucket;
 import com.google.api.services.storage.model.StorageObject;
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
+import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.*;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Stream;
 
 public class ClientController {
   private static final Logger log = LoggerFactory.getLogger(ClientController.class.getName());
@@ -45,10 +56,12 @@ public class ClientController {
   private final Executor executor;
   private List<Client> clients;
   private List<GCEFile> files;
+  private boolean shutdown;
 
   public ClientController(List<Client> clients, Executor executor) throws IOException, GeneralSecurityException {
     this.clients = clients;
     this.executor = executor;
+    this.shutdown = false;
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = new JacksonFactory();
     GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
@@ -64,6 +77,38 @@ public class ClientController {
     // close jobs
   }
 
+  synchronized void shutdown(Throwable t) {
+    // close everything
+    shutdown = true;
+    log.error("Shutting down: ", t);
+    files.forEach(gcefile -> {
+      try {
+        gcefile.getInputStream().close();
+      } catch (IOException e) {
+        // we ignore failure on close
+      }
+    });
+  }
+
+  synchronized void loadFiles() {
+    if (shutdown) {
+      return;
+    }
+    // read all files in directories, and append to files
+    try (Stream<Path> paths = Files.walk(Paths.get("./resources/gce"))) {
+      paths.forEach(filePath -> {
+        if (Files.isRegularFile(filePath)) {
+          try {
+            files.add(new GCEFile(filePath.getFileName().toString(), Files.newInputStream(filePath, StandardOpenOption.READ)));
+          } catch (IOException e) {
+            shutdown(e);
+          }
+        }
+      });
+    } catch (IOException e) {
+      shutdown(e);
+    }
+  }
   // We probably want to
   //  a) Check file timestamps to avoid from having to deleting and recreating everything each go around.
   // Also some worries on this so far:
@@ -72,6 +117,11 @@ public class ClientController {
   //  2. We should probably wait until we get confirmation that they have already been successfully started.
   boolean initializeGCEProject(String projectName, String zone, List<String> types, int numberOfInstances) throws IOException, GeneralSecurityException {
     // here we can set up Storage / Metadata / InstanceTemplate
+    synchronized (this) {
+      if (shutdown) {
+        return false;
+      }
+    }
     AtomicBoolean success = new AtomicBoolean(true);
     Bucket loadtestBucket = storage.buckets().get("cloud-pubsub-loadtest").execute();
     if (loadtestBucket == null) {
@@ -209,6 +259,22 @@ public class ClientController {
                   return;
                 }
               }
+              for (ManagedInstance managedInstance : response.getManagedInstances()) {
+                Instance instance = compute.instances().get(projectName, zone, managedInstance.getInstance()).execute();
+                String ip = null;
+                for (NetworkInterface networkInterface : instance.getNetworkInterfaces()) {
+                  for (AccessConfig accessConfig : networkInterface.getAccessConfigs()) {
+                    if (accessConfig.getNatIP() != null) {
+                      ip = accessConfig.getNatIP();
+                      break;
+                    }
+                  }
+                  if (ip != null) {
+                    break;
+                  }
+                }
+                clients.add(new Client(ClientType.CPS_GRPC, ip));
+              }
               synchronized (typesStillStarting) {
                 typesStillStarting.remove(type);
               }
@@ -244,22 +310,57 @@ public class ClientController {
     KAFKA
   }
 
+  public enum ClientStatus {
+    NONE,
+    RUNNING,
+    STOPPING,
+  }
+
   public class Client {
     private ClientType clientType;
     private String networkAddress;
+    private ClientStatus clientStatus;
 
     public Client(ClientType clientType, String networkAddress) {
       this.clientType = clientType;
       this.networkAddress = networkAddress;
+      this.clientStatus = ClientStatus.NONE;
     }
 
     public void start() {
+      // Send a gRPC call to start the server
+      // select port? 5000 always a default? set this somewhere
+      ManagedChannel channel = ManagedChannelBuilder.forAddress(networkAddress, 5000).usePlaintext(true).build();
+
+      LoadtestFrameworkStub stub = LoadtestFrameworkGrpc.newStub(channel);
+      CommandRequest request = CommandRequest.newBuilder().build();
+      stub.startClient(request, new StreamObserver<Empty>() {
+        @Override
+        public void onNext(Empty empty) {
+          log.info("Successfully started client [" + networkAddress + "]");
+          clientStatus = ClientStatus.RUNNING;
+        }
+
+        @Override
+        public void onError(Throwable throwable) {
+          shutdown(throwable);
+        }
+
+        @Override
+        public void onCompleted() {}
+      });
+
     }
   }
 
-  public class GCEFile {
+  class GCEFile {
     private String name;
     private InputStream inputStream;
+
+    public GCEFile(String name, InputStream inputStream) {
+      this.name = name;
+      this.inputStream = inputStream;
+    }
 
     public String getName() {
       return name;
@@ -268,6 +369,5 @@ public class ClientController {
     public InputStream getInputStream() {
       return inputStream;
     }
-
   }
 }
