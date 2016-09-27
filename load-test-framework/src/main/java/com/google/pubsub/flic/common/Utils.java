@@ -27,6 +27,7 @@ import io.grpc.netty.NettyChannelBuilder;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.Executors;
@@ -37,7 +38,7 @@ public class Utils {
 
   private static final String ENDPOINT = "pubsub.googleapis.com";
   private static final List<String> CPS_SCOPE =
-      Arrays.asList("https://www.googleapis.com/auth/pubsub");
+      Collections.singletonList("https://www.googleapis.com/auth/pubsub");
 
   public static final String BASE_FILEDUMP_PATH = "data/";
   public static final String CPS_FILEDUMP_PATH = BASE_FILEDUMP_PATH + "CPS";

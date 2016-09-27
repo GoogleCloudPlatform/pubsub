@@ -17,7 +17,7 @@ package com.google.pubsub.flic.task;
 
 import java.util.List;
 
-/** The necessary arguments for each {@Task} subclass. */
+/** The necessary arguments for each {@link Task} subclass. */
 public class TaskArgs {
 
   private String broker;
