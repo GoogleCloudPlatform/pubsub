@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 public class ClientController {
@@ -57,6 +58,8 @@ public class ClientController {
   private List<Client> clients;
   private List<GCEFile> files;
   private boolean shutdown;
+  private final String machineType = "n1-standard-4"; // quad core machines
+  private final String sourceFamily = "projects/debian-cloud/global/images/family/debian-8"; // latest Debian 8
 
   public ClientController(String projectName, List<ClientType> clients, Executor executor) throws IOException, GeneralSecurityException {
     this.clients = new ArrayList<>(clients.size());
@@ -115,7 +118,7 @@ public class ClientController {
         }
       });
     } catch (IOException e) {
-      shutdown(e);
+      //shutdown(e);
     }
   }
   // We probably want to
@@ -171,36 +174,49 @@ public class ClientController {
     for (ClientType type : types) {
       executor.execute(() -> {
         try {
-          InstanceTemplate content = new InstanceTemplate();
-          content.setName("cloud-pubsub-loadtests-instance-" + type);
-          Metadata.Items startupScript = new Metadata.Items();
-          startupScript.setKey("startup-script");
-          startupScript.setValue("cloud-pubsub-loadtest/" + type + "_startup_script.sh");
-          content.getProperties().getMetadata().getItems().add(startupScript);
-          Operation response = compute.instanceTemplates().insert(projectName, content).execute();
-          if (response == null) {
-            success.set(false);
-            return;
+          try {
+            InstanceTemplate content = new InstanceTemplate();
+            content.setName("cloud-pubsub-loadtests-instance-" + type);
+            content.setProperties(new InstanceProperties());
+            content.getProperties().setMachineType(machineType);
+            List<AttachedDisk> disks = new ArrayList<>();
+            disks.add(new AttachedDisk());
+            disks.get(0).setInitializeParams(new AttachedDiskInitializeParams());
+            disks.get(0).getInitializeParams().setSourceImage(sourceFamily);
+            disks.get(0).setBoot(true);
+            content.getProperties().setDisks(disks);
+            List<NetworkInterface> networkInterfaces = new ArrayList<>();
+            networkInterfaces.add(new NetworkInterface());
+            networkInterfaces.get(0).setNetwork("global/networks/default");
+            networkInterfaces.get(0).setAccessConfigs(new ArrayList<>());
+            networkInterfaces.get(0).getAccessConfigs().add(new AccessConfig());
+            content.getProperties().setNetworkInterfaces(networkInterfaces);
+            content.getProperties().setMetadata(new Metadata());
+            content.getProperties().getMetadata().setItems(new ArrayList<>());
+            Metadata.Items metadata = new Metadata.Items();
+            metadata.setKey("startup-script");
+            metadata.setValue("cloud-pubsub-loadtest/" + type + "_startup_script.sh");
+            content.getProperties().getMetadata().getItems().add(metadata);
+            compute.instanceTemplates().insert(projectName, content).execute();
+          } catch (GoogleJsonResponseException e) {
+            // we can safely ignore this, since we will always use the same
+            // parameters.
           }
-
-          // we can leave it running if it exists. all we care about is tracking the new clients we'll create for this load test.
-          if (compute.instanceGroupManagers().get(projectName, zone,
-              "cloud-pubsub-loadtest-framework-" + type).execute() == null) {
-            Operation result = compute.instanceGroupManagers().insert(projectName, zone,
-                (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)).execute();
-            if (result == null) {
-              success.set(false);
-              return;
-            }
-          }
-          Operation result = compute.instanceGroupManagers()
-              .setInstanceTemplate(projectName, zone, "cloud-pubsub-loadtest-framework-" + type,
-                  (new InstanceGroupManagersSetInstanceTemplateRequest())
-                      .setInstanceTemplate("cloud-pubsub-loadtests-instance-" + type)).execute();
-          if (result == null) {
-            success.set(false);
+          // We can leave it running if it exists.
+          // All we care about is tracking the new clients we'll create for this load test.
+          try {
+            compute.instanceGroupManagers().get(projectName, zone,
+                "cloud-pubsub-loadtest-framework-" + type).execute();
+          } catch (GoogleJsonResponseException e) {
+            compute.instanceGroupManagers().insert(projectName, zone,
+                (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
+                    .setInstanceTemplate("projects/" + projectName +
+                        "/global/instanceTemplates/cloud-pubsub-loadtests-instance-" + type)
+                    .setTargetSize(0))
+                .execute();
           }
         } catch (IOException e) {
+          shutdown(e);
           success.set(false);
         } finally {
           instancesRemaining.countDown();
@@ -223,17 +239,14 @@ public class ClientController {
     for (ClientType type : types) {
       executor.execute(() -> {
           try {
-            Operation operation = compute.instanceGroupManagers().resize(projectName, zone,
+            compute.instanceGroupManagers().resize(projectName, zone,
                 "cloud-pubsub-loadtest-framework-" + type, 0).execute();
-            if (operation == null) {
-              success.set(false);
-              return;
-            }
-            operation = compute.instanceGroupManagers().resize(projectName, zone,
+            compute.instanceGroupManagers().resize(projectName, zone,
                 "cloud-pubsub-loadtest-framework-" + type, numberOfInstances).execute();
-            success.set(operation != null);
           } catch (IOException e) {
             success.set(false);
+          } finally {
+            instanceGroupsToStart.countDown();
           }
       });
     }
@@ -243,7 +256,8 @@ public class ClientController {
       return false;
     }
     List<ClientType> typesStillStarting = new ArrayList<>(types);
-    while (typesStillStarting.size() > 0) {
+    AtomicInteger maxErrors = new AtomicInteger(10);
+    while (typesStillStarting.size() > 0 && success.get()) {
       CountDownLatch typesGettingInfo = new CountDownLatch(typesStillStarting.size());
       for (ClientType type : typesStillStarting) {
         executor.execute(() -> {
@@ -257,7 +271,10 @@ public class ClientController {
                 }
               }
               for (ManagedInstance managedInstance : response.getManagedInstances()) {
-                Instance instance = compute.instances().get(projectName, zone, managedInstance.getInstance()).execute();
+                String instanceName = managedInstance.getInstance()
+                    .substring(managedInstance.getInstance().lastIndexOf('/') + 1);
+                log.info(instanceName);
+                Instance instance = compute.instances().get(projectName, zone, instanceName).execute();
                 String ip = null;
                 for (NetworkInterface networkInterface : instance.getNetworkInterfaces()) {
                   for (AccessConfig accessConfig : networkInterface.getAccessConfigs()) {
@@ -275,16 +292,24 @@ public class ClientController {
               synchronized (typesStillStarting) {
                 typesStillStarting.remove(type);
               }
-              typesGettingInfo.countDown();
             } catch (IOException e) {
-              // ignore failure, try again, should mark this and set a max number of errors to allow here
+              if (maxErrors.decrementAndGet() == 0) {
+                log.error("Having trouble connecting to GCE, shutting down.");
+                shutdown(e);
+                success.set(false);
+              } else {
+                log.error("Transient error getting status for instance group, continuing", e);
+              }
+            } finally {
+              typesGettingInfo.countDown();
             }
         });
       }
       try {
         typesGettingInfo.await();
       } catch (InterruptedException e) {
-        // log error, probably reflects a big problem??
+        shutdown(e);
+        return false;
       }
     }
     return success.get();
@@ -301,9 +326,20 @@ public class ClientController {
   }
 
   public enum ClientType {
-    CPS_VENEER,
-    CPS_GRPC,
-    KAFKA
+    CPS_VENEER("veneer"),
+    CPS_GRPC("grpc"),
+    KAFKA("kafka");
+
+    private final String text;
+
+    private ClientType(final String text) {
+      this.text = text;
+    }
+
+    @Override
+    public String toString() {
+      return text;
+    }
   }
 
   public enum ClientStatus {
