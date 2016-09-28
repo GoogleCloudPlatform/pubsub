@@ -15,9 +15,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic.controllers;
 
-import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.json.JsonFactory;
@@ -26,16 +26,17 @@ import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.*;
 import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Bucket;
-import com.google.pubsub.flic.clients.Client;
-import com.google.pubsub.flic.clients.Client.ClientType;
-import org.apache.commons.io.IOExceptionWithCause;
+import com.google.common.base.Preconditions;
+import com.google.pubsub.flic.controllers.Client.ClientType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import scala.xml.Atom;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -50,7 +51,6 @@ public class GCEController extends Controller {
   private final Storage storage;
   private final Compute compute;
   private final Executor executor;
-  private List<Client> clients;
   private List<ClientType> types;
   private boolean shutdown;
   private final String machineType = "n1-standard-4"; // quad core machines
@@ -59,12 +59,8 @@ public class GCEController extends Controller {
   private final String zone = "us-central1-a";
   private final int numberOfInstances = 10;
 
-  public GCEController(String projectName, List<ClientType> types, Executor executor) throws IOException, GeneralSecurityException {
-    this.executor = executor;
-    this.shutdown = false;
-    this.projectName = projectName;
-    this.types = types;
-    log.info("Starting GCEController");
+  public static GCEController newGCEController(String projectName, List<ClientType> types, Executor executor) throws
+      IOException, GeneralSecurityException {
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = new JacksonFactory();
     GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
@@ -73,21 +69,30 @@ public class GCEController extends Controller {
           credential.createScoped(
               Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
     }
-    this.storage = new Storage.Builder(transport, jsonFactory, credential)
-        .setApplicationName("Cloud Pub/Sub Loadtest Framework")
-        .build();
-    this.compute = new Compute.Builder(transport, jsonFactory, credential)
-        .setApplicationName("Cloud Pub/Sub Loadtest Framework")
-        .build();
-    // start the jobs
-    // then send RPCs
-    // then wait, print stats
-    // close jobs
+    return new GCEController(projectName, types, executor,
+        new Storage.Builder(transport, jsonFactory, credential)
+            .setApplicationName("Cloud Pub/Sub Loadtest Framework")
+            .build(),
+        new Compute.Builder(transport, jsonFactory, credential)
+            .setApplicationName("Cloud Pub/Sub Loadtest Framework")
+            .build());
+  }
+
+  public GCEController(String projectName, List<ClientType> types, Executor executor,
+                       Storage storage, Compute compute) {
+    this.executor = executor;
+    this.shutdown = false;
+    this.projectName = projectName;
+    this.types = types;
+    this.storage = storage;
+    this.compute = compute;
   }
 
   @Override
   synchronized void shutdown(Throwable t) {
-    // close everything
+    if (shutdown) {
+      return;
+    }
     shutdown = true;
     log.error("Shutting down: ", t);
     // Attempt to cleanly close all running instances.
@@ -96,111 +101,84 @@ public class GCEController extends Controller {
         compute.instanceGroupManagers()
             .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + client.clientType(), 0).execute();
       } catch (IOException e) {
-        // Ignore exceptions, clean close is best effort.
         log.error("Unable to resize Instance Group for " + client.clientType() +
             ", please manually ensure you do not have any running instances to avoid being billed.");
       }
     });
   }
 
-  // We probably want to
-  //  a) Check file timestamps to avoid from having to deleting and recreating everything each go around.
-  // Also some worries on this so far:
-  //  1. If there are loadtests hanging around from a badly interrupted test before, we want to ensure we wait until
-  //     they are all deleted so that it does not interfere with our test.
-  //  2. We should probably wait until we get confirmation that they have already been successfully started.
   @Override
-  void initialize() throws IOException {
+  void initialize() throws IOException, InterruptedException {
+    synchronized (this) {
+      if (shutdown) {
+        throw new IOException("Already shutting down, cannot initialize.");
+      }
+    }
+    try {
+      createStorageBucket();
+
+      CountDownLatch filesRemaining;
+      try (Stream<Path> paths = Files.walk(Paths.get("src/main/resources/gce"))) {
+        Preconditions.checkArgument(paths.count() < Integer.MAX_VALUE);
+        filesRemaining = new CountDownLatch((int) paths.count());
+        paths.filter(Files::isRegularFile).forEach(filePath -> executor.execute(() -> {
+          uploadFile(filePath);
+          filesRemaining.countDown();
+        }));
+      }
+
+      CountDownLatch instancesRemaining = new CountDownLatch(types.size());
+      types.forEach((type) -> executor.execute(() -> {
+            createManagedInstanceGroup(type);
+            instancesRemaining.countDown();
+          }
+      ));
+
+      // Wait for files and instance groups to be created.
+      filesRemaining.await();
+      instancesRemaining.await();
+
+      // Everything is set up, let's start our instances
+      types.forEach((type) -> executor.execute(() -> startInstances(type)));
+
+      // We wait for all instances to finish starting, and get the external network address of each newly
+      // created instance.
+      waitForInstancesToStart();
+    } catch (Exception e) {
+      shutdown(e);
+      throw e;
+    }
+  }
+
+  private void createStorageBucket() {
     synchronized (this) {
       if (shutdown) {
         return;
       }
     }
     try {
-      storage.buckets().get("cloud-pubsub-loadtest").execute();
-    } catch (GoogleJsonResponseException e) {
-      log.info("Bucket missing, creating a new bucket.");
       try {
-        storage.buckets().insert(projectName, new Bucket()
-            .setName("cloud-pubsub-loadtest")).execute();
-      } catch (GoogleJsonResponseException e1) {
-        shutdown(e1);
-        throw e1;
-      }
-    }
-
-    Stream<Path> paths = Files.walk(Paths.get("src/main/resources/gce"));
-    CountDownLatch filesRemaining = new CountDownLatch((int) paths.count());
-    paths.filter(Files::isRegularFile).forEach(filePath -> executor.execute(() ->  {
-      uploadFile(filePath);
-      filesRemaining.countDown();
-    }));
-    paths.close();
-
-    CountDownLatch instancesRemaining = new CountDownLatch(types.size());
-    for (ClientType type : types) {
-      executor.execute(() -> {
+        storage.buckets().get("cloud-pubsub-loadtest").execute();
+      } catch (GoogleJsonResponseException e) {
+        log.info("Bucket missing, creating a new bucket.");
         try {
-          try {
-            compute.instanceTemplates().insert(projectName,
-                defaultInstanceTemplate(type.toString())).execute();
-          } catch (GoogleJsonResponseException e) {
-            log.info("Instance Template already exists for " + type + ", using existing template.");
-          }
-          try {
-            compute.instanceGroupManagers().get(projectName, zone,
-                "cloud-pubsub-loadtest-framework-" + type).execute();
-            log.info("Managed Instance Group already exists for " + type + ", using existing group.");
-          } catch (GoogleJsonResponseException e) {
-            log.info("Creating new Managed Instance Group for " + type);
-            compute.instanceGroupManagers().insert(projectName, zone,
-                (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
-                    .setInstanceTemplate("projects/" + projectName +
-                        "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
-                    .setTargetSize(0))
-                .execute();
-          }
-        } catch (IOException e) {
-          shutdown(e);
-        } finally {
-          instancesRemaining.countDown();
+          storage.buckets().insert(projectName, new Bucket()
+              .setName("cloud-pubsub-loadtest")).execute();
+        } catch (GoogleJsonResponseException e1) {
+          shutdown(e1);
+          throw e1;
         }
-      });
-    }
-    try {
-      filesRemaining.await();
-      instancesRemaining.await();
-    } catch (InterruptedException e) {
-      log.error("Interrupted waiting for files and instance groups to be created.");
+      }
+    } catch (IOException e) {
       shutdown(e);
-      throw new IOException("Interrupted waiting for files and instance groups to be created.");
     }
+  }
+
+  private void waitForInstancesToStart() throws IOException, InterruptedException {
     synchronized (this) {
       if (shutdown) {
-        throw new IOException("Error uploading a file or creating instance templates or groups.");
+        return;
       }
-    }
-
-    // Everything is set up, let's start our instances
-    CountDownLatch instanceGroupsToStart = new CountDownLatch(types.size());
-    for (ClientType type : types) {
-      executor.execute(() -> {
-          try {
-            compute.instanceGroupManagers().resize(projectName, zone,
-                "cloud-pubsub-loadtest-framework-" + type, 0).execute();
-            compute.instanceGroupManagers().resize(projectName, zone,
-                "cloud-pubsub-loadtest-framework-" + type, numberOfInstances).execute();
-          } catch (IOException e) {
-            shutdown(e);
-          } finally {
-            instanceGroupsToStart.countDown();
-          }
-      });
-    }
-    try {
-      instanceGroupsToStart.await();
-    } catch (InterruptedException e) {
-      throw new IOException("Interrupted waiting for instance groups to start.");
     }
     List<ClientType> typesStillStarting = new ArrayList<>(types);
     AtomicInteger maxErrors = new AtomicInteger(10);
@@ -224,17 +202,57 @@ public class GCEController extends Controller {
           }
         });
       }
-      try {
-        typesGettingInfo.await();
-      } catch (InterruptedException e) {
-        shutdown(e);
-        throw new IOException("Interrupted waiting for files and instance groups to be created.");
-      }
+      typesGettingInfo.await();
     }
+  }
+
+  private void createManagedInstanceGroup(ClientType type) {
     synchronized (this) {
       if (shutdown) {
-        throw new IOException("Error starting and obtaining status of created instances.");
+        return;
       }
+    }
+    try {
+      // Create the Instance Template
+      try {
+        compute.instanceTemplates().insert(projectName,
+            defaultInstanceTemplate(type.toString())).execute();
+      } catch (GoogleJsonResponseException e) {
+        log.info("Instance Template already exists for " + type + ", using existing template.");
+      }
+      // Create the Managed Instance Group
+      try {
+        compute.instanceGroupManagers().get(projectName, zone,
+            "cloud-pubsub-loadtest-framework-" + type).execute();
+        log.info("Managed Instance Group already exists for " + type + ", using existing group.");
+      } catch (GoogleJsonResponseException e) {
+        log.info("Creating new Managed Instance Group for " + type);
+        compute.instanceGroupManagers().insert(projectName, zone,
+            (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
+                .setInstanceTemplate("projects/" + projectName +
+                    "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
+                .setTargetSize(0))
+            .execute();
+      }
+    } catch (IOException e) {
+      shutdown(e);
+    }
+  }
+
+  private void startInstances(ClientType type) {
+    synchronized (this) {
+      if (shutdown) {
+        return;
+      }
+    }
+    try {
+      // We first resize to 0 in case any were left running from an improperly cleaned up prior run.
+      compute.instanceGroupManagers().resize(projectName, zone,
+          "cloud-pubsub-loadtest-framework-" + type, 0).execute();
+      compute.instanceGroupManagers().resize(projectName, zone,
+          "cloud-pubsub-loadtest-framework-" + type, numberOfInstances).execute();
+    } catch (IOException e) {
+      shutdown(e);
     }
   }
 
@@ -263,8 +281,9 @@ public class GCEController extends Controller {
 
   private boolean getInstanceGroupInfo(ClientType type) throws IOException {
     synchronized (this) {
+      // If we are shutting down, we will report success so that the operation will not retry.
       if (shutdown) {
-        return false;
+        return true;
       }
     }
     InstanceGroupManagersListManagedInstancesResponse response = compute.instanceGroupManagers().
@@ -308,15 +327,5 @@ public class GCEController extends Controller {
     metadata.setValue("https://storage.googleapis.com/cloud-pubsub-loadtest/" + type + "_startup_script.sh");
     content.getProperties().getMetadata().getItems().add(metadata);
     return content;
-  }
-
-  // we need to know what kind of clients we started right? I mean there could and will be multiple instance groups:
-  // one for each type of client. That actually is tough, because there will be multiple kinds of startup scripts.
-  // We need some way of dynamically understanding what should be launched. I guess this will be supplied by cmd line
-  // flags. But we still need to ensure that each ManagedInstanceGroup exists. Potentially we can cheat. So they have
-  // to supply the type they want in flags like. --types=kafka,cps,veneer etc. and then we can name the scripts
-  // kafka_startup_script.sh etc...
-  void startClients() {
-    clients.forEach(Client::start);
   }
 }

@@ -1,4 +1,4 @@
-package com.google.pubsub.flic.clients;
+package com.google.pubsub.flic.controllers;
 
 import com.google.protobuf.Empty;
 import com.google.pubsub.flic.common.Command;

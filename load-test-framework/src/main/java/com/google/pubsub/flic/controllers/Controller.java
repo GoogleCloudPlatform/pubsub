@@ -16,20 +16,20 @@
 
 package com.google.pubsub.flic.controllers;
 
-import com.google.pubsub.flic.clients.Client;
-
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public abstract class Controller {
-  private List<Client> clients;
+  protected final List<Client> clients = new ArrayList<>();
 
   /*
   Creates the given environments and starts the virtual machines. When this function returns, each client is guaranteed
   to have been connected and be network reachable, but is not started. If an error occurred attempting to start the
-  environment, the environment will be shut down, and an IOException will be thrown.
+  environment, the environment will be shut down, and an IOException will be thrown. It is not guaranteed that we have
+  completed shutting down when this function returns, but it is guaranteed that we are in process.
    */
-  abstract void initialize() throws IOException;
+  abstract void initialize() throws IOException, InterruptedException;
   abstract void shutdown(Throwable t);
   void startClients() {
     clients.forEach(Client::start);
