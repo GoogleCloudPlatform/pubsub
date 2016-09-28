@@ -28,6 +28,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
+import javax.annotation.Nullable;
 import org.HdrHistogram.ConcurrentHistogram;
 import org.HdrHistogram.Histogram;
 import org.apache.commons.io.FileUtils;
@@ -116,7 +117,7 @@ public class MessageProcessingHandler {
    * results. Print the average time a callback had to wait to be run by a thread in the thread
    * pool. Do not print anything if the task failed for any reason.
    */
-  public void printStats(long start, DelayTrackingThreadPool executor, AtomicBoolean failureFlag)
+  public void printStats(long start, @Nullable DelayTrackingThreadPool executor, AtomicBoolean failureFlag)
       throws Exception {
     lockHelper.conditionLock.lock();
     while (!lockHelper.barrier.await(0, TimeUnit.MICROSECONDS) && !failureFlag.get()) {
@@ -140,14 +141,17 @@ public class MessageProcessingHandler {
                 latencyStats.getValueAtPercentile(50),
                 latencyStats.getValueAtPercentile(95),
                 latencyStats.getValueAtPercentile(99)));
-    log.info(
-        "The average delay for processing "
-            + latencyType
-            + " latency was "
-            + executor.getAverageTaskWaitTime()
-            + ""
-            + " "
-            + "ms");
+    // Print delay on sender side for processing and batching delay in case of CPS, null w/ Kafka
+    if(executor != null) {
+      log.info(
+          "The average delay for processing "
+              + latencyType
+              + " latency was "
+              + executor.getAverageTaskWaitTime()
+              + ""
+              + " "
+              + "ms");
+    }
     // Throughput stats.
     double diff = (double) (System.currentTimeMillis() - start) / 1000;
     long averageMessagesPerSec = (long) (getTotalItems() / diff);

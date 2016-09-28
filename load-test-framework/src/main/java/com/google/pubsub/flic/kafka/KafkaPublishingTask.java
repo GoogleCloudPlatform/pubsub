@@ -22,6 +22,7 @@ import com.google.pubsub.flic.task.TaskArgs;
 import java.io.InputStream;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicLong;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -39,24 +40,32 @@ public class KafkaPublishingTask extends Task {
   private static final String PRODUCER_PROPERTIES = "/producer.properties";
 
   private KafkaProducer<String, String> publisher;
+  private MessageProcessingHandler processingHandler;
 
-  public KafkaPublishingTask(TaskArgs args, KafkaProducer<String, String> publisher) {
+  public KafkaPublishingTask(
+      TaskArgs args, KafkaProducer<String, String> publisher, MessageProcessingHandler processingHandler) {
     super(args);
     this.publisher = publisher;
+    this.processingHandler = processingHandler;
   }
 
   public void execute() throws Exception {
     List<String> topics = args.getTopics();
     String baseMessage = Utils.createMessage(args.getMessageSize(), 0);
+    // Keep track of the number of bytes sent and number of messages
+    AtomicLong sentBytes = new AtomicLong(0);
+    long start = System.currentTimeMillis();
     while (messageNo.intValue() <= args.getNumMessages() && !failureFlag.get()) {
       String messageToSend = baseMessage + messageNo;
+      // Construct record to send to broker. Timestamp passed in as null to be set by KafkaProducer
       ProducerRecord<String, String> record =
           new ProducerRecord<>(
               topics.get(messageNo.intValue() % topics.size()),
               null,
-              System.currentTimeMillis(),
+              null,
               String.valueOf(messageNo),
               messageToSend);
+      sentBytes.addAndGet(messageToSend.getBytes().length);
       publisher.send(
           record,
           new Callback() {
@@ -67,6 +76,8 @@ public class KafkaPublishingTask extends Task {
                   log.error(exception.getMessage(), exception);
                   failureFlag.set(true);
                 }
+                long latency = System.currentTimeMillis() - metadata.timestamp();
+                processingHandler.addStats(messageNo.intValue() - 1, latency, sentBytes.longValue());
               }
             }
           });
@@ -77,6 +88,7 @@ public class KafkaPublishingTask extends Task {
       log.info("Waiting for all acks to arrive...");
       publisher.flush();
     }
+    processingHandler.printStats(start, null, failureFlag);
     log.info("Done!");
   }
 

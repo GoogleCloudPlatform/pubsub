@@ -67,13 +67,13 @@ public class CPSPublishingTask extends CPSTask {
       // Keep track of the total # of bytes in this batch and the size of the batch.
       AtomicLong batchBytes = new AtomicLong(0);
       AtomicInteger counter = new AtomicInteger(1);
-      // Get the timestamp for each message in the batch. Used for end-to-end latency.
-      String timestamp = String.valueOf(System.currentTimeMillis());
       for (; counter.intValue() <= args.getBatchSize(); counter.incrementAndGet()) {
         String messageToSend = baseMessage + messageNo;
         batchBytes.addAndGet(messageToSend.getBytes().length);
         Map<String, String> attributes = new HashMap<>();
         attributes.put(Utils.KEY_ATTRIBUTE, String.valueOf(messageNo));
+        // Get the timestamp for each message in the batch. Used for end-to-end latency.
+        String timestamp = String.valueOf(System.currentTimeMillis());
         attributes.put(Utils.TIMESTAMP_ATTRIBUTE, timestamp);
         PubsubMessage message =
             getPubsubMessage(
