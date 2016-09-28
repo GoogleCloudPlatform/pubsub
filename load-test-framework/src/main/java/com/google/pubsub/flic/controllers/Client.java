@@ -43,7 +43,7 @@ class Client {
     }
   }
 
-  enum ClientStatus {
+  private enum ClientStatus {
     NONE,
     RUNNING,
     STOPPING,
@@ -54,6 +54,7 @@ class Client {
   private final ClientType clientType;
   private String networkAddress;
   private ClientStatus clientStatus;
+  private static final int port = 5000;
 
   Client(ClientType clientType, String networkAddress) {
     this.clientType = clientType;
@@ -75,8 +76,7 @@ class Client {
 
   void start() {
     // Send a gRPC call to start the server
-    // select port? 5000 always a default? set this somewhere
-    ManagedChannel channel = ManagedChannelBuilder.forAddress(networkAddress, 5000).usePlaintext(true).build();
+    ManagedChannel channel = ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build();
 
     LoadtestFrameworkGrpc.LoadtestFrameworkStub stub = LoadtestFrameworkGrpc.newStub(channel);
     Command.CommandRequest request = Command.CommandRequest.newBuilder().build();
