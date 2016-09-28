@@ -43,7 +43,18 @@ The resulting jar is at target/flic.jar.
 
 3.  Go to the "IAM" tab, find the service account you just created and click on
     the dropdown menu named "Role(s)". Under the "Pub/Sub" submenu, select
-    "Pub/Sub Admin". Finally, the key file that was downloaded to your machine
+    "Pub/Sub Admin".
+
+    If you don't see the service account in the list, add a new permission, use
+    the service account as the member name, and select "Pub/Sub Admin" from the
+    role dropdown menu in the window.
+
+    Now, the service account you just created should appear in the members list
+    on the IAM page with the role Pub/Sub Admin. If the member name is gray,
+    don't worry. It will take a few minutes for the account's new permissions to
+    make their way through the system.
+
+    Finally, the key file that was downloaded to your machine
     needs to be placed on the machine running the framework. An environment
     variable named GOOGLE_APPLICATION_CREDENTIALS must point to this file. (Tip:
     export this environment variable as part of your shell startup file).
@@ -76,6 +87,11 @@ framework that deals with the integration tests for the CloudPubSubConnector.
 performance of Cloud Pub/Sub and Kafka under the same scenarios, then either run
 your own Kafka load tests, or modify the existing Kafka client code in the
 framework to make it as optimized as you would like.
+
+Additionally, we invite anyone to submit pull requests including optimizations
+to our Kafka client. We intend this framework to provide as close to a 1:1
+comparison between Cloud Pub/Sub and Kafka as possible and have provided it
+open-source to allow the Kafka community to contribute to this goal.
 
 ### Quickstart
 
@@ -135,10 +151,19 @@ framework to make it as optimized as you would like.
     is necessary because the subscriptions need to be made before messages start
     flowing into a topic. The steps below show how to run this test:
 
-    `./run.py --publish false --num_messages=1000 --topics=mytopic cps
-    --project=myproject (Run this in a different shell)`.
+    `./run.py --publish false --num_messages=1000
+    --topics=mytopic:mysubscription cps --project=myproject
+    (Run this in a different shell)`.
 
     `./run.py --num_messages=1000 --topics=mytopic cps --project=myproject`.
+
+    Note: Running the subscription script will create a new subscription to your
+    pubsub topic, there is no need to create one before running. In fact, we
+    advise against using an already-existing subscription. The load test
+    requires a fresh subscription to avoid un-delivered messages published
+    before the test began counting to the latency numbers (because they could be
+    days old!). To avoid this, upon encountering a subscription that already
+    exists, the framework will delete it and recreate one with the same name.
 
 5.  The output for this test would look something like this: (We omit the output
     from the publisher, see step #2 for how that looks).
@@ -165,7 +190,7 @@ creating some simple "integration" tests. The following steps would perform a
 simple integration test for the sink connector.
 
 1.  Create a topic on Kafka. Run two invocations of the framework, one that
-    consumes messages from Kafka and one tha publishes. Be sure to turn on data
+    consumes messages from Kafka and one that publishes. Be sure to turn on data
     dumps (This dumps consumed message data into a directory "data").
 
     `./run.py --publish false --dump_data --topics=mytopic kafka
