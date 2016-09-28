@@ -29,17 +29,6 @@ public class TaskArgs {
   private int numResponseThreads;
   private int rateLimit;
 
-  public TaskArgs(TaskArgsBuilder builder) {
-    this.broker = builder.broker;
-    this.topics = builder.topics;
-    this.cpsProject = builder.cpsProject;
-    this.numMessages = builder.numMessages;
-    this.messageSize = builder.messageSize;
-    this.batchSize = builder.batchSize;
-    this.numResponseThreads = builder.numResponseThreads;
-    this.rateLimit = builder.rateLimit;
-  }
-
   public String getBroker() {
     return broker;
   }
@@ -70,6 +59,17 @@ public class TaskArgs {
 
   public int getRateLimit() {
     return rateLimit;
+  }
+
+  public TaskArgs(TaskArgsBuilder builder) {
+    this.broker = builder.broker;
+    this.topics = builder.topics;
+    this.cpsProject = builder.cpsProject;
+    this.numMessages = builder.numMessages;
+    this.messageSize = builder.messageSize;
+    this.batchSize = builder.batchSize;
+    this.numResponseThreads = builder.numResponseThreads;
+    this.rateLimit = builder.rateLimit;
   }
 
   /** Builder class for {@link TaskArgs} */
