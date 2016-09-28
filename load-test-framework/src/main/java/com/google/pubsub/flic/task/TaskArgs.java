@@ -28,9 +28,6 @@ public class TaskArgs {
   private int messageSize;
   private int numResponseThreads;
   private int rateLimit;
-  private String subscription;
-  private int maxMessagesPerPull;
-  private int maxOpenPullsPerSubscription;
 
   public TaskArgs(TaskArgsBuilder builder) {
     this.broker = builder.broker;
@@ -73,14 +70,6 @@ public class TaskArgs {
 
   public int getRateLimit() {
     return rateLimit;
-  }
-
-  public String getSubscription() {
-    return subscription;
-  }
-
-  public int getMaxMessagesPerPull() {
-    return maxMessagesPerPull;
   }
 
   /** Builder class for {@link TaskArgs} */
