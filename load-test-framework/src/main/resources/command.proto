@@ -20,5 +20,4 @@ message CommandRequest {
   string project = 6;
   string topic = 7;
   string subscription = 8;
-  // maybe a number of messages to expect rather than stop time?
 }
