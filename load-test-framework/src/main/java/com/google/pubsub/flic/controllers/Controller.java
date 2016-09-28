@@ -20,8 +20,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
-public abstract class Controller {
-  protected final List<Client> clients = new ArrayList<>();
+abstract class Controller {
+  final List<Client> clients = new ArrayList<>();
 
   /*
   Creates the given environments and starts the virtual machines. When this function returns, each client is guaranteed

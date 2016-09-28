@@ -46,7 +46,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-public class GCEController extends Controller {
+class GCEController extends Controller {
   private static final Logger log = LoggerFactory.getLogger(GCEController.class.getName());
   private final Storage storage;
   private final Compute compute;
@@ -78,7 +78,7 @@ public class GCEController extends Controller {
             .build());
   }
 
-  public GCEController(String projectName, List<ClientType> types, Executor executor,
+  GCEController(String projectName, List<ClientType> types, Executor executor,
                        Storage storage, Compute compute) {
     this.executor = executor;
     this.shutdown = false;
@@ -174,7 +174,7 @@ public class GCEController extends Controller {
     }
   }
 
-  private void waitForInstancesToStart() throws IOException, InterruptedException {
+  private void waitForInstancesToStart() throws InterruptedException {
     synchronized (this) {
       if (shutdown) {
         return;
