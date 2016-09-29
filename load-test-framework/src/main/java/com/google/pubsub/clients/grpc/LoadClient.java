@@ -253,18 +253,12 @@ public class LoadClient {
 
     startLoad();
 
-    executorService.scheduleAtFixedRate(
-        new Runnable() {
-          @Override
-          public void run() {
-            log.info("Printing stats");
-            publishStats.printStats();
-            pullStats.printStats();
-          }
+    executorService.scheduleAtFixedRate(() -> {
+          log.info("Printing stats");
+          publishStats.printStats();
+          pullStats.printStats();
         },
-        5,
-        10,
-        TimeUnit.SECONDS);
+        5, 10, TimeUnit.SECONDS);
 
     executorService.awaitTermination(
         secondsToRun == -1 ? Integer.MAX_VALUE : secondsToRun, TimeUnit.SECONDS);
@@ -373,9 +367,7 @@ public class LoadClient {
     if (result.isOk()) {
       pullStats.recordSuccessfulRequest(result.getMessagesPulled(), elapsed);
       if (enableMetricReporting) {
-        for (long latencyMs : result.getEndToEndLatenciesMillis()) {
-          metricsHandler.recordEndToEndLatency(latencyMs);
-        }
+        result.getEndToEndLatenciesMillis().forEach(metricsHandler::recordEndToEndLatency);
       }
     } else {
       pullStats.recordFailedRequest();

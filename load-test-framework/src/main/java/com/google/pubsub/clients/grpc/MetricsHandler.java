@@ -20,7 +20,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import org.apache.http.HttpResponse;
-import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.entity.StringEntity;
@@ -212,15 +211,11 @@ public class MetricsHandler {
   }
 
   public void startReporting() {
-    executor.scheduleAtFixedRate(
-        new Runnable() {
-          @Override
-          public void run() {
-            try {
-              reportMetrics();
-            } catch (Exception e) {
-              log.warn("Unable to log metrics", e);
-            }
+    executor.scheduleAtFixedRate(() -> {
+          try {
+            reportMetrics();
+          } catch (Exception e) {
+            log.warn("Unable to log metrics", e);
           }
         },
         metricsReportIntervalSecs,
@@ -426,25 +421,22 @@ public class MetricsHandler {
 
         httpClient.executeFuture(
             postRequest,
-            new ResponseHandler<Boolean>() {
-              @Override
-              public Boolean handleResponse(HttpResponse response) {
-                boolean success = isSuccessStatus(response.getStatusLine().getStatusCode());
-                if (!success) {
-                  try {
-                    log.warn(
-                        "Failed to report request count metric, reason: %s. Response: %s",
-                        response.getStatusLine(), EntityUtils.toString(response.getEntity()));
-                  } catch (IOException e) {
-                    log.warn(
-                        "Failed to log invalid metric report request, reason: %s",
-                        response.getStatusLine(), e);
-                  }
-                } else {
-                  log.debug("Metrics report OK");
+            (response) -> {
+              boolean success = isSuccessStatus(response.getStatusLine().getStatusCode());
+              if (!success) {
+                try {
+                  log.warn(
+                      "Failed to report request count metric, reason: %s. Response: %s",
+                      response.getStatusLine(), EntityUtils.toString(response.getEntity()));
+                } catch (IOException e) {
+                  log.warn(
+                      "Failed to log invalid metric report request, reason: %s",
+                      response.getStatusLine(), e);
                 }
-                return success;
+              } else {
+                log.debug("Metrics report OK");
               }
+              return success;
             });
       } catch (Exception e) {
         log.warn("Unable to report metric values", e);

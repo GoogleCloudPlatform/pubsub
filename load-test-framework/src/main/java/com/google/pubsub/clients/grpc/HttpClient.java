@@ -22,7 +22,6 @@ import org.apache.http.client.ResponseHandler;
 import org.apache.http.client.methods.HttpUriRequest;
 import org.apache.http.client.protocol.RequestAcceptEncoding;
 import org.apache.http.client.protocol.ResponseContentEncoding;
-import org.apache.http.conn.ConnectionKeepAliveStrategy;
 import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
@@ -76,14 +75,7 @@ public class HttpClient extends DefaultHttpClient implements Closeable {
     SchemeRegistry schemeRegistry = connectionManager.getSchemeRegistry();
     schemeRegistry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
     schemeRegistry.register(new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
-
-    setKeepAliveStrategy(
-        new ConnectionKeepAliveStrategy() {
-          @Override
-          public long getKeepAliveDuration(org.apache.http.HttpResponse response, HttpContext ctx) {
-            return connectionKeepAliveSeconds;
-          }
-        });
+    setKeepAliveStrategy((response, ctx) -> connectionKeepAliveSeconds);
 
     requestsExecutor =
         Executors.newCachedThreadPool(
