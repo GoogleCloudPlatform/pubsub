@@ -66,8 +66,8 @@ public class LoadTestRun implements Runnable {
     this.params = Preconditions.checkNotNull(params);
     this.payload = payload;
 
-    logPrefix = String.format("Test %d - (topic=%s, sub=%s): ",
-        index, params.topicName, params.subscriptionName);
+    logPrefix = String.format("Test " + index + " - (topic=" + params.topicName +
+        ", sub=" + params.subscriptionName + "): ");
   }
 
   @Override
@@ -93,9 +93,8 @@ public class LoadTestRun implements Runnable {
                       try {
                         if (attemptNum < LoadTestFlags.numModifyAckDeadline) {
                           log.info(
-                              logPrefix + "ModifyAckDeadline started (attempt: %d/%d)",
-                              attemptNum + 1,
-                              LoadTestFlags.numModifyAckDeadline);
+                              logPrefix + "ModifyAckDeadline started (attempt: " + attemptNum + 1 + "/" +
+                                  LoadTestFlags.numModifyAckDeadline + ")");
                           modifyAckDeadline(params.subscriptionName, ackTokens);
                           scheduler.schedule(
                               this,
@@ -152,7 +151,8 @@ public class LoadTestRun implements Runnable {
       throw e;
     } finally {
       log.info(
-          logPrefix + "Publish request took %d ms (result=%s)", stopwatch.elapsed(TimeUnit.MILLISECONDS), result);
+          logPrefix + "Publish request took " + stopwatch.elapsed(TimeUnit.MILLISECONDS) +
+              " ms (result=" + result + ")");
     }
   }
 
@@ -170,7 +170,7 @@ public class LoadTestRun implements Runnable {
         log.info(logPrefix + "Pull returned no messages");
       } else {
         result = "succeeded";
-        log.info(logPrefix + "Successfully pulled %d messages", ackIds.size());
+        log.info(logPrefix + "Successfully pulled " + ackIds.size() + " messages");
       }
       return ackIds;
     } catch (PubSubException e) {
@@ -183,11 +183,8 @@ public class LoadTestRun implements Runnable {
       throw e;
     } finally {
       long elapsed = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-      log.info(
-          logPrefix + "Pull request for subscription %s took %d ms (%s)",
-          subscription,
-          elapsed,
-          result);
+      log.info(logPrefix + "Pull request for subscription " + subscription +
+          " took " + elapsed + " ms (" + result + ")");
     }
   }
 
@@ -209,7 +206,7 @@ public class LoadTestRun implements Runnable {
       throw e;
     } finally {
       long elapsed = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-      log.info(logPrefix + "ModifyAckDeadline attempt (%s) took %d ms", result, elapsed);
+      log.info(logPrefix + "ModifyAckDeadline attempt (" + result + ") took " + elapsed + " ms");
     }
   }
 
@@ -230,7 +227,7 @@ public class LoadTestRun implements Runnable {
       throw e;
     } finally {
       long elapsed = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-      log.info(logPrefix + "Acknowledge attempt (%s) took %d ms", result, elapsed);
+      log.info(logPrefix + "Acknowledge attempt (" + result + ") took " + elapsed + " ms");
     }
   }
 

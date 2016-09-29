@@ -58,14 +58,8 @@ public class LoadTestStats {
     long avgQps = (successCount + failCount) / duration;
     long avgMessagesPerSecond = messages / duration;
     log.info(
-        "Total messages (%s): %d, avg. QPS %d (sucessful=%d, errors=%d, "
-            + "fail-rate=%.2f) Messages per second %d.\nLatencies: %s",
-        statsType,
-        messages,
-        avgQps,
-        successCount,
-        failCount,
-        (float) failCount / (successCount + failCount),
-        avgMessagesPerSecond);
+        "Total messages (" + statsType + "): " + messages + ", avg. QPS " + avgQps + " (sucessful="
+            + successCount + ", errors=" + failCount + ", fail-rate=" + (float) failCount / (successCount + failCount)
+            + ") Messages per second " + avgMessagesPerSecond);
   }
 }

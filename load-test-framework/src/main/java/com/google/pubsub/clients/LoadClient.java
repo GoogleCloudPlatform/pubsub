@@ -192,31 +192,20 @@ public class LoadClient {
     }
 
     log.info(
-        "Load test configured:\n\t"
-            + "Environment: %s\n\t"
-            + "seconds to run: %d\n\t"
-            + "project: %s\n\t"
-            + "topic: %s\n\t"
-            + "subscription: %s\n\t"
-            + "message size: %d\n\t"
-            + "request deadline milliseconds: %d\n\t"
-            + "protocol: %s\n\tmax. publish rate: %d\n\t"
-            + "max. concurrent publish requests: %d\n\tpublish batch size: %d\n\t"
-            + "max. concurrent pull requests: %d\n\tpull batch size: %d\n\t",
-        builder.environment,
-        builder.secondsToRun,
-        builder.project,
-        builder.topic,
-        builder.subscription,
-        builder.messageSize,
-        builder.requestDeadlineMillis,
-        builder.protocol,
-        builder.maxPublishRate,
-        builder.maxConcurrentPublishRequests,
-        builder.publishBatchSize,
-        builder.maxPullRate,
-        builder.maxConcurrentPullRequests,
-        builder.pullBatchSize);
+        "Load test configured:"
+            + "\n\tEnvironment: " + builder.environment
+            + "\n\tseconds to run: " + builder.secondsToRun
+            + "\n\tproject: " + builder.project
+            + "\n\ttopic: " + builder.topic
+            + "\n\tsubscription: " + builder.subscription
+            + "\n\tmessage size: " + builder.messageSize
+            + "\n\trequest deadline milliseconds: " + builder.requestDeadlineMillis
+            + "\n\tprotocol: " + builder.protocol
+            + "\n\tmax. publish rate: " + builder.maxPublishRate
+            + "\n\tmax. concurrent publish requests: " + builder.maxConcurrentPublishRequests
+            + "\n\tpublish batch size: " + builder.publishBatchSize
+            + "\n\tmax. concurrent pull requests: " + builder.maxConcurrentPullRequests
+            + "\n\tpull batch size: " + builder.pullBatchSize);
   }
 
   public static Builder builder() {

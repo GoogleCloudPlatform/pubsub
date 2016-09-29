@@ -65,12 +65,12 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
     publisherFutureStubs = new PublisherGrpc.PublisherFutureStub[publisherStubsCount];
     int subscriberStubsCount = Math.max(1, loadTestParams.getConcurrentPullRequests());
     subscriberFutureStubs = new SubscriberGrpc.SubscriberFutureStub[subscriberStubsCount];
-    log.info("Creating %d publisher stubs.", publisherStubsCount);
+    log.info("Creating " + publisherStubsCount + " publisher stubs.", publisherStubsCount);
     for (int i = 0; i < publisherStubsCount; ++i) {
       publisherFutureStubs[i] = PublisherGrpc.newFutureStub(getChannelGrpc())
           .withCallCredentials(MoreCallCredentials.from(accessTokenProvider.getCredentials()));
     }
-    log.info("Creating %d subscriber stubs.", subscriberStubsCount);
+    log.info("Creating " + subscriberStubsCount + " subscriber stubs.");
     for (int i = 0; i < subscriberStubsCount; ++i) {
       subscriberFutureStubs[i] = SubscriberGrpc.newFutureStub(getChannelGrpc())
           .withCallCredentials(MoreCallCredentials.from(accessTokenProvider.getCredentials()));
@@ -161,7 +161,7 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
             if (t instanceof io.grpc.StatusRuntimeException) {
               StatusRuntimeException grpcException = (io.grpc.StatusRuntimeException) t;
               log.warn(
-                  "Failed to publish, status: %s.", grpcException.getStatus(), t);
+                  "Failed to publish, status: " + grpcException.getStatus() + ".", t);
               resultFuture.set(
                   new PublishResponseResult(false, grpcException.getStatus().getCode().value(), 0));
               return;
@@ -199,9 +199,9 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
               ackIds.add(recvMsg.getAckId());
               endToEndLatencies.add(
                   now - Long.parseLong(recvMsg.getMessage().getAttributes().get("sendTime")));
-              log.debug("Received ackId: %s", recvMsg.getAckId());
+              log.debug("Received ackId: " + recvMsg.getAckId());
             }
-            log.debug("Received ackId count: %s", response.getReceivedMessagesCount());
+            log.debug("Received ackId count: " + response.getReceivedMessagesCount());
             getSubscriberStub().acknowledge(
                 AcknowledgeRequest.newBuilder()
                     .setSubscription(subscriptionsBasePath + projectInfo.getSubscription())
@@ -216,7 +216,7 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
             if (t instanceof io.grpc.StatusRuntimeException) {
               StatusRuntimeException grpcException = (io.grpc.StatusRuntimeException) t;
               log.warn(
-                  "Failed to pull, status: %s.", grpcException.getStatus(), t);
+                  "Failed to pull, status: " + grpcException.getStatus(), t);
               resultFuture.set(
                   new PullResponseResult(
                       false,

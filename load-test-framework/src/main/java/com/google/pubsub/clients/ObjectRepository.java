@@ -96,7 +96,7 @@ public class ObjectRepository {
     try {
       Topic existingTopic = pubSub.getTopic(topicName);
       if (existingTopic != null && recreateTopics) {
-        log.info("Recreating topic named: %s", existingTopic.name());
+        log.info("Recreating topic named: " + existingTopic.name());
         pubSub.deleteTopic(topicName);
         // This should now throw a PubSubException.
         pubSub.getTopic(topicName);
@@ -117,7 +117,7 @@ public class ObjectRepository {
     String operation = "get";
     try {
       Subscription subscription = pubSub.getSubscription(key.getName());
-      log.info("Got existing subscription (%s).", subscription.toString());
+      log.info("Got existing subscription: " + subscription.toString());
 
       final String existingTopic = MoreObjects.firstNonNull(subscription.topic().topic(), "");
 
@@ -130,9 +130,9 @@ public class ObjectRepository {
       return subscription;
     } catch (PubSubException e) {
       try {
-        log.info("(Re)creating subscription: %s ...", key.getName());
+        log.info("(Re)creating subscription: " + key.getName());
         Subscription subscription = pubSub.create(SubscriptionInfo.of(key.getTopic(), key.getName()));
-        log.info("Successfully created subscription: %s", subscription);
+        log.info("Successfully created subscription: " + subscription);
         return subscription;
       } catch (PubSubException e2) {
         log.warn("Could not create subscription", e2);
@@ -140,7 +140,7 @@ public class ObjectRepository {
       }
     } catch (Exception e) {
       log.warn(
-          "Error occurred trying to get/create a subscription (%s)", key.getName(), e);
+          "Error occurred trying to get/create a subscription: " + key.getName(), e);
       throw e;
     }
   }

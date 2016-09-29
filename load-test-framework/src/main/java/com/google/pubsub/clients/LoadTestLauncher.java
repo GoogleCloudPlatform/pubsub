@@ -57,7 +57,7 @@ public class LoadTestLauncher extends AbstractExecutionThreadService {
     outstandingTestLimiter = new Semaphore(maxLoadTestOutstandingCount, false);
     this.executor = executor;
 
-    log.info("Launcher started at %f QPS", rateLimiter.getRate());
+    log.info("Launcher started at " + rateLimiter.getRate() + " QPS");
   }
 
   @Override

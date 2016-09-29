@@ -48,7 +48,7 @@ public class LoadTest {
         Executors.newFixedThreadPool(LoadTestFlags.testExecutorNumThreads));
 
     log.info(
-        "Configured executor with %d threads.", LoadTestFlags.testExecutorNumThreads);
+        "Configured executor with " + LoadTestFlags.testExecutorNumThreads + " threads.");
     final ObjectRepository objectRepository = new ObjectRepository(pubSub, true);
 
     log.info("Preparing all test resources");
@@ -56,7 +56,7 @@ public class LoadTest {
     final List<RunParams> params =
         RunParams.generatePrototypeParams(objectRepository, executor);
     for (RunParams param : params) {
-      log.info("Configured load test run: %s", param);
+      log.info("Configured load test run: " + param);
     }
 
     final char[] payloadArray = new char[LoadTestFlags.payloadSize];

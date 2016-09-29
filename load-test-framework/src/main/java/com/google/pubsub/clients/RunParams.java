@@ -84,7 +84,7 @@ public class RunParams {
 
     Integer maximumInFlight = LoadTestFlags.maxObjectsCreationInflight;
     final Semaphore inFlightLimiter = new Semaphore(maximumInFlight);
-    log.info("Max. inflight creation RPCs: %d", maximumInFlight);
+    log.info("Max. inflight creation RPCs: " + maximumInFlight);
 
     for (int topicNumber = 0; topicNumber < numTopics; topicNumber++) {
       String topicSuffix =
@@ -106,8 +106,8 @@ public class RunParams {
           }
         } catch (ExecutionException | InvalidCacheLoadException e) {
           log.warn(
-              "Failed to generate parameters for %s because of object creation problem",
-              topicName, e);
+              "Failed to generate parameters for " + topicName + " because of object creation problem",
+              e);
           return;
         } finally {
           inFlightLimiter.release();
@@ -131,9 +131,8 @@ public class RunParams {
               }
             } catch (ExecutionException | InvalidCacheLoadException e) {
               log.warn(
-                  "Failed to generate parameters for %s:%s because of object creation problem",
-                  topicName,
-                  subscriptionName, e);
+                  "Failed to generate parameters for " + topicName + ":" +
+                      subscriptionName + " because of object creation problem", e);
             } finally {
               inFlightLimiter.release();
             }
@@ -160,9 +159,8 @@ public class RunParams {
               }
             } catch (ExecutionException | InvalidCacheLoadException e) {
               log.warn(
-                  "Failed to generate parameters for %s:%s because of object creation problem",
-                  topicName,
-                  subscriptionName, e);
+                  "Failed to generate parameters for " + topicName + ":" +
+                      subscriptionName + " because of object creation problem", e);
             } finally {
               inFlightLimiter.release();
             }

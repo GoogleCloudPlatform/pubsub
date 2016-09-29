@@ -65,6 +65,6 @@ class AccessTokenProvider {
     creds.refresh();
     AccessToken at = creds.getAccessToken();
     accessTokens.offer(at);
-    log.info("Generated access token: %s", at.getTokenValue());
+    log.info("Generated access token: " + at.getTokenValue());
   }
 }

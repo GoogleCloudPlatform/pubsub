@@ -84,7 +84,7 @@ public class LoadTestPacer extends AbstractScheduledService {
       return;
     }
 
-    log.info("Adjusting QPS from %f to %f", launcher.getRate(), newQps);
+    log.info("Adjusting QPS from " + launcher.getRate() + " to " + newQps);
     launcher.setRate(newQps);
 
     lastAdjustmentTimestamp = currentAdjustmentTimestamp;
