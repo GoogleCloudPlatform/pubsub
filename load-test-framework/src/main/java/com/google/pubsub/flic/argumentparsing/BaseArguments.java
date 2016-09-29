@@ -17,9 +17,13 @@ package com.google.pubsub.flic.argumentparsing;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
+import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.flic.common.Utils.GreaterThanZeroValidator;
+import com.google.pubsub.flic.controllers.Client;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /** Command line options that are not associated with any command. */
 @Parameters(separators = "=")
@@ -45,11 +49,28 @@ public class BaseArguments {
   private boolean dumpData = false;
 
   @Parameter(
-    names = {"--publish", "-p"},
-    description = "Publish mode (default).",
-    arity = 1
+      names = {"--cps_publisher_count"},
+      description = "Number of CPS publishers to start."
   )
-  private boolean publish = true;
+  private int cpsPublisherCount = 0;
+
+  @Parameter(
+      names = {"--cps_subscriber_count"},
+      description = "Number of CPS subscribers to start per ."
+  )
+  private int cpsSubscriberCount = 0;
+
+  @Parameter(
+      names = {"--kafka_publisher_count"},
+      description = "Number of Kafka publishers to start."
+  )
+  private int kafkaPublisherCount = 0;
+
+  @Parameter(
+      names = {"--kafka_subscriber_count"},
+      description = "Number of Kafka subscribers to start."
+  )
+  private int kafkaSubscriberCount = 0;
 
   @Parameter(
     names = {"--num_messages", "-n"},
@@ -65,6 +86,13 @@ public class BaseArguments {
   )
   private int messageSize = 10;
 
+  @Parameter(
+      names = {"--project", "-u"},
+      required = true,
+      description = "Cloud Pub/Sub project name."
+  )
+  private String project;
+
   public boolean isHelp() {
     return help;
   }
@@ -73,8 +101,12 @@ public class BaseArguments {
     return topics;
   }
 
-  public boolean isPublish() {
-    return publish;
+  public Map<Client.ClientType, Integer> getClientTypes() {
+    return ImmutableMap.of(
+        Client.ClientType.CPS_GRPC_PUBLISHER, cpsPublisherCount,
+        Client.ClientType.CPS_GRPC_SUBSCRIBER, cpsSubscriberCount,
+        Client.ClientType.KAFKA_PUBLISHER, kafkaPublisherCount,
+        Client.ClientType.KAFKA_SUBSCRIBER, kafkaSubscriberCount);
   }
 
   public boolean isDumpData() {
@@ -87,5 +119,9 @@ public class BaseArguments {
 
   public int getMessageSize() {
     return messageSize;
+  }
+
+  public String getProject() {
+    return project;
   }
 }

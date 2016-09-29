@@ -26,25 +26,11 @@ public class CPSArguments {
   public static final String COMMAND = "cps";
 
   @Parameter(
-    names = {"--project", "-u"},
-    required = true,
-    description = "Cloud Pub/Sub project name."
-  )
-  private String project;
-
-  @Parameter(
     names = {"--batch_size", "-b"},
     description = "Number of messages to batch per publish request.",
     validateWith = GreaterThanZeroValidator.class
   )
   private int batchSize = 1000;
-
-  @Parameter(
-    names = {"--num_clients", "-c"},
-    description = "How many clients to use in a round-robin scheme.",
-    validateWith = GreaterThanZeroValidator.class
-  )
-  private int numClients = 1;
 
   @Parameter(
     names = {"--response_threads", "-r"},
@@ -60,16 +46,8 @@ public class CPSArguments {
   )
   private int rateLimit = 1000;
 
-  public String getProject() {
-    return project;
-  }
-
   public int getBatchSize() {
     return batchSize;
-  }
-
-  public int getNumClients() {
-    return numClients;
   }
 
   public int getNumResponseThreads() {

@@ -96,8 +96,32 @@
       <artifactId>google-api-services-storage</artifactId>
       <version>v1-rev85-1.22.0</version>
     </dependency>
+    <dependency>
+      <groupId>com.google.apis</groupId>
+      <artifactId>google-api-services-monitoring</artifactId>
+      <version>v3-rev9-1.22.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.api-client</groupId>
+      <artifactId>google-api-client</artifactId>
+      <version>1.20.0</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpcore</artifactId>
+      <version>4.2.5</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpclient</artifactId>
+      <version>4.2.5</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-pubsub</artifactId>
+      <version>0.4.0</version>
+    </dependency>
   </dependencies>
-
    <build>
    <extensions>
       <!-- Use os-maven-plugin to initialize the "os.detected" properties -->

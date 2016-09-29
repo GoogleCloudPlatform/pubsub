@@ -25,37 +25,12 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class Client {
-  enum ClientType {
-    CPS_VENEER("veneer"),
-    CPS_GRPC("grpc"),
-    KAFKA("kafka");
-
-    private final String text;
-
-    ClientType(final String text) {
-      this.text = text;
-    }
-
-    @Override
-    public String toString() {
-      return text;
-    }
-  }
-
-  private enum ClientStatus {
-    NONE,
-    RUNNING,
-    STOPPING,
-    FAILED,
-  }
-
+public class Client {
   private static final Logger log = LoggerFactory.getLogger(Client.class.getName());
+  private static final int port = 5000;
   private final ClientType clientType;
   private String networkAddress;
   private ClientStatus clientStatus;
-  private static final int port = 5000;
-
   Client(ClientType clientType, String networkAddress) {
     this.clientType = clientType;
     this.networkAddress = networkAddress;
@@ -96,5 +71,24 @@ class Client {
       public void onCompleted() {
       }
     });
+  }
+
+  public enum ClientType {
+    CPS_GRPC_PUBLISHER,
+    CPS_GRPC_SUBSCRIBER,
+    KAFKA_PUBLISHER,
+    KAFKA_SUBSCRIBER;
+
+    @Override
+    public String toString() {
+      return name().toLowerCase().replace('_', '-');
+    }
+  }
+
+  private enum ClientStatus {
+    NONE,
+    RUNNING,
+    STOPPING,
+    FAILED,
   }
 }

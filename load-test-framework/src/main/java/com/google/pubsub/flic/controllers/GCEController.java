@@ -41,26 +41,36 @@ import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
-class GCEController extends Controller {
+public class GCEController extends Controller {
   private static final Logger log = LoggerFactory.getLogger(GCEController.class.getName());
   private final Storage storage;
   private final Compute compute;
   private final Executor executor;
-  private List<ClientType> types;
-  private boolean shutdown;
   private final String machineType = "n1-standard-4"; // quad core machines
   private final String sourceFamily = "projects/debian-cloud/global/images/family/debian-8"; // latest Debian 8
   private final String projectName;
   private final String zone = "us-central1-a";
-  private final int numberOfInstances = 10;
+  private Map<ClientType, Integer> types;
+  private boolean shutdown;
 
-  public static GCEController newGCEController(String projectName, List<ClientType> types, Executor executor) throws
-      IOException, GeneralSecurityException {
+  GCEController(String projectName, Map<ClientType, Integer> types, Executor executor,
+                Storage storage, Compute compute) {
+    this.executor = executor;
+    this.shutdown = false;
+    this.projectName = projectName;
+    this.types = types;
+    this.storage = storage;
+    this.compute = compute;
+  }
+
+  public static GCEController newGCEController(String projectName, Map<ClientType, Integer> types, Executor executor)
+      throws IOException, GeneralSecurityException {
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = new JacksonFactory();
     GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
@@ -76,16 +86,6 @@ class GCEController extends Controller {
         new Compute.Builder(transport, jsonFactory, credential)
             .setApplicationName("Cloud Pub/Sub Loadtest Framework")
             .build());
-  }
-
-  GCEController(String projectName, List<ClientType> types, Executor executor,
-                       Storage storage, Compute compute) {
-    this.executor = executor;
-    this.shutdown = false;
-    this.projectName = projectName;
-    this.types = types;
-    this.storage = storage;
-    this.compute = compute;
   }
 
   @Override
@@ -128,7 +128,7 @@ class GCEController extends Controller {
       }
 
       CountDownLatch instancesRemaining = new CountDownLatch(types.size());
-      types.forEach((type) -> executor.execute(() -> {
+      types.forEach((type, n) -> executor.execute(() -> {
             createManagedInstanceGroup(type);
             instancesRemaining.countDown();
           }
@@ -139,7 +139,7 @@ class GCEController extends Controller {
       instancesRemaining.await();
 
       // Everything is set up, let's start our instances
-      types.forEach((type) -> executor.execute(() -> startInstances(type)));
+      types.forEach((type, n) -> executor.execute(() -> startInstances(type, n)));
 
       // We wait for all instances to finish starting, and get the external network address of each newly
       // created instance.
@@ -180,7 +180,7 @@ class GCEController extends Controller {
         return;
       }
     }
-    List<ClientType> typesStillStarting = new ArrayList<>(types);
+    List<ClientType> typesStillStarting = new ArrayList<>(types.keySet());
     AtomicInteger maxErrors = new AtomicInteger(10);
     while (typesStillStarting.size() > 0) {
       CountDownLatch typesGettingInfo = new CountDownLatch(typesStillStarting.size());
@@ -239,7 +239,7 @@ class GCEController extends Controller {
     }
   }
 
-  private void startInstances(ClientType type) {
+  private void startInstances(ClientType type, Integer n) {
     synchronized (this) {
       if (shutdown) {
         return;
@@ -250,7 +250,7 @@ class GCEController extends Controller {
       compute.instanceGroupManagers().resize(projectName, zone,
           "cloud-pubsub-loadtest-framework-" + type, 0).execute();
       compute.instanceGroupManagers().resize(projectName, zone,
-          "cloud-pubsub-loadtest-framework-" + type, numberOfInstances).execute();
+          "cloud-pubsub-loadtest-framework-" + type, n).execute();
     } catch (IOException e) {
       shutdown(e);
     }
