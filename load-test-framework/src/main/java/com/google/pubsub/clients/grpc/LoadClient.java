@@ -13,17 +13,17 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.clients;
+package com.google.pubsub.clients.grpc;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.*;
-import com.google.pubsub.clients.PubsubLoadClientAdapter.LoadTestParams;
-import com.google.pubsub.clients.PubsubLoadClientAdapter.ProjectInfo;
-import com.google.pubsub.clients.PubsubLoadClientAdapter.PublishResponseResult;
-import com.google.pubsub.clients.PubsubLoadClientAdapter.PullResponseResult;
+import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.LoadTestParams;
+import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.ProjectInfo;
+import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.PublishResponseResult;
+import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.PullResponseResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

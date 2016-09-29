@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.clients;
+package com.google.pubsub.clients.gcloud;
 
 import com.google.cloud.pubsub.Message;
 import com.google.cloud.pubsub.PubSub;
@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -42,15 +41,11 @@ public class LoadTestRun implements Runnable {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRun.class);
 
   private static final ScheduledExecutorService scheduler =
-      Executors.newSingleThreadScheduledExecutor(
-          new ThreadFactory() {
-            @Override
-            public Thread newThread(Runnable runnable) {
-              Thread thread = Executors.defaultThreadFactory().newThread(runnable);
-              thread.setDaemon(true);
-              return thread;
-            }
-          });
+      Executors.newSingleThreadScheduledExecutor((runnable) -> {
+        Thread thread = Executors.defaultThreadFactory().newThread(runnable);
+        thread.setDaemon(true);
+        return thread;
+      });
 
   private final PubSub pubSub;
   private final RunParams params;
@@ -66,8 +61,7 @@ public class LoadTestRun implements Runnable {
     this.params = Preconditions.checkNotNull(params);
     this.payload = payload;
 
-    logPrefix = String.format("Test " + index + " - (topic=" + params.topicName +
-        ", sub=" + params.subscriptionName + "): ");
+    logPrefix = "Test " + index + " - (topic=" + params.topicName + ", sub=" + params.subscriptionName + "): ";
   }
 
   @Override

@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.clients;
+package com.google.pubsub.clients.grpc;
 
 import com.google.common.util.concurrent.ListenableFuture;
 

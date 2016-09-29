@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.clients;
+package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.Parameter;
 
@@ -51,9 +51,6 @@ public class LoadTestFlags {
   @Parameter(names = {"--action_includes_pull"},
       description = "If true, perform pull on created subscriptions.")
   public static final Boolean actionIncludesPull = false;
-  @Parameter(names = {"--action_includes_push"},
-      description = "If true, start built-in push server in the task to process pushed messages.")
-  public static final Boolean actionIncludesPush = false;
   @Parameter(names = {"--return_immediately_on_pull"},
       description = "Value of the return_immediately flag in the pull() call.")
   public static final Boolean returnImmediately = false;
@@ -62,8 +59,6 @@ public class LoadTestFlags {
   public static final Integer numTopics = 0;
   @Parameter(names = {"--pull_fan_out_factor"}, description = "How many pull subscriptions per topic.")
   public static final Integer pullFanOutFactor = 1;
-  @Parameter(names = {"--push_fan_out_factor"}, description = "How many push subscriptions per topic.")
-  public static final Integer pushFanOutFactor = 0;
   @Parameter(names = {"--rotation_point"},
       description = "The zero-based index of the load test action, in the rotation of"
           + " all load test actions, that should be run first.")
@@ -77,11 +72,6 @@ public class LoadTestFlags {
       description = "Subscription prefix to use for load testing.")
   public static final String loadTestSubscriptionPrefix =
       "load-test-subscription";
-  @Parameter(names = {"--push_endpoint"},
-      description = "Pubsub push endpoint (relevant only if push_fan_out_factor > 0).")
-  public static final String pushEndpoint = "";
-  @Parameter(names = {"--port_push"}, description = "Port number of the service that handles the push.")
-  public static final Integer portPush = 0;
   @Parameter(names = {"--labels"},
       description = "A map of string key-value-pairs to use as labels on messages. For example, "
           + "--lablels=\"foo=bar,biz=baz\". Empty by default.")

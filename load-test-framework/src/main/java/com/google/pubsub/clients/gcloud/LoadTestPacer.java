@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.clients;
+package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.Parameter;
 import com.google.common.base.Preconditions;

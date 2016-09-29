@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.clients;
+package com.google.pubsub.clients.gcloud;
 
 import com.google.cloud.pubsub.*;
 import com.google.common.base.MoreObjects;
@@ -81,9 +81,7 @@ public class ObjectRepository {
    * Creates a subscription with the given parameters, if one does not yet exist.
    */
   public void createSubscription(
-      String topicName,
-      String subscriptionName,
-      String pushEndpoint) throws ExecutionException {
+      String topicName, String subscriptionName) throws ExecutionException {
     SubscriptionCacheKey key =
         new SubscriptionCacheKey()
             .setName(subscriptionName)
@@ -93,51 +91,44 @@ public class ObjectRepository {
   }
 
   private Topic getOrCreateTopic(String topicName) {
+    Topic existingTopic = pubSub.getTopic(topicName);
+    if (existingTopic != null) {
+      if (!recreateTopics) {
+        return existingTopic;
+      }
+      log.info("Recreating topic named: " + existingTopic.name());
+      pubSub.deleteTopic(topicName);
+    }
     try {
-      Topic existingTopic = pubSub.getTopic(topicName);
-      if (existingTopic != null && recreateTopics) {
-        log.info("Recreating topic named: " + existingTopic.name());
-        pubSub.deleteTopic(topicName);
-        // This should now throw a PubSubException.
-        pubSub.getTopic(topicName);
-      }
-      return existingTopic;
-    } catch (PubSubException e) {
-      try {
-        return pubSub.create(TopicInfo.of(topicName));
-      } catch (PubSubException e2) {
-        log.warn("Could not create topic", e2);
-        return null;
-      }
+      return pubSub.create(TopicInfo.of(topicName));
+    } catch (PubSubException e2) {
+      log.warn("Could not create topic", e2);
+      return null;
     }
   }
 
   private Subscription getOrCreateSubscription(SubscriptionCacheKey key) {
-    String result = "ok";
-    String operation = "get";
     try {
       Subscription subscription = pubSub.getSubscription(key.getName());
-      log.info("Got existing subscription: " + subscription.toString());
-
-      final String existingTopic = MoreObjects.firstNonNull(subscription.topic().topic(), "");
-
-      if (!existingTopic.equals(key.getTopic())) {
-        log.warn("Subscription out of date; deleting subscription and recreating it.");
-        pubSub.deleteSubscription(key.getName());
-        // This should now throw a PubSubException.
-        pubSub.getSubscription(key.getName());
+      if (subscription != null) {
+        log.info("Got existing subscription: " + subscription.toString());
+        final String existingTopic = MoreObjects.firstNonNull(subscription.topic().topic(), "");
+        if (!existingTopic.equals(key.getTopic())) {
+          log.warn("Subscription out of date; deleting subscription and recreating it.");
+          pubSub.deleteSubscription(key.getName());
+        }
+      } else {
+        try {
+          log.info("(Re)creating subscription: " + key.getName());
+          subscription = pubSub.create(SubscriptionInfo.of(key.getTopic(), key.getName()));
+          log.info("Successfully created subscription: " + subscription);
+          return subscription;
+        } catch (PubSubException e2) {
+          log.warn("Could not create subscription", e2);
+          return null;
+        }
       }
       return subscription;
-    } catch (PubSubException e) {
-      try {
-        log.info("(Re)creating subscription: " + key.getName());
-        Subscription subscription = pubSub.create(SubscriptionInfo.of(key.getTopic(), key.getName()));
-        log.info("Successfully created subscription: " + subscription);
-        return subscription;
-      } catch (PubSubException e2) {
-        log.warn("Could not create subscription", e2);
-        return null;
-      }
     } catch (Exception e) {
       log.warn(
           "Error occurred trying to get/create a subscription: " + key.getName(), e);

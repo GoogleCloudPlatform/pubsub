@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.clients;
+package com.google.pubsub.clients.gcloud;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Supplier;
@@ -34,7 +34,7 @@ import java.util.concurrent.Semaphore;
  */
 public class LoadTestLauncher extends AbstractExecutionThreadService {
 
-  private static final Logger log = LoggerFactory.getLogger(AccessTokenProvider.class.getName());
+  private static final Logger log = LoggerFactory.getLogger(LoadTestLauncher.class);
   private final ListeningExecutorService executor;
   private final RateLimiter rateLimiter;
   private final Semaphore outstandingTestLimiter;
