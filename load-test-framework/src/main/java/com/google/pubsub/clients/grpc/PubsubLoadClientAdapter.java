@@ -35,11 +35,6 @@ abstract class PubsubLoadClientAdapter {
         };
   }
 
-  public abstract ListenableFuture<RequestResult> createTopic(String topicName);
-
-  public abstract ListenableFuture<RequestResult> createSubscription(
-      String subscriptionName, String topicPath);
-
   public abstract ListenableFuture<PublishResponseResult> publishMessages(String topicPath);
 
   public abstract ListenableFuture<PullResponseResult> pullMessages(String subscriptionPath);
@@ -64,7 +59,7 @@ abstract class PubsubLoadClientAdapter {
       this.subscription = subscription;
     }
 
-    public String getProject() {
+    String getProject() {
       return project;
     }
 
@@ -72,7 +67,7 @@ abstract class PubsubLoadClientAdapter {
       return topic;
     }
 
-    public String getSubscription() {
+    String getSubscription() {
       return subscription;
     }
   }

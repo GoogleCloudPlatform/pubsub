@@ -162,15 +162,6 @@ public class LoadClient {
       }
     });
 
-    Command.CommandRequest request = requestFuture.get();
-    // Try to create the topic and wait.
-    pubsubClient.createTopic(topicName).get();
-
-    // Try to create the subscription and wait.
-    pubsubClient
-        .createSubscription(subscriptionName, "projects/" + project + "/topics/" + topicName)
-        .get();
-
     startLoad();
 
     executorService.scheduleAtFixedRate(() -> {
@@ -190,90 +181,82 @@ public class LoadClient {
 
   private void startLoad() {
     publishStats.startTimer();
-    executorService.submit(
-        new Runnable() {
-          @Override
-          public void run() {
-            while (true) {
-              publishRateLimiter.acquire();
-              concurrentPublishLimiter.acquireUninterruptibly();
-              final Stopwatch stopWatch = Stopwatch.createStarted();
-              ListenableFuture<PublishResponseResult> publishFuture =
-                  pubsubClient.publishMessages(topicPath);
-              Futures.addCallback(
-                  publishFuture,
-                  new FutureCallback<PublishResponseResult>() {
-                    @Override
-                    public void onSuccess(PublishResponseResult result) {
-                      long elapsed = stopWatch.elapsed(TimeUnit.MILLISECONDS);
-                      concurrentPublishLimiter.release();
-                      if (result.isOk()) {
-                        publishStats.recordSuccessfulRequest(
-                            result.getMessagesPublished(), elapsed);
-                        if (enableMetricReporting) {
-                          metricsHandler.recordPublishAckLatency(elapsed);
-                        }
-                      } else {
-                        publishStats.recordFailedRequest();
-                      }
-                      if (enableMetricReporting) {
-                        metricsHandler.recordRequestCount(
-                            topicName,
-                            Operation.PUBLISH.toString(),
-                            result.getStatusCode(),
-                            result.getMessagesPublished());
-                      }
-                    }
+    executorService.submit(() -> {
+      while (true) {
+        publishRateLimiter.acquire();
+        concurrentPublishLimiter.acquireUninterruptibly();
+        final Stopwatch stopWatch = Stopwatch.createStarted();
+        ListenableFuture<PublishResponseResult> publishFuture =
+            pubsubClient.publishMessages(topicPath);
+        Futures.addCallback(
+            publishFuture,
+            new FutureCallback<PublishResponseResult>() {
+              @Override
+              public void onSuccess(PublishResponseResult result) {
+                long elapsed = stopWatch.elapsed(TimeUnit.MILLISECONDS);
+                concurrentPublishLimiter.release();
+                if (result.isOk()) {
+                  publishStats.recordSuccessfulRequest(
+                      result.getMessagesPublished(), elapsed);
+                  if (enableMetricReporting) {
+                    metricsHandler.recordPublishAckLatency(elapsed);
+                  }
+                } else {
+                  publishStats.recordFailedRequest();
+                }
+                if (enableMetricReporting) {
+                  metricsHandler.recordRequestCount(
+                      topicName,
+                      Operation.PUBLISH.toString(),
+                      result.getStatusCode(),
+                      result.getMessagesPublished());
+                }
+              }
 
-                    @Override
-                    public void onFailure(@Nonnull Throwable t) {
-                      concurrentPublishLimiter.release();
-                      log.warn(
-                          "Unable to execute a publish request (client-side error)", t);
-                      publishStats.recordFailedRequest();
-                      if (enableMetricReporting) {
-                        metricsHandler.recordRequestCount(
-                            topicName, Operation.PUBLISH.toString(), REQUEST_FAILED_CODE, 0);
-                      }
-                    }
-                  });
-            }
-          }
-        });
+              @Override
+              public void onFailure(@Nonnull Throwable t) {
+                concurrentPublishLimiter.release();
+                log.warn(
+                    "Unable to execute a publish request (client-side error)", t);
+                publishStats.recordFailedRequest();
+                if (enableMetricReporting) {
+                  metricsHandler.recordRequestCount(
+                      topicName, Operation.PUBLISH.toString(), REQUEST_FAILED_CODE, 0);
+                }
+              }
+            });
+      }
+    });
     pullStats.startTimer();
 
-    executorService.submit(
-        new Runnable() {
-          @Override
-          public void run() {
-            while (true) {
-              concurrentPullLimiter.acquireUninterruptibly();
-              pullRateLimiter.acquire();
-              final Stopwatch stopWatch = Stopwatch.createStarted();
-              ListenableFuture<PullResponseResult> pullFuture =
-                  pubsubClient.pullMessages(subscriptionPath);
-              Futures.addCallback(
-                  pullFuture,
-                  new FutureCallback<PullResponseResult>() {
-                    @Override
-                    public void onSuccess(PullResponseResult result) {
-                      concurrentPullLimiter.release();
-                      recordPullResponseResult(result, stopWatch.elapsed(TimeUnit.MILLISECONDS));
-                    }
+    executorService.submit(() -> {
+      while (true) {
+        concurrentPullLimiter.acquireUninterruptibly();
+        pullRateLimiter.acquire();
+        final Stopwatch stopWatch = Stopwatch.createStarted();
+        ListenableFuture<PullResponseResult> pullFuture =
+            pubsubClient.pullMessages(subscriptionPath);
+        Futures.addCallback(
+            pullFuture,
+            new FutureCallback<PullResponseResult>() {
+              @Override
+              public void onSuccess(PullResponseResult result) {
+                concurrentPullLimiter.release();
+                recordPullResponseResult(result, stopWatch.elapsed(TimeUnit.MILLISECONDS));
+              }
 
-                    @Override
-                    public void onFailure(@Nonnull Throwable t) {
-                      log.warn(
-                          "Unable to execute a pull request (client-side error)", t);
-                      if (enableMetricReporting) {
-                        metricsHandler.recordRequestCount(
-                            subscriptionName, Operation.PULL.toString(), REQUEST_FAILED_CODE, 0);
-                      }
-                    }
-                  });
-            }
-          }
-        });
+              @Override
+              public void onFailure(@Nonnull Throwable t) {
+                log.warn(
+                    "Unable to execute a pull request (client-side error)", t);
+                if (enableMetricReporting) {
+                  metricsHandler.recordRequestCount(
+                      subscriptionName, Operation.PULL.toString(), REQUEST_FAILED_CODE, 0);
+                }
+              }
+            });
+      }
+    });
 
     if (enableMetricReporting) {
       metricsHandler.startReporting();

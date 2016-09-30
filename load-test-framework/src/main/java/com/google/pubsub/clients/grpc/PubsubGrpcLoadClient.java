@@ -15,7 +15,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.grpc;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
@@ -82,36 +81,6 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
     basePayloadData = new String(chars, Charset.forName("UTF-8"));
   }
 
-  private String checkResourceName(String name) {
-    Preconditions.checkArgument(!name.matches("[\"/]"));
-    return name;
-  }
-
-  private <T> ListenableFuture<RequestResult> handleCreateFuture(
-      ListenableFuture<T> future) {
-    final SettableFuture<RequestResult> resultFuture = SettableFuture.create();
-    Futures.addCallback(
-        future,
-        new FutureCallback<T>() {
-          @Override
-          public void onSuccess(T result) {
-            resultFuture.set(new RequestResult(true, Code.OK.value()));
-          }
-
-          @Override
-          public void onFailure(@Nonnull Throwable t) {
-            if (t instanceof io.grpc.StatusRuntimeException) {
-              StatusRuntimeException grpcException = (io.grpc.StatusRuntimeException) t;
-              resultFuture.set(
-                  new RequestResult(false, grpcException.getStatus().getCode().value()));
-              return;
-            }
-            resultFuture.setException(t);
-          }
-        });
-    return resultFuture;
-  }
-
   private PublisherGrpc.PublisherFutureStub getPublisherStub() {
     PublisherGrpc.PublisherFutureStub stub = publisherFutureStubs[currentPublisherStubIdx];
     currentPublisherStubIdx = ++currentPublisherStubIdx % publisherFutureStubs.length;
@@ -122,25 +91,6 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
     SubscriberGrpc.SubscriberFutureStub stub = subscriberFutureStubs[currentSubscriberStubIdx];
     currentSubscriberStubIdx = ++currentSubscriberStubIdx % subscriberFutureStubs.length;
     return stub.withDeadlineAfter(loadTestParams.getRequestDeadlineMillis(), TimeUnit.MILLISECONDS);
-  }
-
-  @Override
-  public ListenableFuture<RequestResult> createTopic(String topicName) {
-    ListenableFuture<Topic> createFuture = getPublisherStub().createTopic(
-        Topic.newBuilder().setName(topicsBasePath + checkResourceName(topicName)).build());
-    return handleCreateFuture(createFuture);
-  }
-
-  @Override
-  public ListenableFuture<RequestResult> createSubscription(
-      String subscriptionName, String topicPath) {
-    ListenableFuture<Subscription> createFuture =
-        getSubscriberStub().createSubscription(
-            Subscription.newBuilder()
-                .setName(subscriptionsBasePath + checkResourceName(subscriptionName))
-                .setTopic(topicPath)
-                .build());
-    return handleCreateFuture(createFuture);
   }
 
   @Override
