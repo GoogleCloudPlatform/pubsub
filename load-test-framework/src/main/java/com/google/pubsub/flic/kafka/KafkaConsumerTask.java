@@ -55,9 +55,13 @@ public class KafkaConsumerTask extends Task {
     log.info("Start publishing...");
     while (messageNo.intValue() <= args.getNumMessages()) {
       ConsumerRecords<String, String> records = subscriber.poll(POLL_LENGTH);
+      // Each message in this batch was received at the same time
+      long receivedTime = System.currentTimeMillis();
       Iterator<ConsumerRecord<String, String>> recordIterator = records.iterator();
       while (recordIterator.hasNext() && !failureFlag.get()) {
         ConsumerRecord<String, String> record = recordIterator.next();
+        long latency = receivedTime - record.timestamp();
+        processingHandler.addStats(1, latency, record.serializedValueSize());
         if (processingHandler.getFiledump() != null) {
           try {
             processingHandler.createMessagePacketAndAdd(
