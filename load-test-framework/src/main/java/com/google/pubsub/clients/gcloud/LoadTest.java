@@ -19,6 +19,7 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.*;
 import com.google.protobuf.Empty;
 import com.google.pubsub.flic.common.Command;
@@ -88,9 +89,12 @@ public class LoadTest {
     LoadTestRun.batchSize = request.getMaxMessagesPerPull();
     LoadTestRun.subscription = request.getSubscription();
     LoadTestRun.topic = request.getTopic();
-    final long sleepTime = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
-    if (sleepTime > 0) {
-      Thread.sleep(sleepTime);
+    if (request.hasStartTime()) {
+      final long sleepTime = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
+      Preconditions.checkArgument(sleepTime > 0);
+      if (sleepTime > 0) {
+        Thread.sleep(sleepTime);
+      }
     }
     log.info("Request received, starting up server.");
     final PubSub pubSub = PubSubOptions.builder().projectId(request.getProject()).build().service();

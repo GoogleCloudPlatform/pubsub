@@ -62,9 +62,9 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
     this.projectInfo = projectInfo;
     topicsBasePath = "projects/" + projectInfo.getProject() + "/topics/";
     subscriptionsBasePath = "projects/" + projectInfo.getProject() + "/subscriptions/";
-    int publisherStubsCount = Math.max(1, loadTestParams.getConcurrentPublishRequests());
+    int publisherStubsCount = Math.max(1, loadTestParams.getConcurrentRequests());
     publisherFutureStubs = new PublisherGrpc.PublisherFutureStub[publisherStubsCount];
-    int subscriberStubsCount = Math.max(1, loadTestParams.getConcurrentPullRequests());
+    int subscriberStubsCount = Math.max(1, loadTestParams.getConcurrentRequests());
     subscriberFutureStubs = new SubscriberGrpc.SubscriberFutureStub[subscriberStubsCount];
     log.info("Creating " + publisherStubsCount + " publisher stubs.", publisherStubsCount);
     for (int i = 0; i < publisherStubsCount; ++i) {
@@ -105,7 +105,7 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
           public void onSuccess(PublishResponse result) {
             resultFuture.set(
                 new PublishResponseResult(
-                    true, Code.OK.value(), loadTestParams.getPublishBatchSize()));
+                    true, Code.OK.value(), loadTestParams.getBatchSize()));
           }
 
           @Override
@@ -136,7 +136,7 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
                         + projectInfo.getProject()
                         + "/subscriptions/"
                         + projectInfo.getSubscription())
-                .setMaxMessages(loadTestParams.getPullBatchSize())
+                .setMaxMessages(loadTestParams.getBatchSize())
                 .build());
     final SettableFuture<PullResponseResult> resultFuture = SettableFuture.create();
     Futures.addCallback(
@@ -186,11 +186,11 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
   }
 
   private PublishRequest buildPublishRequestGrpc() {
-    int sequence = getNextMessageId(loadTestParams.getPublishBatchSize());
+    int sequence = getNextMessageId(loadTestParams.getBatchSize());
     String threadName = Thread.currentThread().getName();
     long sendTime = System.currentTimeMillis();
     List<PubsubMessage> pubMessages = new ArrayList<>();
-    for (int i = sequence; i < sequence + loadTestParams.getPublishBatchSize(); i++) {
+    for (int i = sequence; i < sequence + loadTestParams.getBatchSize(); i++) {
       pubMessages.add(PubsubMessage.newBuilder()
           .setData(ByteString.copyFrom(basePayloadData.getBytes(Charset.forName("UTF-8"))))
           .putAllAttributes(ImmutableMap.of(

@@ -76,46 +76,32 @@ abstract class PubsubLoadClientAdapter {
    * Encapsulates the parameters of the load test.
    */
   static class LoadTestParams {
-    private final int publishBatchSize;
     private final int messageSize;
-    private final int pullBatchSize;
-    private final int concurrentPublishRequests;
-    private final int concurrentPullRequests;
+    private final int batchSize;
+    private final int concurrentRequests;
     private final int requestDeadlineMillis;
 
     LoadTestParams(
-        int publishBatchSize,
         int messageSize,
-        int pullBatchSize,
-        int concurrentPublishRequests,
-        int concurrentPullRequests,
+        int batchSize,
+        int concurrentRequests,
         int requestDeadlineMillis) {
-      this.publishBatchSize = publishBatchSize;
       this.messageSize = messageSize;
-      this.pullBatchSize = pullBatchSize;
-      this.concurrentPublishRequests = concurrentPublishRequests;
-      this.concurrentPullRequests = concurrentPullRequests;
+      this.batchSize = batchSize;
+      this.concurrentRequests = concurrentRequests;
       this.requestDeadlineMillis = requestDeadlineMillis;
-    }
-
-    int getPublishBatchSize() {
-      return publishBatchSize;
     }
 
     int getMessageSize() {
       return messageSize;
     }
 
-    int getPullBatchSize() {
-      return pullBatchSize;
+    int getBatchSize() {
+      return batchSize;
     }
 
-    int getConcurrentPublishRequests() {
-      return concurrentPublishRequests;
-    }
-
-    int getConcurrentPullRequests() {
-      return concurrentPullRequests;
+    int getConcurrentRequests() {
+      return concurrentRequests;
     }
 
     int getRequestDeadlineMillis() {
