@@ -92,7 +92,7 @@ public class LoadTestRun implements Runnable {
                           modifyAckDeadline(params.subscriptionName, ackTokens);
                           scheduler.schedule(
                               this,
-                              LoadTestFlags.modifyAckWaitTime.toMillis(),
+                              LoadTestFlags.modifyAckWaitDuration.toMillis(),
                               TimeUnit.MILLISECONDS);
                           attemptNum++;
                         } else {
@@ -107,7 +107,7 @@ public class LoadTestRun implements Runnable {
                   };
               scheduler.schedule(
                   modifyAckRun,
-                  LoadTestFlags.modifyAckWaitTime.toMillis(),
+                  LoadTestFlags.modifyAckWaitDuration.toMillis(),
                   TimeUnit.MILLISECONDS);
             } else {
               log.info(logPrefix + "Acknowledge started");
@@ -187,7 +187,8 @@ public class LoadTestRun implements Runnable {
     String result = "unknown";
     Stopwatch stopwatch = Stopwatch.createStarted();
     try {
-      pubSub.modifyAckDeadline(subscription, LoadTestFlags.modifyAckDeadlineSeconds, TimeUnit.SECONDS, ackTokens);
+      pubSub.modifyAckDeadline(subscription, (int) LoadTestFlags.modifyAckDeadlineDuration.getSeconds(),
+          TimeUnit.SECONDS, ackTokens);
       stopwatch.stop();
       result = "succeeded";
     } catch (PubSubException e) {

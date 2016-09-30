@@ -34,74 +34,12 @@ import java.util.concurrent.*;
  * A high performance load test client for Cloud Pub/Sub. That supports gRPC as underlying transport methods.
  */
 public class LoadClient {
-  @Parameter(
-      names = {"--environment"},
-      description =
-          "Name for the cloud pubsub environment. Either: LOADTEST, QA, STAGING, PROD or EXPERIMENTAL"
-  )
-  public static final Environment environmentFlag = Environment.LOADTEST;
-  @Parameter(
-      names = {"--project"},
-      description = "Name for the cloud project to target for the test."
-  )
-  public static final String projectFlag = "cloud-pubsub-load-tests";
-  @Parameter(
-      names = {"--topic"},
-      required = true,
-      description = "Name of the topic to target for the tests."
-  )
-  public static final String topicFlag = "big-loadtest";
-  @Parameter(
-      names = {"--subscription"},
-      description = "Name for the subscription to target for the test."
-  )
-  public static final String subscriptionFlag = "big-load-subscriber-sub-pull-0";
-  @Parameter(
-      names = {"--message_size"},
-      description = "Number of bytes per message."
-  )
-  public static final Integer messageSizeFlag = 1000;  // 1 KB
-  @Parameter(names = {"--publish_batch_size"},
-      description = "Number of messages per publish call.")
-  public static final Integer publishBatchSizeFlag = 1;
-  @Parameter(names = {"--pull_batch_size"},
-      description = "Number of messages per pull call.")
-  public static final Integer pullBatchSizeFlag = 1;
-  @Parameter(names = {"--publish_requests_rate_limit"},
-      description = "Maximum rate per second of publish requests.")
-  public static final Integer publishRequestsRateLimitFlag = 1;
-  @Parameter(names = {"--pull_requests_rate_limit"},
-      description = "Maximum rate per second of pull requests.")
-  public static final Integer pullRequestsRateLimitFlag = 1;
-  @Parameter(names = {"--max_concurrent_publish_request"},
-      description = "Maximum number of concurrent publish requests.")
-  public static final Integer maxConcurrentPublishRequestsFlag = 1;
-  @Parameter(names = {"--max_concurrent_pull_request"},
-      description = "Maximum number of concurrent pull requests.")
-  public static final Integer maxConcurrentPullRequestsFlag = 1;
-  @Parameter(names = {"--seconds_to_run"},
-      description = "Number of seconds to run the load test. Use -1 to never stop.")
-  public static final Integer secondsToRunFlag = -1;
-  @Parameter(names = {"--metrics_report_interval_secs"},
-      description = "Number of wait in between reporting the latest metric numbers.")
-  public static final Integer metricsReportIntervalSecsFlag = 30;
-  @Parameter(names = {"--enable_metrics_report"}, description = "Enable metrics reporting.")
-  public static final Boolean enableMetricsReportFlag = true;
-  @Parameter(names = {"--request_deadline_millis"}, description = "Request deadline in miliseconds.")
-  public static final Integer requestDeadlineMillisFlag = 10000;
-  @Parameter(
-      names = {"--protocol"},
-      description = "Which protocol to talk to Cloud Pub/Sub with.  Either: GRPC"
-  )
-  public static final Protocol protocolFlag = Protocol.GRPC;
   private static final Logger log = LoggerFactory.getLogger(LoadClient.class);
   private static final int REQUEST_FAILED_CODE = -1;  // A client side error occurred.
   private final int secondsToRun;
   private final String project;
   private final String topicName;
   private final String subscriptionName;
-  private final int pullBatchSize;
-  private final AccessTokenProvider accessTokenProvider;
   private final RateLimiter publishRateLimiter;
   private final RateLimiter pullRateLimiter;
   private final Semaphore concurrentPublishLimiter;
@@ -110,11 +48,7 @@ public class LoadClient {
   private final LoadTestStats pullStats;
   private final ScheduledExecutorService executorService;
   private final MetricsHandler metricsHandler;
-  private final int requestDeadlineMillis;
-  private final Protocol protocol;
-  private final String hostname;
   private final PubsubLoadClientAdapter pubsubClient;
-  private final PubsubGrpcLoadClient grpcPubsubClient;
   private final boolean enableMetricReporting;
   private String topicPath;
   private String subscriptionPath;
@@ -126,14 +60,10 @@ public class LoadClient {
     topicPath = "projects/" + project + "/topics/" + topicName;
     subscriptionName = Preconditions.checkNotNull(builder.subscription);
     subscriptionPath = "projects/" + project + "/subscriptions/" + subscriptionName;
-    pullBatchSize = builder.pullBatchSize;
-    accessTokenProvider = new AccessTokenProvider();
-    publishRateLimiter = RateLimiter.create(builder.maxPublishRate);
-    pullRateLimiter = RateLimiter.create(builder.maxPullRate);
+    publishRateLimiter = RateLimiter.create(builder.publishRequestsRateLimit);
+    pullRateLimiter = RateLimiter.create(builder.pullRequestsRateLimit);
     concurrentPublishLimiter = new Semaphore(builder.maxConcurrentPublishRequests, false);
     concurrentPullLimiter = new Semaphore(builder.maxConcurrentPullRequests, false);
-    requestDeadlineMillis = builder.requestDeadlineMillis;
-    protocol = builder.protocol;
     enableMetricReporting = builder.enableMetricsReporting;
 
     int connections = builder.maxConcurrentPublishRequests + builder.maxConcurrentPullRequests;
@@ -141,29 +71,10 @@ public class LoadClient {
         Executors.newScheduledThreadPool(
             connections + 10,
             new ThreadFactoryBuilder().setDaemon(true).setNameFormat("load-thread").build());
-    switch (builder.environment) {
-      case PROD:
-        hostname = "pubsub.googleapis.com";
-        break;
-      case STAGING:
-        hostname = "staging-pubsub.sandbox.googleapis.com";
-        break;
-      case QA:
-        hostname = "test-pubsub.sandbox.googleapis.com";
-        break;
-      case EXPERIMENTAL:
-        hostname = "pubsub-experimental.googleapis.com";
-        break;
-      case LOADTEST:
-        hostname = "loadtest-pubsub.sandbox.googleapis.com";
-        break;
-      default:
-        throw new RuntimeException("Environment " + builder.environment + " is not recognized.");
-    }
-
     publishStats = new LoadTestStats("publish");
     pullStats = new LoadTestStats("pull");
 
+    AccessTokenProvider accessTokenProvider = new AccessTokenProvider();
     metricsHandler =
         new MetricsHandler(project, builder.metricsReportIntervalSecs, accessTokenProvider);
     metricsHandler.initialize();
@@ -171,37 +82,29 @@ public class LoadClient {
     ProjectInfo projectInfo = new ProjectInfo(project, topicName, subscriptionName);
     LoadTestParams loadTestParams =
         new LoadTestParams(
-            hostname,
+            "pubsub.googleapis.com",
             builder.publishBatchSize,
             builder.messageSize,
-            pullBatchSize,
+            builder.pullBatchSize,
             builder.maxConcurrentPublishRequests,
             builder.maxConcurrentPullRequests,
             builder.requestDeadlineMillis);
-    switch (protocol) {
-      case GRPC:
-        grpcPubsubClient =
-            new PubsubGrpcLoadClient(
-                accessTokenProvider,
-                projectInfo,
-                loadTestParams);
-        pubsubClient = grpcPubsubClient;
-        break;
-      default:
-        throw new IllegalArgumentException("Unreacognized protocol: " + protocol);
-    }
+
+    pubsubClient = new PubsubGrpcLoadClient(
+        accessTokenProvider,
+        projectInfo,
+        loadTestParams);
+
 
     log.info(
         "Load test configured:"
-            + "\n\tEnvironment: " + builder.environment
             + "\n\tseconds to run: " + builder.secondsToRun
             + "\n\tproject: " + builder.project
             + "\n\ttopic: " + builder.topic
             + "\n\tsubscription: " + builder.subscription
             + "\n\tmessage size: " + builder.messageSize
             + "\n\trequest deadline milliseconds: " + builder.requestDeadlineMillis
-            + "\n\tprotocol: " + builder.protocol
-            + "\n\tmax. publish rate: " + builder.maxPublishRate
+            + "\n\tmax. publish rate: " + builder.publishRequestsRateLimit
             + "\n\tmax. concurrent publish requests: " + builder.maxConcurrentPublishRequests
             + "\n\tpublish batch size: " + builder.publishBatchSize
             + "\n\tmax. concurrent pull requests: " + builder.maxConcurrentPullRequests
@@ -214,28 +117,9 @@ public class LoadClient {
 
   public static void main(String[] args) throws Exception {
 
-    JCommander jCommander = new JCommander(LoadClient.class);
-    jCommander.parse(args);
-    LoadClient loadClient =
-        LoadClient.builder()
-            .environment(environmentFlag)
-            .secondsToRun(secondsToRunFlag)
-            .project(projectFlag)
-            .topic(topicFlag)
-            .subscription(subscriptionFlag)
-            .messageSize(messageSizeFlag)
-            .publishBatchSize(publishBatchSizeFlag)
-            .pullBatchSize(pullBatchSizeFlag)
-            .maxPublishRate(publishRequestsRateLimitFlag)
-            .maxPullRate(pullRequestsRateLimitFlag)
-            .maxConcurrentPublishRequests(maxConcurrentPublishRequestsFlag)
-            .maxConcurrentPullRequests(maxConcurrentPullRequestsFlag)
-            .metricsReportIntervalSecs(metricsReportIntervalSecsFlag)
-            .requestDeadlineMillis(requestDeadlineMillisFlag)
-            .protocol(protocolFlag)
-            .enableMetricsReporting(enableMetricsReportFlag)
-            .build();
-
+    Builder builder = LoadClient.builder();
+    new JCommander(builder, args);
+    LoadClient loadClient = builder.build();
     // Hangs until done.
     loadClient.start();
 
@@ -379,19 +263,6 @@ public class LoadClient {
         result.getMessagesPulled());
   }
 
-
-  private enum Environment {
-    EXPERIMENTAL,
-    PROD,
-    STAGING,
-    QA,
-    LOADTEST
-  }
-
-  private enum Protocol {
-    GRPC
-  }
-
   private enum Operation {
     PUBLISH,
     PULL,
@@ -401,104 +272,57 @@ public class LoadClient {
    * Builder of {@link LoadClient}.
    */
   public static class Builder {
-    private Environment environment;
-    private int secondsToRun;
-    private String project;
-    private String topic;
-    private String subscription;
-    private int messageSize = 1000; // 1KB
-    private int publishBatchSize = 1;
-    private int pullBatchSize = 1;
-    private int maxPublishRate = 1;
-    private int maxPullRate = 1;
-    private int maxConcurrentPublishRequests = 1;
-    private int maxConcurrentPullRequests = 1;
-    private int metricsReportIntervalSecs = 1000;  // 1 sec
-    private int requestDeadlineMillis = 10000;
-    private Protocol protocol = Protocol.GRPC;
-    private boolean enableMetricsReporting;
+    @Parameter(
+        names = {"--project"},
+        description = "Name for the cloud project to target for the test."
+    )
+    String project = "cloud-pubsub-load-tests";
+    @Parameter(
+        names = {"--topic"},
+        required = true,
+        description = "Name of the topic to target for the tests."
+    )
+    String topic = "big-loadtest";
+    @Parameter(
+        names = {"--subscription"},
+        description = "Name for the subscription to target for the test."
+    )
+    String subscription = "big-load-subscriber-sub-pull-0";
+    @Parameter(
+        names = {"--message_size"},
+        description = "Number of bytes per message."
+    )
+    int messageSize = 1000;  // 1 KB
+    @Parameter(names = {"--publish_batch_size"},
+        description = "Number of messages per publish call.")
+    int publishBatchSize = 1;
+    @Parameter(names = {"--pull_batch_size"},
+        description = "Number of messages per pull call.")
+    int pullBatchSize = 1;
+    @Parameter(names = {"--publish_requests_rate_limit"},
+        description = "Maximum rate per second of publish requests.")
+    int publishRequestsRateLimit = 1;
+    @Parameter(names = {"--pull_requests_rate_limit"},
+        description = "Maximum rate per second of pull requests.")
+    int pullRequestsRateLimit = 1;
+    @Parameter(names = {"--max_concurrent_publish_request"},
+        description = "Maximum number of concurrent publish requests.")
+    int maxConcurrentPublishRequests = 1;
+    @Parameter(names = {"--max_concurrent_pull_request"},
+        description = "Maximum number of concurrent pull requests.")
+    int maxConcurrentPullRequests = 1;
+    @Parameter(names = {"--seconds_to_run"},
+        description = "Number of seconds to run the load test. Use -1 to never stop.")
+    int secondsToRun = -1;
+    @Parameter(names = {"--metrics_report_interval_secs"},
+        description = "Number of wait in between reporting the latest metric numbers.")
+    int metricsReportIntervalSecs = 30;
+    @Parameter(names = {"--enable_metrics_report"}, description = "Enable metrics reporting.")
+    boolean enableMetricsReporting = true;
+    @Parameter(names = {"--request_deadline_millis"}, description = "Request deadline in miliseconds.")
+    int requestDeadlineMillis = 10000;
 
     private Builder() {
-    }
-
-    public Builder environment(Environment environment) {
-      this.environment = environment;
-      return this;
-    }
-
-    public Builder secondsToRun(int secondsToRun) {
-      this.secondsToRun = secondsToRun;
-      return this;
-    }
-
-    public Builder project(String project) {
-      this.project = project;
-      return this;
-    }
-
-    public Builder topic(String topic) {
-      this.topic = topic;
-      return this;
-    }
-
-    public Builder subscription(String subscription) {
-      this.subscription = subscription;
-      return this;
-    }
-
-    public Builder messageSize(int messageSize) {
-      this.messageSize = messageSize;
-      return this;
-    }
-
-    public Builder publishBatchSize(int publishBatchSize) {
-      this.publishBatchSize = publishBatchSize;
-      return this;
-    }
-
-    public Builder pullBatchSize(int pullBatchSize) {
-      this.pullBatchSize = pullBatchSize;
-      return this;
-    }
-
-    public Builder maxPublishRate(int maxPublishRate) {
-      this.maxPublishRate = maxPublishRate;
-      return this;
-    }
-
-    public Builder maxPullRate(int maxPullRate) {
-      this.maxPullRate = maxPullRate;
-      return this;
-    }
-
-    public Builder maxConcurrentPublishRequests(int maxConcurrentPublishRequests) {
-      this.maxConcurrentPublishRequests = maxConcurrentPublishRequests;
-      return this;
-    }
-
-    public Builder maxConcurrentPullRequests(int maxConcurrentPullRequests) {
-      this.maxConcurrentPullRequests = maxConcurrentPullRequests;
-      return this;
-    }
-
-    public Builder metricsReportIntervalSecs(int metricsReportIntervalSecs) {
-      this.metricsReportIntervalSecs = metricsReportIntervalSecs;
-      return this;
-    }
-
-    public Builder requestDeadlineMillis(int requestDeadlineMillis) {
-      this.requestDeadlineMillis = requestDeadlineMillis;
-      return this;
-    }
-
-    public Builder protocol(Protocol protocol) {
-      this.protocol = protocol;
-      return this;
-    }
-
-    public Builder enableMetricsReporting(boolean enableMetricsReporting) {
-      this.enableMetricsReporting = enableMetricsReporting;
-      return this;
     }
 
     LoadClient build() throws IOException {
