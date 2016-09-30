@@ -61,7 +61,7 @@ public class Comparison {
       log.error(COMPARISON_FAIL);
       return;
     }
-    for (Object key : histogram1.keySet()) {
+    histogram1.keySet().forEach((key) -> {
       if (histogram2.get(key) == null) {
         log.error(COMPARISON_FAIL);
       }
@@ -69,8 +69,8 @@ public class Comparison {
         log.error(COMPARISON_FAIL);
         return;
       }
-    }
-    log.info(COMPARISON_SUCCESS);
+      log.info(COMPARISON_SUCCESS);
+    });
   }
 
   /** Create a histogram of frequencies of MessagePacket's from a file. */

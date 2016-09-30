@@ -33,13 +33,13 @@ import java.util.concurrent.Semaphore;
 /**
  * Parameters for this load test run.
  */
-public class RunParams {
+class RunParams {
   private static final Logger log = LoggerFactory.getLogger(RunParams.class);
   private static final String PULL_SUBSCRIPTION_POSTFIX = "-sub-pull-%d";
-  public final RunType runType;
-  public final String topicName;
-  public final String subscriptionName;
-  public final Map<String, String> labels;
+  final RunType runType;
+  final String topicName;
+  final String subscriptionName;
+  final Map<String, String> labels;
 
   private RunParams(
       RunType runType,
@@ -54,15 +54,14 @@ public class RunParams {
 
   private RunParams(
       RunType runType,
-      Map<String, String> labels,
       String topicName) {
-    this(runType, labels, topicName, "");
+    this(runType, LoadTestFlags.labels, topicName, "");
   }
 
   /**
    * Generates the list of parameters for runs based on the flags passed.
    */
-  public static List<RunParams> generatePrototypeParams(
+  static List<RunParams> generatePrototypeParams(
       final ObjectRepository objectRepository,
       final ListeningExecutorService executor) {
     boolean useGlobalTopic = LoadTestFlags.numTopics == 0;
@@ -71,7 +70,7 @@ public class RunParams {
 
     Integer maximumInFlight = LoadTestFlags.maxObjectsCreationInflight;
     final Semaphore inFlightLimiter = new Semaphore(maximumInFlight);
-    log.info("Max. inflight creation RPCs: " + maximumInFlight);
+    log.info("Max. in-flight creation RPCs: " + maximumInFlight);
 
     for (int topicNumber = 0; topicNumber < numTopics; topicNumber++) {
       String topicSuffix =
@@ -89,7 +88,7 @@ public class RunParams {
           objectRepository.createTopic(topicName);
           if (LoadTestFlags.actionIncludesPublish) {
             protos.add(
-                new RunParams(RunType.PUBLISH_RUN, LoadTestFlags.labels, topicName));
+                new RunParams(RunType.PUBLISH_RUN, topicName));
           }
         } catch (ExecutionException | InvalidCacheLoadException e) {
           log.warn(
@@ -151,7 +150,7 @@ public class RunParams {
    * Specifies if this is a publish operation, pull subscription operation or push subscription
    * operation.
    */
-  public enum RunType {
+  private enum RunType {
     PUBLISH_RUN,  // Do a publishing in this run.
     PULL_SUBSCRIPTION_RUN, // Do a subscription pull related action in this run.
   }

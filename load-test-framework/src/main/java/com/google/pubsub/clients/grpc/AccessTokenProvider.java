@@ -35,14 +35,14 @@ class AccessTokenProvider {
   private final BlockingQueue<AccessToken> accessTokens = new LinkedBlockingQueue<>();
   private final GoogleCredentials creds;
 
-  public AccessTokenProvider() throws IOException {
+  AccessTokenProvider() throws IOException {
     creds =
         GoogleCredentials.getApplicationDefault()
             .createScoped(ImmutableList.of("https://www.googleapis.com/auth/cloud-platform"));
     generateAccessToken();
   }
 
-  public AccessToken getAccessToken() throws IOException {
+  AccessToken getAccessToken() throws IOException {
     AccessToken at = Uninterruptibles.takeUninterruptibly(accessTokens);
 
     long accessTokenExpirationTime = at.getExpirationTime().getTime();
@@ -57,7 +57,7 @@ class AccessTokenProvider {
     return at;
   }
 
-  public GoogleCredentials getCredentials() {
+  GoogleCredentials getCredentials() {
     return creds;
   }
 

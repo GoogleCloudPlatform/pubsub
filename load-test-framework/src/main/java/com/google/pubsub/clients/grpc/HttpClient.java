@@ -46,12 +46,10 @@ import java.util.concurrent.TimeUnit;
  * It also manages the shutdown of the underlying connection manager by
  * implementing the {@link Closeable} interface.
  */
-public class HttpClient extends DefaultHttpClient implements Closeable {
-  private final int maxConnections;
+class HttpClient extends DefaultHttpClient implements Closeable {
   private final int connectionKeepAliveSeconds;
   private final ExecutorService requestsExecutor;
   private final ScheduledExecutorService cleanupExecutor;
-  private PoolingClientConnectionManager connectionManager;
 
   private HttpClient(Builder builder) {
     super(new PoolingClientConnectionManager(new SchemeRegistry()), new BasicHttpParams());
@@ -65,16 +63,16 @@ public class HttpClient extends DefaultHttpClient implements Closeable {
     HttpConnectionParams.setStaleCheckingEnabled(getParams(), false);
     HttpConnectionParams.setTcpNoDelay(getParams(), true);
 
-    maxConnections = builder.maxConnections;
+    final int maxConnections = MetricsHandler.MAX_HTTP_CONNECTIONS;
     connectionKeepAliveSeconds = builder.connectionKeepAliveSeconds;
 
-    connectionManager = (PoolingClientConnectionManager) getConnectionManager();
+    PoolingClientConnectionManager connectionManager = (PoolingClientConnectionManager) getConnectionManager();
     connectionManager.setMaxTotal(maxConnections);
     connectionManager.setDefaultMaxPerRoute(maxConnections);
 
     SchemeRegistry schemeRegistry = connectionManager.getSchemeRegistry();
-    schemeRegistry.register(new Scheme("http", PlainSocketFactory.getSocketFactory(), 80));
-    schemeRegistry.register(new Scheme("https", SSLSocketFactory.getSocketFactory(), 443));
+    schemeRegistry.register(new Scheme("http", 80, PlainSocketFactory.getSocketFactory()));
+    schemeRegistry.register(new Scheme("https", 443, SSLSocketFactory.getSocketFactory()));
     setKeepAliveStrategy((response, ctx) -> connectionKeepAliveSeconds);
 
     requestsExecutor =
@@ -91,13 +89,13 @@ public class HttpClient extends DefaultHttpClient implements Closeable {
     return new Builder();
   }
 
-  public <T> ListenableFuture<T> executeFuture(
+  <T> ListenableFuture<T> executeFuture(
       final HttpUriRequest request,
       final ResponseHandler<? extends T> responseHandler) {
     return this.executeFuture(request, new BasicHttpContext(), responseHandler);
   }
 
-  public <T> ListenableFuture<T> executeFuture(
+  private <T> ListenableFuture<T> executeFuture(
       final HttpUriRequest request,
       final HttpContext context,
       final ResponseHandler<? extends T> responseHandler) {
@@ -123,27 +121,11 @@ public class HttpClient extends DefaultHttpClient implements Closeable {
   /**
    * Builder for {@link HttpClient}.
    */
-  public static class Builder {
-    private int maxConnections = 100;
+  static class Builder {
     private int timeoutMillis = 90000;
     private int connectionKeepAliveSeconds = 60 * 50;  // 50 min
 
     private Builder() {
-    }
-
-    public Builder maxConnections(int connections) {
-      maxConnections = connections;
-      return this;
-    }
-
-    public Builder timeoutMillis(int timeoutMillis) {
-      this.timeoutMillis = timeoutMillis;
-      return this;
-    }
-
-    public Builder connectionKeepAliveSeconds(int connectionKeepAliveSeconds) {
-      this.connectionKeepAliveSeconds = connectionKeepAliveSeconds;
-      return this;
     }
 
     public HttpClient build() {

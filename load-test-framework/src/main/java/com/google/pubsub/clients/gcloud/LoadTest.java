@@ -19,18 +19,19 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
-import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.UncaughtExceptionHandlers;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 
 /**
  * Uses the {@link LoadTestLauncher} to repeatedly start {@link LoadTestRun LoadTestRuns} to
@@ -122,10 +123,6 @@ public class LoadTest {
     loadTest.run();
   }
 
-  private void parseFlags() {
-
-  }
-
   private void run() throws Exception {
 
     final PubSub pubSub = PubSubOptions.builder().projectId(LoadTestFlags.project).build().service();
@@ -145,9 +142,9 @@ public class LoadTest {
       log.info("Configured load test run: " + param);
     }
 
-    final char[] payloadArray = new char[LoadTestFlags.payloadSize];
-    Arrays.fill(payloadArray, 'A');
-    final String payload = payloadArray.toString();
+    final byte[] payloadArray = new byte[LoadTestFlags.payloadSize];
+    Arrays.fill(payloadArray, (byte) 'A');
+    final String payload = new String(payloadArray, Charset.forName("UTF-8"));
 
     Supplier<Runnable> loadTestRunSupplier = () -> {
       int currentIndex = index.getAndAdd(1);

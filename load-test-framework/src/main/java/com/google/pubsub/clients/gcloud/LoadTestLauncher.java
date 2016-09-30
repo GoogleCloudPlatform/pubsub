@@ -16,16 +16,14 @@
 package com.google.pubsub.clients.gcloud;
 
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.AbstractExecutionThreadService;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.RateLimiter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.security.GeneralSecurityException;
 import java.util.concurrent.Semaphore;
+import java.util.function.Supplier;
 
 /**
  * A {@link com.google.common.util.concurrent.Service} that runs indefinitely on a thread.
@@ -44,7 +42,7 @@ public class LoadTestLauncher extends AbstractExecutionThreadService {
       Supplier<Runnable> loadTestRunSupplier,
       double initialLoadTestRate,
       int maxLoadTestOutstandingCount,
-      ListeningExecutorService executor) throws IOException, GeneralSecurityException {
+      ListeningExecutorService executor) {
 
     this.loadTestRunSupplier = Preconditions.checkNotNull(loadTestRunSupplier);
 
@@ -69,11 +67,11 @@ public class LoadTestLauncher extends AbstractExecutionThreadService {
     }
   }
 
-  public double getRate() {
+  double getRate() {
     return rateLimiter.getRate();
   }
 
-  public void setRate(double newRatePerSecond) {
+  void setRate(double newRatePerSecond) {
     Preconditions.checkArgument(newRatePerSecond > 0,
         "Must have a positive rate at which load tests are run.");
     rateLimiter.setRate(newRatePerSecond);

@@ -34,6 +34,8 @@ import io.grpc.netty.NettyChannelBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
+import javax.net.ssl.SSLException;
 import java.nio.charset.Charset;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -56,7 +58,7 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
   PubsubGrpcLoadClient(
       AccessTokenProvider accessTokenProvider,
       ProjectInfo projectInfo,
-      LoadTestParams loadTestParams) {
+      LoadTestParams loadTestParams) throws SSLException {
     this.loadTestParams = loadTestParams;
     this.projectInfo = projectInfo;
     topicsBasePath = "projects/" + projectInfo.getProject() + "/topics/";
@@ -85,7 +87,7 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
     return name;
   }
 
-  private <T extends Object> ListenableFuture<RequestResult> handleCreateFuture(
+  private <T> ListenableFuture<RequestResult> handleCreateFuture(
       ListenableFuture<T> future) {
     final SettableFuture<RequestResult> resultFuture = SettableFuture.create();
     Futures.addCallback(
@@ -97,7 +99,7 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
           }
 
           @Override
-          public void onFailure(Throwable t) {
+          public void onFailure(@Nonnull Throwable t) {
             if (t instanceof io.grpc.StatusRuntimeException) {
               StatusRuntimeException grpcException = (io.grpc.StatusRuntimeException) t;
               resultFuture.set(
@@ -157,7 +159,7 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
           }
 
           @Override
-          public void onFailure(Throwable t) {
+          public void onFailure(@Nonnull Throwable t) {
             if (t instanceof io.grpc.StatusRuntimeException) {
               StatusRuntimeException grpcException = (io.grpc.StatusRuntimeException) t;
               log.warn(
@@ -212,7 +214,7 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
           }
 
           @Override
-          public void onFailure(Throwable t) {
+          public void onFailure(@Nonnull Throwable t) {
             if (t instanceof io.grpc.StatusRuntimeException) {
               StatusRuntimeException grpcException = (io.grpc.StatusRuntimeException) t;
               log.warn(
@@ -253,18 +255,12 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
         .build();
   }
 
-  private Channel getChannelGrpc() {
-    try {
-      return
-          NettyChannelBuilder.forAddress(loadTestParams.getHostname(), 443)
-              .maxMessageSize(20000000) // 20 MB
-              .flowControlWindow(20000000) // 20 MB
-              .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
-              .negotiationType(NegotiationType.TLS)
-              .build();
-    } catch (Exception e) {
-      log.warn("Unable to build Channel", e);
-      return null;
-    }
+  private Channel getChannelGrpc() throws SSLException {
+    return
+        NettyChannelBuilder.forAddress("pubsub.googleapis.com", 443)
+            .maxMessageSize(20000000) // 20 MB
+            .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
+            .negotiationType(NegotiationType.TLS)
+            .build();
   }
 }

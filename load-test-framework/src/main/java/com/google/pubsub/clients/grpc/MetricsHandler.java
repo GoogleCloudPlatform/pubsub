@@ -40,9 +40,10 @@ import java.util.concurrent.atomic.AtomicInteger;
  * A class that is used to record metrics related to the execution of the load tests, such metrics
  * are recorded using Google's Cloud Monitoring API.
  */
-public class MetricsHandler {
+class MetricsHandler {
 
-  static final int[] LATENCY_BUCKETS =
+  static final int MAX_HTTP_CONNECTIONS = 5;
+  private static final int[] LATENCY_BUCKETS =
       new int[]{
           0,
           1,
@@ -73,13 +74,11 @@ public class MetricsHandler {
   private static final String REQUESTS_COUNT_METRIC_NAME = "request_count";
   private static final String END_TO_END_LATENCY_METRIC_NAME = "end_to_end_latency";
   private static final String PUBLISH_ACK_LATENCY_METRIC_NAME = "publish_ack_latency";
-  private static final int MAX_HTTP_CONNECTIONS = 5;
   private final HttpClient httpClient;
   private final String requestCountTimeSeriesTemplate;
   private final String latencyTimeSeriesTemplate;
   private final String timeSeriesPath;
   private final ScheduledExecutorService executor;
-  private final String startTime;
   private final Map<RequestCountKey, AtomicInteger> requestCount;
   private final LatencyDistribution endToEndLatencyDistribution;
   private final LatencyDistribution publishAckLatencyDistribution;
@@ -91,14 +90,14 @@ public class MetricsHandler {
   private String zoneId;
   private String instanceId;
 
-  public MetricsHandler(
+  MetricsHandler(
       String project, int metricsReportIntervalSecs, AccessTokenProvider accessTokenProvider) {
     this.accessTokenProvider = Preconditions.checkNotNull(accessTokenProvider);
     executor =
         Executors.newScheduledThreadPool(
             MAX_HTTP_CONNECTIONS,
             new ThreadFactoryBuilder().setDaemon(true).setNameFormat("load-thread").build());
-    httpClient = HttpClient.builder().maxConnections(MAX_HTTP_CONNECTIONS).build();
+    httpClient = HttpClient.builder().build();
 
     metricsDescriptorsPath =
         "https://monitoring.googleapis.com/v3/projects/"
@@ -106,13 +105,13 @@ public class MetricsHandler {
             + "/metricDescriptors";
     dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
-    startTime = dateFormatter.format(new Date());
     requestCount = new HashMap<>();
     countChanged = new AtomicBoolean(false);
     endToEndLatencyDistribution = new LatencyDistribution();
     publishAckLatencyDistribution = new LatencyDistribution();
     this.metricsReportIntervalSecs = metricsReportIntervalSecs;
     timeSeriesPath = "https://monitoring.googleapis.com/v3/projects/" + project + "/timeSeries";
+    final String startTime = dateFormatter.format(new Date());
     requestCountTimeSeriesTemplate =
         "{"
             + "\"metric\":{"
@@ -206,11 +205,11 @@ public class MetricsHandler {
     return statusCode >= 200 && statusCode < 300;
   }
 
-  public void initialize() {
+  void initialize() {
     createMetrics();
   }
 
-  public void startReporting() {
+  void startReporting() {
     executor.scheduleAtFixedRate(() -> {
           try {
             reportMetrics();
@@ -322,7 +321,7 @@ public class MetricsHandler {
     return resultFuture;
   }
 
-  public void recordRequestCount(String resource, String operation, int responseCode, int count) {
+  void recordRequestCount(String resource, String operation, int responseCode, int count) {
     RequestCountKey key = RequestCountKey.of(resource, operation, responseCode);
     synchronized (requestCount) {
       if (!requestCount.containsKey(key)) {
@@ -333,12 +332,12 @@ public class MetricsHandler {
     countChanged.set(true);
   }
 
-  public void recordEndToEndLatency(long latencyMs) {
+  void recordEndToEndLatency(long latencyMs) {
     log.debug("Adding a end to end latency: %s", latencyMs);
     endToEndLatencyDistribution.recordLatency(latencyMs);
   }
 
-  public void recordPublishAckLatency(long latencyMs) {
+  void recordPublishAckLatency(long latencyMs) {
     log.debug("Adding a publish ack latency: %s", latencyMs);
     publishAckLatencyDistribution.recordLatency(latencyMs);
   }
@@ -482,26 +481,26 @@ public class MetricsHandler {
     private double sumOfSquaredDeviation = 0;
     private int[] bucketValues = new int[LATENCY_BUCKETS.length];
 
-    public LatencyDistribution() {
+    LatencyDistribution() {
     }
 
-    public long getCount() {
+    long getCount() {
       return count;
     }
 
-    public double getSumOfSquareDeviations() {
+    double getSumOfSquareDeviations() {
       return sumOfSquaredDeviation;
     }
 
-    public double getMean() {
+    double getMean() {
       return mean;
     }
 
-    public int[] getBucketValues() {
+    int[] getBucketValues() {
       return bucketValues;
     }
 
-    public void recordLatency(long latencyMs) {
+    void recordLatency(long latencyMs) {
       synchronized (this) {
         count++;
         double dev = latencyMs - mean;

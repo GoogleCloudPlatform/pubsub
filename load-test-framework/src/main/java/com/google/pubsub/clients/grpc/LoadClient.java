@@ -27,6 +27,7 @@ import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.PullResponseResult
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.io.IOException;
 import java.util.concurrent.*;
 
@@ -82,7 +83,6 @@ public class LoadClient {
     ProjectInfo projectInfo = new ProjectInfo(project, topicName, subscriptionName);
     LoadTestParams loadTestParams =
         new LoadTestParams(
-            "pubsub.googleapis.com",
             builder.publishBatchSize,
             builder.messageSize,
             builder.pullBatchSize,
@@ -126,7 +126,7 @@ public class LoadClient {
     log.info("Closing all - good bye!");
   }
 
-  public void start() throws InterruptedException, ExecutionException {
+  private void start() throws InterruptedException, ExecutionException {
     // Try to create the topic and wait.
     pubsubClient.createTopic(topicName).get();
 
@@ -190,7 +190,7 @@ public class LoadClient {
                     }
 
                     @Override
-                    public void onFailure(Throwable t) {
+                    public void onFailure(@Nonnull Throwable t) {
                       concurrentPublishLimiter.release();
                       log.warn(
                           "Unable to execute a publish request (client-side error)", t);
@@ -222,12 +222,11 @@ public class LoadClient {
                     @Override
                     public void onSuccess(PullResponseResult result) {
                       concurrentPullLimiter.release();
-                      recordPullResponseResult(
-                          result, Operation.PULL, stopWatch.elapsed(TimeUnit.MILLISECONDS));
+                      recordPullResponseResult(result, stopWatch.elapsed(TimeUnit.MILLISECONDS));
                     }
 
                     @Override
-                    public void onFailure(Throwable t) {
+                    public void onFailure(@Nonnull Throwable t) {
                       log.warn(
                           "Unable to execute a pull request (client-side error)", t);
                       if (enableMetricReporting) {
@@ -246,8 +245,7 @@ public class LoadClient {
   }
 
   private void recordPullResponseResult(
-      PullResponseResult result, Operation pullOperation, long elapsed) {
-    Preconditions.checkArgument(pullOperation == Operation.PULL);
+      PullResponseResult result, long elapsed) {
     if (result.isOk()) {
       pullStats.recordSuccessfulRequest(result.getMessagesPulled(), elapsed);
       if (enableMetricReporting) {
@@ -258,7 +256,7 @@ public class LoadClient {
     }
     metricsHandler.recordRequestCount(
         topicName,
-        pullOperation.toString(),
+        Operation.PULL.toString(),
         result.getStatusCode(),
         result.getMessagesPulled());
   }
@@ -271,7 +269,7 @@ public class LoadClient {
   /**
    * Builder of {@link LoadClient}.
    */
-  public static class Builder {
+  private static class Builder {
     @Parameter(
         names = {"--project"},
         description = "Name for the cloud project to target for the test."

@@ -25,6 +25,7 @@ import com.google.inject.name.Named;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.annotation.Nonnull;
 import java.util.Objects;
 import java.util.concurrent.ExecutionException;
 
@@ -35,7 +36,7 @@ import java.util.concurrent.ExecutionException;
  * to still exist for the life of the program.
  */
 
-public class ObjectRepository {
+class ObjectRepository {
 
   private static final Logger log = LoggerFactory.getLogger(ObjectRepository.class);
   private final LoadingCache<String, Topic> topicCache;
@@ -44,7 +45,7 @@ public class ObjectRepository {
   private final PubSub pubSub;
 
   @Inject
-  public ObjectRepository(
+  ObjectRepository(
       PubSub pubsub,
       @Named("recreate_topics") Boolean recreateTopics) {
     this.pubSub = pubsub;
@@ -55,7 +56,7 @@ public class ObjectRepository {
         .build(
             new CacheLoader<String, Topic>() {
               @Override
-              public Topic load(String key) throws Exception {
+              public Topic load(@Nonnull String key) throws Exception {
                 return getOrCreateTopic(key);
               }
             });
@@ -64,7 +65,7 @@ public class ObjectRepository {
         .build(
             new CacheLoader<SubscriptionCacheKey, Subscription>() {
               @Override
-              public Subscription load(SubscriptionCacheKey key) throws Exception {
+              public Subscription load(@Nonnull SubscriptionCacheKey key) throws Exception {
                 return getOrCreateSubscription(key);
               }
             });
@@ -73,14 +74,14 @@ public class ObjectRepository {
   /**
    * Creates a topic with the given name, if one does not yet exist.
    */
-  public void createTopic(String topicName) throws ExecutionException {
+  void createTopic(String topicName) throws ExecutionException {
     topicCache.get(topicName);
   }
 
   /**
    * Creates a subscription with the given parameters, if one does not yet exist.
    */
-  public void createSubscription(
+  void createSubscription(
       String topicName, String subscriptionName) throws ExecutionException {
     SubscriptionCacheKey key =
         new SubscriptionCacheKey()
@@ -138,7 +139,6 @@ public class ObjectRepository {
 
   private static class SubscriptionCacheKey {
     private String name;
-    private PushConfig pushConfig;
     private String topic;
 
     @Override
@@ -161,11 +161,6 @@ public class ObjectRepository {
 
     public SubscriptionCacheKey setName(String name) {
       this.name = name;
-      return this;
-    }
-
-    public SubscriptionCacheKey setPushConfig(PushConfig pushConfig) {
-      this.pushConfig = pushConfig;
       return this;
     }
 

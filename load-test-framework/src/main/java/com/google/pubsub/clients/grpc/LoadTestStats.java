@@ -23,34 +23,34 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * A class that maintains in memory statistics of the load test.
  */
-public class LoadTestStats {
+class LoadTestStats {
   private static final Logger log = LoggerFactory.getLogger(LoadTestStats.class);
 
-  public final String statsType;
-  public final AtomicLong successCounter = new AtomicLong();
-  public final AtomicLong messagesCounter = new AtomicLong();
-  public final AtomicLong errorCounter = new AtomicLong();
-  public long startTime;
+  private final String statsType;
+  private final AtomicLong successCounter = new AtomicLong();
+  private final AtomicLong messagesCounter = new AtomicLong();
+  private final AtomicLong errorCounter = new AtomicLong();
+  private long startTime;
 
   LoadTestStats(String statsType) {
     this.statsType = statsType;
   }
 
-  public void startTimer() {
+  void startTimer() {
     startTime = System.currentTimeMillis();
   }
 
-  public void recordSuccessfulRequest(int messages, long latencyMilliseconds) {
+  void recordSuccessfulRequest(int messages, long latencyMilliseconds) {
     log.debug("Latency recorded: " + latencyMilliseconds);
     successCounter.incrementAndGet();
     messagesCounter.addAndGet(messages);
   }
 
-  public void recordFailedRequest() {
+  void recordFailedRequest() {
     errorCounter.incrementAndGet();
   }
 
-  public void printStats() {
+  void printStats() {
     long duration = (System.currentTimeMillis() - startTime) / 1000;
     long successCount = successCounter.get();
     long failCount = errorCounter.get();
@@ -58,7 +58,7 @@ public class LoadTestStats {
     long avgQps = (successCount + failCount) / duration;
     long avgMessagesPerSecond = messages / duration;
     log.info(
-        "Total messages (" + statsType + "): " + messages + ", avg. QPS " + avgQps + " (sucessful="
+        "Total messages (" + statsType + "): " + messages + ", avg. QPS " + avgQps + " (successful="
             + successCount + ", errors=" + failCount + ", fail-rate=" + (float) failCount / (successCount + failCount)
             + ") Messages per second " + avgMessagesPerSecond);
   }

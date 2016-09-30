@@ -59,8 +59,8 @@ public class GCEController extends Controller {
   private Map<ClientType, Integer> types;
   private boolean shutdown;
 
-  GCEController(String projectName, Map<ClientType, Integer> types, Executor executor,
-                Storage storage, Compute compute) {
+  private GCEController(String projectName, Map<ClientType, Integer> types, Executor executor,
+                        Storage storage, Compute compute) {
     this.executor = executor;
     this.shutdown = false;
     this.projectName = projectName;

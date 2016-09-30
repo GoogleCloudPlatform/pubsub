@@ -22,7 +22,7 @@ import java.util.List;
 /**
  * A common interface for load test clients, to be implemented by protocol specific classes.
  */
-public abstract class PubsubLoadClientAdapter {
+abstract class PubsubLoadClientAdapter {
   private final ThreadLocal<Integer> messageSequence;
 
   PubsubLoadClientAdapter() {
@@ -44,7 +44,7 @@ public abstract class PubsubLoadClientAdapter {
 
   public abstract ListenableFuture<PullResponseResult> pullMessages(String subscriptionPath);
 
-  protected int getNextMessageId(int increment) {
+  int getNextMessageId(int increment) {
     int currentId = messageSequence.get();
     messageSequence.set(currentId + increment);
     return currentId;
@@ -53,12 +53,12 @@ public abstract class PubsubLoadClientAdapter {
   /**
    * Encapsulates the information of the project and resource under load test.
    */
-  public static class ProjectInfo {
+  static class ProjectInfo {
     private final String project;
     private final String topic;
     private final String subscription;
 
-    public ProjectInfo(String project, String topic, String subscription) {
+    ProjectInfo(String project, String topic, String subscription) {
       this.project = project;
       this.topic = topic;
       this.subscription = subscription;
@@ -80,8 +80,7 @@ public abstract class PubsubLoadClientAdapter {
   /**
    * Encapsulates the parameters of the load test.
    */
-  public static class LoadTestParams {
-    private final String hostname;
+  static class LoadTestParams {
     private final int publishBatchSize;
     private final int messageSize;
     private final int pullBatchSize;
@@ -89,15 +88,13 @@ public abstract class PubsubLoadClientAdapter {
     private final int concurrentPullRequests;
     private final int requestDeadlineMillis;
 
-    public LoadTestParams(
-        String hostname,
+    LoadTestParams(
         int publishBatchSize,
         int messageSize,
         int pullBatchSize,
         int concurrentPublishRequests,
         int concurrentPullRequests,
         int requestDeadlineMillis) {
-      this.hostname = hostname;
       this.publishBatchSize = publishBatchSize;
       this.messageSize = messageSize;
       this.pullBatchSize = pullBatchSize;
@@ -106,31 +103,27 @@ public abstract class PubsubLoadClientAdapter {
       this.requestDeadlineMillis = requestDeadlineMillis;
     }
 
-    public String getHostname() {
-      return hostname;
-    }
-
-    public int getPublishBatchSize() {
+    int getPublishBatchSize() {
       return publishBatchSize;
     }
 
-    public int getMessageSize() {
+    int getMessageSize() {
       return messageSize;
     }
 
-    public int getPullBatchSize() {
+    int getPullBatchSize() {
       return pullBatchSize;
     }
 
-    public int getConcurrentPublishRequests() {
+    int getConcurrentPublishRequests() {
       return concurrentPublishRequests;
     }
 
-    public int getConcurrentPullRequests() {
+    int getConcurrentPullRequests() {
       return concurrentPullRequests;
     }
 
-    public int getRequestDeadlineMillis() {
+    int getRequestDeadlineMillis() {
       return requestDeadlineMillis;
     }
   }
@@ -138,20 +131,20 @@ public abstract class PubsubLoadClientAdapter {
   /**
    * Used to return the result of an request to the API.
    */
-  public static class RequestResult {
+  static class RequestResult {
     private final boolean ok;
     private final int statusCode;
 
-    protected RequestResult(boolean ok, int statusCode) {
+    RequestResult(boolean ok, int statusCode) {
       this.ok = ok;
       this.statusCode = statusCode;
     }
 
-    public boolean isOk() {
+    boolean isOk() {
       return ok;
     }
 
-    public int getStatusCode() {
+    int getStatusCode() {
       return statusCode;
     }
   }
@@ -159,15 +152,15 @@ public abstract class PubsubLoadClientAdapter {
   /**
    * A {@link RequestResult} specific to Publish operations.
    */
-  public static final class PublishResponseResult extends RequestResult {
+  static final class PublishResponseResult extends RequestResult {
     private final int messagesPublished;
 
-    protected PublishResponseResult(boolean ok, int statusCode, int messagesPublished) {
+    PublishResponseResult(boolean ok, int statusCode, int messagesPublished) {
       super(ok, statusCode);
       this.messagesPublished = messagesPublished;
     }
 
-    public int getMessagesPublished() {
+    int getMessagesPublished() {
       return messagesPublished;
     }
   }
@@ -175,22 +168,22 @@ public abstract class PubsubLoadClientAdapter {
   /**
    * A {@link RequestResult} specific to Pull operations.
    */
-  public static final class PullResponseResult extends RequestResult {
+  static final class PullResponseResult extends RequestResult {
     private final int messagesPulled;
     private List<Long> endToEndLatenciesMillis;
 
-    protected PullResponseResult(
-        boolean ok, int statusCode, int messagesProccessed, List<Long> endToEndLatenciesMillis) {
+    PullResponseResult(
+        boolean ok, int statusCode, int messagesProcessed, List<Long> endToEndLatenciesMillis) {
       super(ok, statusCode);
-      this.messagesPulled = messagesProccessed;
+      this.messagesPulled = messagesProcessed;
       this.endToEndLatenciesMillis = endToEndLatenciesMillis;
     }
 
-    public int getMessagesPulled() {
+    int getMessagesPulled() {
       return messagesPulled;
     }
 
-    public List<Long> getEndToEndLatenciesMillis() {
+    List<Long> getEndToEndLatenciesMillis() {
       return endToEndLatenciesMillis;
     }
   }
