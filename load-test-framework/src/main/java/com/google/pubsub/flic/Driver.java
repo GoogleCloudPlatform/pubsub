@@ -16,10 +16,9 @@
 package com.google.pubsub.flic;
 
 import com.beust.jcommander.JCommander;
-import com.google.pubsub.flic.argumentparsing.BaseArguments;
-import com.google.pubsub.flic.argumentparsing.CPSArguments;
-import com.google.pubsub.flic.argumentparsing.CompareArguments;
-import com.google.pubsub.flic.argumentparsing.KafkaArguments;
+import com.beust.jcommander.Parameter;
+import com.google.common.collect.ImmutableMap;
+import com.google.pubsub.flic.common.Utils;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.processing.Comparison;
@@ -27,6 +26,8 @@ import com.google.pubsub.flic.task.TaskArgs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.logging.LogManager;
@@ -36,45 +37,131 @@ import java.util.logging.LogManager;
  */
 public class Driver {
 
-  private static final Logger log = LoggerFactory.getLogger(Driver.class);
+  public static final String COMMAND = "compare";
+  private final static Logger log = LoggerFactory.getLogger(Driver.class);
+  @Parameter(
+      names = {"--help"},
+      help = true
+  )
+  private boolean help = false;
+  @Parameter(
+      names = {"--topics", "-t"},
+      required = true,
+      description = "Topics to publish/consume from."
+  )
+  private List<String> topics = new ArrayList<>();
+  @Parameter(
+      names = {"--dump_data", "-d"},
+      description = "Whether to dump relevant message data (only when consuming messages)."
+  )
+  private boolean dumpData = false;
+  @Parameter(
+      names = {"--cps_publisher_count"},
+      description = "Number of CPS publishers to start."
+  )
+  private int cpsPublisherCount = 0;
+  @Parameter(
+      names = {"--cps_subscriber_count"},
+      description = "Number of CPS subscribers to start per ."
+  )
+  private int cpsSubscriberCount = 0;
+  @Parameter(
+      names = {"--kafka_publisher_count"},
+      description = "Number of Kafka publishers to start."
+  )
+  private int kafkaPublisherCount = 0;
+  @Parameter(
+      names = {"--kafka_subscriber_count"},
+      description = "Number of Kafka subscribers to start."
+  )
+  private int kafkaSubscriberCount = 0;
+  @Parameter(
+      names = {"--num_messages", "-n"},
+      description = "Total number of messages to publish or consume.",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int numMessages = 10000;
+  @Parameter(
+      names = {"--message_size", "-m"},
+      description = "Message size in bytes (only when publishing messages).",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int messageSize = 10;
+  @Parameter(
+      names = {"--project", "-u"},
+      required = true,
+      description = "Cloud Pub/Sub project name."
+  )
+  private String project;
+  @Parameter(
+      names = {"--batch_size", "-b"},
+      description = "Number of messages to batch per publish request.",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int batchSize = 1000;
+  @Parameter(
+      names = {"--response_threads", "-r"},
+      description = "Number of threads to use to handle response callbacks.",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int numResponseThreads = 1;
+  @Parameter(
+      names = {"--rate_limit", "-l"},
+      description = "Max number of requests per second.",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int rateLimit = 1000;
+  @Parameter(
+      names = {"--file1", "-f1"},
+      required = true
+  )
+  private String file1;
+  @Parameter(
+      names = {"--file2", "-f2"},
+      required = true
+  )
+  private String file2;
 
   public static void main(String[] args) {
     // Turns off all java.util.logging.
     LogManager.getLogManager().reset();
-    try {
-      // Parse command line arguments.
-      BaseArguments baseArgs = new BaseArguments();
-      CPSArguments cpsArgs = new CPSArguments();
-      KafkaArguments kafkaArgs = new KafkaArguments();
-      CompareArguments dataComparisonArgs = new CompareArguments();
-      JCommander jCommander = new JCommander(BaseArguments.class);
-      jCommander.addCommand(CPSArguments.COMMAND, cpsArgs);
-      jCommander.addCommand(KafkaArguments.COMMAND, kafkaArgs);
-      jCommander.addCommand(CompareArguments.COMMAND, dataComparisonArgs);
-      jCommander.parse(args);
-      if (jCommander.getParsedCommand() == null) {
-        if (baseArgs.isHelp()) {
-          jCommander.usage();
-          return;
-        }
+    Driver driver = new Driver();
+    JCommander jCommander = new JCommander(driver);
+    Comparison comparison = new Comparison();
+    jCommander.addCommand(Comparison.COMMAND, comparison);
+    jCommander.parse(args);
+    // Compare for correctness
+    if (driver.help) {
+      jCommander.usage();
+      return;
+    }
+    if (jCommander.getParsedCommand().equals(Comparison.COMMAND)) {
+      try {
+        comparison.compare();
+      } catch (Exception e) {
+        log.error("You must specify both --file1 and --file2 for" + Comparison.COMMAND);
         System.exit(1);
       }
-      // Compares data dumps for correctness.
-      if (jCommander.getParsedCommand().equals(CompareArguments.COMMAND)) {
-        Comparison c = new Comparison(dataComparisonArgs.getFile1(), dataComparisonArgs.getFile2());
-        c.compare();
-        return;
-      }
+      return;
+    }
+    driver.run();
+  }
 
-      Map<ClientType, Integer> clientTypes = baseArgs.getClientTypes();
+  private void run() {
+    try {
+      Map<ClientType, Integer> clientTypes = ImmutableMap.of(
+          ClientType.CPS_GRPC_PUBLISHER, cpsPublisherCount,
+          ClientType.CPS_GRPC_SUBSCRIBER, cpsSubscriberCount,
+          ClientType.KAFKA_PUBLISHER, kafkaPublisherCount,
+          ClientType.KAFKA_SUBSCRIBER, kafkaSubscriberCount
+      );
       if (clientTypes.values().stream().allMatch((n) -> n == 0)) {
-        jCommander.usage();
-        return;
+        log.error("You must specify at least one client type to use.");
+        System.exit(1);
       }
 
       TaskArgs taskArgs;
-      GCEController controller = GCEController.newGCEController(baseArgs.getProject(),
-          clientTypes, Executors.newCachedThreadPool());
+      GCEController controller = GCEController.newGCEController(project, clientTypes, Executors.newCachedThreadPool());
     } catch (Exception e) {
       log.error("An error occurred...", e);
       System.exit(1);
