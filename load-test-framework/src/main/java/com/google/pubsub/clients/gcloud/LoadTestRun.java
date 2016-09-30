@@ -36,7 +36,9 @@ import java.util.concurrent.TimeUnit;
  */
 class LoadTestRun implements Runnable {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRun.class);
-
+  static String topic = "load-test-topic";
+  static String subscription = "load-test-subscription"; // set null for Publish
+  static int batchSize = 100;
   private final PubSub pubSub;
   private final String logPrefix;
   private final String payload;
@@ -44,22 +46,22 @@ class LoadTestRun implements Runnable {
   LoadTestRun(PubSub pubSub, String payload) {
     this.pubSub = Preconditions.checkNotNull(pubSub);
     this.payload = payload;
-    logPrefix = "Test - (topic=" + LoadTestFlags.topic + ", sub=" + LoadTestFlags.subscription + "): ";
+    logPrefix = "Test - (topic=" + topic + ", sub=" + subscription + "): ";
   }
 
   @Override
   public void run() {
     try {
-      if (LoadTestFlags.subscription.isEmpty()) {
+      if (subscription.isEmpty()) {
         log.info(logPrefix + "Publish started");
-        publish(LoadTestFlags.topic);
+        publish(topic);
         return;
       }
       log.info(logPrefix + "Pull started");
-      final List<String> ackTokens = pull(LoadTestFlags.subscription);
+      final List<String> ackTokens = pull(subscription);
       if (ackTokens != null && !ackTokens.isEmpty()) {
         log.info(logPrefix + "Acknowledge started");
-        acknowledge(LoadTestFlags.subscription, ackTokens);
+        acknowledge(subscription, ackTokens);
       }
     } catch (RetryableException e) {
       log.warn(logPrefix + "Operation failed", e.getCause());
@@ -71,8 +73,8 @@ class LoadTestRun implements Runnable {
     String result = "unknown";
     Stopwatch stopwatch = Stopwatch.createUnstarted();
     try {
-      List<Message> messages = new ArrayList<>(LoadTestFlags.batchSize);
-      for (int i = 0; i < LoadTestFlags.batchSize; i++) {
+      List<Message> messages = new ArrayList<>(batchSize);
+      for (int i = 0; i < batchSize; i++) {
         messages.add(Message.builder(payload).build());
       }
       stopwatch.start();
@@ -100,7 +102,7 @@ class LoadTestRun implements Runnable {
     try {
       List<String> ackIds = new ArrayList<>();
       stopwatch.start();
-      Iterator<ReceivedMessage> responses = pubSub.pull(subscription, LoadTestFlags.batchSize);
+      Iterator<ReceivedMessage> responses = pubSub.pull(subscription, batchSize);
       stopwatch.stop();
       responses.forEachRemaining((response) -> ackIds.add(response.ackId()));
       if (ackIds.isEmpty()) {

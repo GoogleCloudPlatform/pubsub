@@ -41,31 +41,16 @@ public class LoadTest {
   private static final Logger log = LoggerFactory.getLogger(LoadTest.class);
   @Parameter(names = {"--rate"},
       description = "Number of times per second to try execute a test run.")
-  double executionRate = 1000.0;
-  @Parameter(names = {"--test_executor_num_threads"},
-      description = "Number of threads in the executor that runs all test cases.")
-  int testExecutorNumThreads = 1000;
-  @Parameter(names = {"--project"}, description = "Project to use for load testing.")
-  String project = "project";
-  @Parameter(names = {"--topic"}, description = "Topic to use for load testing.")
-  String topic = "load-test-topic";
-  @Parameter(names = {"--subscription"},
-      description = "Subscription to use for load testing. If set this client will Pull from the subscription. If not "
-          + "set this client will Publish to the provided topic.")
-  String subscription = "";
-  @Parameter(names = {"--batch_size"},
-      description = "Number of messages to batch per pull / publish request. ")
-  int batchSize = 100;
+  private double executionRate = 1000.0;
   @Parameter(names = {"--payload_size"},
       description = "Size in bytes of the data field per message")
-  int payloadSize = 1000;
+  private int payloadSize = 1000;
   private Server server;
 
   public static void main(String[] args) throws Exception {
     Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit());
     LoadTest loadTest = new LoadTest();
     new JCommander(loadTest, args);
-    LoadTestFlags.parse(loadTest);
     loadTest.run();
   }
 
@@ -99,29 +84,29 @@ public class LoadTest {
     });
 
     Command.CommandRequest request = requestFuture.get();
-    this.testExecutorNumThreads = request.getNumberOfWorkers();
-    this.project = request.getProject();
-    this.batchSize = request.getMaxMessagesPerPull();
-    this.topic = request.getTopic();
+    final int numWorkers = request.getNumberOfWorkers();
+    LoadTestRun.batchSize = request.getMaxMessagesPerPull();
+    LoadTestRun.subscription = request.getSubscription();
+    LoadTestRun.topic = request.getTopic();
     final long sleepTime = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
     if (sleepTime > 0) {
       Thread.sleep(sleepTime);
     }
     log.info("Request received, starting up server.");
-    final PubSub pubSub = PubSubOptions.builder().projectId(LoadTestFlags.project).build().service();
+    final PubSub pubSub = PubSubOptions.builder().projectId(request.getProject()).build().service();
 
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
-        Executors.newFixedThreadPool(LoadTestFlags.testExecutorNumThreads));
+        Executors.newFixedThreadPool(numWorkers));
 
-    log.info("Configured executor with " + LoadTestFlags.testExecutorNumThreads + " threads.");
-    final byte[] payloadArray = new byte[LoadTestFlags.payloadSize];
+    log.info("Configured executor with " + numWorkers + " threads.");
+    final byte[] payloadArray = new byte[payloadSize];
     Arrays.fill(payloadArray, (byte) 'A');
     final String payload = new String(payloadArray, Charset.forName("UTF-8"));
 
     log.info("Bringing up load test");
     final long endTimeMillis = request.getStopTime().getSeconds() * 1000;
-    final RateLimiter rateLimiter = RateLimiter.create(LoadTestFlags.executionRate);
-    final Semaphore outstandingTestLimiter = new Semaphore(LoadTestFlags.testExecutorNumThreads, false);
+    final RateLimiter rateLimiter = RateLimiter.create(executionRate);
+    final Semaphore outstandingTestLimiter = new Semaphore(numWorkers, false);
     while (System.currentTimeMillis() < endTimeMillis) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();
