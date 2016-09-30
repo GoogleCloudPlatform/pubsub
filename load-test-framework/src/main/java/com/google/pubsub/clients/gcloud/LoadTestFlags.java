@@ -15,70 +15,29 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.gcloud;
 
-import java.time.Duration;
-import java.util.HashMap;
-import java.util.Map;
-
 /**
  * Flags used throughout the load test.
  */
 class LoadTestFlags {
-
-  final static Map<String, String> labels = new HashMap<>();
-  static double initialTestExecutionRate = 1.0;
-  static double maximumTestExecutionRate = -1.0;
-  static double rateChangePerSecond = 0.1;
-  static int maxObjectsCreationInflight = 100;
+  static double executionRate = 1.0;
   static int testExecutorNumThreads = 1000;
-  static String project = "cloud-pubsub-load-tests";
-  static boolean actionIncludesPublish = false;
-  static boolean actionIncludesPull = false;
-  static boolean returnImmediately = false;
-  static int numTopics = 0;
-  static int pullFanOutFactor = 1;
-  static int rotationPoint = 0;
-  static String perTaskNameSuffixFormat = "-localhost-%s";
-  static String loadTestTopicPrefix = "load-test-topic";
-  static String loadTestSubscriptionPrefix = "load-test-subscription";
-  static int publishBatchSize = 100;
-  static int pullBatchSize = 100;
-  static boolean recreateTopics = false;
+  static String project = "project";
+  static String topic = "load-test-topic";
+  static String subscription = "load-test-subscription"; // set null for Publish
+  static int batchSize = 100;
   static int payloadSize = 800;
-  static int numModifyAckDeadline = 0;
-  static Duration modifyAckWaitDuration = Duration.ofSeconds(5);
-  static Duration modifyAckDeadlineDuration = Duration.ofSeconds(10);
-  static Duration startDelayDuration = Duration.ofSeconds(0);
 
+  // Don't instantiate
   private LoadTestFlags() {
-  } // Don't instantiate
+  }
 
   static void parse(LoadTest loadTest) {
-    initialTestExecutionRate = loadTest.initialTestExecutionRate;
-    maximumTestExecutionRate = loadTest.maximumTestExecutionRate;
-    rateChangePerSecond = loadTest.rateChangePerSecond;
-    maxObjectsCreationInflight = loadTest.maxObjectsCreationInflight;
+    executionRate = loadTest.executionRate;
     testExecutorNumThreads = loadTest.testExecutorNumThreads;
     project = loadTest.project;
-    actionIncludesPublish = loadTest.actionIncludesPublish;
-    actionIncludesPull = loadTest.actionIncludesPull;
-    returnImmediately = loadTest.returnImmediately;
-    numTopics = loadTest.numTopics;
-    pullFanOutFactor = loadTest.pullFanOutFactor;
-    rotationPoint = loadTest.rotationPoint;
-    perTaskNameSuffixFormat = loadTest.perTaskNameSuffixFormat;
-    loadTestTopicPrefix = loadTest.loadTestTopicPrefix;
-    loadTestSubscriptionPrefix = loadTest.loadTestSubscriptionPrefix;
-    loadTest.labels.forEach((kv) -> {
-      String[] pair = kv.split("=", 2);
-      labels.put(pair[0], pair[1]);
-    });
-    publishBatchSize = loadTest.publishBatchSize;
-    pullBatchSize = loadTest.pullBatchSize;
-    recreateTopics = loadTest.recreateTopics;
+    topic = loadTest.topic;
+    subscription = loadTest.subscription;
+    batchSize = loadTest.batchSize;
     payloadSize = loadTest.payloadSize;
-    numModifyAckDeadline = loadTest.numModifyAckDeadline;
-    modifyAckWaitDuration = Duration.ofSeconds(loadTest.modifyAckWaitSeconds);
-    modifyAckDeadlineDuration = Duration.ofSeconds(loadTest.modifyAckDeadlineSeconds);
-    startDelayDuration = Duration.ofSeconds(loadTest.startDelaySeconds);
   }
 }

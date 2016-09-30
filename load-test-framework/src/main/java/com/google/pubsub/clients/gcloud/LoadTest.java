@@ -19,101 +19,47 @@ import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
-import com.google.common.util.concurrent.UncaughtExceptionHandlers;
+import com.google.common.util.concurrent.*;
+import com.google.protobuf.Empty;
+import com.google.pubsub.flic.common.Command;
+import com.google.pubsub.flic.common.LoadtestFrameworkGrpc;
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
+import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.Charset;
-import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.List;
 import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
+import java.util.concurrent.Semaphore;
 
 /**
- * Uses the {@link LoadTestLauncher} to repeatedly start {@link LoadTestRun LoadTestRuns} to
- * generate load on the server.
+ * Repeatedly starts {@link LoadTestRun LoadTestRuns} to generate load on the server.
  */
 public class LoadTest {
   private static final Logger log = LoggerFactory.getLogger(LoadTest.class);
-  @Parameter(names = {"--initial_test_rate"},
+  @Parameter(names = {"--rate"},
       description = "Number of times per second to try execute a test run.")
-  double initialTestExecutionRate = 1.0;
-  @Parameter(names = {"--maximum_test_rate"},
-      description = "Maximum number of times per second to execute a test run."
-          + " If this flag is not given, the value will be equal to initial_test_rate,"
-          + " and the system will run in flat QPS mode.")
-  double maximumTestExecutionRate = -1.0;
-  @Parameter(names = {"--rate_change_per_second"},
-      description = "Amount at which the test execution rate will change to reach maximum_test_rate.")
-  double rateChangePerSecond = 0.1;
-  @Parameter(names = {"--max_objects_creation_inflight"},
-      description = "Maximum number of object creations triggered at the same time.")
-  int maxObjectsCreationInflight = 100;
+  double executionRate = 1000.0;
   @Parameter(names = {"--test_executor_num_threads"},
       description = "Number of threads in the executor that runs all test cases.")
   int testExecutorNumThreads = 1000;
   @Parameter(names = {"--project"}, description = "Project to use for load testing.")
-  String project = "cloud-pubsub-load-tests";
-  @Parameter(names = {"--action_includes_publish"},
-      description = "If true, publish one message as part of each test action.")
-  boolean actionIncludesPublish = false;
-  @Parameter(names = {"--action_includes_pull"},
-      description = "If true, perform pull on created subscriptions.")
-  boolean actionIncludesPull = false;
-  @Parameter(names = {"--return_immediately_on_pull"},
-      description = "Value of the return_immediately flag in the pull() call.")
-  boolean returnImmediately = false;
-  @Parameter(names = {"--num_topics_per_replica"},
-      description = "Number of topics in this task. If set to 0, it will use a global topic.")
-  int numTopics = 0;
-  @Parameter(names = {"--pull_fan_out_factor"}, description = "How many pull subscriptions per topic.")
-  int pullFanOutFactor = 1;
-  @Parameter(names = {"--rotation_point"},
-      description = "The zero-based index of the load test action, in the rotation of"
-          + " all load test actions, that should be run first.")
-  int rotationPoint = 0;
-  @Parameter(names = {"--per_task_name_suffix_format"},
-      description = "This string will be appended to the topic and subscription name specified.")
-  String perTaskNameSuffixFormat = "-localhost-%s";
-  @Parameter(names = {"--load_test_topic_prefix"}, description = "Topic prefix to use for load testing.")
-  String loadTestTopicPrefix = "load-test-topic";
-  @Parameter(names = {"--load_test_subscription_prefix"},
-      description = "Subscription prefix to use for load testing.")
-  String loadTestSubscriptionPrefix = "load-test-subscription";
-  @Parameter(names = {"--label"},
-      description = "A key-value-pair to use as labels on messages, can be repeated. For example, "
-          + "--label=\"foo=bar\" --label=\"biz=baz\". Empty by default.")
-  List<String> labels = new ArrayList<>();
-  @Parameter(names = {"--publish_batch_size"},
-      description = "Number of messages to batch per publish request.")
-  int publishBatchSize = 100;
-  @Parameter(names = {"--pull_batch_size"},
-      description = "Number of messages to batch per pull request. "
-          + "Ignored if use_batch is set to false.")
-  int pullBatchSize = 100;
-  @Parameter(names = {"--recreate_topics"},
-      description = "Whether to re-create existing topics.")
-  boolean recreateTopics = false;
+  String project = "project";
+  @Parameter(names = {"--topic"}, description = "Topic to use for load testing.")
+  String topic = "load-test-topic";
+  @Parameter(names = {"--subscription"},
+      description = "Subscription to use for load testing. If set this client will Pull from the subscription. If not "
+          + "set this client will Publish to the provided topic.")
+  String subscription = "";
+  @Parameter(names = {"--batch_size"},
+      description = "Number of messages to batch per pull / publish request. ")
+  int batchSize = 100;
   @Parameter(names = {"--payload_size"},
       description = "Size in bytes of the data field per message")
-  int payloadSize = 800;
-  @Parameter(names = {"--num_modify_ack_deadline"},
-      description = "Number of ModifyAckDeadline requests per pull request")
-  int numModifyAckDeadline = 0;
-  @Parameter(names = {"--modify_ack_wait_seconds"},
-      description = "How long to wait before sending modifyAckDeadline request.")
-  int modifyAckWaitSeconds = 5;
-  @Parameter(names = {"--modify_ack_deadline_seconds"},
-      description = "The new ack deadline with respect to the time modifyAckDeadline request was sent.")
-  int modifyAckDeadlineSeconds = 10;
-  @Parameter(names = {"--start_delay_seconds"},
-      description = "The number of seconds to wait after creating topics/subscriptions to perform the "
-          + "operations in the load test.")
-  int startDelaySeconds = 0;
+  int payloadSize = 1000;
+  private Server server;
 
   public static void main(String[] args) throws Exception {
     Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit());
@@ -124,55 +70,62 @@ public class LoadTest {
   }
 
   private void run() throws Exception {
+    SettableFuture<Command.CommandRequest> requestFuture = SettableFuture.create();
+    server = ServerBuilder.forPort(5000)
+        .addService(new LoadtestFrameworkGrpc.LoadtestFrameworkImplBase() {
+          @Override
+          public void startClient(Command.CommandRequest request, StreamObserver<Empty> responseObserver) {
+            if (requestFuture.isDone()) {
+              responseObserver.onError(new Exception("Start should only be called once, ignoring this request."));
+              return;
+            }
+            requestFuture.set(request);
+            responseObserver.onNext(Empty.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        })
+        .build()
+        .start();
+    log.info("Started server, listening on port 5000.");
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+      @Override
+      public void run() {
+        log.error("Shutting down server since JVM is shutting down.");
+        if (server != null) {
+          server.shutdown();
+        }
+        log.error("Server shut down.");
+      }
+    });
 
+    Command.CommandRequest request = requestFuture.get();
+    this.testExecutorNumThreads = request.getNumberOfWorkers();
+    this.project = request.getProject();
+    this.batchSize = request.getMaxMessagesPerPull();
+    this.topic = request.getTopic();
+    final long sleepTime = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
+    if (sleepTime > 0) {
+      Thread.sleep(sleepTime);
+    }
+    log.info("Request received, starting up server.");
     final PubSub pubSub = PubSubOptions.builder().projectId(LoadTestFlags.project).build().service();
 
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(LoadTestFlags.testExecutorNumThreads));
 
-    log.info(
-        "Configured executor with " + LoadTestFlags.testExecutorNumThreads + " threads.");
-    final ObjectRepository objectRepository = new ObjectRepository(pubSub, true);
-
-    log.info("Preparing all test resources");
-    final AtomicInteger index = new AtomicInteger(LoadTestFlags.rotationPoint);
-    final List<RunParams> params =
-        RunParams.generatePrototypeParams(objectRepository, executor);
-    for (RunParams param : params) {
-      log.info("Configured load test run: " + param);
-    }
-
+    log.info("Configured executor with " + LoadTestFlags.testExecutorNumThreads + " threads.");
     final byte[] payloadArray = new byte[LoadTestFlags.payloadSize];
     Arrays.fill(payloadArray, (byte) 'A');
     final String payload = new String(payloadArray, Charset.forName("UTF-8"));
 
-    Supplier<Runnable> loadTestRunSupplier = () -> {
-      int currentIndex = index.getAndAdd(1);
-      RunParams protoParam = params.get(currentIndex % params.size());
-      return new LoadTestRun(
-          pubSub, protoParam, currentIndex, payload);
-    };
-
     log.info("Bringing up load test");
-    final LoadTestLauncher loadTestLauncher =
-        new LoadTestLauncher(
-            loadTestRunSupplier,
-            LoadTestFlags.initialTestExecutionRate,
-            LoadTestFlags.testExecutorNumThreads,
-            executor);
-    loadTestLauncher.startAsync().awaitRunning();
-
-    double maxExecutionRate = LoadTestFlags.maximumTestExecutionRate < 0
-        ? LoadTestFlags.initialTestExecutionRate
-        : LoadTestFlags.maximumTestExecutionRate;
-
-    final LoadTestPacer loadTestPacer =
-        new LoadTestPacer(
-            loadTestLauncher,
-            maxExecutionRate,
-            LoadTestFlags.rateChangePerSecond);
-
-    Thread.sleep(LoadTestFlags.startDelayDuration.getSeconds() * 1000);
-    loadTestPacer.startAsync().awaitRunning();
+    final long endTimeMillis = request.getStopTime().getSeconds() * 1000;
+    final RateLimiter rateLimiter = RateLimiter.create(LoadTestFlags.executionRate);
+    final Semaphore outstandingTestLimiter = new Semaphore(LoadTestFlags.testExecutorNumThreads, false);
+    while (System.currentTimeMillis() < endTimeMillis) {
+      outstandingTestLimiter.acquireUninterruptibly();
+      rateLimiter.acquire();
+      executor.submit(new LoadTestRun(pubSub, payload)).addListener(outstandingTestLimiter::release, executor);
+    }
   }
 }

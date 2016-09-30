@@ -20,10 +20,16 @@ import com.beust.jcommander.Parameter;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.*;
+import com.google.protobuf.Empty;
 import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.LoadTestParams;
 import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.ProjectInfo;
 import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.PublishResponseResult;
 import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.PullResponseResult;
+import com.google.pubsub.flic.common.Command;
+import com.google.pubsub.flic.common.LoadtestFrameworkGrpc;
+import io.grpc.Server;
+import io.grpc.ServerBuilder;
+import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -53,6 +59,7 @@ public class LoadClient {
   private final boolean enableMetricReporting;
   private String topicPath;
   private String subscriptionPath;
+  private Server server;
 
   private LoadClient(Builder builder) throws IOException {
     secondsToRun = builder.secondsToRun;
@@ -126,7 +133,36 @@ public class LoadClient {
     log.info("Closing all - good bye!");
   }
 
-  private void start() throws InterruptedException, ExecutionException {
+  private void start() throws InterruptedException, ExecutionException, IOException {
+    SettableFuture<Command.CommandRequest> requestFuture = SettableFuture.create();
+    server = ServerBuilder.forPort(5000)
+        .addService(new LoadtestFrameworkGrpc.LoadtestFrameworkImplBase() {
+          @Override
+          public void startClient(Command.CommandRequest request, StreamObserver<Empty> responseObserver) {
+            if (requestFuture.isDone()) {
+              responseObserver.onError(new Exception("Start should only be called once, ignoring this request."));
+              return;
+            }
+            requestFuture.set(request);
+            responseObserver.onNext(Empty.getDefaultInstance());
+            responseObserver.onCompleted();
+          }
+        })
+        .build()
+        .start();
+    log.info("Started server, listening on port 5000.");
+    Runtime.getRuntime().addShutdownHook(new Thread() {
+      @Override
+      public void run() {
+        log.error("Shutting down server since JVM is shutting down.");
+        if (server != null) {
+          server.shutdown();
+        }
+        log.error("Server shut down.");
+      }
+    });
+
+    Command.CommandRequest request = requestFuture.get();
     // Try to create the topic and wait.
     pubsubClient.createTopic(topicName).get();
 

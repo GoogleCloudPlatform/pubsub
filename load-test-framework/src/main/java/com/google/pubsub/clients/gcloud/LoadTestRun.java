@@ -27,9 +27,6 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -37,99 +34,46 @@ import java.util.concurrent.TimeUnit;
  * discrete actions that constitute one load test "query" for purposes of things like the load
  * test overall QPS.
  */
-public class LoadTestRun implements Runnable {
+class LoadTestRun implements Runnable {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRun.class);
 
-  private static final ScheduledExecutorService scheduler =
-      Executors.newSingleThreadScheduledExecutor((runnable) -> {
-        Thread thread = Executors.defaultThreadFactory().newThread(runnable);
-        thread.setDaemon(true);
-        return thread;
-      });
-
   private final PubSub pubSub;
-  private final RunParams params;
   private final String logPrefix;
   private final String payload;
 
-  public LoadTestRun(
-      PubSub pubSub,
-      RunParams params,
-      int index,
-      String payload) {
+  LoadTestRun(PubSub pubSub, String payload) {
     this.pubSub = Preconditions.checkNotNull(pubSub);
-    this.params = Preconditions.checkNotNull(params);
     this.payload = payload;
-
-    logPrefix = "Test " + index + " - (topic=" + params.topicName + ", sub=" + params.subscriptionName + "): ";
+    logPrefix = "Test - (topic=" + LoadTestFlags.topic + ", sub=" + LoadTestFlags.subscription + "): ";
   }
 
   @Override
   public void run() {
     try {
-      switch (params.runType) {
-        case PUBLISH_RUN:
-          log.info(logPrefix + "Publish started");
-          publish(params.labels, params.topicName);
-          break;
-        case PULL_SUBSCRIPTION_RUN:
-          log.info(logPrefix + "Pull started");
-          final List<String> ackTokens = pull(params.subscriptionName);
-          if (ackTokens != null && !ackTokens.isEmpty()) {
-            if (LoadTestFlags.numModifyAckDeadline > 0) {
-
-              Runnable modifyAckRun =
-                  new Runnable() {
-                    private int attemptNum = 0;
-
-                    @Override
-                    public void run() {
-                      try {
-                        if (attemptNum < LoadTestFlags.numModifyAckDeadline) {
-                          log.info(
-                              logPrefix + "ModifyAckDeadline started (attempt: " + attemptNum + 1 + "/" +
-                                  LoadTestFlags.numModifyAckDeadline + ")");
-                          modifyAckDeadline(params.subscriptionName, ackTokens);
-                          scheduler.schedule(
-                              this,
-                              LoadTestFlags.modifyAckWaitDuration.toMillis(),
-                              TimeUnit.MILLISECONDS);
-                          attemptNum++;
-                        } else {
-                          log.info(
-                              logPrefix + "ModifyAckDeadline ended. Acknowledge started");
-                          acknowledge(params.subscriptionName, ackTokens);
-                        }
-                      } catch (RetryableException e) {
-                        log.warn(logPrefix + "Operation failed", e.getCause());
-                      }
-                    }
-                  };
-              scheduler.schedule(
-                  modifyAckRun,
-                  LoadTestFlags.modifyAckWaitDuration.toMillis(),
-                  TimeUnit.MILLISECONDS);
-            } else {
-              log.info(logPrefix + "Acknowledge started");
-              acknowledge(params.subscriptionName, ackTokens);
-            }
-          }
-          break;
+      if (LoadTestFlags.subscription.isEmpty()) {
+        log.info(logPrefix + "Publish started");
+        publish(LoadTestFlags.topic);
+        return;
+      }
+      log.info(logPrefix + "Pull started");
+      final List<String> ackTokens = pull(LoadTestFlags.subscription);
+      if (ackTokens != null && !ackTokens.isEmpty()) {
+        log.info(logPrefix + "Acknowledge started");
+        acknowledge(LoadTestFlags.subscription, ackTokens);
       }
     } catch (RetryableException e) {
       log.warn(logPrefix + "Operation failed", e.getCause());
     }
   }
 
-  public void publish(
-      Map<String, String> labels,
+  private void publish(
       String topic) throws RetryableException {
     String result = "unknown";
     Stopwatch stopwatch = Stopwatch.createUnstarted();
     try {
-      List<Message> messages = new ArrayList<>(LoadTestFlags.publishBatchSize);
-      for (int i = 0; i < LoadTestFlags.publishBatchSize; i++) {
-        messages.add(Message.builder(payload).attributes(labels).build());
+      List<Message> messages = new ArrayList<>(LoadTestFlags.batchSize);
+      for (int i = 0; i < LoadTestFlags.batchSize; i++) {
+        messages.add(Message.builder(payload).build());
       }
       stopwatch.start();
       pubSub.publish(topic, messages);
@@ -150,13 +94,13 @@ public class LoadTestRun implements Runnable {
     }
   }
 
-  public List<String> pull(String subscription) throws RetryableException {
+  private List<String> pull(String subscription) throws RetryableException {
     String result = "unknown";
     Stopwatch stopwatch = Stopwatch.createUnstarted();
     try {
       List<String> ackIds = new ArrayList<>();
       stopwatch.start();
-      Iterator<ReceivedMessage> responses = pubSub.pull(subscription, LoadTestFlags.pullBatchSize);
+      Iterator<ReceivedMessage> responses = pubSub.pull(subscription, LoadTestFlags.batchSize);
       stopwatch.stop();
       responses.forEachRemaining((response) -> ackIds.add(response.ackId()));
       if (ackIds.isEmpty()) {
@@ -182,30 +126,7 @@ public class LoadTestRun implements Runnable {
     }
   }
 
-  public void modifyAckDeadline(String subscription, List<String> ackTokens)
-      throws RetryableException {
-    String result = "unknown";
-    Stopwatch stopwatch = Stopwatch.createStarted();
-    try {
-      pubSub.modifyAckDeadline(subscription, (int) LoadTestFlags.modifyAckDeadlineDuration.getSeconds(),
-          TimeUnit.SECONDS, ackTokens);
-      stopwatch.stop();
-      result = "succeeded";
-    } catch (PubSubException e) {
-      stopwatch.stop();
-      log.warn(logPrefix + "ModifyAckDeadline failed", e);
-      result = e.toString();
-      throw new RetryableException(e);
-    } catch (Exception e) {
-      log.warn(logPrefix + "ModifyAckDeadline failed with unknown exception", e);
-      throw e;
-    } finally {
-      long elapsed = stopwatch.elapsed(TimeUnit.MILLISECONDS);
-      log.info(logPrefix + "ModifyAckDeadline attempt (" + result + ") took " + elapsed + " ms");
-    }
-  }
-
-  public void acknowledge(String subscription, List<String> ackTokens) throws RetryableException {
+  private void acknowledge(String subscription, List<String> ackTokens) throws RetryableException {
     String result = "unknown";
     Stopwatch stopwatch = Stopwatch.createStarted();
     try {
@@ -229,8 +150,8 @@ public class LoadTestRun implements Runnable {
   /**
    * Type for exceptions that may be retried during the load test. The cause is the true exception.
    */
-  public class RetryableException extends Exception {
-    public RetryableException(Throwable cause) {
+  private class RetryableException extends Exception {
+    RetryableException(Throwable cause) {
       super(cause);
     }
   }
