@@ -17,16 +17,18 @@ package com.google.pubsub.flic;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.flic.common.Utils;
 import com.google.pubsub.flic.controllers.Client.ClientType;
+import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.processing.Comparison;
-import com.google.pubsub.flic.task.TaskArgs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -36,8 +38,6 @@ import java.util.logging.LogManager;
  * Drives the execution of the framework through command line arguments.
  */
 public class Driver {
-
-  public static final String COMMAND = "compare";
   private final static Logger log = LoggerFactory.getLogger(Driver.class);
   @Parameter(
       names = {"--help"},
@@ -105,22 +105,13 @@ public class Driver {
       validateWith = Utils.GreaterThanZeroValidator.class
   )
   private int numResponseThreads = 1;
+
   @Parameter(
-      names = {"--rate_limit", "-l"},
-      description = "Max number of requests per second.",
+      names = {"--subscriber_fanout"},
+      description = "Number of subscription ids to use for each topic. Must be at least 1.",
       validateWith = Utils.GreaterThanZeroValidator.class
   )
-  private int rateLimit = 1000;
-  @Parameter(
-      names = {"--file1", "-f1"},
-      required = true
-  )
-  private String file1;
-  @Parameter(
-      names = {"--file2", "-f2"},
-      required = true
-  )
-  private String file2;
+  private int subscriberFanout = 1;
 
   public static void main(String[] args) {
     // Turns off all java.util.logging.
@@ -148,20 +139,33 @@ public class Driver {
   }
 
   private void run() {
+    // for now we'll just use 1 region. But let's give a param for fanout. Then:
+    // topic is just our topic which we need to create here. (well recreate, so no backlog)
+    // subscription is a prefix based on fanout.
     try {
-      Map<ClientType, Integer> clientTypes = ImmutableMap.of(
-          ClientType.CPS_GRPC_PUBLISHER, cpsPublisherCount,
-          ClientType.CPS_GRPC_SUBSCRIBER, cpsSubscriberCount,
-          ClientType.KAFKA_PUBLISHER, kafkaPublisherCount,
-          ClientType.KAFKA_SUBSCRIBER, kafkaSubscriberCount
+      Map<String, Map<ClientParams, Integer>> clientTypes = ImmutableMap.of(
+          "us-central1-a", new HashMap<>());
+      Preconditions.checkArgument(subscriberFanout > 0);
+      Preconditions.checkArgument(
+          cpsPublisherCount > 0 ||
+              cpsSubscriberCount > 0 ||
+              kafkaPublisherCount > 0 ||
+              kafkaSubscriberCount > 0
       );
-      if (clientTypes.values().stream().allMatch((n) -> n == 0)) {
-        log.error("You must specify at least one client type to use.");
-        System.exit(1);
+      for (int i = 0; i < subscriberFanout; ++i) {
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GRPC_PUBLISHER, "subscription" + i),
+            cpsPublisherCount / subscriberFanout);
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GRPC_SUBSCRIBER, "subscription" + i),
+            cpsSubscriberCount / subscriberFanout);
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_PUBLISHER, "subscription" + i),
+            kafkaPublisherCount / subscriberFanout);
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_SUBSCRIBER, "subscription" + i),
+            kafkaSubscriberCount / subscriberFanout);
       }
-
-      TaskArgs taskArgs;
-      GCEController controller = GCEController.newGCEController(project, clientTypes, Executors.newCachedThreadPool());
+      GCEController gceController =
+          GCEController.newGCEController(project, clientTypes, Executors.newCachedThreadPool());
+      gceController.startClients();
+      // TODO(maxdietz): Collect and print status.
     } catch (Exception e) {
       log.error("An error occurred...", e);
       System.exit(1);

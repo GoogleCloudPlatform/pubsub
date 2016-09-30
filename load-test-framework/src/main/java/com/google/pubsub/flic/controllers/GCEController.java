@@ -26,6 +26,10 @@ import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.*;
 import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Bucket;
+import com.google.cloud.pubsub.PubSub;
+import com.google.cloud.pubsub.PubSubOptions;
+import com.google.cloud.pubsub.SubscriptionInfo;
+import com.google.cloud.pubsub.TopicInfo;
 import com.google.common.base.Preconditions;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import org.slf4j.Logger;
@@ -49,27 +53,28 @@ import java.util.stream.Stream;
 
 public class GCEController extends Controller {
   private static final Logger log = LoggerFactory.getLogger(GCEController.class.getName());
+  private static final String machineType = "n1-standard-4"; // quad core machines
+  private static final String sourceFamily = "projects/debian-cloud/global/images/family/debian-8"; // latest Debian 8
   private final Storage storage;
   private final Compute compute;
-  private final Executor executor;
-  private final String machineType = "n1-standard-4"; // quad core machines
-  private final String sourceFamily = "projects/debian-cloud/global/images/family/debian-8"; // latest Debian 8
+  private final PubSub pubSub;
   private final String projectName;
-  private final String zone = "us-central1-a";
-  private Map<ClientType, Integer> types;
+  private Map<String, Map<ClientParams, Integer>> types;
   private boolean shutdown;
 
-  private GCEController(String projectName, Map<ClientType, Integer> types, Executor executor,
-                        Storage storage, Compute compute) {
-    this.executor = executor;
+  private GCEController(String projectName, Map<String, Map<ClientParams, Integer>> types, Executor executor,
+                        Storage storage, Compute compute, PubSub pubSub) {
+    super(executor);
     this.shutdown = false;
     this.projectName = projectName;
     this.types = types;
     this.storage = storage;
     this.compute = compute;
+    this.pubSub = pubSub;
   }
 
-  public static GCEController newGCEController(String projectName, Map<ClientType, Integer> types, Executor executor)
+  public static GCEController newGCEController(String projectName,
+                                               Map<String, Map<ClientParams, Integer>> types, Executor executor)
       throws IOException, GeneralSecurityException {
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = new JacksonFactory();
@@ -85,7 +90,8 @@ public class GCEController extends Controller {
             .build(),
         new Compute.Builder(transport, jsonFactory, credential)
             .setApplicationName("Cloud Pub/Sub Loadtest Framework")
-            .build());
+            .build(),
+        PubSubOptions.builder().projectId(projectName).build().service());
   }
 
   @Override
@@ -96,15 +102,16 @@ public class GCEController extends Controller {
     shutdown = true;
     log.error("Shutting down: ", t);
     // Attempt to cleanly close all running instances.
-    clients.forEach(client -> {
-      try {
-        compute.instanceGroupManagers()
-            .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + client.clientType(), 0).execute();
-      } catch (IOException e) {
-        log.error("Unable to resize Instance Group for " + client.clientType() +
-            ", please manually ensure you do not have any running instances to avoid being billed.");
-      }
-    });
+    types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
+          try {
+            compute.instanceGroupManagers()
+                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.clientType, 0).execute();
+          } catch (IOException e) {
+            log.error("Unable to resize Instance Group for " + param.clientType +
+                ", please manually ensure you do not have any running instances to avoid being billed.");
+          }
+        })
+    );
   }
 
   @Override
@@ -114,6 +121,18 @@ public class GCEController extends Controller {
         throw new IOException("Already shutting down, cannot initialize.");
       }
     }
+    types.values().forEach((paramsMap) -> paramsMap.keySet().stream().map((params) -> params.clientType)
+        .distinct().forEach((clientType) -> {
+          // Delete each topic and subscription if it exists and create it new to avoid potential backlog from previous runs
+          String topic = Client.topicPrefix + clientType;
+          pubSub.deleteTopic(topic);
+          pubSub.create(TopicInfo.of(topic));
+          paramsMap.keySet().stream().filter((params) -> params.clientType == clientType)
+              .map((params) -> params.subscription).forEach((subscription) -> {
+            pubSub.deleteSubscription(subscription);
+            pubSub.create(SubscriptionInfo.of(topic, subscription));
+          });
+        }));
     try {
       createStorageBucket();
 
@@ -128,18 +147,19 @@ public class GCEController extends Controller {
       }
 
       CountDownLatch instancesRemaining = new CountDownLatch(types.size());
-      types.forEach((type, n) -> executor.execute(() -> {
-            createManagedInstanceGroup(type);
-            instancesRemaining.countDown();
-          }
-      ));
+      types.forEach((zone, paramsMap) -> paramsMap.forEach((param, n) -> executor.execute(() -> {
+        createManagedInstanceGroup(zone, param.clientType);
+        instancesRemaining.countDown();
+      })));
 
       // Wait for files and instance groups to be created.
       filesRemaining.await();
       instancesRemaining.await();
 
       // Everything is set up, let's start our instances
-      types.forEach((type, n) -> executor.execute(() -> startInstances(type, n)));
+      types.forEach((zone, paramsMap) -> paramsMap.forEach((type, n) -> {
+        executor.execute(() -> startInstances(zone, type.clientType, n));
+      }));
 
       // We wait for all instances to finish starting, and get the external network address of each newly
       // created instance.
@@ -149,6 +169,7 @@ public class GCEController extends Controller {
       throw e;
     }
   }
+
 
   private void createStorageBucket() {
     synchronized (this) {
@@ -180,33 +201,48 @@ public class GCEController extends Controller {
         return;
       }
     }
-    List<ClientType> typesStillStarting = new ArrayList<>(types.keySet());
     AtomicInteger maxErrors = new AtomicInteger(10);
-    while (typesStillStarting.size() > 0) {
-      CountDownLatch typesGettingInfo = new CountDownLatch(typesStillStarting.size());
-      for (ClientType type : typesStillStarting) {
-        executor.execute(() -> {
-          try {
-            if (getInstanceGroupInfo(type)) {
-              typesStillStarting.remove(type);
+    InterruptedException toThrow = new InterruptedException();
+    types.forEach((zone, paramsMap) -> {
+      List<ClientParams> typesStillStarting = new ArrayList<>(paramsMap.keySet());
+      while (typesStillStarting.size() > 0) {
+        CountDownLatch typesGettingInfo = new CountDownLatch(typesStillStarting.size());
+        for (ClientParams type : typesStillStarting) {
+          executor.execute(() -> {
+            try {
+              if (getInstanceGroupInfo(zone, type)) {
+                typesStillStarting.remove(type);
+              }
+            } catch (IOException e) {
+              if (maxErrors.decrementAndGet() == 0) {
+                log.error("Having trouble connecting to GCE, shutting down.");
+                shutdown(e);
+              } else {
+                log.error("Transient error getting status for instance group, continuing", e);
+              }
+            } finally {
+              typesGettingInfo.countDown();
             }
-          } catch (IOException e) {
-            if (maxErrors.decrementAndGet() == 0) {
-              log.error("Having trouble connecting to GCE, shutting down.");
-              shutdown(e);
-            } else {
-              log.error("Transient error getting status for instance group, continuing", e);
+          });
+        }
+        try {
+          typesGettingInfo.await();
+        } catch (InterruptedException e) {
+          log.error("Interrupted waiting for information about an instance group.");
+          synchronized (toThrow) {
+            if (toThrow.getCause() == null) {
+              toThrow.initCause(e);
             }
-          } finally {
-            typesGettingInfo.countDown();
           }
-        });
+        }
       }
-      typesGettingInfo.await();
+    });
+    if (toThrow.getCause() != null) {
+      throw toThrow;
     }
   }
 
-  private void createManagedInstanceGroup(ClientType type) {
+  private void createManagedInstanceGroup(String zone, ClientType type) {
     synchronized (this) {
       if (shutdown) {
         return;
@@ -239,7 +275,7 @@ public class GCEController extends Controller {
     }
   }
 
-  private void startInstances(ClientType type, Integer n) {
+  private void startInstances(String zone, ClientType type, Integer n) {
     synchronized (this) {
       if (shutdown) {
         return;
@@ -279,7 +315,7 @@ public class GCEController extends Controller {
     }
   }
 
-  private boolean getInstanceGroupInfo(ClientType type) throws IOException {
+  private boolean getInstanceGroupInfo(String zone, ClientParams params) throws IOException {
     synchronized (this) {
       // If we are shutting down, we will report success so that the operation will not retry.
       if (shutdown) {
@@ -287,7 +323,7 @@ public class GCEController extends Controller {
       }
     }
     InstanceGroupManagersListManagedInstancesResponse response = compute.instanceGroupManagers().
-        listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-" + type).execute();
+        listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-" + params.clientType).execute();
     for (ManagedInstance instance : response.getManagedInstances()) {
       if (!instance.getCurrentAction().equals("NONE")) {
         return false;
@@ -297,8 +333,11 @@ public class GCEController extends Controller {
       String instanceName = managedInstance.getInstance()
           .substring(managedInstance.getInstance().lastIndexOf('/') + 1);
       Instance instance = compute.instances().get(projectName, zone, instanceName).execute();
-      clients.add(new Client(type, instance.getNetworkInterfaces().get(0)
-          .getAccessConfigs().get(0).getNatIP()));
+      clients.add(new Client(
+          params.clientType,
+          instance.getNetworkInterfaces().get(0).getAccessConfigs().get(0).getNatIP(),
+          projectName,
+          params.subscription));
     }
     return true;
   }

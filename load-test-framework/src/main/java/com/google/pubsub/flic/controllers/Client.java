@@ -26,15 +26,23 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class Client {
+  static final String topicPrefix = "cloud-pubsub-loadtest-";
   private static final Logger log = LoggerFactory.getLogger(Client.class.getName());
   private static final int port = 5000;
   private final ClientType clientType;
   private String networkAddress;
   private ClientStatus clientStatus;
-  Client(ClientType clientType, String networkAddress) {
+  private String project;
+  private String topic;
+  private String subscription;
+
+  Client(ClientType clientType, String networkAddress, String project, String subscription) {
     this.clientType = clientType;
     this.networkAddress = networkAddress;
     this.clientStatus = ClientStatus.NONE;
+    this.project = project;
+    this.topic = topicPrefix + clientType;
+    this.subscription = subscription;
   }
 
   public ClientStatus clientStatus() {
@@ -54,7 +62,13 @@ public class Client {
     ManagedChannel channel = ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build();
 
     LoadtestFrameworkGrpc.LoadtestFrameworkStub stub = LoadtestFrameworkGrpc.newStub(channel);
-    Command.CommandRequest request = Command.CommandRequest.newBuilder().build();
+    Command.CommandRequest request = Command.CommandRequest.newBuilder()
+        .setProject(project)
+        .setTopic(topic)
+        .setSubscription(subscription)
+        .setMaxMessagesPerPull(100)
+        .setNumberOfWorkers(1000)
+        .build();
     stub.startClient(request, new StreamObserver<Empty>() {
       @Override
       public void onNext(Empty empty) {

@@ -19,9 +19,15 @@ package com.google.pubsub.flic.controllers;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Executor;
 
 abstract class Controller {
   final List<Client> clients = new ArrayList<>();
+  final Executor executor;
+
+  Controller(Executor executor) {
+    this.executor = executor;
+  }
 
   /*
   Creates the given environments and starts the virtual machines. When this function returns, each client is guaranteed
@@ -31,8 +37,9 @@ abstract class Controller {
    */
   abstract void initialize() throws IOException, InterruptedException;
   abstract void shutdown(Throwable t);
-  void startClients() {
-    clients.forEach(Client::start);
+
+  public void startClients() {
+    clients.forEach((client) -> executor.execute(client::start));
   }
 }
 
