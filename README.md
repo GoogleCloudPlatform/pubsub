@@ -9,3 +9,7 @@ available are:
   and [Google Cloud Pub/Sub](https://cloud.google.com/pubsub/), as well as
   between different clients on the same stack (e.g. Http/Json and gRPC clients
   for CPS).
+
+Note: To build each of these projects, we recommend using maven. Currently, we
+only support maven version 3 and Java 8. If you're having a problem building
+with those versions, please reach out to us with your issue or solution.
