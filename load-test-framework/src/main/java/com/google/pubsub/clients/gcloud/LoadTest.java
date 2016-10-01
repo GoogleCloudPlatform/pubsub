@@ -16,7 +16,6 @@
 package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
 import com.google.common.base.Preconditions;
@@ -40,12 +39,6 @@ import java.util.concurrent.Semaphore;
  */
 public class LoadTest {
   private static final Logger log = LoggerFactory.getLogger(LoadTest.class);
-  @Parameter(names = {"--rate"},
-      description = "Number of times per second to try execute a test run.")
-  private double executionRate = 1000.0;
-  @Parameter(names = {"--payload_size"},
-      description = "Size in bytes of the data field per message")
-  private int payloadSize = 1000;
   private Server server;
 
   public static void main(String[] args) throws Exception {
@@ -103,13 +96,13 @@ public class LoadTest {
         Executors.newFixedThreadPool(numWorkers));
 
     log.info("Configured executor with " + numWorkers + " threads.");
-    final byte[] payloadArray = new byte[payloadSize];
+    final byte[] payloadArray = new byte[request.getMessageSize()];
     Arrays.fill(payloadArray, (byte) 'A');
     final String payload = new String(payloadArray, Charset.forName("UTF-8"));
 
     log.info("Bringing up load test");
     final long endTimeMillis = request.getStopTime().getSeconds() * 1000;
-    final RateLimiter rateLimiter = RateLimiter.create(executionRate);
+    final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
     final Semaphore outstandingTestLimiter = new Semaphore(numWorkers, false);
     while (System.currentTimeMillis() < endTimeMillis) {
       outstandingTestLimiter.acquireUninterruptibly();

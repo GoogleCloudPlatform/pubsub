@@ -15,8 +15,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.grpc;
 
-import com.beust.jcommander.JCommander;
-import com.beust.jcommander.Parameter;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.*;
@@ -34,8 +32,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.annotation.Nonnull;
-import java.io.IOException;
-import java.util.concurrent.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A high performance load test client for Cloud Pub/Sub. That supports gRPC as underlying transport methods.
@@ -43,30 +43,9 @@ import java.util.concurrent.*;
 public class LoadClient {
   private static final Logger log = LoggerFactory.getLogger(LoadClient.class);
   private static final int REQUEST_FAILED_CODE = -1;  // A client side error occurred.
-  private final RateLimiter rateLimiter;
-  private final Semaphore concurrentLimiter;
-  private final LoadTestStats publishStats;
-  private final LoadTestStats pullStats;
-  private final ScheduledExecutorService executorService;
-  @Parameter(
-      names = {"--message_size"},
-      description = "Number of bytes per message."
-  )
-  int messageSize = 1000;  // 1 KB
-  @Parameter(names = {"--requests_rate_limit"},
-      description = "Maximum rate per second of requests.")
-  int requestsRateLimit = 1000;
-  @Parameter(names = {"--max_concurrent_request"},
-      description = "Maximum number of concurrent requests.")
-  int maxConcurrentRequests = 100;
-  @Parameter(names = {"--seconds_to_run"},
-      description = "Number of seconds to run the load test. Use -1 to never stop.")
-  int secondsToRun = -1;
-  @Parameter(names = {"--metrics_report_interval_secs"},
-      description = "Number of wait in between reporting the latest metric numbers.")
-  int metricsReportIntervalSecs = 30;
-  @Parameter(names = {"--enable_metrics_report"}, description = "Enable metrics reporting.")
-  boolean enableMetricsReporting = true;
+  private RateLimiter rateLimiter;
+  private Semaphore concurrentLimiter;
+  private ScheduledExecutorService executorService;
   private String topicName;
   private String subscriptionName;
   private MetricsHandler metricsHandler;
@@ -75,28 +54,16 @@ public class LoadClient {
   private String subscriptionPath;
   private Server server;
 
-  private LoadClient() throws IOException {
-    rateLimiter = RateLimiter.create(requestsRateLimit);
-    concurrentLimiter = new Semaphore(maxConcurrentRequests, false);
-
-    executorService =
-        Executors.newScheduledThreadPool(
-            maxConcurrentRequests + 10,
-            new ThreadFactoryBuilder().setDaemon(true).setNameFormat("load-thread").build());
-    publishStats = new LoadTestStats("publish");
-    pullStats = new LoadTestStats("pull");
+  private LoadClient() {
   }
 
   public static void main(String[] args) throws Exception {
-
-    LoadClient loadClient = new LoadClient();
-    new JCommander(loadClient, args);
     // Hangs until done.
-    loadClient.start();
+    new LoadClient().start();
     log.info("Closing all - good bye!");
   }
 
-  private void start() throws InterruptedException, ExecutionException, IOException {
+  private void start() throws Exception {
     SettableFuture<Command.CommandRequest> requestFuture = SettableFuture.create();
     server = ServerBuilder.forPort(5000)
         .addService(new LoadtestFrameworkGrpc.LoadtestFrameworkImplBase() {
@@ -134,44 +101,36 @@ public class LoadClient {
     topicPath = "projects/" + project + "/topics/" + topicName;
     subscriptionName = Preconditions.checkNotNull(request.getSubscription());
     subscriptionPath = "projects/" + project + "/subscriptions/" + subscriptionName;
+    rateLimiter = RateLimiter.create(request.getRequestRate());
+    concurrentLimiter = new Semaphore(request.getNumberOfWorkers(), false);
 
-    AccessTokenProvider accessTokenProvider = new AccessTokenProvider();
-    metricsHandler =
-        new MetricsHandler(project, metricsReportIntervalSecs, accessTokenProvider);
+    executorService =
+        Executors.newScheduledThreadPool(
+            request.getNumberOfWorkers() + 10,
+            new ThreadFactoryBuilder().setDaemon(true).setNameFormat("load-thread").build());
+
+    metricsHandler = new MetricsHandler(project);
     metricsHandler.initialize();
 
     ProjectInfo projectInfo = new ProjectInfo(project, topicName, subscriptionName);
     LoadTestParams loadTestParams =
         new LoadTestParams(
-            messageSize,
+            request.getMessageSize(),
             request.getMaxMessagesPerPull(),
-            maxConcurrentRequests,
+            request.getNumberOfWorkers(),
             30000);
 
-    pubsubClient = new PubsubGrpcLoadClient(
-        accessTokenProvider,
-        projectInfo,
-        loadTestParams);
+    pubsubClient = new PubsubGrpcLoadClient(projectInfo, loadTestParams);
     startLoad();
-
-    executorService.scheduleAtFixedRate(() -> {
-          log.info("Printing stats");
-          publishStats.printStats();
-          pullStats.printStats();
-        },
-        5, 10, TimeUnit.SECONDS);
 
     final long endTime = request.getStopTime().getSeconds() * 1000;
     Preconditions.checkArgument(endTime < System.currentTimeMillis());
     executorService.awaitTermination(endTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
 
     executorService.shutdownNow();
-    publishStats.printStats();
-    pullStats.printStats();
   }
 
   private void startLoad() {
-    publishStats.startTimer();
     if (subscriptionName.isEmpty()) {
       executorService.submit(() -> {
         while (true) {
@@ -188,21 +147,13 @@ public class LoadClient {
                   long elapsed = stopWatch.elapsed(TimeUnit.MILLISECONDS);
                   concurrentLimiter.release();
                   if (result.isOk()) {
-                    publishStats.recordSuccessfulRequest(
-                        result.getMessagesPublished(), elapsed);
-                    if (enableMetricsReporting) {
-                      metricsHandler.recordPublishAckLatency(elapsed);
-                    }
-                  } else {
-                    publishStats.recordFailedRequest();
+                    //metricsHandler.recordPublishAckLatency(elapsed);
                   }
-                  if (enableMetricsReporting) {
-                    metricsHandler.recordRequestCount(
-                        topicName,
-                        Operation.PUBLISH.toString(),
-                        result.getStatusCode(),
-                        result.getMessagesPublished());
-                  }
+                  /*metricsHandler.recordRequestCount(
+                      topicName,
+                      Operation.PUBLISH.toString(),
+                      result.getStatusCode(),
+                      result.getMessagesPublished());*/
                 }
 
                 @Override
@@ -210,18 +161,13 @@ public class LoadClient {
                   concurrentLimiter.release();
                   log.warn(
                       "Unable to execute a publish request (client-side error)", t);
-                  publishStats.recordFailedRequest();
-                  if (enableMetricsReporting) {
-                    metricsHandler.recordRequestCount(
-                        topicName, Operation.PUBLISH.toString(), REQUEST_FAILED_CODE, 0);
-                  }
+                  //metricsHandler.recordRequestCount(topicName, Operation.PUBLISH.toString(), REQUEST_FAILED_CODE, 0);
                 }
               });
         }
       });
       return;
     }
-    pullStats.startTimer();
     executorService.submit(() -> {
       while (true) {
         concurrentLimiter.acquireUninterruptibly();
@@ -242,35 +188,25 @@ public class LoadClient {
               public void onFailure(@Nonnull Throwable t) {
                 log.warn(
                     "Unable to execute a pull request (client-side error)", t);
-                if (enableMetricsReporting) {
-                  metricsHandler.recordRequestCount(
-                      subscriptionName, Operation.PULL.toString(), REQUEST_FAILED_CODE, 0);
-                }
+                //metricsHandler.recordRequestCount(subscriptionName, Operation.PULL.toString(), REQUEST_FAILED_CODE, 0);
               }
             });
       }
     });
 
-    if (enableMetricsReporting) {
-      metricsHandler.startReporting();
-    }
+    metricsHandler.startReporting();
   }
 
   private void recordPullResponseResult(
       PullResponseResult result, long elapsed) {
     if (result.isOk()) {
-      pullStats.recordSuccessfulRequest(result.getMessagesPulled(), elapsed);
-      if (enableMetricsReporting) {
-        result.getEndToEndLatenciesMillis().forEach(metricsHandler::recordEndToEndLatency);
-      }
-    } else {
-      pullStats.recordFailedRequest();
+      result.getEndToEndLatenciesMillis().forEach(metricsHandler::recordEndToEndLatency);
     }
-    metricsHandler.recordRequestCount(
+    /*metricsHandler.recordRequestCount(
         topicName,
         Operation.PULL.toString(),
         result.getStatusCode(),
-        result.getMessagesPulled());
+        result.getMessagesPulled());*/
   }
 
   private enum Operation {

@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.grpc;
 
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
@@ -55,9 +56,8 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
   private int currentSubscriberStubIdx;
 
   PubsubGrpcLoadClient(
-      AccessTokenProvider accessTokenProvider,
       ProjectInfo projectInfo,
-      LoadTestParams loadTestParams) throws SSLException {
+      LoadTestParams loadTestParams) throws Exception {
     this.loadTestParams = loadTestParams;
     this.projectInfo = projectInfo;
     topicsBasePath = "projects/" + projectInfo.getProject() + "/topics/";
@@ -67,14 +67,17 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
     int subscriberStubsCount = Math.max(1, loadTestParams.getConcurrentRequests());
     subscriberFutureStubs = new SubscriberGrpc.SubscriberFutureStub[subscriberStubsCount];
     log.info("Creating " + publisherStubsCount + " publisher stubs.", publisherStubsCount);
+    GoogleCredentials credentials =
+        GoogleCredentials.getApplicationDefault()
+            .createScoped(ImmutableList.of("https://www.googleapis.com/auth/cloud-platform"));
     for (int i = 0; i < publisherStubsCount; ++i) {
       publisherFutureStubs[i] = PublisherGrpc.newFutureStub(getChannelGrpc())
-          .withCallCredentials(MoreCallCredentials.from(accessTokenProvider.getCredentials()));
+          .withCallCredentials(MoreCallCredentials.from(credentials));
     }
     log.info("Creating " + subscriberStubsCount + " subscriber stubs.");
     for (int i = 0; i < subscriberStubsCount; ++i) {
       subscriberFutureStubs[i] = SubscriberGrpc.newFutureStub(getChannelGrpc())
-          .withCallCredentials(MoreCallCredentials.from(accessTokenProvider.getCredentials()));
+          .withCallCredentials(MoreCallCredentials.from(credentials));
     }
     byte[] chars = new byte[loadTestParams.getMessageSize()];
     Arrays.fill(chars, (byte) 'A');

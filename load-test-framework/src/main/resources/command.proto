@@ -20,4 +20,6 @@ message CommandRequest {
   string project = 6;
   string topic = 7;
   string subscription = 8;
+  int32 message_size = 9;
+  int32 request_rate = 10;
 }
