@@ -17,9 +17,18 @@ package com.google.pubsub.flic;
 
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.monitoring.v3.Monitoring;
+import com.google.api.services.monitoring.v3.model.ListTimeSeriesResponse;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.Utils;
+import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.GCEController;
@@ -27,10 +36,8 @@ import com.google.pubsub.flic.processing.Comparison;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.logging.LogManager;
 
@@ -59,12 +66,12 @@ public class Driver {
       names = {"--cps_publisher_count"},
       description = "Number of CPS publishers to start."
   )
-  private int cpsPublisherCount = 0;
+  private int cpsPublisherCount = 1;
   @Parameter(
       names = {"--cps_subscriber_count"},
       description = "Number of CPS subscribers to start per ."
   )
-  private int cpsSubscriberCount = 0;
+  private int cpsSubscriberCount = 1;
   @Parameter(
       names = {"--kafka_publisher_count"},
       description = "Number of Kafka publishers to start."
@@ -86,7 +93,13 @@ public class Driver {
       description = "Message size in bytes (only when publishing messages).",
       validateWith = Utils.GreaterThanZeroValidator.class
   )
-  private int messageSize = 10;
+  private int messageSize = 1000;
+  @Parameter(
+      names = {"--loadtest_seconds"},
+      description = "Duration of the load test, in seconds.",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int loadtestLengthSeconds = 60;
   @Parameter(
       names = {"--project", "-u"},
       required = true,
@@ -162,10 +175,51 @@ public class Driver {
         clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_SUBSCRIBER, "subscription" + i),
             kafkaSubscriberCount / subscriberFanout);
       }
+      Client.messageSize = messageSize;
+      Client.requestRate = 1000;
+      Client.startTime = Timestamp.newBuilder().setSeconds(System.currentTimeMillis() + 5 * 60 * 1000).build();
+      Client.loadtestLengthSeconds = loadtestLengthSeconds;
+      Client.batchSize = batchSize;
       GCEController gceController =
           GCEController.newGCEController(project, clientTypes, Executors.newCachedThreadPool());
+      gceController.initialize();
       gceController.startClients();
-      // TODO(maxdietz): Collect and print status.
+      SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+      dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+      String startTime = dateFormatter.format(new Date());
+      // Wait for the load test to finish.
+      Thread.sleep(System.currentTimeMillis() + 5 * 60 * 1000 + loadtestLengthSeconds * 1000);
+      gceController.shutdown(new Exception("Loadtest completed."));
+
+      // Print out latency measurements.
+      HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+      JsonFactory jsonFactory = new JacksonFactory();
+      GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
+      if (credential.createScopedRequired()) {
+        credential =
+            credential.createScoped(
+                Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
+      }
+      Monitoring monitoring = new Monitoring.Builder(transport, jsonFactory, credential)
+          .setApplicationName("Cloud Pub/Sub Loadtest Framework")
+          .build();
+      Monitoring.Projects.TimeSeries.List request = monitoring.projects().timeSeries().list("projects/" + project)
+          .setFilter("metric.type = custom.googleapis.com/cloud-pubsub/loadclient/end_to_end_latency")
+          .setIntervalStartTime(startTime)
+          .setIntervalEndTime(dateFormatter.format(new Date()))
+          .setAggregationAlignmentPeriod("60s")
+          .setAggregationPerSeriesAligner("ALIGN_PERCENTILE_99");
+      ListTimeSeriesResponse response;
+      do {
+        response = request.execute();
+        response.getTimeSeries().forEach(timeSeries -> {
+          log.info("Instance: " + timeSeries.getResource().getLabels().toString());
+          timeSeries.getPoints().forEach(point -> {
+            log.info(point.getInterval().getStartTime() + " to " + point.getInterval().getEndTime());
+            log.info("Mean end to end latency: " + point.getValue().getDistributionValue().getMean());
+          });
+        });
+      } while (response.getNextPageToken() != null);
     } catch (Exception e) {
       log.error("An error occurred...", e);
       System.exit(1);

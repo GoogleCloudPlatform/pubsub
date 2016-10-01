@@ -21,6 +21,7 @@ import com.google.cloud.pubsub.PubSubException;
 import com.google.cloud.pubsub.ReceivedMessage;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.pubsub.clients.common.MetricsHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -39,6 +40,7 @@ class LoadTestRun implements Runnable {
   static String topic = "load-test-topic";
   static String subscription = "load-test-subscription"; // set null for Publish
   static int batchSize = 100;
+  static MetricsHandler metricsHandler;
   private final PubSub pubSub;
   private final String logPrefix;
   private final String payload;
@@ -74,12 +76,14 @@ class LoadTestRun implements Runnable {
     Stopwatch stopwatch = Stopwatch.createUnstarted();
     try {
       List<Message> messages = new ArrayList<>(batchSize);
+      String sendTime = String.valueOf(System.currentTimeMillis());
       for (int i = 0; i < batchSize; i++) {
-        messages.add(Message.builder(payload).build());
+        messages.add(Message.builder(payload).addAttribute("sendTime", sendTime).build());
       }
       stopwatch.start();
       pubSub.publish(topic, messages);
       stopwatch.stop();
+      metricsHandler.recordPublishLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
       result = "succeeded";
     } catch (PubSubException e) {
       stopwatch.stop();
@@ -104,7 +108,11 @@ class LoadTestRun implements Runnable {
       stopwatch.start();
       Iterator<ReceivedMessage> responses = pubSub.pull(subscription, batchSize);
       stopwatch.stop();
-      responses.forEachRemaining((response) -> ackIds.add(response.ackId()));
+      long now = System.currentTimeMillis();
+      responses.forEachRemaining((response) -> {
+        ackIds.add(response.ackId());
+        metricsHandler.recordEndToEndLatency(now - Long.parseLong(response.attributes().get("sendTime")));
+      });
       if (ackIds.isEmpty()) {
         result = "no-messages";
         log.info(logPrefix + "Pull returned no messages");

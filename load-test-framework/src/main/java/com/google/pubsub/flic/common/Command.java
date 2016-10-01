@@ -4,7 +4,54 @@
 package com.google.pubsub.flic.common;
 
 public final class Command {
+  private static final com.google.protobuf.Descriptors.Descriptor
+      internal_static_pubsub_CommandRequest_descriptor;
+  private static final
+  com.google.protobuf.GeneratedMessage.FieldAccessorTable
+      internal_static_pubsub_CommandRequest_fieldAccessorTable;
+  private static com.google.protobuf.Descriptors.FileDescriptor
+      descriptor;
+
+  static {
+    java.lang.String[] descriptorData = {
+        "\n\rCommand.proto\022\006pubsub\032\033google/protobuf" +
+            "/empty.proto\032\037google/protobuf/timestamp." +
+            "proto\"\373\001\n\016CommandRequest\022.\n\nstart_time\030\001" +
+            " \001(\0132\032.google.protobuf.Timestamp\022-\n\tstop" +
+            "_time\030\002 \001(\0132\032.google.protobuf.Timestamp\022" +
+            "\031\n\021number_of_workers\030\003 \001(\005\022\032\n\022restart_st" +
+            "atistics\030\004 \001(\010\022\035\n\025max_messages_per_pull\030" +
+            "\005 \001(\005\022\017\n\007project\030\006 \001(\t\022\r\n\005topic\030\007 \001(\t\022\024\n" +
+            "\014subscription\030\010 \001(\t2T\n\021LoadtestFramework" +
+            "\022?\n\013StartClient\022\026.pubsub.CommandRequest\032",
+        "\026.google.protobuf.Empty\"\000B(\n\035com.google." +
+            "pubsub.flic.commonB\007Commandb\006proto3"
+    };
+    com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
+        new com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner() {
+          public com.google.protobuf.ExtensionRegistry assignDescriptors(
+              com.google.protobuf.Descriptors.FileDescriptor root) {
+            descriptor = root;
+            return null;
+          }
+        };
+    com.google.protobuf.Descriptors.FileDescriptor
+        .internalBuildGeneratedFileFrom(descriptorData,
+            new com.google.protobuf.Descriptors.FileDescriptor[]{
+                com.google.protobuf.EmptyProto.getDescriptor(),
+                com.google.protobuf.TimestampProto.getDescriptor(),
+            }, assigner);
+    internal_static_pubsub_CommandRequest_descriptor =
+        getDescriptor().getMessageTypes().get(0);
+    internal_static_pubsub_CommandRequest_fieldAccessorTable = new
+        com.google.protobuf.GeneratedMessage.FieldAccessorTable(
+        internal_static_pubsub_CommandRequest_descriptor,
+        new java.lang.String[]{"StartTime", "StopTime", "NumberOfWorkers", "RestartStatistics", "MaxMessagesPerPull", "Project", "Topic", "Subscription",});
+    com.google.protobuf.EmptyProto.getDescriptor();
+    com.google.protobuf.TimestampProto.getDescriptor();
+  }
   private Command() {}
+
   public static void registerAllExtensions(
       com.google.protobuf.ExtensionRegistryLite registry) {
   }
@@ -13,6 +60,11 @@ public final class Command {
       com.google.protobuf.ExtensionRegistry registry) {
     registerAllExtensions(
         (com.google.protobuf.ExtensionRegistryLite) registry);
+  }
+
+  public static com.google.protobuf.Descriptors.FileDescriptor
+  getDescriptor() {
+    return descriptor;
   }
   public interface CommandRequestOrBuilder extends
       // @@protoc_insertion_point(interface_extends:pubsub.CommandRequest)
@@ -59,6 +111,10 @@ public final class Command {
      */
     int getMaxMessagesPerPull();
 
+    int getRequestRate();
+
+    int getMessageSize();
+
     /**
      * <code>optional string project = 6;</code>
      */
@@ -97,6 +153,7 @@ public final class Command {
     com.google.protobuf.ByteString
         getSubscriptionBytes();
   }
+
   /**
    * Protobuf type {@code pubsub.CommandRequest}
    */
@@ -104,6 +161,44 @@ public final class Command {
       com.google.protobuf.GeneratedMessage implements
       // @@protoc_insertion_point(message_implements:pubsub.CommandRequest)
       CommandRequestOrBuilder {
+    public static final int START_TIME_FIELD_NUMBER = 1;
+    public static final int STOP_TIME_FIELD_NUMBER = 2;
+    public static final int NUMBER_OF_WORKERS_FIELD_NUMBER = 3;
+    public static final int RESTART_STATISTICS_FIELD_NUMBER = 4;
+    public static final int MESSAGE_SIZE_FIELD_NUMBER = 9;
+    public static final int REQUEST_RATE_FIELD_NUMBER = 10;
+    public static final int MAX_MESSAGES_PER_PULL_FIELD_NUMBER = 5;
+    public static final int PROJECT_FIELD_NUMBER = 6;
+    public static final int TOPIC_FIELD_NUMBER = 7;
+    public static final int SUBSCRIPTION_FIELD_NUMBER = 8;
+    private static final long serialVersionUID = 0L;
+    // @@protoc_insertion_point(class_scope:pubsub.CommandRequest)
+    private static final com.google.pubsub.flic.common.Command.CommandRequest DEFAULT_INSTANCE;
+    private static final com.google.protobuf.Parser<CommandRequest>
+        PARSER = new com.google.protobuf.AbstractParser<CommandRequest>() {
+      public CommandRequest parsePartialFrom(
+          com.google.protobuf.CodedInputStream input,
+          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+          throws com.google.protobuf.InvalidProtocolBufferException {
+        return new CommandRequest(input, extensionRegistry);
+      }
+    };
+
+    static {
+      DEFAULT_INSTANCE = new com.google.pubsub.flic.common.Command.CommandRequest();
+    }
+
+    private com.google.protobuf.Timestamp startTime_;
+    private com.google.protobuf.Timestamp stopTime_;
+    private int numberOfWorkers_;
+    private boolean restartStatistics_;
+    private int messageSize_;
+    private int requestRate_;
+    private int maxMessagesPerPull_;
+    private volatile java.lang.Object project_;
+    private volatile java.lang.Object topic_;
+    private volatile java.lang.Object subscription_;
+    private byte memoizedIsInitialized = -1;
     // Use CommandRequest.newBuilder() to construct.
     private CommandRequest(com.google.protobuf.GeneratedMessage.Builder<?> builder) {
       super(builder);
@@ -115,12 +210,8 @@ public final class Command {
       project_ = "";
       topic_ = "";
       subscription_ = "";
-    }
-
-    @java.lang.Override
-    public final com.google.protobuf.UnknownFieldSet
-    getUnknownFields() {
-      return com.google.protobuf.UnknownFieldSet.getDefaultInstance();
+      requestRate_ = 0;
+      messageSize_ = 0;
     }
     private CommandRequest(
         com.google.protobuf.CodedInputStream input,
@@ -212,9 +303,100 @@ public final class Command {
         makeExtensionsImmutable();
       }
     }
+
     public static final com.google.protobuf.Descriptors.Descriptor
         getDescriptor() {
       return com.google.pubsub.flic.common.Command.internal_static_pubsub_CommandRequest_descriptor;
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
+        com.google.protobuf.ByteString data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
+        com.google.protobuf.ByteString data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(byte[] data)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data);
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
+        byte[] data,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws com.google.protobuf.InvalidProtocolBufferException {
+      return PARSER.parseFrom(data, extensionRegistry);
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessage
+          .parseWithIOException(PARSER, input);
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessage
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest parseDelimitedFrom(java.io.InputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessage
+          .parseDelimitedWithIOException(PARSER, input);
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest parseDelimitedFrom(
+        java.io.InputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessage
+          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
+        com.google.protobuf.CodedInputStream input)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessage
+          .parseWithIOException(PARSER, input);
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
+        com.google.protobuf.CodedInputStream input,
+        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
+        throws java.io.IOException {
+      return com.google.protobuf.GeneratedMessage
+          .parseWithIOException(PARSER, input, extensionRegistry);
+    }
+
+    public static Builder newBuilder() {
+      return DEFAULT_INSTANCE.toBuilder();
+    }
+
+    public static Builder newBuilder(com.google.pubsub.flic.common.Command.CommandRequest prototype) {
+      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
+    }
+
+    public static com.google.pubsub.flic.common.Command.CommandRequest getDefaultInstance() {
+      return DEFAULT_INSTANCE;
+    }
+
+    public static com.google.protobuf.Parser<CommandRequest> parser() {
+      return PARSER;
+    }
+
+    @java.lang.Override
+    public final com.google.protobuf.UnknownFieldSet
+    getUnknownFields() {
+      return com.google.protobuf.UnknownFieldSet.getDefaultInstance();
     }
 
     protected com.google.protobuf.GeneratedMessage.FieldAccessorTable
@@ -224,20 +406,20 @@ public final class Command {
               com.google.pubsub.flic.common.Command.CommandRequest.class, com.google.pubsub.flic.common.Command.CommandRequest.Builder.class);
     }
 
-    public static final int START_TIME_FIELD_NUMBER = 1;
-    private com.google.protobuf.Timestamp startTime_;
     /**
      * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
      */
     public boolean hasStartTime() {
       return startTime_ != null;
     }
+
     /**
      * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
      */
     public com.google.protobuf.Timestamp getStartTime() {
       return startTime_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : startTime_;
     }
+
     /**
      * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
      */
@@ -245,20 +427,20 @@ public final class Command {
       return getStartTime();
     }
 
-    public static final int STOP_TIME_FIELD_NUMBER = 2;
-    private com.google.protobuf.Timestamp stopTime_;
     /**
      * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
      */
     public boolean hasStopTime() {
       return stopTime_ != null;
     }
+
     /**
      * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
      */
     public com.google.protobuf.Timestamp getStopTime() {
       return stopTime_ == null ? com.google.protobuf.Timestamp.getDefaultInstance() : stopTime_;
     }
+
     /**
      * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
      */
@@ -266,8 +448,6 @@ public final class Command {
       return getStopTime();
     }
 
-    public static final int NUMBER_OF_WORKERS_FIELD_NUMBER = 3;
-    private int numberOfWorkers_;
     /**
      * <code>optional int32 number_of_workers = 3;</code>
      */
@@ -275,8 +455,6 @@ public final class Command {
       return numberOfWorkers_;
     }
 
-    public static final int RESTART_STATISTICS_FIELD_NUMBER = 4;
-    private boolean restartStatistics_;
     /**
      * <code>optional bool restart_statistics = 4;</code>
      */
@@ -284,8 +462,20 @@ public final class Command {
       return restartStatistics_;
     }
 
-    public static final int MAX_MESSAGES_PER_PULL_FIELD_NUMBER = 5;
-    private int maxMessagesPerPull_;
+    /**
+     * <code>optional int32 max_messages_per_pull = 5;</code>
+     */
+    public int getMessageSize() {
+      return messageSize_;
+    }
+
+    /**
+     * <code>optional int32 max_messages_per_pull = 5;</code>
+     */
+    public int getRequestRate() {
+      return requestRate_;
+    }
+
     /**
      * <code>optional int32 max_messages_per_pull = 5;</code>
      */
@@ -293,8 +483,6 @@ public final class Command {
       return maxMessagesPerPull_;
     }
 
-    public static final int PROJECT_FIELD_NUMBER = 6;
-    private volatile java.lang.Object project_;
     /**
      * <code>optional string project = 6;</code>
      */
@@ -303,13 +491,14 @@ public final class Command {
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
-        com.google.protobuf.ByteString bs = 
+        com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         project_ = s;
         return s;
       }
     }
+
     /**
      * <code>optional string project = 6;</code>
      */
@@ -317,7 +506,7 @@ public final class Command {
         getProjectBytes() {
       java.lang.Object ref = project_;
       if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         project_ = b;
@@ -327,8 +516,6 @@ public final class Command {
       }
     }
 
-    public static final int TOPIC_FIELD_NUMBER = 7;
-    private volatile java.lang.Object topic_;
     /**
      * <code>optional string topic = 7;</code>
      */
@@ -337,13 +524,14 @@ public final class Command {
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
-        com.google.protobuf.ByteString bs = 
+        com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         topic_ = s;
         return s;
       }
     }
+
     /**
      * <code>optional string topic = 7;</code>
      */
@@ -351,7 +539,7 @@ public final class Command {
         getTopicBytes() {
       java.lang.Object ref = topic_;
       if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         topic_ = b;
@@ -361,8 +549,6 @@ public final class Command {
       }
     }
 
-    public static final int SUBSCRIPTION_FIELD_NUMBER = 8;
-    private volatile java.lang.Object subscription_;
     /**
      * <pre>
      * maybe a number of messages to expect rather than stop time?
@@ -375,13 +561,14 @@ public final class Command {
       if (ref instanceof java.lang.String) {
         return (java.lang.String) ref;
       } else {
-        com.google.protobuf.ByteString bs = 
+        com.google.protobuf.ByteString bs =
             (com.google.protobuf.ByteString) ref;
         java.lang.String s = bs.toStringUtf8();
         subscription_ = s;
         return s;
       }
     }
+
     /**
      * <pre>
      * maybe a number of messages to expect rather than stop time?
@@ -393,7 +580,7 @@ public final class Command {
         getSubscriptionBytes() {
       java.lang.Object ref = subscription_;
       if (ref instanceof java.lang.String) {
-        com.google.protobuf.ByteString b = 
+        com.google.protobuf.ByteString b =
             com.google.protobuf.ByteString.copyFromUtf8(
                 (java.lang.String) ref);
         subscription_ = b;
@@ -403,7 +590,6 @@ public final class Command {
       }
     }
 
-    private byte memoizedIsInitialized = -1;
     public final boolean isInitialized() {
       byte isInitialized = memoizedIsInitialized;
       if (isInitialized == 1) return true;
@@ -479,7 +665,6 @@ public final class Command {
       return size;
     }
 
-    private static final long serialVersionUID = 0L;
     @java.lang.Override
     public boolean equals(final java.lang.Object obj) {
       if (obj == this) {
@@ -549,72 +734,8 @@ public final class Command {
       return hash;
     }
 
-    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
-        com.google.protobuf.ByteString data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
-        com.google.protobuf.ByteString data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(byte[] data)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data);
-    }
-    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
-        byte[] data,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws com.google.protobuf.InvalidProtocolBufferException {
-      return PARSER.parseFrom(data, extensionRegistry);
-    }
-    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessage
-          .parseWithIOException(PARSER, input);
-    }
-    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessage
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static com.google.pubsub.flic.common.Command.CommandRequest parseDelimitedFrom(java.io.InputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessage
-          .parseDelimitedWithIOException(PARSER, input);
-    }
-    public static com.google.pubsub.flic.common.Command.CommandRequest parseDelimitedFrom(
-        java.io.InputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessage
-          .parseDelimitedWithIOException(PARSER, input, extensionRegistry);
-    }
-    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
-        com.google.protobuf.CodedInputStream input)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessage
-          .parseWithIOException(PARSER, input);
-    }
-    public static com.google.pubsub.flic.common.Command.CommandRequest parseFrom(
-        com.google.protobuf.CodedInputStream input,
-        com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-        throws java.io.IOException {
-      return com.google.protobuf.GeneratedMessage
-          .parseWithIOException(PARSER, input, extensionRegistry);
-    }
-
     public Builder newBuilderForType() { return newBuilder(); }
-    public static Builder newBuilder() {
-      return DEFAULT_INSTANCE.toBuilder();
-    }
-    public static Builder newBuilder(com.google.pubsub.flic.common.Command.CommandRequest prototype) {
-      return DEFAULT_INSTANCE.toBuilder().mergeFrom(prototype);
-    }
+
     public Builder toBuilder() {
       return this == DEFAULT_INSTANCE
           ? new Builder() : new Builder().mergeFrom(this);
@@ -626,6 +747,16 @@ public final class Command {
       Builder builder = new Builder(parent);
       return builder;
     }
+
+    @java.lang.Override
+    public com.google.protobuf.Parser<CommandRequest> getParserForType() {
+      return PARSER;
+    }
+
+    public com.google.pubsub.flic.common.Command.CommandRequest getDefaultInstanceForType() {
+      return DEFAULT_INSTANCE;
+    }
+
     /**
      * Protobuf type {@code pubsub.CommandRequest}
      */
@@ -633,6 +764,32 @@ public final class Command {
         com.google.protobuf.GeneratedMessage.Builder<Builder> implements
         // @@protoc_insertion_point(builder_implements:pubsub.CommandRequest)
         com.google.pubsub.flic.common.Command.CommandRequestOrBuilder {
+      private com.google.protobuf.Timestamp startTime_ = null;
+      private com.google.protobuf.SingleFieldBuilder<
+          com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> startTimeBuilder_;
+      private com.google.protobuf.Timestamp stopTime_ = null;
+      private com.google.protobuf.SingleFieldBuilder<
+          com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> stopTimeBuilder_;
+      private int numberOfWorkers_;
+      private boolean restartStatistics_;
+      private int maxMessagesPerPull_;
+      private java.lang.Object project_ = "";
+      private java.lang.Object topic_ = "";
+      private java.lang.Object subscription_ = "";
+      private int messageSize_;
+      private int requestRate_;
+
+      // Construct using com.google.pubsub.flic.common.Command.CommandRequest.newBuilder()
+      private Builder() {
+        maybeForceBuilderInitialization();
+      }
+
+      private Builder(
+          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
+        super(parent);
+        maybeForceBuilderInitialization();
+      }
+
       public static final com.google.protobuf.Descriptors.Descriptor
           getDescriptor() {
         return com.google.pubsub.flic.common.Command.internal_static_pubsub_CommandRequest_descriptor;
@@ -645,21 +802,12 @@ public final class Command {
                 com.google.pubsub.flic.common.Command.CommandRequest.class, com.google.pubsub.flic.common.Command.CommandRequest.Builder.class);
       }
 
-      // Construct using com.google.pubsub.flic.common.Command.CommandRequest.newBuilder()
-      private Builder() {
-        maybeForceBuilderInitialization();
-      }
-
-      private Builder(
-          com.google.protobuf.GeneratedMessage.BuilderParent parent) {
-        super(parent);
-        maybeForceBuilderInitialization();
-      }
       private void maybeForceBuilderInitialization() {
         if (com.google.protobuf.GeneratedMessage
                 .alwaysUseFieldBuilders) {
         }
       }
+
       public Builder clear() {
         super.clear();
         if (startTimeBuilder_ == null) {
@@ -731,29 +879,35 @@ public final class Command {
       public Builder clone() {
         return (Builder) super.clone();
       }
+
       public Builder setField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           Object value) {
         return (Builder) super.setField(field, value);
       }
+
       public Builder clearField(
           com.google.protobuf.Descriptors.FieldDescriptor field) {
         return (Builder) super.clearField(field);
       }
+
       public Builder clearOneof(
           com.google.protobuf.Descriptors.OneofDescriptor oneof) {
         return (Builder) super.clearOneof(oneof);
       }
+
       public Builder setRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           int index, Object value) {
         return (Builder) super.setRepeatedField(field, index, value);
       }
+
       public Builder addRepeatedField(
           com.google.protobuf.Descriptors.FieldDescriptor field,
           Object value) {
         return (Builder) super.addRepeatedField(field, value);
       }
+
       public Builder mergeFrom(com.google.protobuf.Message other) {
         if (other instanceof com.google.pubsub.flic.common.Command.CommandRequest) {
           return mergeFrom((com.google.pubsub.flic.common.Command.CommandRequest)other);
@@ -818,15 +972,13 @@ public final class Command {
         return this;
       }
 
-      private com.google.protobuf.Timestamp startTime_ = null;
-      private com.google.protobuf.SingleFieldBuilder<
-          com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> startTimeBuilder_;
       /**
        * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
        */
       public boolean hasStartTime() {
         return startTimeBuilder_ != null || startTime_ != null;
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
        */
@@ -837,6 +989,7 @@ public final class Command {
           return startTimeBuilder_.getMessage();
         }
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
        */
@@ -853,6 +1006,7 @@ public final class Command {
 
         return this;
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
        */
@@ -867,6 +1021,7 @@ public final class Command {
 
         return this;
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
        */
@@ -885,6 +1040,7 @@ public final class Command {
 
         return this;
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
        */
@@ -899,6 +1055,7 @@ public final class Command {
 
         return this;
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
        */
@@ -907,6 +1064,7 @@ public final class Command {
         onChanged();
         return getStartTimeFieldBuilder().getBuilder();
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
        */
@@ -918,6 +1076,7 @@ public final class Command {
               com.google.protobuf.Timestamp.getDefaultInstance() : startTime_;
         }
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp start_time = 1;</code>
        */
@@ -935,15 +1094,13 @@ public final class Command {
         return startTimeBuilder_;
       }
 
-      private com.google.protobuf.Timestamp stopTime_ = null;
-      private com.google.protobuf.SingleFieldBuilder<
-          com.google.protobuf.Timestamp, com.google.protobuf.Timestamp.Builder, com.google.protobuf.TimestampOrBuilder> stopTimeBuilder_;
       /**
        * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
        */
       public boolean hasStopTime() {
         return stopTimeBuilder_ != null || stopTime_ != null;
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
        */
@@ -954,6 +1111,7 @@ public final class Command {
           return stopTimeBuilder_.getMessage();
         }
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
        */
@@ -970,6 +1128,7 @@ public final class Command {
 
         return this;
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
        */
@@ -984,6 +1143,7 @@ public final class Command {
 
         return this;
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
        */
@@ -1002,6 +1162,7 @@ public final class Command {
 
         return this;
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
        */
@@ -1016,6 +1177,7 @@ public final class Command {
 
         return this;
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
        */
@@ -1024,6 +1186,7 @@ public final class Command {
         onChanged();
         return getStopTimeFieldBuilder().getBuilder();
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
        */
@@ -1035,6 +1198,7 @@ public final class Command {
               com.google.protobuf.Timestamp.getDefaultInstance() : stopTime_;
         }
       }
+
       /**
        * <code>optional .google.protobuf.Timestamp stop_time = 2;</code>
        */
@@ -1052,13 +1216,13 @@ public final class Command {
         return stopTimeBuilder_;
       }
 
-      private int numberOfWorkers_ ;
       /**
        * <code>optional int32 number_of_workers = 3;</code>
        */
       public int getNumberOfWorkers() {
         return numberOfWorkers_;
       }
+
       /**
        * <code>optional int32 number_of_workers = 3;</code>
        */
@@ -1068,6 +1232,7 @@ public final class Command {
         onChanged();
         return this;
       }
+
       /**
        * <code>optional int32 number_of_workers = 3;</code>
        */
@@ -1078,13 +1243,13 @@ public final class Command {
         return this;
       }
 
-      private boolean restartStatistics_ ;
       /**
        * <code>optional bool restart_statistics = 4;</code>
        */
       public boolean getRestartStatistics() {
         return restartStatistics_;
       }
+
       /**
        * <code>optional bool restart_statistics = 4;</code>
        */
@@ -1094,6 +1259,7 @@ public final class Command {
         onChanged();
         return this;
       }
+
       /**
        * <code>optional bool restart_statistics = 4;</code>
        */
@@ -1104,13 +1270,13 @@ public final class Command {
         return this;
       }
 
-      private int maxMessagesPerPull_ ;
       /**
        * <code>optional int32 max_messages_per_pull = 5;</code>
        */
       public int getMaxMessagesPerPull() {
         return maxMessagesPerPull_;
       }
+
       /**
        * <code>optional int32 max_messages_per_pull = 5;</code>
        */
@@ -1120,6 +1286,7 @@ public final class Command {
         onChanged();
         return this;
       }
+
       /**
        * <code>optional int32 max_messages_per_pull = 5;</code>
        */
@@ -1130,7 +1297,6 @@ public final class Command {
         return this;
       }
 
-      private java.lang.Object project_ = "";
       /**
        * <code>optional string project = 6;</code>
        */
@@ -1146,6 +1312,21 @@ public final class Command {
           return (java.lang.String) ref;
         }
       }
+
+      /**
+       * <code>optional string project = 6;</code>
+       */
+      public Builder setProject(
+          java.lang.String value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+
+        project_ = value;
+        onChanged();
+        return this;
+      }
+
       /**
        * <code>optional string project = 6;</code>
        */
@@ -1162,19 +1343,22 @@ public final class Command {
           return (com.google.protobuf.ByteString) ref;
         }
       }
+
       /**
        * <code>optional string project = 6;</code>
        */
-      public Builder setProject(
-          java.lang.String value) {
+      public Builder setProjectBytes(
+          com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
+        checkByteStringIsUtf8(value);
 
         project_ = value;
         onChanged();
         return this;
       }
+
       /**
        * <code>optional string project = 6;</code>
        */
@@ -1184,22 +1368,7 @@ public final class Command {
         onChanged();
         return this;
       }
-      /**
-       * <code>optional string project = 6;</code>
-       */
-      public Builder setProjectBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  checkByteStringIsUtf8(value);
 
-        project_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object topic_ = "";
       /**
        * <code>optional string topic = 7;</code>
        */
@@ -1215,6 +1384,21 @@ public final class Command {
           return (java.lang.String) ref;
         }
       }
+
+      /**
+       * <code>optional string topic = 7;</code>
+       */
+      public Builder setTopic(
+          java.lang.String value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+
+        topic_ = value;
+        onChanged();
+        return this;
+      }
+
       /**
        * <code>optional string topic = 7;</code>
        */
@@ -1231,19 +1415,22 @@ public final class Command {
           return (com.google.protobuf.ByteString) ref;
         }
       }
+
       /**
        * <code>optional string topic = 7;</code>
        */
-      public Builder setTopic(
-          java.lang.String value) {
+      public Builder setTopicBytes(
+          com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
   }
+        checkByteStringIsUtf8(value);
 
         topic_ = value;
         onChanged();
         return this;
       }
+
       /**
        * <code>optional string topic = 7;</code>
        */
@@ -1253,22 +1440,7 @@ public final class Command {
         onChanged();
         return this;
       }
-      /**
-       * <code>optional string topic = 7;</code>
-       */
-      public Builder setTopicBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  checkByteStringIsUtf8(value);
 
-        topic_ = value;
-        onChanged();
-        return this;
-      }
-
-      private java.lang.Object subscription_ = "";
       /**
        * <pre>
        * maybe a number of messages to expect rather than stop time?
@@ -1288,11 +1460,30 @@ public final class Command {
           return (java.lang.String) ref;
         }
       }
+
       /**
        * <pre>
        * maybe a number of messages to expect rather than stop time?
        * </pre>
        *
+       * <code>optional string subscription = 8;</code>
+       */
+      public Builder setSubscription(
+          java.lang.String value) {
+        if (value == null) {
+          throw new NullPointerException();
+        }
+
+        subscription_ = value;
+        onChanged();
+        return this;
+      }
+
+      /**
+       * <pre>
+       * maybe a number of messages to expect rather than stop time?
+       * </pre>
+       * <p>
        * <code>optional string subscription = 8;</code>
        */
       public com.google.protobuf.ByteString
@@ -1308,6 +1499,7 @@ public final class Command {
           return (com.google.protobuf.ByteString) ref;
         }
       }
+
       /**
        * <pre>
        * maybe a number of messages to expect rather than stop time?
@@ -1315,16 +1507,18 @@ public final class Command {
        *
        * <code>optional string subscription = 8;</code>
        */
-      public Builder setSubscription(
-          java.lang.String value) {
+      public Builder setSubscriptionBytes(
+          com.google.protobuf.ByteString value) {
         if (value == null) {
     throw new NullPointerException();
-  }
+        }
+        checkByteStringIsUtf8(value);
 
         subscription_ = value;
         onChanged();
         return this;
       }
+
       /**
        * <pre>
        * maybe a number of messages to expect rather than stop time?
@@ -1338,21 +1532,57 @@ public final class Command {
         onChanged();
         return this;
       }
-      /**
-       * <pre>
-       * maybe a number of messages to expect rather than stop time?
-       * </pre>
-       *
-       * <code>optional string subscription = 8;</code>
-       */
-      public Builder setSubscriptionBytes(
-          com.google.protobuf.ByteString value) {
-        if (value == null) {
-    throw new NullPointerException();
-  }
-  checkByteStringIsUtf8(value);
 
-        subscription_ = value;
+      /**
+       * <code>optional int32 number_of_workers = 3;</code>
+       */
+      public int getMessageSize() {
+        return messageSize_;
+      }
+
+      /**
+       * <code>optional int32 number_of_workers = 3;</code>
+       */
+      public Builder setMessageSize(int value) {
+
+        messageSize_ = value;
+        onChanged();
+        return this;
+      }
+
+      /**
+       * <code>optional int32 number_of_workers = 3;</code>
+       */
+      public Builder clearMessageSize() {
+
+        messageSize_ = 0;
+        onChanged();
+        return this;
+      }
+
+      /**
+       * <code>optional int32 number_of_workers = 3;</code>
+       */
+      public int getRequestRate() {
+        return requestRate_;
+      }
+
+      /**
+       * <code>optional int32 number_of_workers = 3;</code>
+       */
+      public Builder setRequestRate(int value) {
+
+        requestRate_ = value;
+        onChanged();
+        return this;
+      }
+
+      /**
+       * <code>optional int32 number_of_workers = 3;</code>
+       */
+      public Builder clearRequestRate() {
+
+        requestRate_ = 0;
         onChanged();
         return this;
       }
@@ -1370,90 +1600,6 @@ public final class Command {
       // @@protoc_insertion_point(builder_scope:pubsub.CommandRequest)
     }
 
-    // @@protoc_insertion_point(class_scope:pubsub.CommandRequest)
-    private static final com.google.pubsub.flic.common.Command.CommandRequest DEFAULT_INSTANCE;
-    static {
-      DEFAULT_INSTANCE = new com.google.pubsub.flic.common.Command.CommandRequest();
-    }
-
-    public static com.google.pubsub.flic.common.Command.CommandRequest getDefaultInstance() {
-      return DEFAULT_INSTANCE;
-    }
-
-    private static final com.google.protobuf.Parser<CommandRequest>
-        PARSER = new com.google.protobuf.AbstractParser<CommandRequest>() {
-      public CommandRequest parsePartialFrom(
-          com.google.protobuf.CodedInputStream input,
-          com.google.protobuf.ExtensionRegistryLite extensionRegistry)
-          throws com.google.protobuf.InvalidProtocolBufferException {
-          return new CommandRequest(input, extensionRegistry);
-      }
-    };
-
-    public static com.google.protobuf.Parser<CommandRequest> parser() {
-      return PARSER;
-    }
-
-    @java.lang.Override
-    public com.google.protobuf.Parser<CommandRequest> getParserForType() {
-      return PARSER;
-    }
-
-    public com.google.pubsub.flic.common.Command.CommandRequest getDefaultInstanceForType() {
-      return DEFAULT_INSTANCE;
-    }
-
-  }
-
-  private static final com.google.protobuf.Descriptors.Descriptor
-    internal_static_pubsub_CommandRequest_descriptor;
-  private static final
-    com.google.protobuf.GeneratedMessage.FieldAccessorTable
-      internal_static_pubsub_CommandRequest_fieldAccessorTable;
-
-  public static com.google.protobuf.Descriptors.FileDescriptor
-      getDescriptor() {
-    return descriptor;
-  }
-  private static  com.google.protobuf.Descriptors.FileDescriptor
-      descriptor;
-  static {
-    java.lang.String[] descriptorData = {
-      "\n\rCommand.proto\022\006pubsub\032\033google/protobuf" +
-      "/empty.proto\032\037google/protobuf/timestamp." +
-      "proto\"\373\001\n\016CommandRequest\022.\n\nstart_time\030\001" +
-      " \001(\0132\032.google.protobuf.Timestamp\022-\n\tstop" +
-      "_time\030\002 \001(\0132\032.google.protobuf.Timestamp\022" +
-      "\031\n\021number_of_workers\030\003 \001(\005\022\032\n\022restart_st" +
-      "atistics\030\004 \001(\010\022\035\n\025max_messages_per_pull\030" +
-      "\005 \001(\005\022\017\n\007project\030\006 \001(\t\022\r\n\005topic\030\007 \001(\t\022\024\n" +
-      "\014subscription\030\010 \001(\t2T\n\021LoadtestFramework" +
-      "\022?\n\013StartClient\022\026.pubsub.CommandRequest\032",
-      "\026.google.protobuf.Empty\"\000B(\n\035com.google." +
-      "pubsub.flic.commonB\007Commandb\006proto3"
-    };
-    com.google.protobuf.Descriptors.FileDescriptor.InternalDescriptorAssigner assigner =
-        new com.google.protobuf.Descriptors.FileDescriptor.    InternalDescriptorAssigner() {
-          public com.google.protobuf.ExtensionRegistry assignDescriptors(
-              com.google.protobuf.Descriptors.FileDescriptor root) {
-            descriptor = root;
-            return null;
-          }
-        };
-    com.google.protobuf.Descriptors.FileDescriptor
-      .internalBuildGeneratedFileFrom(descriptorData,
-        new com.google.protobuf.Descriptors.FileDescriptor[] {
-          com.google.protobuf.EmptyProto.getDescriptor(),
-          com.google.protobuf.TimestampProto.getDescriptor(),
-        }, assigner);
-    internal_static_pubsub_CommandRequest_descriptor =
-      getDescriptor().getMessageTypes().get(0);
-    internal_static_pubsub_CommandRequest_fieldAccessorTable = new
-      com.google.protobuf.GeneratedMessage.FieldAccessorTable(
-        internal_static_pubsub_CommandRequest_descriptor,
-        new java.lang.String[] { "StartTime", "StopTime", "NumberOfWorkers", "RestartStatistics", "MaxMessagesPerPull", "Project", "Topic", "Subscription", });
-    com.google.protobuf.EmptyProto.getDescriptor();
-    com.google.protobuf.TimestampProto.getDescriptor();
   }
 
   // @@protoc_insertion_point(outer_class_scope)

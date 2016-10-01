@@ -17,6 +17,7 @@
 package com.google.pubsub.flic.controllers;
 
 import com.google.protobuf.Empty;
+import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.Command;
 import com.google.pubsub.flic.common.LoadtestFrameworkGrpc;
 import io.grpc.ManagedChannel;
@@ -29,6 +30,11 @@ public class Client {
   static final String topicPrefix = "cloud-pubsub-loadtest-";
   private static final Logger log = LoggerFactory.getLogger(Client.class.getName());
   private static final int port = 5000;
+  public static int messageSize;
+  public static int requestRate;
+  public static Timestamp startTime;
+  public static int loadtestLengthSeconds;
+  public static int batchSize;
   private final ClientType clientType;
   private String networkAddress;
   private ClientStatus clientStatus;
@@ -66,8 +72,12 @@ public class Client {
         .setProject(project)
         .setTopic(topic)
         .setSubscription(subscription)
-        .setMaxMessagesPerPull(100)
+        .setMaxMessagesPerPull(batchSize)
         .setNumberOfWorkers(1000)
+        .setMessageSize(messageSize)
+        .setRequestRate(1000)
+        .setStartTime(startTime)
+        .setStopTime(Timestamp.newBuilder().setSeconds(startTime.getSeconds() + loadtestLengthSeconds).build())
         .build();
     stub.startClient(request, new StreamObserver<Empty>() {
       @Override

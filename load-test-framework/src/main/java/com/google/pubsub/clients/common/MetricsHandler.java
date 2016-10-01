@@ -13,7 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.clients.grpc;
+package com.google.pubsub.clients.common;
 
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
@@ -53,7 +53,7 @@ import java.util.concurrent.TimeUnit;
  * A class that is used to record metrics related to the execution of the load tests, such metrics
  * are recorded using Google's Cloud Monitoring API.
  */
-class MetricsHandler {
+public class MetricsHandler {
   private static final List<Double> LATENCY_BUCKETS =
       Arrays.asList(
           0.0,
@@ -83,8 +83,10 @@ class MetricsHandler {
       );
   private static final Logger log = LoggerFactory.getLogger(MetricsHandler.class);
   private static final String END_TO_END_LATENCY_METRIC_NAME = "end_to_end_latency";
+  private static final String PUBLISH_LATENCY_METRIC_NAME = "publish_latency";
   private final static int metricsReportIntervalSecs = 30;
   private final LatencyDistribution endToEndLatencyDistribution;
+  private final LatencyDistribution publishLatencyDistribution;
   private Monitoring monitoring;
   private String project;
   private ScheduledExecutorService executor;
@@ -92,7 +94,7 @@ class MetricsHandler {
   private String startTime;
   private MonitoredResource monitoredResource;
 
-  MetricsHandler(String project) throws IOException, GeneralSecurityException {
+  public MetricsHandler(String project) throws IOException, GeneralSecurityException {
     this.project = project;
     dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
@@ -108,6 +110,7 @@ class MetricsHandler {
     this.executor = Executors.newScheduledThreadPool(5,
         new ThreadFactoryBuilder().setDaemon(true).setNameFormat("load-thread").build());
     endToEndLatencyDistribution = new LatencyDistribution();
+    publishLatencyDistribution = new LatencyDistribution();
     monitoring = new Monitoring.Builder(transport, jsonFactory, credential)
         .setApplicationName("Cloud Pub/Sub Loadtest Framework")
         .build();
@@ -165,11 +168,11 @@ class MetricsHandler {
     ));
   }
 
-  void initialize() {
+  public void initialize() {
     createMetrics();
   }
 
-  void startReporting() {
+  public void startReporting() {
     executor.scheduleAtFixedRate(() -> {
           try {
             reportMetrics();
@@ -202,16 +205,21 @@ class MetricsHandler {
     return resultFuture;
   }
 
-  void recordEndToEndLatency(long latencyMs) {
-    log.debug("Adding a end to end latency: %s", latencyMs);
+  public void recordEndToEndLatency(long latencyMs) {
+    log.debug("Adding a end to end latency: " + latencyMs);
     endToEndLatencyDistribution.recordLatency(latencyMs);
   }
 
-  private void reportEndToEndLatencyTimeSeries() {
+  public void recordPublishLatency(long latencyMs) {
+    log.debug("Adding a publish latency: " + latencyMs);
+    publishLatencyDistribution.recordLatency(latencyMs);
+  }
+
+  private void reportTimeSeries(LatencyDistribution distribution, String name) {
     String endTime = dateFormatter.format(new Date());
     try {
       List<Long> bucketCounts = new ArrayList<>();
-      for (double val : endToEndLatencyDistribution.getBucketValues()) {
+      for (double val : distribution.getBucketValues()) {
         bucketCounts.add((long) val);
       }
       CreateTimeSeriesRequest request = new CreateTimeSeriesRequest();
@@ -220,15 +228,15 @@ class MetricsHandler {
       points.add(new Point().setValue(new TypedValue()
           .setDistributionValue(new Distribution()
               .setBucketCounts(bucketCounts)
-              .setMean(endToEndLatencyDistribution.getMean())
-              .setCount(endToEndLatencyDistribution.getCount())
-              .setSumOfSquaredDeviation(endToEndLatencyDistribution.getSumOfSquareDeviations())
+              .setMean(distribution.getMean())
+              .setCount(distribution.getCount())
+              .setSumOfSquaredDeviation(distribution.getSumOfSquareDeviations())
               .setBucketOptions(new BucketOptions().setExplicitBuckets(new Explicit().setBounds(LATENCY_BUCKETS)))))
           .setInterval(new TimeInterval().setStartTime(startTime)
               .setEndTime(endTime)));
       request.getTimeSeries().add(new TimeSeries()
           .setMetric(new Metric()
-              .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + END_TO_END_LATENCY_METRIC_NAME)
+              .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + name)
               .setLabels(new HashMap<>()))
           .setMetricKind("CUMULATIVE")
           .setValueType("DISTRIBUTION")
@@ -240,9 +248,18 @@ class MetricsHandler {
     }
   }
 
+  private void reportEndToEndLatencyTimeSeries() {
+    reportTimeSeries(endToEndLatencyDistribution, END_TO_END_LATENCY_METRIC_NAME);
+  }
+
+  private void reportPublishTimeSeries() {
+    reportTimeSeries(publishLatencyDistribution, PUBLISH_LATENCY_METRIC_NAME);
+  }
+
   private void reportMetrics() {
     try {
       reportEndToEndLatencyTimeSeries();
+      reportPublishTimeSeries();
     } catch (Exception e) {
       log.warn("Unable to report metric values", e);
     }

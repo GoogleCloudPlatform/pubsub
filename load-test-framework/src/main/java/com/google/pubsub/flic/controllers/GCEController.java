@@ -95,7 +95,7 @@ public class GCEController extends Controller {
   }
 
   @Override
-  synchronized void shutdown(Throwable t) {
+  public synchronized void shutdown(Throwable t) {
     if (shutdown) {
       return;
     }
@@ -115,7 +115,7 @@ public class GCEController extends Controller {
   }
 
   @Override
-  void initialize() throws IOException, InterruptedException {
+  public void initialize() throws IOException, InterruptedException {
     synchronized (this) {
       if (shutdown) {
         throw new IOException("Already shutting down, cannot initialize.");

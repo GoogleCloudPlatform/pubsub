@@ -35,8 +35,9 @@ abstract class Controller {
   environment, the environment will be shut down, and an IOException will be thrown. It is not guaranteed that we have
   completed shutting down when this function returns, but it is guaranteed that we are in process.
    */
-  abstract void initialize() throws IOException, InterruptedException;
-  abstract void shutdown(Throwable t);
+  public abstract void initialize() throws IOException, InterruptedException;
+
+  public abstract void shutdown(Throwable t);
 
   public void startClients() {
     clients.forEach((client) -> executor.execute(client::start));

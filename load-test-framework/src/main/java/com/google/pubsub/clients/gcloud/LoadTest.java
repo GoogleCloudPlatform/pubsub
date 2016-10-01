@@ -21,6 +21,7 @@ import com.google.cloud.pubsub.PubSubOptions;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.*;
 import com.google.protobuf.Empty;
+import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.flic.common.Command;
 import com.google.pubsub.flic.common.LoadtestFrameworkGrpc;
 import io.grpc.Server;
@@ -104,6 +105,9 @@ public class LoadTest {
     final long endTimeMillis = request.getStopTime().getSeconds() * 1000;
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
     final Semaphore outstandingTestLimiter = new Semaphore(numWorkers, false);
+    LoadTestRun.metricsHandler = new MetricsHandler(request.getProject());
+    LoadTestRun.metricsHandler.initialize();
+    LoadTestRun.metricsHandler.startReporting();
     while (System.currentTimeMillis() < endTimeMillis) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();

@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.*;
 import com.google.protobuf.Empty;
+import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.LoadTestParams;
 import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.ProjectInfo;
 import com.google.pubsub.clients.grpc.PubsubLoadClientAdapter.PublishResponseResult;
@@ -144,16 +145,10 @@ public class LoadClient {
               new FutureCallback<PublishResponseResult>() {
                 @Override
                 public void onSuccess(PublishResponseResult result) {
-                  long elapsed = stopWatch.elapsed(TimeUnit.MILLISECONDS);
                   concurrentLimiter.release();
                   if (result.isOk()) {
-                    //metricsHandler.recordPublishAckLatency(elapsed);
+                    metricsHandler.recordPublishLatency(stopWatch.elapsed(TimeUnit.MILLISECONDS));
                   }
-                  /*metricsHandler.recordRequestCount(
-                      topicName,
-                      Operation.PUBLISH.toString(),
-                      result.getStatusCode(),
-                      result.getMessagesPublished());*/
                 }
 
                 @Override
@@ -161,7 +156,6 @@ public class LoadClient {
                   concurrentLimiter.release();
                   log.warn(
                       "Unable to execute a publish request (client-side error)", t);
-                  //metricsHandler.recordRequestCount(topicName, Operation.PUBLISH.toString(), REQUEST_FAILED_CODE, 0);
                 }
               });
         }
@@ -172,7 +166,6 @@ public class LoadClient {
       while (true) {
         concurrentLimiter.acquireUninterruptibly();
         rateLimiter.acquire();
-        final Stopwatch stopWatch = Stopwatch.createStarted();
         ListenableFuture<PullResponseResult> pullFuture =
             pubsubClient.pullMessages(subscriptionPath);
         Futures.addCallback(
@@ -181,14 +174,13 @@ public class LoadClient {
               @Override
               public void onSuccess(PullResponseResult result) {
                 concurrentLimiter.release();
-                recordPullResponseResult(result, stopWatch.elapsed(TimeUnit.MILLISECONDS));
+                recordPullResponseResult(result);
               }
 
               @Override
               public void onFailure(@Nonnull Throwable t) {
                 log.warn(
                     "Unable to execute a pull request (client-side error)", t);
-                //metricsHandler.recordRequestCount(subscriptionName, Operation.PULL.toString(), REQUEST_FAILED_CODE, 0);
               }
             });
       }
@@ -197,21 +189,10 @@ public class LoadClient {
     metricsHandler.startReporting();
   }
 
-  private void recordPullResponseResult(
-      PullResponseResult result, long elapsed) {
+  private void recordPullResponseResult(PullResponseResult result) {
     if (result.isOk()) {
       result.getEndToEndLatenciesMillis().forEach(metricsHandler::recordEndToEndLatency);
     }
-    /*metricsHandler.recordRequestCount(
-        topicName,
-        Operation.PULL.toString(),
-        result.getStatusCode(),
-        result.getMessagesPulled());*/
-  }
-
-  private enum Operation {
-    PUBLISH,
-    PULL,
   }
 }
 
