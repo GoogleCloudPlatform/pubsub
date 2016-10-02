@@ -65,6 +65,7 @@ public class Client {
 
   void start() {
     // Send a gRPC call to start the server
+    log.info("Connecting to " + networkAddress + ":" + port);
     ManagedChannel channel = ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build();
 
     LoadtestFrameworkGrpc.LoadtestFrameworkStub stub = LoadtestFrameworkGrpc.newStub(channel);
@@ -88,6 +89,7 @@ public class Client {
 
       @Override
       public void onError(Throwable throwable) {
+        log.error("Unable to start client [" + networkAddress + "]", throwable);
         clientStatus = ClientStatus.FAILED;
       }
 

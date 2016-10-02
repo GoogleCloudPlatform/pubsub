@@ -30,7 +30,7 @@ import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
 import com.google.cloud.pubsub.SubscriptionInfo;
 import com.google.cloud.pubsub.TopicInfo;
-import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,16 +49,16 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
 
 public class GCEController extends Controller {
   private static final Logger log = LoggerFactory.getLogger(GCEController.class.getName());
   private static final String machineType = "n1-standard-4"; // quad core machines
-  private static final String sourceFamily = "projects/debian-cloud/global/images/family/debian-8"; // latest Debian 8
+  private static final String sourceFamily = "projects/cloud-pubsub-load-tests/global/images/bring-down-the-world-image";
   private final Storage storage;
   private final Compute compute;
   private final PubSub pubSub;
   private final String projectName;
+  private final boolean recreateFiles = false;
   private Map<String, Map<ClientParams, Integer>> types;
   private boolean shutdown;
 
@@ -136,16 +136,29 @@ public class GCEController extends Controller {
     try {
       createStorageBucket();
 
-      CountDownLatch filesRemaining;
-      try (Stream<Path> paths = Files.walk(Paths.get("src/main/resources/gce"))) {
-        Preconditions.checkArgument(paths.count() < Integer.MAX_VALUE);
-        filesRemaining = new CountDownLatch((int) paths.count());
-        paths.filter(Files::isRegularFile).forEach(filePath -> executor.execute(() -> {
-          uploadFile(filePath);
-          filesRemaining.countDown();
-        }));
+      Firewall firewallRule = new Firewall()
+          .setName("cloud-loadtest-framework-firewall-rule")
+          .setDescription("A firewall rule to allow the driver to coordinate load test instances.")
+          .setAllowed(ImmutableList.of(
+              new Firewall.Allowed()
+                  .setIPProtocol("tcp")
+                  .setPorts(Collections.singletonList("5000"))));
+      try {
+        compute.firewalls().get(projectName, "cloud-loadtest-framework-firewall-rule");
+        compute.firewalls().update(projectName, "cloud-loadtest-framework-firewall-rule", firewallRule).execute();
+      } catch (GoogleJsonResponseException e) {
+        compute.firewalls().insert(projectName, firewallRule).execute();
       }
-
+      CountDownLatch filesRemaining;
+      int count = (int) Files.walk(Paths.get("src/main/resources/gce"))
+          .filter(Files::isRegularFile)
+          .count();
+      filesRemaining = new CountDownLatch(count);
+      Files.walk(Paths.get("src/main/resources/gce"))
+          .filter(Files::isRegularFile).forEach(filePath -> executor.execute(() -> {
+        uploadFile(filePath);
+        filesRemaining.countDown();
+      }));
       CountDownLatch instancesRemaining = new CountDownLatch(types.size());
       types.forEach((zone, paramsMap) -> paramsMap.forEach((param, n) -> executor.execute(() -> {
         createManagedInstanceGroup(zone, param.clientType);
@@ -157,6 +170,7 @@ public class GCEController extends Controller {
       instancesRemaining.await();
 
       // Everything is set up, let's start our instances
+      log.info("Starting instances.");
       types.forEach((zone, paramsMap) -> paramsMap.forEach((type, n) -> {
         executor.execute(() -> startInstances(zone, type.clientType, n));
       }));
@@ -164,6 +178,7 @@ public class GCEController extends Controller {
       // We wait for all instances to finish starting, and get the external network address of each newly
       // created instance.
       waitForInstancesToStart();
+      log.info("Successfully started all instances.");
     } catch (Exception e) {
       shutdown(e);
       throw e;
@@ -263,14 +278,26 @@ public class GCEController extends Controller {
         log.info("Managed Instance Group already exists for " + type + ", using existing group.");
       } catch (GoogleJsonResponseException e) {
         log.info("Creating new Managed Instance Group for " + type);
-        compute.instanceGroupManagers().insert(projectName, zone,
-            (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
-                .setInstanceTemplate("projects/" + projectName +
-                    "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
-                .setTargetSize(0))
-            .execute();
+        boolean created = false;
+        while (!created) {
+          try {
+            compute.instanceGroupManagers().insert(projectName, zone,
+                (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
+                    .setInstanceTemplate("projects/" + projectName +
+                        "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
+                    .setTargetSize(0))
+                .execute();
+            created = true;
+          } catch (GoogleJsonResponseException e1) {
+            if (!e1.getDetails().getErrors().get(0).getReason().equals("resourceNotReady")) {
+              throw e1;
+            }
+            log.info("Instance template not ready for " + type + " trying again.");
+            Thread.sleep(100);
+          }
+        }
       }
-    } catch (IOException e) {
+    } catch (Exception e) {
       shutdown(e);
     }
   }
@@ -300,7 +327,10 @@ public class GCEController extends Controller {
     }
     try {
       storage.objects().get("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
-      log.info("File " + filePath.getFileName() + " already exists, will delete and recreate it.");
+      log.info("File " + filePath.getFileName() + " already exists, " + (recreateFiles ? "recreating." : "reusing."));
+      if (!recreateFiles) {
+        return;
+      }
       storage.objects().delete("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
     } catch (IOException e) {
       log.info("File " + filePath.getFileName() + " does not already exist.");
@@ -324,6 +354,10 @@ public class GCEController extends Controller {
     }
     InstanceGroupManagersListManagedInstancesResponse response = compute.instanceGroupManagers().
         listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-" + params.clientType).execute();
+    // if response is null, we are not instantiating any instances of this type
+    if (response.getManagedInstances() == null) {
+      return true;
+    }
     for (ManagedInstance instance : response.getManagedInstances()) {
       if (!instance.getCurrentAction().equals("NONE")) {
         return false;
@@ -365,6 +399,15 @@ public class GCEController extends Controller {
     metadata.setKey("startup-script-url");
     metadata.setValue("https://storage.googleapis.com/cloud-pubsub-loadtest/" + type + "_startup_script.sh");
     content.getProperties().getMetadata().getItems().add(metadata);
+    content.getProperties().setServiceAccounts(new ArrayList<>());
+    content.getProperties().getServiceAccounts().add(new ServiceAccount().setScopes(
+        Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")));
     return content;
+  }
+
+  @Override
+  public void startClients() {
+    log.info("Starting clients.");
+    super.startClients();
   }
 }

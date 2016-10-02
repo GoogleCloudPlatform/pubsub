@@ -52,12 +52,6 @@ public class Driver {
   )
   private boolean help = false;
   @Parameter(
-      names = {"--topics", "-t"},
-      required = true,
-      description = "Topics to publish/consume from."
-  )
-  private List<String> topics = new ArrayList<>();
-  @Parameter(
       names = {"--dump_data", "-d"},
       description = "Whether to dump relevant message data (only when consuming messages)."
   )
@@ -101,11 +95,11 @@ public class Driver {
   )
   private int loadtestLengthSeconds = 60;
   @Parameter(
-      names = {"--project", "-u"},
+      names = {"--project"},
       required = true,
       description = "Cloud Pub/Sub project name."
   )
-  private String project;
+  private String project = "";
   @Parameter(
       names = {"--batch_size", "-b"},
       description = "Number of messages to batch per publish request.",
@@ -139,7 +133,8 @@ public class Driver {
       jCommander.usage();
       return;
     }
-    if (jCommander.getParsedCommand().equals(Comparison.COMMAND)) {
+    if (jCommander.getParsedCommand() != null &&
+        jCommander.getParsedCommand().equals(Comparison.COMMAND)) {
       try {
         comparison.compare();
       } catch (Exception e) {

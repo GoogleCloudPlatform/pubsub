@@ -74,6 +74,7 @@ public class LoadClient {
               responseObserver.onError(new Exception("Start should only be called once, ignoring this request."));
               return;
             }
+            log.info("Received start request.");
             requestFuture.set(request);
             responseObserver.onNext(Empty.getDefaultInstance());
             responseObserver.onCompleted();
@@ -93,6 +94,7 @@ public class LoadClient {
       }
     });
     Command.CommandRequest request = requestFuture.get();
+    log.info("Starting load test.");
     if (request.hasStartTime()) {
       Preconditions.checkArgument(request.getStartTime().getSeconds() * 1000 > System.currentTimeMillis());
       Thread.sleep(request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis());
