@@ -16,9 +16,11 @@
 
 package com.google.pubsub.flic.controllers;
 
-import java.io.IOException;
+import com.google.common.util.concurrent.SettableFuture;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 
 abstract class Controller {
@@ -35,12 +37,26 @@ abstract class Controller {
   environment, the environment will be shut down, and an IOException will be thrown. It is not guaranteed that we have
   completed shutting down when this function returns, but it is guaranteed that we are in process.
    */
-  public abstract void initialize() throws IOException, InterruptedException;
+  public abstract void initialize() throws Throwable;
 
   public abstract void shutdown(Throwable t);
 
   public void startClients() {
-    clients.forEach((client) -> executor.execute(client::start));
+    SettableFuture<Void> startFuture = SettableFuture.create();
+    clients.forEach((client) -> executor.execute(() -> {
+      try {
+        client.start();
+      } catch (Throwable t) {
+        startFuture.setException(t);
+      }
+    }));
+    try {
+      startFuture.get();
+    } catch (ExecutionException e) {
+      shutdown(e.getCause());
+    } catch (InterruptedException e) {
+      shutdown(e);
+    }
   }
 }
 

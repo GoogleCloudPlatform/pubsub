@@ -18,7 +18,6 @@ package com.google.pubsub.clients.gcloud;
 import com.beust.jcommander.JCommander;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
-import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.*;
 import com.google.protobuf.Empty;
 import com.google.pubsub.clients.common.MetricsHandler;
@@ -83,14 +82,11 @@ public class LoadTest {
     LoadTestRun.batchSize = request.getMaxMessagesPerPull();
     LoadTestRun.subscription = request.getSubscription();
     LoadTestRun.topic = request.getTopic();
-    if (request.hasStartTime()) {
-      final long sleepTime = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
-      Preconditions.checkArgument(sleepTime > 0);
-      if (sleepTime > 0) {
-        Thread.sleep(sleepTime);
-      }
-    }
     log.info("Request received, starting up server.");
+    long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
+    if (request.hasStartTime() && toSleep > 0) {
+      Thread.sleep(toSleep);
+    }
     final PubSub pubSub = PubSubOptions.builder().projectId(request.getProject()).build().service();
 
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(

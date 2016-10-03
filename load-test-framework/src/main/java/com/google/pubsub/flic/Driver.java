@@ -172,7 +172,7 @@ public class Driver {
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1000;
-      Client.startTime = Timestamp.newBuilder().setSeconds(System.currentTimeMillis() + 5 * 60 * 1000).build();
+      Client.startTime = Timestamp.newBuilder().build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.batchSize = batchSize;
       GCEController gceController =
@@ -215,8 +215,8 @@ public class Driver {
           });
         });
       } while (response.getNextPageToken() != null);
-    } catch (Exception e) {
-      log.error("An error occurred...", e);
+    } catch (Throwable t) {
+      log.error("An error occurred...", t);
       System.exit(1);
     }
   }

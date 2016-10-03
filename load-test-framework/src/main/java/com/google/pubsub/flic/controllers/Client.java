@@ -16,6 +16,7 @@
 
 package com.google.pubsub.flic.controllers;
 
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.Command;
@@ -25,6 +26,8 @@ import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.concurrent.ExecutionException;
 
 public class Client {
   static final String topicPrefix = "cloud-pubsub-loadtest-";
@@ -63,7 +66,7 @@ public class Client {
     this.networkAddress = networkAddress;
   }
 
-  void start() {
+  void start() throws Throwable {
     // Send a gRPC call to start the server
     log.info("Connecting to " + networkAddress + ":" + port);
     ManagedChannel channel = ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build();
@@ -80,7 +83,9 @@ public class Client {
         .setStartTime(startTime)
         .setStopTime(Timestamp.newBuilder().setSeconds(startTime.getSeconds() + loadtestLengthSeconds).build())
         .build();
+    SettableFuture<Void> startFuture = SettableFuture.create();
     stub.startClient(request, new StreamObserver<Empty>() {
+      private int connectionErrors = 0;
       @Override
       public void onNext(Empty empty) {
         log.info("Successfully started client [" + networkAddress + "]");
@@ -91,12 +96,32 @@ public class Client {
       public void onError(Throwable throwable) {
         log.error("Unable to start client [" + networkAddress + "]", throwable);
         clientStatus = ClientStatus.FAILED;
+        if (connectionErrors > 10) {
+          log.error("Client failed " + connectionErrors + " times, shutting down.");
+          startFuture.setException(throwable);
+          return;
+        }
+        connectionErrors++;
+        try {
+          Thread.sleep(5000);
+        } catch (InterruptedException e) {
+          log.info("Interrupted during back off, retrying.");
+        }
+        log.info("Going to retry client connection, likely due to start up time.");
+        stub.startClient(request, this);
       }
 
       @Override
       public void onCompleted() {
+        log.info("Start command completed.");
+        startFuture.set(null);
       }
     });
+    try {
+      startFuture.get();
+    } catch (ExecutionException e) {
+      throw e.getCause();
+    }
   }
 
   public enum ClientType {

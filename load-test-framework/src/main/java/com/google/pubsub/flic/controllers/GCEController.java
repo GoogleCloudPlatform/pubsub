@@ -32,6 +32,8 @@ import com.google.cloud.pubsub.PubSubOptions;
 import com.google.cloud.pubsub.SubscriptionInfo;
 import com.google.cloud.pubsub.TopicInfo;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
@@ -46,6 +48,7 @@ import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -124,7 +127,7 @@ public class GCEController extends Controller {
   }
 
   @Override
-  public void initialize() throws IOException, InterruptedException {
+  public void initialize() throws Throwable {
     synchronized (this) {
       if (shutdown) {
         throw new IOException("Already shutting down, cannot initialize.");
@@ -158,36 +161,62 @@ public class GCEController extends Controller {
       } catch (GoogleJsonResponseException e) {
         compute.firewalls().insert(projectName, firewallRule).execute();
       }
-      CountDownLatch filesRemaining;
-      int count = (int) Files.walk(Paths.get("src/main/resources/gce"))
-          .filter(Files::isRegularFile)
-          .count();
-      filesRemaining = new CountDownLatch(count);
+      List<SettableFuture<Void>> filesRemaining = new ArrayList<>();
       Files.walk(Paths.get("src/main/resources/gce"))
-          .filter(Files::isRegularFile).forEach(filePath -> executor.execute(() -> {
-        uploadFile(filePath);
-        filesRemaining.countDown();
+          .filter(Files::isRegularFile).forEach(filePath -> {
+        SettableFuture<Void> fileRemaining = SettableFuture.create();
+        filesRemaining.add(fileRemaining);
+        executor.execute(() -> {
+          try {
+            uploadFile(filePath);
+            fileRemaining.set(null);
+          } catch (Exception e) {
+            fileRemaining.setException(e);
+          }
+        });
+      });
+      List<SettableFuture<Void>> createGroupFutures = new ArrayList<>();
+      types.forEach((zone, paramsMap) -> paramsMap.forEach((param, n) -> {
+        SettableFuture<Void> createGroupFuture = SettableFuture.create();
+        createGroupFutures.add(createGroupFuture);
+        executor.execute(() -> {
+          try {
+            createManagedInstanceGroup(zone, param.clientType);
+            createGroupFuture.set(null);
+          } catch (Exception e) {
+            createGroupFuture.setException(e);
+          }
+        });
       }));
-      CountDownLatch instancesRemaining = new CountDownLatch(types.size());
-      types.forEach((zone, paramsMap) -> paramsMap.forEach((param, n) -> executor.execute(() -> {
-        createManagedInstanceGroup(zone, param.clientType);
-        instancesRemaining.countDown();
-      })));
 
       // Wait for files and instance groups to be created.
-      filesRemaining.await();
-      instancesRemaining.await();
+      Futures.allAsList(filesRemaining).get();
+      Futures.allAsList(createGroupFutures).get();
 
       // Everything is set up, let's start our instances
       log.info("Starting instances.");
+      List<SettableFuture<Void>> resizingFutures = new ArrayList<>();
       types.forEach((zone, paramsMap) -> paramsMap.forEach((type, n) -> {
-        executor.execute(() -> startInstances(zone, type.clientType, n));
+        SettableFuture<Void> resizingFuture = SettableFuture.create();
+        resizingFutures.add(resizingFuture);
+        executor.execute(() -> {
+          try {
+            startInstances(zone, type.clientType, n);
+            resizingFuture.set(null);
+          } catch (IOException e) {
+            resizingFuture.setException(e);
+          }
+        });
       }));
+      Futures.allAsList(resizingFutures).get();
 
       // We wait for all instances to finish starting, and get the external network address of each newly
       // created instance.
       waitForInstancesToStart();
       log.info("Successfully started all instances.");
+    } catch (ExecutionException e) {
+      shutdown(e.getCause());
+      throw e.getCause();
     } catch (Exception e) {
       shutdown(e);
       throw e;
@@ -265,66 +294,58 @@ public class GCEController extends Controller {
     }
   }
 
-  private void createManagedInstanceGroup(String zone, ClientType type) {
+  private void createManagedInstanceGroup(String zone, ClientType type) throws Exception {
     synchronized (this) {
       if (shutdown) {
         return;
       }
     }
+    // Create the Instance Template
     try {
-      // Create the Instance Template
-      try {
-        compute.instanceTemplates().insert(projectName,
-            defaultInstanceTemplate(type.toString())).execute();
-      } catch (GoogleJsonResponseException e) {
-        log.info("Instance Template already exists for " + type + ", using existing template.");
-      }
-      // Create the Managed Instance Group
-      try {
-        compute.instanceGroupManagers().get(projectName, zone,
-            "cloud-pubsub-loadtest-framework-" + type).execute();
-        log.info("Managed Instance Group already exists for " + type + ", using existing group.");
-      } catch (GoogleJsonResponseException e) {
-        log.info("Creating new Managed Instance Group for " + type);
-        boolean created = false;
-        while (!created) {
-          try {
-            compute.instanceGroupManagers().insert(projectName, zone,
-                (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
-                    .setInstanceTemplate("projects/" + projectName +
-                        "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
-                    .setTargetSize(0))
-                .execute();
-            created = true;
-          } catch (GoogleJsonResponseException e1) {
-            if (!e1.getDetails().getErrors().get(0).getReason().equals("resourceNotReady")) {
-              throw e1;
-            }
-            log.info("Instance template not ready for " + type + " trying again.");
-            Thread.sleep(100);
+      compute.instanceTemplates().insert(projectName,
+          defaultInstanceTemplate(type.toString())).execute();
+    } catch (GoogleJsonResponseException e) {
+      log.info("Instance Template already exists for " + type + ", using existing template.");
+    }
+    // Create the Managed Instance Group
+    try {
+      compute.instanceGroupManagers().get(projectName, zone,
+          "cloud-pubsub-loadtest-framework-" + type).execute();
+      log.info("Managed Instance Group already exists for " + type + ", using existing group.");
+    } catch (GoogleJsonResponseException e) {
+      log.info("Creating new Managed Instance Group for " + type);
+      boolean created = false;
+      while (!created) {
+        try {
+          compute.instanceGroupManagers().insert(projectName, zone,
+              (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
+                  .setInstanceTemplate("projects/" + projectName +
+                      "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
+                  .setTargetSize(0))
+              .execute();
+          created = true;
+        } catch (GoogleJsonResponseException e1) {
+          if (!e1.getDetails().getErrors().get(0).getReason().equals("resourceNotReady")) {
+            throw e1;
           }
+          log.info("Instance template not ready for " + type + " trying again.");
+          Thread.sleep(100);
         }
       }
-    } catch (Exception e) {
-      shutdown(e);
     }
   }
 
-  private void startInstances(String zone, ClientType type, Integer n) {
+  private void startInstances(String zone, ClientType type, Integer n) throws IOException {
     synchronized (this) {
       if (shutdown) {
         return;
       }
     }
-    try {
-      // We first resize to 0 in case any were left running from an improperly cleaned up prior run.
-      compute.instanceGroupManagers().resize(projectName, zone,
-          "cloud-pubsub-loadtest-framework-" + type, 0).execute();
-      compute.instanceGroupManagers().resize(projectName, zone,
-          "cloud-pubsub-loadtest-framework-" + type, n).execute();
-    } catch (IOException e) {
-      shutdown(e);
-    }
+    // We first resize to 0 in case any were left running from an improperly cleaned up prior run.
+    compute.instanceGroupManagers().resize(projectName, zone,
+        "cloud-pubsub-loadtest-framework-" + type, 0).execute();
+    compute.instanceGroupManagers().resize(projectName, zone,
+        "cloud-pubsub-loadtest-framework-" + type, n).execute();
   }
 
   private void uploadFile(Path filePath) {
@@ -345,7 +366,8 @@ public class GCEController extends Controller {
         }
       }
       log.info("File " + filePath.getFileName() + " is out of date, uploading new version.");
-      storage.objects().delete("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
+      return;
+      //storage.objects().delete("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
     } catch (IOException e) {
       log.info("File " + filePath.getFileName() + " does not already exist.");
     }

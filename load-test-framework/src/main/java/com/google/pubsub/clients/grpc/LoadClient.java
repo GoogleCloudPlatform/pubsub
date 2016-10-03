@@ -71,6 +71,7 @@ public class LoadClient {
           @Override
           public void startClient(Command.CommandRequest request, StreamObserver<Empty> responseObserver) {
             if (requestFuture.isDone()) {
+              log.error("Start should only be called once, ignoring this request.");
               responseObserver.onError(new Exception("Start should only be called once, ignoring this request."));
               return;
             }
@@ -95,9 +96,9 @@ public class LoadClient {
     });
     Command.CommandRequest request = requestFuture.get();
     log.info("Starting load test.");
-    if (request.hasStartTime()) {
-      Preconditions.checkArgument(request.getStartTime().getSeconds() * 1000 > System.currentTimeMillis());
-      Thread.sleep(request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis());
+    long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
+    if (request.hasStartTime() && toSleep > 0) {
+      Thread.sleep(toSleep);
     }
     final String project = Preconditions.checkNotNull(request.getProject());
     topicName = Preconditions.checkNotNull(request.getTopic());
