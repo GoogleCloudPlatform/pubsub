@@ -80,8 +80,9 @@ public class Client {
         .setNumberOfWorkers(1000)
         .setMessageSize(messageSize)
         .setRequestRate(1000)
-        .setStartTime(startTime)
-        .setStopTime(Timestamp.newBuilder().setSeconds(startTime.getSeconds() + loadtestLengthSeconds).build())
+        //.setStartTime(startTime)
+        .setStopTime(Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 +
+            loadtestLengthSeconds).build())
         .build();
     SettableFuture<Void> startFuture = SettableFuture.create();
     stub.startClient(request, new StreamObserver<Empty>() {

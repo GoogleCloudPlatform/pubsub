@@ -127,9 +127,9 @@ public class LoadClient {
     pubsubClient = new PubsubGrpcLoadClient(projectInfo, loadTestParams);
     startLoad();
 
-    final long endTime = request.getStopTime().getSeconds() * 1000;
-    Preconditions.checkArgument(endTime < System.currentTimeMillis());
-    executorService.awaitTermination(endTime - System.currentTimeMillis(), TimeUnit.MILLISECONDS);
+    final long waitSeconds = request.getStopTime().getSeconds() - System.currentTimeMillis() / 1000;
+    Preconditions.checkArgument(waitSeconds > 0);
+    executorService.awaitTermination(waitSeconds, TimeUnit.SECONDS);
 
     executorService.shutdownNow();
   }

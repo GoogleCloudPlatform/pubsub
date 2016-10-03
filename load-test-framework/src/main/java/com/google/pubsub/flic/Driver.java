@@ -93,7 +93,7 @@ public class Driver {
       description = "Duration of the load test, in seconds.",
       validateWith = Utils.GreaterThanZeroValidator.class
   )
-  private int loadtestLengthSeconds = 60;
+  private int loadtestLengthSeconds = 300;
   @Parameter(
       names = {"--project"},
       required = true,
@@ -171,7 +171,7 @@ public class Driver {
             kafkaSubscriberCount / subscriberFanout);
       }
       Client.messageSize = messageSize;
-      Client.requestRate = 1000;
+      Client.requestRate = 1;
       Client.startTime = Timestamp.newBuilder().build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.batchSize = batchSize;
@@ -183,7 +183,8 @@ public class Driver {
       dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
       String startTime = dateFormatter.format(new Date());
       // Wait for the load test to finish.
-      Thread.sleep(System.currentTimeMillis() + 5 * 60 * 1000 + loadtestLengthSeconds * 1000);
+      Thread.sleep(Math.max(System.currentTimeMillis(), Client.startTime.getSeconds() * 1000) +
+          loadtestLengthSeconds * 1000 - System.currentTimeMillis());
       gceController.shutdown(new Exception("Loadtest completed."));
 
       // Print out latency measurements.

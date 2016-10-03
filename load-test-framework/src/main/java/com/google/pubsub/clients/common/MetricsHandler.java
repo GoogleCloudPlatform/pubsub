@@ -35,7 +35,6 @@ import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.impl.client.DefaultHttpClient;
-import org.apache.http.impl.conn.PoolingClientConnectionManager;
 import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
@@ -129,12 +128,7 @@ public class MetricsHandler {
       HttpConnectionParams.setStaleCheckingEnabled(httpClient.getParams(), false);
       HttpConnectionParams.setTcpNoDelay(httpClient.getParams(), true);
 
-      PoolingClientConnectionManager connectionManager = (PoolingClientConnectionManager)
-          httpClient.getConnectionManager();
-      connectionManager.setMaxTotal(5);
-      connectionManager.setDefaultMaxPerRoute(5);
-
-      SchemeRegistry schemeRegistry = connectionManager.getSchemeRegistry();
+      SchemeRegistry schemeRegistry = httpClient.getConnectionManager().getSchemeRegistry();
       schemeRegistry.register(new Scheme("http", 80, PlainSocketFactory.getSocketFactory()));
       schemeRegistry.register(new Scheme("https", 443, SSLSocketFactory.getSocketFactory()));
       httpClient.setKeepAliveStrategy((response, ctx) -> 30);
