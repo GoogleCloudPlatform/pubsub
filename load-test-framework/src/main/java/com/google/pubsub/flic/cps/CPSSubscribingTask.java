@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.flic.common.Utils;
+import com.google.pubsub.flic.common.MessagePacketProto.MessagePacket;
 import com.google.pubsub.flic.kafka.KafkaConsumerTask;
 import com.google.pubsub.flic.processing.MessageProcessingHandler;
 import com.google.pubsub.flic.task.CPSTask;
@@ -129,15 +130,13 @@ public class CPSSubscribingTask extends CPSTask {
                   PubsubMessage message = rm.getMessage();
                   Map<String, String> attributes = message.getAttributes();
                   ackIds.add(rm.getAckId());
+                  long latency = 0;
                   if (attributes.get(Utils.TIMESTAMP_ATTRIBUTE) != null) {
                     // Calculate end-to-end latency if this message has the appropriate attribute.
-                    long latency =
+                    latency =
                         receivedTime - Long.valueOf(attributes.get(Utils.TIMESTAMP_ATTRIBUTE));
-                    processingHandler.addStats(1, latency, message.getData().size());
-                  } else {
-                    // Add a dummy value if we cannot calculate end-to-end latency.
-                    processingHandler.addStats(1, 0, message.getData().size());
                   }
+                  processingHandler.addStats(1, latency, message.getData().size());
                   if (processingHandler.getFiledump() != null) {
                     // If the user wanted to dump this data to a file, then do so.
                     String topic = extractTopic(s.getTopic());
@@ -147,10 +146,14 @@ public class CPSSubscribingTask extends CPSTask {
                       topic = attributes.get(KAFKA_TOPIC_ATTRIBUTE);
                     }
                     try {
-                      processingHandler.createMessagePacketAndAdd(
-                          topic,
-                          attributes.get(Utils.KEY_ATTRIBUTE),
-                          message.getData().toStringUtf8());
+                      MessagePacket packet =
+                          MessagePacket.newBuilder()
+                              .setTopic(topic)
+                              .setKey(attributes.get(Utils.KEY_ATTRIBUTE))
+                              .setValue(message.getData().toStringUtf8())
+                              .setLatency(latency)
+                              .build();
+                      processingHandler.addMessagePacket(packet);
                     } catch (Exception e) {
                       failureFlag.set(true);
                       log.error(e.getMessage(), e);

@@ -144,7 +144,7 @@ public class MessageProcessingHandler {
     // Print delay on sender side for processing and batching delay in case of CPS, null w/ Kafka
     if(executor != null) {
       log.info(
-          "The average delay for processing "
+          "The average delay for in-client processing "
               + latencyType
               + " latency was "
               + executor.getAverageTaskWaitTime()
@@ -175,15 +175,9 @@ public class MessageProcessingHandler {
    * Creates a {@link MessagePacket} from the passed in data and adds it to {@link #buffer}. When
    * the buffer reaches its capacity, write the contents to a file.
    */
-  public synchronized void createMessagePacketAndAdd(String topic, String key, String value)
+  public synchronized void addMessagePacket(MessagePacket packet)
       throws Exception {
     if (buffer.size() < totalItems) {
-      MessagePacket packet =
-          MessagePacket.newBuilder()
-              .setTopic(topic)
-              .setKey(key == null ? "" : key)
-              .setValue(value)
-              .build();
       buffer.add(packet);
       if (buffer.size() == totalItems || buffer.size() == BUFFER_FLUSH_SIZE) {
         Utils.writeToFile(buffer, filedump);

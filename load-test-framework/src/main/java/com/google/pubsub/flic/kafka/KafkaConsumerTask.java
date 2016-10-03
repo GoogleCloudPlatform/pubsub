@@ -16,6 +16,7 @@
 package com.google.pubsub.flic.kafka;
 
 import com.google.pubsub.flic.common.Utils;
+import com.google.pubsub.flic.common.MessagePacketProto.MessagePacket;
 import com.google.pubsub.flic.processing.MessageProcessingHandler;
 import com.google.pubsub.flic.task.Task;
 import com.google.pubsub.flic.task.TaskArgs;
@@ -64,8 +65,14 @@ public class KafkaConsumerTask extends Task {
         processingHandler.addStats(1, latency, record.serializedValueSize());
         if (processingHandler.getFiledump() != null) {
           try {
-            processingHandler.createMessagePacketAndAdd(
-                record.topic(), record.key(), record.value());
+            MessagePacket packet =
+                MessagePacket.newBuilder()
+                    .setTopic(record.topic())
+                    .setKey(record.key())
+                    .setValue(record.value())
+                    .setLatency(latency)
+                    .build();
+            processingHandler.addMessagePacket(packet);
           } catch (Exception e) {
             failureFlag.set(true);
             log.error(e.getMessage(), e);
