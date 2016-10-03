@@ -22,6 +22,7 @@ import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.Base64;
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.*;
 import com.google.api.services.storage.Storage;
@@ -32,6 +33,7 @@ import com.google.cloud.pubsub.SubscriptionInfo;
 import com.google.cloud.pubsub.TopicInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.pubsub.flic.controllers.Client.ClientType;
+import org.apache.commons.codec.digest.DigestUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,10 +44,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
 import java.security.GeneralSecurityException;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -54,11 +53,11 @@ public class GCEController extends Controller {
   private static final Logger log = LoggerFactory.getLogger(GCEController.class.getName());
   private static final String machineType = "n1-standard-4"; // quad core machines
   private static final String sourceFamily = "projects/cloud-pubsub-load-tests/global/images/bring-down-the-world-image";
+  final private static char[] hexArray = "0123456789ABCDEF".toCharArray();
   private final Storage storage;
   private final Compute compute;
   private final PubSub pubSub;
   private final String projectName;
-  private final boolean recreateFiles = false;
   private Map<String, Map<ClientParams, Integer>> types;
   private boolean shutdown;
 
@@ -92,6 +91,16 @@ public class GCEController extends Controller {
             .setApplicationName("Cloud Pub/Sub Loadtest Framework")
             .build(),
         PubSubOptions.builder().projectId(projectName).build().service());
+  }
+
+  private static String bytesToHex(byte[] bytes) {
+    char[] hexChars = new char[bytes.length * 2];
+    for (int j = 0; j < bytes.length; j++) {
+      int v = bytes[j] & 0xFF;
+      hexChars[j * 2] = hexArray[v >>> 4];
+      hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+    }
+    return new String(hexChars);
   }
 
   @Override
@@ -184,7 +193,6 @@ public class GCEController extends Controller {
       throw e;
     }
   }
-
 
   private void createStorageBucket() {
     synchronized (this) {
@@ -326,11 +334,17 @@ public class GCEController extends Controller {
       }
     }
     try {
-      storage.objects().get("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
-      log.info("File " + filePath.getFileName() + " already exists, " + (recreateFiles ? "recreating." : "reusing."));
-      if (!recreateFiles) {
-        return;
+      byte md5hash[] = Base64.decodeBase64(
+          storage.objects().get("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute()
+              .getMd5Hash()
+      );
+      try (InputStream inputStream = Files.newInputStream(filePath, StandardOpenOption.READ)) {
+        if (Arrays.equals(md5hash, DigestUtils.md5(inputStream))) {
+          log.info("File " + filePath.getFileName() + " is current, reusing.");
+          return;
+        }
       }
+      log.info("File " + filePath.getFileName() + " is out of date, uploading new version.");
       storage.objects().delete("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
     } catch (IOException e) {
       log.info("File " + filePath.getFileName() + " does not already exist.");
