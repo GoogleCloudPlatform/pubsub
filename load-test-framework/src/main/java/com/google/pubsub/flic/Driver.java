@@ -16,6 +16,7 @@
 package com.google.pubsub.flic;
 
 import com.beust.jcommander.JCommander;
+import com.google.pubsub.flic.argumentparsing.AggregateArguments;
 import com.google.pubsub.flic.argumentparsing.BaseArguments;
 import com.google.pubsub.flic.argumentparsing.CPSArguments;
 import com.google.pubsub.flic.argumentparsing.CompareArguments;
@@ -29,6 +30,7 @@ import com.google.pubsub.flic.kafka.KafkaConsumerTask;
 import com.google.pubsub.flic.kafka.KafkaPublishingTask;
 import com.google.pubsub.flic.processing.Comparison;
 import com.google.pubsub.flic.processing.MessageProcessingHandler;
+import com.google.pubsub.flic.processing.StatAggregator;
 import com.google.pubsub.flic.task.TaskArgs;
 import java.io.File;
 import java.util.logging.LogManager;
@@ -77,7 +79,7 @@ public class Driver {
       if (jCommander.getParsedCommand().equals(CPSArguments.COMMAND)) {
         // The "cps" command was invoked.
         MessageProcessingHandler cpsHandler =
-            new MessageProcessingHandler(baseArgs.getNumMessages());
+            new MessageProcessingHandler(baseArgs.getNumMessages(), baseArgs.isDumpData());
         builder =
             builder
                 .cpsProject(cpsArgs.getProject())
@@ -105,9 +107,10 @@ public class Driver {
           log.info("Creating a task which consumes from CPS.");
           new CPSSubscribingTask(taskArgs, subscriber, cpsHandler).execute();
         }
-      } else {
+      } else if (jCommander.getParsedCommand().equals(KafkaArguments.COMMAND)) {
         // The "kafka" command was invoked.
-        MessageProcessingHandler kafkaHandler = new MessageProcessingHandler(baseArgs.getNumMessages());
+        MessageProcessingHandler kafkaHandler = 
+            new MessageProcessingHandler(baseArgs.getNumMessages(), baseArgs.isDumpData());
         kafkaHandler.setLatencyType(MessageProcessingHandler.LatencyType.PUB_TO_ACK);
         builder = builder.broker(kafkaArgs.getBroker());
         if (baseArgs.isPublish()) {
@@ -129,6 +132,9 @@ public class Driver {
           log.info("Creating a task which consumes from Kafka.");
           new KafkaConsumerTask(taskArgs, consumer, kafkaHandler).execute();
         }
+      } else if (jCommander.getParsedCommand().equals(AggregateArguments.COMMAND)) {
+        // The "agg" command was invoked.
+        StatAggregator agg = new StatAggregator();
       }
     } catch (Exception e) {
       log.error("An error occurred...", e);

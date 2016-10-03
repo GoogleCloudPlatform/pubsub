@@ -78,9 +78,13 @@ public class MessageProcessingHandler {
     }
   }
 
-  public MessageProcessingHandler(int totalItems) {
+  public MessageProcessingHandler(int totalItems, boolean isDumpData) {
     this.totalItems = totalItems;
-    buffer = new ArrayList<>(totalItems);
+    if (isDumpData) {
+      buffer = new ArrayList<>(totalItems);
+    } else {
+      buffer = null;
+    }
     lockHelper = new LockingHelper(totalItems);
   }
 
@@ -172,7 +176,7 @@ public class MessageProcessingHandler {
   }
 
   /**
-   * Creates a {@link MessagePacket} from the passed in data and adds it to {@link #buffer}. When
+   * Adds the given {@link MessagePacket} to {@link #buffer}. When
    * the buffer reaches its capacity, write the contents to a file.
    */
   public synchronized void addMessagePacket(MessagePacket packet)

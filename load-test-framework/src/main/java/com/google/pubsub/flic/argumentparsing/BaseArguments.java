@@ -33,7 +33,6 @@ public class BaseArguments {
 
   @Parameter(
     names = {"--topics", "-t"},
-    required = true,
     description = "Topics to publish/consume from."
   )
   private List<String> topics = new ArrayList<>();
