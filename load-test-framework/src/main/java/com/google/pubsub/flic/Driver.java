@@ -123,6 +123,7 @@ public class Driver {
             kafkaHandler.setFiledump(new File(Utils.KAFKA_FILEDUMP_PATH));
           }
           taskArgs = builder.broker(kafkaArgs.getBroker()).build();
+          kafkaHandler.setLatencyType(MessageProcessingHandler.LatencyType.END_TO_END);
           KafkaConsumer<String, String> consumer =
               KafkaConsumerTask.getInitializedConsumer(taskArgs);
           log.info("Creating a task which consumes from Kafka.");
