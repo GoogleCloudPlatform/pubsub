@@ -51,9 +51,8 @@ public class StatAggregator {
     Parser<MessagePacket> parser = MessagePacket.PARSER;
     for (File f : files) { 
       InputStream is = new FileInputStream(f);
-      MessagePacket mp = null;
-      do {
-        mp = parser.parseDelimitedFrom(is);
+      MessagePacket mp = parser.parseDelimitedFrom(is);
+      while(mp != null) {
         messageNo++;
         sizeReceived+= mp.getValue().getBytes("UTF-8").length;
         long receivedTime = mp.getReceivedTime();
@@ -64,7 +63,8 @@ public class StatAggregator {
           lastReceived = receivedTime;
         }
         latencyStats.recordValue(mp.getLatency());
-      } while(mp != null);
+        mp = parser.parseDelimitedFrom(is);
+      } 
     }
   }
   
