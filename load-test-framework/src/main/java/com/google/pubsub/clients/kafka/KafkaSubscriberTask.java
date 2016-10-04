@@ -34,15 +34,15 @@ import java.util.Properties;
  * Runs a task that consumes messages utilizing Kafka's implementation of the Consumer<K,V>
  * interface.
  */
-class KafkaConsumerTask implements Runnable {
+class KafkaSubscriberTask implements Runnable {
   private static final String CONSUMER_PROPERTIES = "/consumer.properties";
-  private final Logger log = LoggerFactory.getLogger(KafkaConsumerTask.class);
+  private final Logger log = LoggerFactory.getLogger(KafkaSubscriberTask.class);
   private final long pollLength;
 
   private final KafkaConsumer<String, String> subscriber;
   private final MetricsHandler metricsHandler;
 
-  private KafkaConsumerTask(String broker, String project, String topic, long pollLength) {
+  private KafkaSubscriberTask(String broker, String project, String topic, long pollLength) {
     this.metricsHandler = new MetricsHandler(project, "kafka");
     this.pollLength = pollLength;
 
@@ -67,7 +67,7 @@ class KafkaConsumerTask implements Runnable {
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run(request ->
-        new KafkaConsumerTask(request.getSubscription(), request.getProject(),
+        new KafkaSubscriberTask(request.getSubscription(), request.getProject(),
             request.getTopic(), request.getRequestRate()));
   }
 

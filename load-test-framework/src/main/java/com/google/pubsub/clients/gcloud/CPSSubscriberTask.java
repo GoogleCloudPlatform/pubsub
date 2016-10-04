@@ -30,14 +30,14 @@ import java.util.List;
 /**
  * Runs a task that consumes messages from a Cloud Pub/Sub subscription.
  */
-class CPSConsumerTask implements Runnable {
-  private static final Logger log = LoggerFactory.getLogger(CPSConsumerTask.class);
+class CPSSubscriberTask implements Runnable {
+  private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
   private final String subscription; // set null for Publish
   private final int batchSize;
   private final MetricsHandler metricsHandler;
   private final PubSub pubSub;
 
-  private CPSConsumerTask(String project, String subscription, int batchSize) {
+  private CPSSubscriberTask(String project, String subscription, int batchSize) {
     this.pubSub = PubSubOptions.builder()
         .projectId(project)
         .build().service();
@@ -48,7 +48,7 @@ class CPSConsumerTask implements Runnable {
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run(request ->
-        new CPSConsumerTask(request.getProject(), request.getSubscription(), request.getMaxMessagesPerPull()));
+        new CPSSubscriberTask(request.getProject(), request.getSubscription(), request.getMaxMessagesPerPull()));
   }
 
 

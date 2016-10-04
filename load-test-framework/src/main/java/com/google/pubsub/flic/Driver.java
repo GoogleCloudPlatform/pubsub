@@ -57,12 +57,12 @@ class Driver {
       names = {"--kafka_publisher_count"},
       description = "Number of Kafka publishers to start."
   )
-  private int kafkaPublisherCount = 0;
+  private int kafkaPublisherCount = 1;
   @Parameter(
       names = {"--kafka_subscriber_count"},
       description = "Number of Kafka subscribers to start."
   )
-  private int kafkaSubscriberCount = 0;
+  private int kafkaSubscriberCount = 1;
   @Parameter(
       names = {"--message_size", "-m"},
       description = "Message size in bytes (only when publishing messages).",
@@ -110,7 +110,6 @@ class Driver {
     try {
       Map<String, Map<ClientParams, Integer>> clientTypes = ImmutableMap.of(
           "us-central1-a", new HashMap<>());
-      Preconditions.checkArgument(subscriberFanout > 0);
       Preconditions.checkArgument(
           cpsPublisherCount > 0 ||
               cpsSubscriberCount > 0 ||
