@@ -149,7 +149,7 @@ public class MessageProcessingHandler {
     // Print delay on sender side for processing and batching delay in case of CPS, null w/ Kafka
     if(executor != null) {
       log.info(
-          "The average delay for in-client processing "
+          "The average delay in-client for processing "
               + latencyType
               + " latency was "
               + executor.getAverageTaskWaitTime()

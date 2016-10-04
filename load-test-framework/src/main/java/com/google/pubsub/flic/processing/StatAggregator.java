@@ -84,16 +84,27 @@ public class StatAggregator {
                 latencyStats.getValueAtPercentile(95),
                 latencyStats.getValueAtPercentile(99)));
     // Throughput stats.
-    double diff = (double) (System.currentTimeMillis() - firstReceived) / 1000;
-    long averageMessagesPerSec = (long) (messageNo / diff);
-    long averageBytesPerSec = (long) (sizeReceived / diff);
-    String averageBytesPerSecString = FileUtils.byteCountToDisplaySize(averageBytesPerSec);
-    log.info(
-        "Average throughput: "
-            + averageMessagesPerSec
-            + " messages/sec, "
-            + averageBytesPerSecString
-            + "/sec");
+    double diff = (double) (lastReceived - firstReceived) / 1000;
+    if(diff != 0) {
+      long averageMessagesPerSec = (long) (messageNo / diff);
+      long averageBytesPerSec = (long) (sizeReceived / diff);
+      String averageBytesPerSecString = FileUtils.byteCountToDisplaySize(averageBytesPerSec);
+      log.info(
+          "Average throughput: "
+              + averageMessagesPerSec
+              + " messages/sec, "
+              + averageBytesPerSecString
+              + "/sec");
+    } else {
+      log.info( "All messages received in one batch so receive throughput can't be calculated.");
+      log.info("Total messages: "
+              + messageNo 
+              + ". Total bytes: "
+              + sizeReceived
+              + ". Bytes per message: "
+              + (sizeReceived / messageNo)
+              + ".");
+    }
   }
 }
 
