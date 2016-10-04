@@ -5,6 +5,7 @@ import com.google.pubsub.flic.common.MessagePacketProto.MessagePacket;
 import com.google.pubsub.flic.processing.MessageProcessingHandler.LatencyType;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.FileNotFoundException;
 import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -32,7 +33,7 @@ public class StatAggregator {
   private long lastReceived;
   private List<File> files;
   
-  public StatAggregator(List<String> filenames) {
+  public StatAggregator(List<String> filenames) throws FileNotFoundException {
     messageNo = 0;
     latencyStats = new ConcurrentHistogram(1, 10000000, 2);
     firstReceived = Long.MAX_VALUE;
@@ -42,8 +43,19 @@ public class StatAggregator {
     File currentDirectory = new File(".");
     for (String name : filenames) {
       // Add all files that match the pattern given by name
-      FileFilter filter = new WildcardFileFilter(name);
-      files.addAll(Arrays.asList(currentDirectory.listFiles(filter)));
+      File directory;
+      if (name.indexOf('/') != 0) {
+        directory = new File(name.substring(0, name.lastIndexOf('/')));
+      } else {
+        directory = currentDirectory;
+      }
+      // Returns a filter that checks for the file name only in the directory
+      FileFilter filter = new WildcardFileFilter(name.substring(name.lastIndexOf('/') + 1));
+      File[] matches = directory.listFiles(filter);
+      if (matches.length == 0) {
+        throw new FileNotFoundException("No matches for input: " + name);
+      }
+      files.addAll(Arrays.asList(matches));
     }
   }
   
