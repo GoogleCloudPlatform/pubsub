@@ -13,14 +13,13 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.clients.gcloud;
+package com.google.pubsub.clients.common;
 
-import com.beust.jcommander.JCommander;
-import com.google.cloud.pubsub.PubSub;
-import com.google.cloud.pubsub.PubSubOptions;
-import com.google.common.util.concurrent.*;
+import com.google.common.util.concurrent.ListeningExecutorService;
+import com.google.common.util.concurrent.MoreExecutors;
+import com.google.common.util.concurrent.RateLimiter;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Empty;
-import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.flic.common.Command;
 import com.google.pubsub.flic.common.LoadtestFrameworkGrpc;
 import io.grpc.Server;
@@ -29,26 +28,18 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.nio.charset.Charset;
-import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.function.Function;
 
 /**
- * Repeatedly starts {@link LoadTestRun LoadTestRuns} to generate load on the server.
+ * Starts a server to get the start request, then starts the client runner.
  */
-public class LoadTest {
-  private static final Logger log = LoggerFactory.getLogger(LoadTest.class);
-  private Server server;
+public class LoadTestRunner {
+  private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
+  private static Server server;
 
-  public static void main(String[] args) throws Exception {
-    Thread.setDefaultUncaughtExceptionHandler(UncaughtExceptionHandlers.systemExit());
-    LoadTest loadTest = new LoadTest();
-    new JCommander(loadTest, args);
-    loadTest.run();
-  }
-
-  private void run() throws Exception {
+  public static void run(Function<Command.CommandRequest, Runnable> loadFunction) throws Exception {
     SettableFuture<Command.CommandRequest> requestFuture = SettableFuture.create();
     server = ServerBuilder.forPort(5000)
         .addService(new LoadtestFrameworkGrpc.LoadtestFrameworkImplBase() {
@@ -78,36 +69,24 @@ public class LoadTest {
     });
 
     Command.CommandRequest request = requestFuture.get();
-    final int numWorkers = request.getNumberOfWorkers();
-    LoadTestRun.batchSize = request.getMaxMessagesPerPull();
-    LoadTestRun.subscription = request.getSubscription();
-    LoadTestRun.topic = request.getTopic();
     log.info("Request received, starting up server.");
-    long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
+    final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
     if (request.hasStartTime() && toSleep > 0) {
       Thread.sleep(toSleep);
     }
-    final PubSub pubSub = PubSubOptions.builder()
-        .projectId(request.getProject())
-        .build().service();
 
+    final int numWorkers = request.getNumberOfWorkers();
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(numWorkers));
 
-    log.info("Configured executor with " + numWorkers + " threads.");
-    final byte[] payloadArray = new byte[request.getMessageSize()];
-    Arrays.fill(payloadArray, (byte) 'A');
-    final String payload = new String(payloadArray, Charset.forName("UTF-8"));
-
-    log.info("Bringing up load test");
     final long endTimeMillis = request.getStopTime().getSeconds() * 1000;
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
     final Semaphore outstandingTestLimiter = new Semaphore(numWorkers, false);
-    LoadTestRun.metricsHandler = new MetricsHandler(request.getProject());
+    Runnable client = loadFunction.apply(request);
     while (System.currentTimeMillis() < endTimeMillis) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();
-      executor.submit(new LoadTestRun(pubSub, payload)).addListener(outstandingTestLimiter::release, executor);
+      executor.submit(client).addListener(outstandingTestLimiter::release, executor);
     }
   }
 }

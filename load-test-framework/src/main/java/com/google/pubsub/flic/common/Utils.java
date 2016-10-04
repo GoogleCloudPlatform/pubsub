@@ -21,21 +21,20 @@ import org.apache.commons.io.FileUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.List;
-import java.util.Random;
 
 /** A collection of common methods/enums/constants. */
 public class Utils {
 
-  /** Creates a random string message of a certain size. */
+  /**
+   * Creates a string message of a certain size.
+   */
   public static String createMessage(int msgSize) {
-    StringBuilder sb = new StringBuilder(msgSize);
-    Random r = new Random();
-    for (int i = 0; i < msgSize; ++i) {
-      sb.append((char) (r.nextInt(26) + 'a'));
-    }
-    sb.append('_');
-    return sb.toString();
+    byte[] payloadArray = new byte[msgSize];
+    Arrays.fill(payloadArray, (byte) 'A');
+    return new String(payloadArray, Charset.forName("UTF-8"));
   }
 
   /**
