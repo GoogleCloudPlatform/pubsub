@@ -72,18 +72,20 @@ public class Client {
     ManagedChannel channel = ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build();
 
     LoadtestFrameworkGrpc.LoadtestFrameworkStub stub = LoadtestFrameworkGrpc.newStub(channel);
-    Command.CommandRequest request = Command.CommandRequest.newBuilder()
+    Command.CommandRequest.Builder requestBuilder = Command.CommandRequest.newBuilder()
         .setProject(project)
         .setTopic(topic)
-        .setSubscription(subscription)
         .setMaxMessagesPerPull(batchSize)
-        .setNumberOfWorkers(1000)
+        .setNumberOfWorkers(10)
         .setMessageSize(messageSize)
-        .setRequestRate(1000)
+        .setRequestRate(5)
         //.setStartTime(startTime)
         .setStopTime(Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 +
-            loadtestLengthSeconds).build())
-        .build();
+            loadtestLengthSeconds).build());
+    if (clientType.toString().contains("subscriber")) {
+      requestBuilder.setSubscription(subscription);
+    }
+    Command.CommandRequest request = requestBuilder.build();
     SettableFuture<Void> startFuture = SettableFuture.create();
     stub.startClient(request, new StreamObserver<Empty>() {
       private int connectionErrors = 0;

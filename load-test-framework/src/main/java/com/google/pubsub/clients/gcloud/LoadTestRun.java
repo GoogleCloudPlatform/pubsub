@@ -88,7 +88,7 @@ class LoadTestRun implements Runnable {
     } catch (PubSubException e) {
       stopwatch.stop();
       result = e.toString();
-      log.warn(logPrefix + "Publish request failed", e);
+      log.error(logPrefix + "Publish request failed", e);
       throw new RetryableException(e);
     } catch (Exception e) {
       log.warn(logPrefix + "Publish request failed with unknown exception", e);

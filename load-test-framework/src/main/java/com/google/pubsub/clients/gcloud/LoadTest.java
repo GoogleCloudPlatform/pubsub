@@ -87,7 +87,10 @@ public class LoadTest {
     if (request.hasStartTime() && toSleep > 0) {
       Thread.sleep(toSleep);
     }
-    final PubSub pubSub = PubSubOptions.builder().projectId(request.getProject()).build().service();
+    final PubSub pubSub = PubSubOptions.builder()
+        .host("pubsub.googleapis.com")
+        .projectId(request.getProject())
+        .build().service();
 
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(numWorkers));
