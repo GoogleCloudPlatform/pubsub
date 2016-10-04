@@ -7,6 +7,7 @@ import java.io.File;
 import java.io.FileFilter;
 import java.io.FileInputStream;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import org.HdrHistogram.ConcurrentHistogram;
@@ -37,6 +38,7 @@ public class StatAggregator {
     firstReceived = Long.MAX_VALUE;
     lastReceived = Long.MIN_VALUE;
     sizeReceived = 0;
+    files = new ArrayList<File>();
     File currentDirectory = new File(".");
     for (String name : filenames) {
       // Add all files that match the pattern given by name
