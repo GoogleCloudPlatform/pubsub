@@ -39,9 +39,9 @@ abstract class Controller {
    */
   public abstract void initialize() throws Throwable;
 
-  public abstract void shutdown(Throwable t);
+  protected abstract void shutdown(Throwable t);
 
-  public void startClients() {
+  void startClients() {
     SettableFuture<Void> startFuture = SettableFuture.create();
     clients.forEach((client) -> executor.execute(() -> {
       try {

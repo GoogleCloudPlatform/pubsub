@@ -46,8 +46,7 @@ class CPSPublishingTask implements Runnable {
     this.pubSub = PubSubOptions.builder()
         .projectId(project)
         .build().service();
-    ;
-    this.metricsHandler = new MetricsHandler(Preconditions.checkNotNull(project));
+    this.metricsHandler = new MetricsHandler(Preconditions.checkNotNull(project), "gcloud");
     this.topic = Preconditions.checkNotNull(topic);
     this.payload = Utils.createMessage(messageSize);
     this.batchSize = batchSize;

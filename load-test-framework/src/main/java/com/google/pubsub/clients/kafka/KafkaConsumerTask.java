@@ -34,7 +34,7 @@ import java.util.Properties;
  * Runs a task that consumes messages utilizing Kafka's implementation of the Consumer<K,V>
  * interface.
  */
-public class KafkaConsumerTask implements Runnable {
+class KafkaConsumerTask implements Runnable {
   private static final String CONSUMER_PROPERTIES = "/consumer.properties";
   private final Logger log = LoggerFactory.getLogger(KafkaConsumerTask.class);
   private final long pollLength;
@@ -43,7 +43,7 @@ public class KafkaConsumerTask implements Runnable {
   private final MetricsHandler metricsHandler;
 
   private KafkaConsumerTask(String broker, String project, String topic, long pollLength) {
-    this.metricsHandler = new MetricsHandler(project);
+    this.metricsHandler = new MetricsHandler(project, "kafka");
     this.pollLength = pollLength;
 
     // Create subscriber
@@ -73,12 +73,11 @@ public class KafkaConsumerTask implements Runnable {
 
   @Override
   public void run() {
+    log.trace("Polling for messages.");
     ConsumerRecords<String, String> records = subscriber.poll(pollLength);
     List<Long> endToEndLatencies = new ArrayList<>();
     long now = System.currentTimeMillis();
-    records.forEach((record) -> {
-      endToEndLatencies.add(now - record.timestamp());
-    });
+    records.forEach(record -> endToEndLatencies.add(now - record.timestamp()));
     endToEndLatencies.stream().distinct().forEach(metricsHandler::recordEndToEndLatency);
     subscriber.commitAsync();
   }

@@ -40,7 +40,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Date;
+import java.util.TimeZone;
 import java.util.concurrent.Executor;
 import java.util.concurrent.Executors;
 
@@ -52,15 +55,17 @@ public class MetricsHandler {
   private static final Logger log = LoggerFactory.getLogger(MetricsHandler.class);
   private static final String END_TO_END_LATENCY_METRIC_NAME = "end_to_end_latency";
   private static final String PUBLISH_LATENCY_METRIC_NAME = "publish_latency";
+  private final String project;
+  private final SimpleDateFormat dateFormatter;
+  private final Executor executor;
+  private final String clientType;
   private Monitoring monitoring;
-  private String project;
-  private SimpleDateFormat dateFormatter;
   private MonitoredResource monitoredResource;
   private boolean ready = false;
-  private Executor executor;
 
-  public MetricsHandler(String project) {
+  public MetricsHandler(String project, String clientType) {
     this.project = project;
+    this.clientType = clientType;
     dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
     executor = Executors.newFixedThreadPool(5);
@@ -188,7 +193,7 @@ public class MetricsHandler {
           new CreateTimeSeriesRequest().setTimeSeries(Collections.singletonList(new TimeSeries()
               .setMetric(new Metric()
                   .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + name)
-                  .setLabels(new HashMap<>()))
+                  .setLabels(ImmutableMap.of("client_type", clientType)))
               .setMetricKind("GAUGE")
               .setValueType("INT64")
               .setPoints(Collections.singletonList(

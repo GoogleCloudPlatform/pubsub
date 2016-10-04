@@ -22,7 +22,6 @@ import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.Command;
 import com.google.pubsub.flic.common.LoadtestFrameworkGrpc;
-import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
@@ -40,11 +39,11 @@ public class Client {
   public static int loadtestLengthSeconds;
   public static int batchSize;
   private final ClientType clientType;
-  private String networkAddress;
+  private final String networkAddress;
+  private final String project;
+  private final String topic;
+  private final String subscription;
   private ClientStatus clientStatus;
-  private String project;
-  private String topic;
-  private String subscription;
 
   Client(ClientType clientType, String networkAddress, String project, @Nullable String subscription) {
     this.clientType = clientType;
@@ -55,11 +54,11 @@ public class Client {
     this.subscription = subscription;
   }
 
-  public static String getTopicSuffix(ClientType clientType) {
+  static String getTopicSuffix(ClientType clientType) {
     switch (clientType) {
-      case CPS_GRPC_PUBLISHER:
-      case CPS_GRPC_SUBSCRIBER:
-        return "cps";
+      case CPS_GCLOUD_PUBLISHER:
+      case CPS_GCLOUD_SUBSCRIBER:
+        return "gcloud";
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
         return "kafka";
@@ -67,19 +66,7 @@ public class Client {
     return null;
   }
 
-  public ClientStatus clientStatus() {
-    return clientStatus;
-  }
-
-  ClientType clientType() {
-    return clientType;
-  }
-
-  public void setNetworkAddress(String networkAddress) {
-    this.networkAddress = networkAddress;
-  }
-
-  LoadtestFrameworkGrpc.LoadtestFrameworkStub getStub() {
+  private LoadtestFrameworkGrpc.LoadtestFrameworkStub getStub() {
     return LoadtestFrameworkGrpc.newStub(
         ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build());
   }
@@ -87,9 +74,6 @@ public class Client {
   void start() throws Throwable {
     // Send a gRPC call to start the server
     log.info("Connecting to " + networkAddress + ":" + port);
-    ManagedChannel channel = ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build();
-
-    LoadtestFrameworkGrpc.LoadtestFrameworkStub stub = LoadtestFrameworkGrpc.newStub(channel);
     Command.CommandRequest.Builder requestBuilder = Command.CommandRequest.newBuilder()
         .setProject(project)
         .setTopic(topic)
@@ -146,8 +130,8 @@ public class Client {
   }
 
   public enum ClientType {
-    CPS_GRPC_PUBLISHER,
-    CPS_GRPC_SUBSCRIBER,
+    CPS_GCLOUD_PUBLISHER,
+    CPS_GCLOUD_SUBSCRIBER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
 
@@ -160,7 +144,6 @@ public class Client {
   private enum ClientStatus {
     NONE,
     RUNNING,
-    STOPPING,
     FAILED,
   }
 }

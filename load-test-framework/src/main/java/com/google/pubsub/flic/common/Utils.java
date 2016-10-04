@@ -17,13 +17,9 @@ package com.google.pubsub.flic.common;
 
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.ParameterException;
-import org.apache.commons.io.FileUtils;
 
-import java.io.File;
-import java.io.FileOutputStream;
 import java.nio.charset.Charset;
 import java.util.Arrays;
-import java.util.List;
 
 /** A collection of common methods/enums/constants. */
 public class Utils {
@@ -35,19 +31,6 @@ public class Utils {
     byte[] payloadArray = new byte[msgSize];
     Arrays.fill(payloadArray, (byte) 'A');
     return new String(payloadArray, Charset.forName("UTF-8"));
-  }
-
-  /**
-   * Writes the given buffer of {@link MessagePacketProto.MessagePacket}'s to the specified file.
-   */
-  public static synchronized void writeToFile(
-      List<MessagePacketProto.MessagePacket> buffer, File file) throws Exception {
-    FileOutputStream os = FileUtils.openOutputStream(file, true);
-    for (MessagePacketProto.MessagePacket mp : buffer) {
-      mp.writeDelimitedTo(os);
-    }
-    os.close();
-    os.flush();
   }
 
   /**

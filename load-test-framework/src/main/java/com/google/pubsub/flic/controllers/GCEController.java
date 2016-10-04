@@ -56,12 +56,11 @@ public class GCEController extends Controller {
   private static final Logger log = LoggerFactory.getLogger(GCEController.class.getName());
   private static final String machineType = "n1-standard-4"; // quad core machines
   private static final String sourceFamily = "projects/cloud-pubsub-load-tests/global/images/bring-down-the-world-image";
-  final private static char[] hexArray = "0123456789ABCDEF".toCharArray();
   private final Storage storage;
   private final Compute compute;
   private final PubSub pubSub;
   private final String projectName;
-  private Map<String, Map<ClientParams, Integer>> types;
+  private final Map<String, Map<ClientParams, Integer>> types;
   private boolean shutdown;
 
   private GCEController(String projectName, Map<String, Map<ClientParams, Integer>> types, Executor executor,

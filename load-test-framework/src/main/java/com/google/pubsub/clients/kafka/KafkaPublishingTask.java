@@ -34,17 +34,17 @@ import java.util.concurrent.TimeUnit;
  * Runs a task that publishes messages utilizing Kafka's implementation of the Producer<K,V>
  * interface
  */
-public class KafkaPublishingTask implements Runnable {
+class KafkaPublishingTask implements Runnable {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaPublishingTask.class.getName());
   private static final String PRODUCER_PROPERTIES = "/producer.properties";
   private final String topic;
   private final MetricsHandler metricsHandler;
   private final String payload;
-  private KafkaProducer<String, String> publisher;
+  private final KafkaProducer<String, String> publisher;
 
   private KafkaPublishingTask(String broker, String project, String topic, int messageSize) {
-    this.metricsHandler = new MetricsHandler(project);
+    this.metricsHandler = new MetricsHandler(project, "kafka");
     this.topic = topic;
     this.payload = Utils.createMessage(messageSize);
     Properties props = new Properties();

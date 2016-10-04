@@ -42,7 +42,7 @@ class CPSConsumerTask implements Runnable {
         .projectId(project)
         .build().service();
     this.subscription = Preconditions.checkNotNull(subscription);
-    this.metricsHandler = new MetricsHandler(Preconditions.checkNotNull(project));
+    this.metricsHandler = new MetricsHandler(Preconditions.checkNotNull(project), "gcloud");
     this.batchSize = batchSize;
   }
 
