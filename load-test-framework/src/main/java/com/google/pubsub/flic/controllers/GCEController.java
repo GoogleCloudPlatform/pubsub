@@ -29,6 +29,7 @@ import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Bucket;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
+import com.google.cloud.pubsub.SubscriptionInfo;
 import com.google.cloud.pubsub.TopicInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -135,11 +136,11 @@ public class GCEController extends Controller {
             } catch (Exception e) {
               log.info("Topic already exists, reusing.");
             }
-            //paramsMap.keySet().stream().filter((params) -> params.clientType == clientType && params.subscription != null)
-            //    .map((params) -> params.subscription).forEach((subscription) -> {
-            //  pubSub.deleteSubscription(subscription);
-            //  pubSub.create(SubscriptionInfo.of(topic, subscription));
-            //});
+            paramsMap.keySet().stream().filter((params) -> params.clientType == clientType && params.subscription != null)
+                .map((params) -> params.subscription).forEach((subscription) -> {
+              pubSub.deleteSubscription(subscription);
+              pubSub.create(SubscriptionInfo.of(topic, subscription));
+            });
             pubsubFuture.set(null);
           });
         }));
