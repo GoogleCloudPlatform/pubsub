@@ -23,7 +23,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
-import com.google.pubsub.flic.common.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -34,27 +33,27 @@ import java.util.concurrent.TimeUnit;
 /**
  * Runs a task that publishes messages to a Cloud Pub/Sub topic.
  */
-class CPSPublishingTask implements Runnable {
-  private static final Logger log = LoggerFactory.getLogger(CPSPublishingTask.class);
+class CPSPublisherTask implements Runnable {
+  private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
   private final String topic;
   private final MetricsHandler metricsHandler;
   private final PubSub pubSub;
   private final String payload;
   private final int batchSize;
 
-  private CPSPublishingTask(String project, String topic, int messageSize, int batchSize) {
+  private CPSPublisherTask(String project, String topic, int messageSize, int batchSize) {
     this.pubSub = PubSubOptions.builder()
         .projectId(project)
         .build().service();
     this.metricsHandler = new MetricsHandler(Preconditions.checkNotNull(project), "gcloud");
     this.topic = Preconditions.checkNotNull(topic);
-    this.payload = Utils.createMessage(messageSize);
+    this.payload = LoadTestRunner.createMessage(messageSize);
     this.batchSize = batchSize;
   }
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run(request ->
-        new CPSPublishingTask(request.getProject(), request.getTopic(),
+        new CPSPublisherTask(request.getProject(), request.getTopic(),
             request.getMessageSize(), request.getMaxMessagesPerPull())
     );
   }

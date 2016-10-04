@@ -18,13 +18,11 @@ package com.google.pubsub.clients.kafka;
 import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
-import com.google.pubsub.flic.common.Utils;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -48,18 +46,13 @@ class KafkaSubscriberTask implements Runnable {
 
     // Create subscriber
     Properties props = new Properties();
-    try {
-      props.load(Utils.class.getResourceAsStream(CONSUMER_PROPERTIES));
-    } catch (IOException e) {
-      log.warn("Unable to read consumer properties file, using sane defaults.");
-      props.putAll(ImmutableMap.of(
-          "key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
-          "value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
-          "group.id", "SUBSCRIBER_ID",
-          "enable.auto.commit", "true",
-          "session.timeout.ms", "30000"
-      ));
-    }
+    props.putAll(ImmutableMap.of(
+        "key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
+        "value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
+        "group.id", "SUBSCRIBER_ID",
+        "enable.auto.commit", "true",
+        "session.timeout.ms", "30000"
+    ));
     props.put("bootstrap.servers", broker);
     subscriber = new KafkaConsumer<>(props);
     subscriber.subscribe(Collections.singletonList(topic));

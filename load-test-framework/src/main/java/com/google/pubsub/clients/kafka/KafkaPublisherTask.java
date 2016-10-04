@@ -19,14 +19,11 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
-import com.google.pubsub.flic.common.Utils;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 
@@ -34,39 +31,33 @@ import java.util.concurrent.TimeUnit;
  * Runs a task that publishes messages utilizing Kafka's implementation of the Producer<K,V>
  * interface
  */
-class KafkaPublishingTask implements Runnable {
+class KafkaPublisherTask implements Runnable {
 
-  private static final Logger log = LoggerFactory.getLogger(KafkaPublishingTask.class.getName());
+  private static final Logger log = LoggerFactory.getLogger(KafkaPublisherTask.class.getName());
   private static final String PRODUCER_PROPERTIES = "/producer.properties";
   private final String topic;
   private final MetricsHandler metricsHandler;
   private final String payload;
   private final KafkaProducer<String, String> publisher;
 
-  private KafkaPublishingTask(String broker, String project, String topic, int messageSize) {
+  private KafkaPublisherTask(String broker, String project, String topic, int messageSize) {
     this.metricsHandler = new MetricsHandler(project, "kafka");
     this.topic = topic;
-    this.payload = Utils.createMessage(messageSize);
+    this.payload = LoadTestRunner.createMessage(messageSize);
     Properties props = new Properties();
-    InputStream is = Utils.class.getResourceAsStream(PRODUCER_PROPERTIES);
-    try {
-      props.load(is);
-    } catch (IOException e) {
-      log.warn("Unable to load producer properties file, using sane defaults.");
-      props.putAll(ImmutableMap.of(
-          "max.block.ms", "30000",
-          "key.serializer", "org.apache.kafka.common.serialization.StringSerializer",
-          "value.serializer", "org.apache.kafka.common.serialization.StringSerializer",
-          "acks", "all"
-      ));
-    }
-    props.put("bootstrap.servers", broker);
+    props.putAll(ImmutableMap.of(
+        "max.block.ms", "30000",
+        "key.serializer", "org.apache.kafka.common.serialization.StringSerializer",
+        "value.serializer", "org.apache.kafka.common.serialization.StringSerializer",
+        "acks", "all",
+        "bootstrap.servers", broker
+    ));
     this.publisher = new KafkaProducer<>(props);
   }
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run(request ->
-        new KafkaPublishingTask(request.getSubscription(), request.getProject(),
+        new KafkaPublisherTask(request.getSubscription(), request.getProject(),
             request.getTopic(), request.getMessageSize()));
   }
 

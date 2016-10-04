@@ -28,6 +28,8 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.charset.Charset;
+import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.function.Function;
@@ -88,5 +90,14 @@ public class LoadTestRunner {
       rateLimiter.acquire();
       executor.submit(client).addListener(outstandingTestLimiter::release, executor);
     }
+  }
+
+  /**
+   * Creates a string message of a certain size.
+   */
+  public static String createMessage(int msgSize) {
+    byte[] payloadArray = new byte[msgSize];
+    Arrays.fill(payloadArray, (byte) 'A');
+    return new String(payloadArray, Charset.forName("UTF-8"));
   }
 }

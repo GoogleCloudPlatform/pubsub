@@ -15,12 +15,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic;
 
+import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
+import com.beust.jcommander.ParameterException;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Timestamp;
-import com.google.pubsub.flic.common.Utils;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
@@ -66,13 +67,13 @@ class Driver {
   @Parameter(
       names = {"--message_size", "-m"},
       description = "Message size in bytes (only when publishing messages).",
-      validateWith = Utils.GreaterThanZeroValidator.class
+      validateWith = GreaterThanZeroValidator.class
   )
   private int messageSize = 1000;
   @Parameter(
       names = {"--loadtest_seconds"},
       description = "Duration of the load test, in seconds.",
-      validateWith = Utils.GreaterThanZeroValidator.class
+      validateWith = GreaterThanZeroValidator.class
   )
   private int loadtestLengthSeconds = 300;
   @Parameter(
@@ -84,13 +85,13 @@ class Driver {
   @Parameter(
       names = {"--batch_size", "-b"},
       description = "Number of messages to batch per publish request.",
-      validateWith = Utils.GreaterThanZeroValidator.class
+      validateWith = GreaterThanZeroValidator.class
   )
   private int batchSize = 1000;
   @Parameter(
       names = {"--subscriber_fanout"},
       description = "Number of subscription ids to use for each topic. Must be at least 1.",
-      validateWith = Utils.GreaterThanZeroValidator.class
+      validateWith = GreaterThanZeroValidator.class
   )
   private int subscriberFanout = 1;
 
@@ -144,6 +145,23 @@ class Driver {
     } catch (Throwable t) {
       log.error("An error occurred...", t);
       System.exit(1);
+    }
+  }
+
+  /**
+   * A validator that makes sure the parameter is an integer that is greater than 0.
+   */
+  private static class GreaterThanZeroValidator implements IParameterValidator {
+    @Override
+    public void validate(String name, String value) throws ParameterException {
+      try {
+        int n = Integer.parseInt(value);
+        if (n > 0) return;
+        throw new NumberFormatException();
+      } catch (NumberFormatException e) {
+        throw new ParameterException(
+            "Parameter " + name + " should be an int greater than 0 (found " + value + ")");
+      }
     }
   }
 }
