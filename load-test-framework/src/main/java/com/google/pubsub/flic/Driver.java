@@ -101,6 +101,7 @@ public class Driver {
         } else {
           // Create a task which consumes from CPS.
           if (baseArgs.isDumpData()) {
+            new File(Utils.CPS_FILEDUMP_PATH).delete();
             cpsHandler.setFiledump(new File(Utils.CPS_FILEDUMP_PATH));
           }
           taskArgs = builder.build();
@@ -125,6 +126,7 @@ public class Driver {
         } else {
           // Create a task that consumes from Kafka.
           if (baseArgs.isDumpData()) {
+            new File(Utils.CPS_FILEDUMP_PATH).delete();
             kafkaHandler.setFiledump(new File(Utils.KAFKA_FILEDUMP_PATH));
           }
           taskArgs = builder.broker(kafkaArgs.getBroker()).build();
