@@ -71,6 +71,7 @@ public class KafkaConsumerTask extends Task {
                     .setKey(record.key())
                     .setValue(record.value())
                     .setLatency(latency)
+                    .setReceivedTime(receivedTime)
                     .build();
             processingHandler.addMessagePacket(packet);
           } catch (Exception e) {

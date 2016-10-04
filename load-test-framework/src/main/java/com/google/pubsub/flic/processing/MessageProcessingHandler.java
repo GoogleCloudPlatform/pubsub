@@ -43,7 +43,8 @@ public class MessageProcessingHandler {
 
   // If the buffer gets to a size of a million, flush it.
   private static final int BUFFER_FLUSH_SIZE = 1000000;
-  private static final String LATENCY_STATS_FORMAT =
+  // Public to allow stat aggregator to access it
+  public static final String LATENCY_STATS_FORMAT =
       " (min, max, avg, 50%%, 95%%, 99%%) = %d, %d, %.1f, %d, %d, %d (ms)";
   private static final Logger log =
       LoggerFactory.getLogger(MessageProcessingHandler.class.getName());

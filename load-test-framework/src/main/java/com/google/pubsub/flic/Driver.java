@@ -53,10 +53,12 @@ public class Driver {
       CPSArguments cpsArgs = new CPSArguments();
       KafkaArguments kafkaArgs = new KafkaArguments();
       CompareArguments dataComparisonArgs = new CompareArguments();
+      AggregateArguments aggregateArgs = new AggregateArguments(); 
       JCommander jCommander = new JCommander(baseArgs);
       jCommander.addCommand(CPSArguments.COMMAND, cpsArgs);
       jCommander.addCommand(KafkaArguments.COMMAND, kafkaArgs);
       jCommander.addCommand(CompareArguments.COMMAND, dataComparisonArgs);
+      jCommander.addCommand(AggregateArguments.COMMAND, aggregateArgs);
       jCommander.parse(args);
       if (jCommander.getParsedCommand() == null) {
         if (baseArgs.isHelp()) {
@@ -134,7 +136,9 @@ public class Driver {
         }
       } else if (jCommander.getParsedCommand().equals(AggregateArguments.COMMAND)) {
         // The "agg" command was invoked.
-        StatAggregator agg = new StatAggregator();
+        StatAggregator agg = new StatAggregator(aggregateArgs.getFiles());
+        agg.generateStats();
+        agg.printStats();
       }
     } catch (Exception e) {
       log.error("An error occurred...", e);

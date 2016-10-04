@@ -13,7 +13,7 @@ public class AggregateArguments {
   @Parameter(
       names = {"--files", "-f"},
       required = true,
-      description = "Files to read data from for aggregation."
+      description = "Files to read data from for aggregation, patterns accepted."
     )
   private List<String> files = new ArrayList<>();
 

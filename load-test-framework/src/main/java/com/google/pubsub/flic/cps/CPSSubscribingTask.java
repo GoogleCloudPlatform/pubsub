@@ -152,6 +152,7 @@ public class CPSSubscribingTask extends CPSTask {
                               .setKey(attributes.get(Utils.KEY_ATTRIBUTE))
                               .setValue(message.getData().toStringUtf8())
                               .setLatency(latency)
+                              .setReceivedTime(receivedTime)
                               .build();
                       processingHandler.addMessagePacket(packet);
                     } catch (Exception e) {
