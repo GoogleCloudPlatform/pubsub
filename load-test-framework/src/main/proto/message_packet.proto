@@ -1,8 +1,10 @@
+syntax = "proto3";
+
 option java_package = "com.google.pubsub.flic.common";
 option java_outer_classname = "MessagePacketProto";
 
 message MessagePacket {
-  optional string topic = 1;
-  optional string value = 2;
-  optional string key = 3;
+    string topic = 1;
+    string value = 2;
+    string key = 3;
 }

@@ -16,120 +16,208 @@
 package com.google.pubsub.flic;
 
 import com.beust.jcommander.JCommander;
-import com.google.pubsub.flic.argumentparsing.BaseArguments;
-import com.google.pubsub.flic.argumentparsing.CPSArguments;
-import com.google.pubsub.flic.argumentparsing.CompareArguments;
-import com.google.pubsub.flic.argumentparsing.KafkaArguments;
+import com.beust.jcommander.Parameter;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.monitoring.v3.Monitoring;
+import com.google.api.services.monitoring.v3.model.ListTimeSeriesResponse;
+import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
+import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.Utils;
-import com.google.pubsub.flic.cps.CPSPublishingTask;
-import com.google.pubsub.flic.cps.CPSRoundRobinPublisher;
-import com.google.pubsub.flic.cps.CPSRoundRobinSubscriber;
-import com.google.pubsub.flic.cps.CPSSubscribingTask;
-import com.google.pubsub.flic.kafka.KafkaConsumerTask;
-import com.google.pubsub.flic.kafka.KafkaPublishingTask;
+import com.google.pubsub.flic.controllers.Client;
+import com.google.pubsub.flic.controllers.Client.ClientType;
+import com.google.pubsub.flic.controllers.ClientParams;
+import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.processing.Comparison;
-import com.google.pubsub.flic.processing.MessageProcessingHandler;
-import com.google.pubsub.flic.task.TaskArgs;
-import java.io.File;
-import java.util.logging.LogManager;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Drives the execution of the framework through command line arguments. */
-public class Driver {
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.logging.LogManager;
 
-  private static final Logger log = LoggerFactory.getLogger(Driver.class.getName());
+/**
+ * Drives the execution of the framework through command line arguments.
+ */
+public class Driver {
+  private final static Logger log = LoggerFactory.getLogger(Driver.class);
+  @Parameter(
+      names = {"--help"},
+      help = true
+  )
+  private boolean help = false;
+  @Parameter(
+      names = {"--dump_data", "-d"},
+      description = "Whether to dump relevant message data (only when consuming messages)."
+  )
+  private boolean dumpData = false;
+  @Parameter(
+      names = {"--cps_publisher_count"},
+      description = "Number of CPS publishers to start."
+  )
+  private int cpsPublisherCount = 1;
+  @Parameter(
+      names = {"--cps_subscriber_count"},
+      description = "Number of CPS subscribers to start per ."
+  )
+  private int cpsSubscriberCount = 1;
+  @Parameter(
+      names = {"--kafka_publisher_count"},
+      description = "Number of Kafka publishers to start."
+  )
+  private int kafkaPublisherCount = 0;
+  @Parameter(
+      names = {"--kafka_subscriber_count"},
+      description = "Number of Kafka subscribers to start."
+  )
+  private int kafkaSubscriberCount = 0;
+  @Parameter(
+      names = {"--num_messages", "-n"},
+      description = "Total number of messages to publish or consume.",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int numMessages = 10000;
+  @Parameter(
+      names = {"--message_size", "-m"},
+      description = "Message size in bytes (only when publishing messages).",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int messageSize = 1000;
+  @Parameter(
+      names = {"--loadtest_seconds"},
+      description = "Duration of the load test, in seconds.",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int loadtestLengthSeconds = 300;
+  @Parameter(
+      names = {"--project"},
+      required = true,
+      description = "Cloud Pub/Sub project name."
+  )
+  private String project = "";
+  @Parameter(
+      names = {"--batch_size", "-b"},
+      description = "Number of messages to batch per publish request.",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int batchSize = 1000;
+  @Parameter(
+      names = {"--response_threads", "-r"},
+      description = "Number of threads to use to handle response callbacks.",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int numResponseThreads = 1;
+
+  @Parameter(
+      names = {"--subscriber_fanout"},
+      description = "Number of subscription ids to use for each topic. Must be at least 1.",
+      validateWith = Utils.GreaterThanZeroValidator.class
+  )
+  private int subscriberFanout = 1;
 
   public static void main(String[] args) {
     // Turns off all java.util.logging.
     LogManager.getLogManager().reset();
+    Driver driver = new Driver();
+    JCommander jCommander = new JCommander(driver);
+    Comparison comparison = new Comparison();
+    jCommander.addCommand(Comparison.COMMAND, comparison);
+    jCommander.parse(args);
+    // Compare for correctness
+    if (driver.help) {
+      jCommander.usage();
+      return;
+    }
+    if (jCommander.getParsedCommand() != null &&
+        jCommander.getParsedCommand().equals(Comparison.COMMAND)) {
+      try {
+        comparison.compare();
+      } catch (Exception e) {
+        log.error("You must specify both --file1 and --file2 for" + Comparison.COMMAND);
+        System.exit(1);
+      }
+      return;
+    }
+    driver.run();
+  }
+
+  private void run() {
+    // for now we'll just use 1 region. But let's give a param for fanout. Then:
+    // topic is just our topic which we need to create here. (well recreate, so no backlog)
+    // subscription is a prefix based on fanout.
     try {
-      // Parse command line arguments.
-      BaseArguments baseArgs = new BaseArguments();
-      CPSArguments cpsArgs = new CPSArguments();
-      KafkaArguments kafkaArgs = new KafkaArguments();
-      CompareArguments dataComparisonArgs = new CompareArguments();
-      JCommander jCommander = new JCommander(baseArgs);
-      jCommander.addCommand(CPSArguments.COMMAND, cpsArgs);
-      jCommander.addCommand(KafkaArguments.COMMAND, kafkaArgs);
-      jCommander.addCommand(CompareArguments.COMMAND, dataComparisonArgs);
-      jCommander.parse(args);
-      if (jCommander.getParsedCommand() == null) {
-        if (baseArgs.isHelp()) {
-          jCommander.usage();
-        }
-        return;
+      Map<String, Map<ClientParams, Integer>> clientTypes = ImmutableMap.of(
+          "us-central1-a", new HashMap<>());
+      Preconditions.checkArgument(subscriberFanout > 0);
+      Preconditions.checkArgument(
+          cpsPublisherCount > 0 ||
+              cpsSubscriberCount > 0 ||
+              kafkaPublisherCount > 0 ||
+              kafkaSubscriberCount > 0
+      );
+      for (int i = 0; i < subscriberFanout; ++i) {
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GRPC_PUBLISHER, "subscription" + i),
+            cpsPublisherCount / subscriberFanout);
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GRPC_SUBSCRIBER, "subscription" + i),
+            cpsSubscriberCount / subscriberFanout);
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_PUBLISHER, "subscription" + i),
+            kafkaPublisherCount / subscriberFanout);
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_SUBSCRIBER, "subscription" + i),
+            kafkaSubscriberCount / subscriberFanout);
       }
-      if (jCommander.getParsedCommand().equals(CompareArguments.COMMAND)) {
-        // Compares data dumps for correctness.
-        Comparison c = new Comparison(dataComparisonArgs.getFile1(), dataComparisonArgs.getFile2());
-        c.compare();
-        return;
+      Client.messageSize = messageSize;
+      Client.requestRate = 1;
+      Client.startTime = Timestamp.newBuilder().build();
+      Client.loadtestLengthSeconds = loadtestLengthSeconds;
+      Client.batchSize = batchSize;
+      GCEController gceController =
+          GCEController.newGCEController(project, clientTypes, Executors.newCachedThreadPool());
+      gceController.initialize();
+      gceController.startClients();
+      SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+      dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+      String startTime = dateFormatter.format(new Date());
+      // Wait for the load test to finish.
+      Thread.sleep(Math.max(System.currentTimeMillis(), Client.startTime.getSeconds() * 1000) +
+          loadtestLengthSeconds * 1000 - System.currentTimeMillis());
+      gceController.shutdown(new Exception("Loadtest completed."));
+
+      // Print out latency measurements.
+      HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+      JsonFactory jsonFactory = new JacksonFactory();
+      GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
+      if (credential.createScopedRequired()) {
+        credential =
+            credential.createScoped(
+                Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
       }
-      // Use the builder to construct custom arguments for each task.
-      TaskArgs.TaskArgsBuilder builder =
-          new TaskArgs.TaskArgsBuilder()
-              .numMessages(baseArgs.getNumMessages())
-              .topics(baseArgs.getTopics());
-      TaskArgs taskArgs;
-      if (jCommander.getParsedCommand().equals(CPSArguments.COMMAND)) {
-        // The "cps" command was invoked.
-        MessageProcessingHandler cpsHandler =
-            new MessageProcessingHandler(baseArgs.getNumMessages());
-        builder =
-            builder
-                .cpsProject(cpsArgs.getProject())
-                .numResponseThreads(cpsArgs.getNumResponseThreads())
-                .rateLimit(cpsArgs.getRateLimit());
-        if (baseArgs.isPublish()) {
-          // Create a task which publishes to CPS.
-          taskArgs =
-              builder
-                  .messageSize(baseArgs.getMessageSize())
-                  .batchSize(cpsArgs.getBatchSize())
-                  .build();
-          cpsHandler.setLatencyType(MessageProcessingHandler.LatencyType.PUB_TO_ACK);
-          CPSRoundRobinPublisher publisher = new CPSRoundRobinPublisher(cpsArgs.getNumClients());
-          log.info("Creating a task which publishes to CPS.");
-          new CPSPublishingTask(taskArgs, publisher, cpsHandler).execute();
-        } else {
-          // Create a task which consumes from CPS.
-          if (baseArgs.isDumpData()) {
-            cpsHandler.setFiledump(new File(Utils.CPS_FILEDUMP_PATH));
-          }
-          taskArgs = builder.build();
-          cpsHandler.setLatencyType(MessageProcessingHandler.LatencyType.END_TO_END);
-          CPSRoundRobinSubscriber subscriber = new CPSRoundRobinSubscriber(cpsArgs.getNumClients());
-          log.info("Creating a task which consumes from CPS.");
-          new CPSSubscribingTask(taskArgs, subscriber, cpsHandler).execute();
-        }
-      } else {
-        // The "kafka" command was invoked.
-        MessageProcessingHandler bundle = new MessageProcessingHandler(baseArgs.getNumMessages());
-        builder = builder.broker(kafkaArgs.getBroker());
-        if (baseArgs.isPublish()) {
-          // Create a task that publishes to Kafka.
-          taskArgs = builder.messageSize(baseArgs.getMessageSize()).build();
-          KafkaProducer<String, String> publisher =
-              KafkaPublishingTask.getInitializedProducer(taskArgs);
-          log.info("Creating a task which publishes to Kafka");
-          new KafkaPublishingTask(taskArgs, publisher).execute();
-        } else {
-          // Create a task that consumes from Kafka.
-          if (baseArgs.isDumpData()) {
-            bundle.setFiledump(new File(Utils.KAFKA_FILEDUMP_PATH));
-          }
-          taskArgs = builder.broker(kafkaArgs.getBroker()).build();
-          KafkaConsumer<String, String> consumer =
-              KafkaConsumerTask.getInitializedConsumer(taskArgs);
-          log.info("Creating a task which consumes from Kafka.");
-          new KafkaConsumerTask(taskArgs, consumer, bundle).execute();
-        }
-      }
-    } catch (Exception e) {
-      log.error("An error occurred...", e);
+      Monitoring monitoring = new Monitoring.Builder(transport, jsonFactory, credential)
+          .setApplicationName("Cloud Pub/Sub Loadtest Framework")
+          .build();
+      Monitoring.Projects.TimeSeries.List request = monitoring.projects().timeSeries().list("projects/" + project)
+          .setFilter("metric.type = custom.googleapis.com/cloud-pubsub/loadclient/end_to_end_latency")
+          .setIntervalStartTime(startTime)
+          .setIntervalEndTime(dateFormatter.format(new Date()))
+          .setAggregationAlignmentPeriod("60s")
+          .setAggregationPerSeriesAligner("ALIGN_PERCENTILE_99");
+      ListTimeSeriesResponse response;
+      do {
+        response = request.execute();
+        response.getTimeSeries().forEach(timeSeries -> {
+          log.info("Instance: " + timeSeries.getResource().getLabels().toString());
+          timeSeries.getPoints().forEach(point -> {
+            log.info(point.getInterval().getStartTime() + " to " + point.getInterval().getEndTime());
+            log.info("Mean end to end latency: " + point.getValue().getDistributionValue().getMean());
+          });
+        });
+      } while (response.getNextPageToken() != null);
+    } catch (Throwable t) {
+      log.error("An error occurred...", t);
       System.exit(1);
     }
   }

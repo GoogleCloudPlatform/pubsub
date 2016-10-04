@@ -16,12 +16,20 @@
 
 package com.google.pubsub.flic.controllers;
 
-import java.io.IOException;
+import com.google.common.util.concurrent.SettableFuture;
+
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 
 abstract class Controller {
   final List<Client> clients = new ArrayList<>();
+  final Executor executor;
+
+  Controller(Executor executor) {
+    this.executor = executor;
+  }
 
   /*
   Creates the given environments and starts the virtual machines. When this function returns, each client is guaranteed
@@ -29,10 +37,26 @@ abstract class Controller {
   environment, the environment will be shut down, and an IOException will be thrown. It is not guaranteed that we have
   completed shutting down when this function returns, but it is guaranteed that we are in process.
    */
-  abstract void initialize() throws IOException, InterruptedException;
-  abstract void shutdown(Throwable t);
-  void startClients() {
-    clients.forEach(Client::start);
+  public abstract void initialize() throws Throwable;
+
+  public abstract void shutdown(Throwable t);
+
+  public void startClients() {
+    SettableFuture<Void> startFuture = SettableFuture.create();
+    clients.forEach((client) -> executor.execute(() -> {
+      try {
+        client.start();
+      } catch (Throwable t) {
+        startFuture.setException(t);
+      }
+    }));
+    try {
+      startFuture.get();
+    } catch (ExecutionException e) {
+      shutdown(e.getCause());
+    } catch (InterruptedException e) {
+      shutdown(e);
+    }
   }
 }
 

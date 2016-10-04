@@ -15,14 +15,16 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic.processing;
 
+import com.beust.jcommander.Parameter;
 import com.google.pubsub.flic.common.MessagePacketProto.MessagePacket;
+import org.apache.commons.lang3.mutable.MutableInt;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.HashMap;
 import java.util.Map;
-import org.apache.commons.lang3.mutable.MutableInt;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Takes two files containing MessagePacket data and compares the contents of the files to see if
@@ -30,27 +32,36 @@ import org.slf4j.LoggerFactory;
  */
 public class Comparison {
 
+  public static final String COMMAND = "compare";
   private static final Logger log = LoggerFactory.getLogger(Comparison.class.getName());
   private static final String COMPARISON_SUCCESS = "Comparison test passed!!";
   private static final String COMPARISON_FAIL = "Comparison test failed.";
+  @Parameter(
+      names = {"--file1", "-f1"},
+      required = true
+  )
+  private String filename1;
 
-  private File f1;
-  private File f2;
+  @Parameter(
+      names = {"--file2", "-f2"},
+      required = true
+  )
+  private String filename2;
 
-  public Comparison(String s1, String s2) {
-    this.f1 = new File(s1);
-    this.f2 = new File(s2);
+  public Comparison() {
   }
 
   /** Compares histograms of the two files and logs whether they were the same. */
   public void compare() throws Exception {
+    File f1 = new File(filename1);
+    File f2 = new File(filename2);
     Map<MessagePacket, MutableInt> histogram1 = createHistogram(f1);
     Map<MessagePacket, MutableInt> histogram2 = createHistogram(f2);
     if (histogram1.size() == 0 || histogram2.size() == 0) {
       log.error(COMPARISON_FAIL);
       return;
     }
-    for (Object key : histogram1.keySet()) {
+    histogram1.keySet().forEach((key) -> {
       if (histogram2.get(key) == null) {
         log.error(COMPARISON_FAIL);
       }
@@ -58,8 +69,8 @@ public class Comparison {
         log.error(COMPARISON_FAIL);
         return;
       }
-    }
-    log.info(COMPARISON_SUCCESS);
+      log.info(COMPARISON_SUCCESS);
+    });
   }
 
   /** Create a histogram of frequencies of MessagePacket's from a file. */

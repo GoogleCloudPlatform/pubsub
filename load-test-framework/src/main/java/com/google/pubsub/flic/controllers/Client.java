@@ -16,7 +16,9 @@
 
 package com.google.pubsub.flic.controllers;
 
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Empty;
+import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.Command;
 import com.google.pubsub.flic.common.LoadtestFrameworkGrpc;
 import io.grpc.ManagedChannel;
@@ -25,41 +27,31 @@ import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-class Client {
-  enum ClientType {
-    CPS_VENEER("veneer"),
-    CPS_GRPC("grpc"),
-    KAFKA("kafka");
+import java.util.concurrent.ExecutionException;
 
-    private final String text;
-
-    ClientType(final String text) {
-      this.text = text;
-    }
-
-    @Override
-    public String toString() {
-      return text;
-    }
-  }
-
-  private enum ClientStatus {
-    NONE,
-    RUNNING,
-    STOPPING,
-    FAILED,
-  }
-
+public class Client {
+  static final String topicPrefix = "cloud-pubsub-loadtest-";
   private static final Logger log = LoggerFactory.getLogger(Client.class.getName());
+  private static final int port = 5000;
+  public static int messageSize;
+  public static int requestRate;
+  public static Timestamp startTime;
+  public static int loadtestLengthSeconds;
+  public static int batchSize;
   private final ClientType clientType;
   private String networkAddress;
   private ClientStatus clientStatus;
-  private static final int port = 5000;
+  private String project;
+  private String topic;
+  private String subscription;
 
-  Client(ClientType clientType, String networkAddress) {
+  Client(ClientType clientType, String networkAddress, String project, String subscription) {
     this.clientType = clientType;
     this.networkAddress = networkAddress;
     this.clientStatus = ClientStatus.NONE;
+    this.project = project;
+    this.topic = topicPrefix + clientType;
+    this.subscription = subscription;
   }
 
   public ClientStatus clientStatus() {
@@ -74,13 +66,29 @@ class Client {
     this.networkAddress = networkAddress;
   }
 
-  void start() {
+  void start() throws Throwable {
     // Send a gRPC call to start the server
+    log.info("Connecting to " + networkAddress + ":" + port);
     ManagedChannel channel = ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build();
 
     LoadtestFrameworkGrpc.LoadtestFrameworkStub stub = LoadtestFrameworkGrpc.newStub(channel);
-    Command.CommandRequest request = Command.CommandRequest.newBuilder().build();
+    Command.CommandRequest.Builder requestBuilder = Command.CommandRequest.newBuilder()
+        .setProject(project)
+        .setTopic(topic)
+        .setMaxMessagesPerPull(batchSize)
+        .setNumberOfWorkers(10)
+        .setMessageSize(messageSize)
+        .setRequestRate(5)
+        //.setStartTime(startTime)
+        .setStopTime(Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 +
+            loadtestLengthSeconds).build());
+    if (clientType.toString().contains("subscriber")) {
+      requestBuilder.setSubscription(subscription);
+    }
+    Command.CommandRequest request = requestBuilder.build();
+    SettableFuture<Void> startFuture = SettableFuture.create();
     stub.startClient(request, new StreamObserver<Empty>() {
+      private int connectionErrors = 0;
       @Override
       public void onNext(Empty empty) {
         log.info("Successfully started client [" + networkAddress + "]");
@@ -89,12 +97,52 @@ class Client {
 
       @Override
       public void onError(Throwable throwable) {
+        log.error("Unable to start client [" + networkAddress + "]", throwable);
         clientStatus = ClientStatus.FAILED;
+        if (connectionErrors > 10) {
+          log.error("Client failed " + connectionErrors + " times, shutting down.");
+          startFuture.setException(throwable);
+          return;
+        }
+        connectionErrors++;
+        try {
+          Thread.sleep(5000);
+        } catch (InterruptedException e) {
+          log.info("Interrupted during back off, retrying.");
+        }
+        log.info("Going to retry client connection, likely due to start up time.");
+        stub.startClient(request, this);
       }
 
       @Override
       public void onCompleted() {
+        log.info("Start command completed.");
+        startFuture.set(null);
       }
     });
+    try {
+      startFuture.get();
+    } catch (ExecutionException e) {
+      throw e.getCause();
+    }
+  }
+
+  public enum ClientType {
+    CPS_GRPC_PUBLISHER,
+    CPS_GRPC_SUBSCRIBER,
+    KAFKA_PUBLISHER,
+    KAFKA_SUBSCRIBER;
+
+    @Override
+    public String toString() {
+      return name().toLowerCase().replace('_', '-');
+    }
+  }
+
+  private enum ClientStatus {
+    NONE,
+    RUNNING,
+    STOPPING,
+    FAILED,
   }
 }
