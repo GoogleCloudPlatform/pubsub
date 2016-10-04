@@ -63,6 +63,9 @@ class CPSSubscriberTask implements Runnable {
         endToEndLatencies.add(now - Long.parseLong(response.attributes().get("sendTime")));
       });
       endToEndLatencies.stream().distinct().forEach(metricsHandler::recordEndToEndLatency);
+      if (ackIds.isEmpty()) {
+        return;
+      }
       pubSub.ack(subscription, ackIds);
     } catch (PubSubException e) {
       log.error("Error pulling or acknowledging messages.", e);

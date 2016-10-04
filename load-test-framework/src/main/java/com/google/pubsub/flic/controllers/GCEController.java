@@ -154,7 +154,7 @@ public class GCEController extends Controller {
                   .setIPProtocol("tcp")
                   .setPorts(Collections.singletonList("5000"))));
       try {
-        compute.firewalls().get(projectName, "cloud-loadtest-framework-firewall-rule");
+        compute.firewalls().get(projectName, "cloud-loadtest-framework-firewall-rule").execute();
         compute.firewalls().update(projectName, "cloud-loadtest-framework-firewall-rule", firewallRule).execute();
       } catch (GoogleJsonResponseException e) {
         compute.firewalls().insert(projectName, firewallRule).execute();

@@ -38,6 +38,7 @@ public class Client {
   public static Timestamp startTime;
   public static int loadtestLengthSeconds;
   public static int batchSize;
+  public static String broker;
   private final ClientType clientType;
   private final String networkAddress;
   private final String project;
@@ -84,8 +85,11 @@ public class Client {
         //.setStartTime(startTime)
         .setStopTime(Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 +
             loadtestLengthSeconds).build());
-    if (clientType.toString().contains("subscriber")) {
+    if (subscription != null) {
       requestBuilder.setSubscription(subscription);
+    }
+    if (broker != null) {
+      requestBuilder.setBroker(broker);
     }
     Command.CommandRequest request = requestBuilder.build();
     SettableFuture<Void> startFuture = SettableFuture.create();

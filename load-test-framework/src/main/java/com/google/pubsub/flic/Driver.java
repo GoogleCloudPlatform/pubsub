@@ -58,12 +58,12 @@ class Driver {
       names = {"--kafka_publisher_count"},
       description = "Number of Kafka publishers to start."
   )
-  private int kafkaPublisherCount = 1;
+  private int kafkaPublisherCount = 0;
   @Parameter(
       names = {"--kafka_subscriber_count"},
       description = "Number of Kafka subscribers to start."
   )
-  private int kafkaSubscriberCount = 1;
+  private int kafkaSubscriberCount = 0;
   @Parameter(
       names = {"--message_size", "-m"},
       description = "Message size in bytes (only when publishing messages).",
@@ -94,6 +94,11 @@ class Driver {
       validateWith = GreaterThanZeroValidator.class
   )
   private int subscriberFanout = 1;
+  @Parameter(
+      names = {"--broker"},
+      description = "The network address of the Kafka broker."
+  )
+  private String broker;
 
   public static void main(String[] args) {
     // Turns off all java.util.logging.
@@ -117,6 +122,8 @@ class Driver {
               kafkaPublisherCount > 0 ||
               kafkaSubscriberCount > 0
       );
+      Preconditions.checkArgument(
+          broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
       for (int i = 0; i < subscriberFanout; ++i) {
         clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null),
             cpsPublisherCount / subscriberFanout);
@@ -132,6 +139,7 @@ class Driver {
       Client.startTime = Timestamp.newBuilder().build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.batchSize = batchSize;
+      Client.broker = broker;
       GCEController gceController =
           GCEController.newGCEController(project, clientTypes, Executors.newCachedThreadPool());
       gceController.initialize();

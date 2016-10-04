@@ -21,4 +21,5 @@ message CommandRequest {
   string subscription = 8;
   int32 message_size = 9;
   int32 request_rate = 10;
+  string broker = 11;
 }
