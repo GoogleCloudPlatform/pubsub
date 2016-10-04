@@ -29,7 +29,6 @@ import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Bucket;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
-import com.google.cloud.pubsub.SubscriptionInfo;
 import com.google.cloud.pubsub.TopicInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
@@ -96,16 +95,6 @@ public class GCEController extends Controller {
         PubSubOptions.builder().projectId(projectName).build().service());
   }
 
-  private static String bytesToHex(byte[] bytes) {
-    char[] hexChars = new char[bytes.length * 2];
-    for (int j = 0; j < bytes.length; j++) {
-      int v = bytes[j] & 0xFF;
-      hexChars[j * 2] = hexArray[v >>> 4];
-      hexChars[j * 2 + 1] = hexArray[v & 0x0F];
-    }
-    return new String(hexChars);
-  }
-
   @Override
   public synchronized void shutdown(Throwable t) {
     if (shutdown) {
@@ -133,16 +122,25 @@ public class GCEController extends Controller {
         throw new IOException("Already shutting down, cannot initialize.");
       }
     }
+    List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
     types.values().forEach((paramsMap) -> paramsMap.keySet().stream().map((params) -> params.clientType)
         .distinct().forEach((clientType) -> {
-          // Delete each topic and subscription if it exists and create it new to avoid potential backlog from previous runs
-          String topic = Client.topicPrefix + clientType;
-          pubSub.deleteTopic(topic);
-          pubSub.create(TopicInfo.of(topic));
-          paramsMap.keySet().stream().filter((params) -> params.clientType == clientType)
-              .map((params) -> params.subscription).forEach((subscription) -> {
-            pubSub.deleteSubscription(subscription);
-            pubSub.create(SubscriptionInfo.of(topic, subscription));
+          SettableFuture<Void> pubsubFuture = SettableFuture.create();
+          pubsubFutures.add(pubsubFuture);
+          executor.execute(() -> {
+            // Delete each topic and subscription if it exists and create it new to avoid potential backlog from previous runs
+            String topic = Client.topicPrefix + Client.getTopicSuffix(clientType);
+            try {
+              pubSub.create(TopicInfo.of(topic));
+            } catch (Exception e) {
+              log.info("Topic already exists, reusing.");
+            }
+            //paramsMap.keySet().stream().filter((params) -> params.clientType == clientType && params.subscription != null)
+            //    .map((params) -> params.subscription).forEach((subscription) -> {
+            //  pubSub.deleteSubscription(subscription);
+            //  pubSub.create(SubscriptionInfo.of(topic, subscription));
+            //});
+            pubsubFuture.set(null);
           });
         }));
     try {
@@ -190,6 +188,7 @@ public class GCEController extends Controller {
       }));
 
       // Wait for files and instance groups to be created.
+      Futures.allAsList(pubsubFutures).get();
       Futures.allAsList(filesRemaining).get();
       Futures.allAsList(createGroupFutures).get();
 

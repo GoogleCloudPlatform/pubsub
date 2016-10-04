@@ -153,7 +153,7 @@ class PubsubGrpcLoadClient extends PubsubLoadClientAdapter {
             for (ReceivedMessage recvMsg : response.getReceivedMessagesList()) {
               ackIds.add(recvMsg.getAckId());
               endToEndLatencies.add(
-                  now - Long.parseLong(recvMsg.getMessage().getAttributes().get("sendTime")));
+                  now - Long.parseLong(recvMsg.getMessage().getAttributesMap().get("sendTime")));
               log.debug("Received ackId: " + recvMsg.getAckId());
             }
             log.debug("Received ackId count: " + response.getReceivedMessagesCount());

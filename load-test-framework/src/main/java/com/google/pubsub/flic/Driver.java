@@ -161,13 +161,13 @@ public class Driver {
               kafkaSubscriberCount > 0
       );
       for (int i = 0; i < subscriberFanout; ++i) {
-        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GRPC_PUBLISHER, "subscription" + i),
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GRPC_PUBLISHER, null),
             cpsPublisherCount / subscriberFanout);
-        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GRPC_SUBSCRIBER, "subscription" + i),
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GRPC_SUBSCRIBER, "grpc-subscription" + i),
             cpsSubscriberCount / subscriberFanout);
-        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_PUBLISHER, "subscription" + i),
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_PUBLISHER, null),
             kafkaPublisherCount / subscriberFanout);
-        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_SUBSCRIBER, "subscription" + i),
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_SUBSCRIBER, "kafka-subscription" + i),
             kafkaSubscriberCount / subscriberFanout);
       }
       Client.messageSize = messageSize;
@@ -183,8 +183,7 @@ public class Driver {
       dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
       String startTime = dateFormatter.format(new Date());
       // Wait for the load test to finish.
-      Thread.sleep(Math.max(System.currentTimeMillis(), Client.startTime.getSeconds() * 1000) +
-          loadtestLengthSeconds * 1000 - System.currentTimeMillis());
+      Thread.sleep(loadtestLengthSeconds * 1000);
       gceController.shutdown(new Exception("Loadtest completed."));
 
       // Print out latency measurements.
@@ -200,7 +199,7 @@ public class Driver {
           .setApplicationName("Cloud Pub/Sub Loadtest Framework")
           .build();
       Monitoring.Projects.TimeSeries.List request = monitoring.projects().timeSeries().list("projects/" + project)
-          .setFilter("metric.type = custom.googleapis.com/cloud-pubsub/loadclient/end_to_end_latency")
+          .setFilter("metric.type = \"custom.googleapis.com/cloud-pubsub/loadclient/end_to_end_latency\"")
           .setIntervalStartTime(startTime)
           .setIntervalEndTime(dateFormatter.format(new Date()))
           .setAggregationAlignmentPeriod("60s")

@@ -16,6 +16,7 @@
 
 package com.google.pubsub.flic.controllers;
 
+import com.beust.jcommander.internal.Nullable;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
@@ -45,13 +46,25 @@ public class Client {
   private String topic;
   private String subscription;
 
-  Client(ClientType clientType, String networkAddress, String project, String subscription) {
+  Client(ClientType clientType, String networkAddress, String project, @Nullable String subscription) {
     this.clientType = clientType;
     this.networkAddress = networkAddress;
     this.clientStatus = ClientStatus.NONE;
     this.project = project;
-    this.topic = topicPrefix + clientType;
+    this.topic = topicPrefix + getTopicSuffix(clientType);
     this.subscription = subscription;
+  }
+
+  public static String getTopicSuffix(ClientType clientType) {
+    switch (clientType) {
+      case CPS_GRPC_PUBLISHER:
+      case CPS_GRPC_SUBSCRIBER:
+        return "cps";
+      case KAFKA_PUBLISHER:
+      case KAFKA_SUBSCRIBER:
+        return "kafka";
+    }
+    return null;
   }
 
   public ClientStatus clientStatus() {
@@ -64,6 +77,11 @@ public class Client {
 
   public void setNetworkAddress(String networkAddress) {
     this.networkAddress = networkAddress;
+  }
+
+  LoadtestFrameworkGrpc.LoadtestFrameworkStub getStub() {
+    return LoadtestFrameworkGrpc.newStub(
+        ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build());
   }
 
   void start() throws Throwable {
@@ -87,7 +105,7 @@ public class Client {
     }
     Command.CommandRequest request = requestBuilder.build();
     SettableFuture<Void> startFuture = SettableFuture.create();
-    stub.startClient(request, new StreamObserver<Empty>() {
+    getStub().startClient(request, new StreamObserver<Empty>() {
       private int connectionErrors = 0;
       @Override
       public void onNext(Empty empty) {
@@ -111,7 +129,7 @@ public class Client {
           log.info("Interrupted during back off, retrying.");
         }
         log.info("Going to retry client connection, likely due to start up time.");
-        stub.startClient(request, this);
+        getStub().startClient(request, this);
       }
 
       @Override

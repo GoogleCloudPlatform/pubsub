@@ -114,7 +114,6 @@ public class LoadClient {
             new ThreadFactoryBuilder().setDaemon(true).setNameFormat("load-thread").build());
 
     metricsHandler = new MetricsHandler(project);
-    metricsHandler.initialize();
 
     ProjectInfo projectInfo = new ProjectInfo(project, topicName, subscriptionName);
     LoadTestParams loadTestParams =
@@ -188,13 +187,11 @@ public class LoadClient {
             });
       }
     });
-
-    metricsHandler.startReporting();
   }
 
   private void recordPullResponseResult(PullResponseResult result) {
     if (result.isOk()) {
-      result.getEndToEndLatenciesMillis().forEach(metricsHandler::recordEndToEndLatency);
+      result.getEndToEndLatenciesMillis().stream().distinct().forEach(metricsHandler::recordEndToEndLatency);
     }
   }
 }

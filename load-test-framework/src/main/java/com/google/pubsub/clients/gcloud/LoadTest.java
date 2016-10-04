@@ -88,7 +88,6 @@ public class LoadTest {
       Thread.sleep(toSleep);
     }
     final PubSub pubSub = PubSubOptions.builder()
-        .host("pubsub.googleapis.com")
         .projectId(request.getProject())
         .build().service();
 
@@ -105,8 +104,6 @@ public class LoadTest {
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
     final Semaphore outstandingTestLimiter = new Semaphore(numWorkers, false);
     LoadTestRun.metricsHandler = new MetricsHandler(request.getProject());
-    LoadTestRun.metricsHandler.initialize();
-    LoadTestRun.metricsHandler.startReporting();
     while (System.currentTimeMillis() < endTimeMillis) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();

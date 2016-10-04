@@ -70,8 +70,7 @@ class LoadTestRun implements Runnable {
     }
   }
 
-  private void publish(
-      String topic) throws RetryableException {
+  private void publish(String topic) throws RetryableException {
     String result = "unknown";
     Stopwatch stopwatch = Stopwatch.createUnstarted();
     try {
@@ -90,9 +89,9 @@ class LoadTestRun implements Runnable {
       result = e.toString();
       log.error(logPrefix + "Publish request failed", e);
       throw new RetryableException(e);
-    } catch (Exception e) {
-      log.warn(logPrefix + "Publish request failed with unknown exception", e);
-      throw e;
+    } catch (Throwable t) {
+      log.error(logPrefix + "Publish request failed with unknown exception", t);
+      throw t;
     } finally {
       log.info(
           logPrefix + "Publish request took " + stopwatch.elapsed(TimeUnit.MILLISECONDS) +
@@ -109,10 +108,12 @@ class LoadTestRun implements Runnable {
       Iterator<ReceivedMessage> responses = pubSub.pull(subscription, batchSize);
       stopwatch.stop();
       long now = System.currentTimeMillis();
+      List<Long> endToEndLatencies = new ArrayList<>();
       responses.forEachRemaining((response) -> {
         ackIds.add(response.ackId());
-        metricsHandler.recordEndToEndLatency(now - Long.parseLong(response.attributes().get("sendTime")));
+        endToEndLatencies.add(now - Long.parseLong(response.attributes().get("sendTime")));
       });
+      endToEndLatencies.stream().distinct().forEach(metricsHandler::recordEndToEndLatency);
       if (ackIds.isEmpty()) {
         result = "no-messages";
         log.info(logPrefix + "Pull returned no messages");
