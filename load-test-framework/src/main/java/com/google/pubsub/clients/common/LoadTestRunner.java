@@ -62,11 +62,10 @@ public class LoadTestRunner {
     Runtime.getRuntime().addShutdownHook(new Thread() {
       @Override
       public void run() {
-        log.error("Shutting down server since JVM is shutting down.");
         if (server != null) {
+          log.error("Shutting down server since JVM is shutting down.");
           server.shutdown();
         }
-        log.error("Server shut down.");
       }
     });
 
@@ -90,6 +89,7 @@ public class LoadTestRunner {
       rateLimiter.acquire();
       executor.submit(client).addListener(outstandingTestLimiter::release, executor);
     }
+    log.info("Load test complete, shutting down.");
   }
 
   /**

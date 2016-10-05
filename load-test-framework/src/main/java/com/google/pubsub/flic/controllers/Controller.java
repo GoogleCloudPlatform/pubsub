@@ -46,6 +46,7 @@ abstract class Controller {
     clients.forEach((client) -> executor.execute(() -> {
       try {
         client.start();
+        startFuture.set(null);
       } catch (Throwable t) {
         startFuture.setException(t);
       }
