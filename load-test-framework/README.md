@@ -26,7 +26,11 @@ These instructions assume you are using [Maven](https://maven.apache.org/).
 
     `mvn package`
 
-The resulting jar is at target/flic.jar.
+3. Copy the jar into the GCE resource directory:
+
+    `cp target/driver.jar target/gce/`
+
+The resulting jar is at target/driver.jar.
 
 ### Pre-Running Steps
 

@@ -19,9 +19,11 @@ import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.protobuf.Empty;
-import com.google.pubsub.flic.common.Command;
-import com.google.pubsub.flic.common.LoadtestFrameworkGrpc;
+import com.google.pubsub.flic.common.LoadtestGrpc;
+import com.google.pubsub.flic.common.LoadtestProto.CheckRequest;
+import com.google.pubsub.flic.common.LoadtestProto.CheckResponse;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
@@ -32,6 +34,8 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
@@ -40,20 +44,36 @@ import java.util.function.Function;
 public class LoadTestRunner {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
   private static Server server;
+  private static AtomicInteger requestCount = new AtomicInteger(0);
+  private static AtomicBoolean finished = new AtomicBoolean(false);
+  private static SettableFuture<Void> finishedFuture = SettableFuture.create();
 
-  public static void run(Function<Command.CommandRequest, Runnable> loadFunction) throws Exception {
-    SettableFuture<Command.CommandRequest> requestFuture = SettableFuture.create();
+  public static void run(Function<StartRequest, Runnable> loadFunction) throws Exception {
+    SettableFuture<StartRequest> requestFuture = SettableFuture.create();
     server = ServerBuilder.forPort(5000)
-        .addService(new LoadtestFrameworkGrpc.LoadtestFrameworkImplBase() {
+        .addService(new LoadtestGrpc.LoadtestImplBase() {
           @Override
-          public void startClient(Command.CommandRequest request, StreamObserver<Empty> responseObserver) {
+          public void start(StartRequest request, StreamObserver<StartResponse> responseObserver) {
             if (requestFuture.isDone()) {
               responseObserver.onError(new Exception("Start should only be called once, ignoring this request."));
               return;
             }
             requestFuture.set(request);
-            responseObserver.onNext(Empty.getDefaultInstance());
+            responseObserver.onNext(StartResponse.getDefaultInstance());
             responseObserver.onCompleted();
+          }
+
+          @Override
+          public void check(CheckRequest request, StreamObserver<CheckResponse> responseObserver) {
+            boolean finishedValue = finished.get();
+            responseObserver.onNext(CheckResponse.newBuilder()
+                .setRequestCount(requestCount.get())
+                .setIsFinished(finishedValue)
+                .build());
+            responseObserver.onCompleted();
+            if (finishedValue) {
+              finishedFuture.set(null);
+            }
           }
         })
         .build()
@@ -69,26 +89,30 @@ public class LoadTestRunner {
       }
     });
 
-    Command.CommandRequest request = requestFuture.get();
+    StartRequest request = requestFuture.get();
     log.info("Request received, starting up server.");
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
     if (request.hasStartTime() && toSleep > 0) {
       Thread.sleep(toSleep);
     }
 
-    final int numWorkers = request.getNumberOfWorkers();
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
-        Executors.newFixedThreadPool(numWorkers));
+        Executors.newFixedThreadPool(request.getMaxConcurrentRequests()));
 
     final long endTimeMillis = request.getStopTime().getSeconds() * 1000;
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
-    final Semaphore outstandingTestLimiter = new Semaphore(numWorkers, false);
+    final Semaphore outstandingTestLimiter = new Semaphore(request.getMaxConcurrentRequests(), false);
     Runnable client = loadFunction.apply(request);
     while (System.currentTimeMillis() < endTimeMillis) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();
-      executor.submit(client).addListener(outstandingTestLimiter::release, executor);
+      executor.submit(client).addListener(() -> {
+        outstandingTestLimiter.release();
+        requestCount.addAndGet(1);
+      }, executor);
     }
+    finished.set(true);
+    finishedFuture.get();
     log.info("Load test complete, shutting down.");
   }
 

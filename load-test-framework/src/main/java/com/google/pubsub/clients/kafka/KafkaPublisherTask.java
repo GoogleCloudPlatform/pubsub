@@ -57,7 +57,7 @@ class KafkaPublisherTask implements Runnable {
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run(request ->
-        new KafkaPublisherTask(request.getSubscription(), request.getProject(),
+        new KafkaPublisherTask(request.getKafkaOptions().getBroker(), request.getProject(),
             request.getTopic(), request.getMessageSize()));
   }
 

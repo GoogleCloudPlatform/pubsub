@@ -18,10 +18,12 @@ package com.google.pubsub.flic.controllers;
 
 import com.beust.jcommander.internal.Nullable;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
-import com.google.pubsub.flic.common.Command;
-import com.google.pubsub.flic.common.LoadtestFrameworkGrpc;
+import com.google.pubsub.flic.common.LoadtestGrpc;
+import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
+import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
@@ -67,36 +69,43 @@ public class Client {
     return null;
   }
 
-  private LoadtestFrameworkGrpc.LoadtestFrameworkStub getStub() {
-    return LoadtestFrameworkGrpc.newStub(
+  private LoadtestGrpc.LoadtestStub getStub() {
+    return LoadtestGrpc.newStub(
         ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build());
   }
 
   void start() throws Throwable {
     // Send a gRPC call to start the server
     log.info("Connecting to " + networkAddress + ":" + port);
-    Command.CommandRequest.Builder requestBuilder = Command.CommandRequest.newBuilder()
+    StartRequest.Builder requestBuilder = StartRequest.newBuilder()
         .setProject(project)
         .setTopic(topic)
-        .setMaxMessagesPerPull(batchSize)
-        .setNumberOfWorkers(10)
+        .setBatchSize(batchSize)
+        .setMaxConcurrentRequests(10)
         .setMessageSize(messageSize)
         .setRequestRate(5)
-        //.setStartTime(startTime)
-        .setStopTime(Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 +
-            loadtestLengthSeconds).build());
-    if (subscription != null) {
-      requestBuilder.setSubscription(subscription);
+        .setStartTime(startTime)
+        .setStopTime(Timestamp.newBuilder()
+            .setSeconds(startTime.getSeconds() / 1000 + loadtestLengthSeconds).build());
+    switch (clientType) {
+      case CPS_GCLOUD_SUBSCRIBER:
+        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
+            .setMaxMessagesPerPull(10)
+            .setSubscription(subscription));
+        break;
+      case KAFKA_PUBLISHER:
+      case KAFKA_SUBSCRIBER:
+        requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
+            .setBroker(broker)
+            .setPollLength(100));
+        break;
     }
-    if (broker != null) {
-      requestBuilder.setBroker(broker);
-    }
-    Command.CommandRequest request = requestBuilder.build();
+    StartRequest request = requestBuilder.build();
     SettableFuture<Void> startFuture = SettableFuture.create();
-    getStub().startClient(request, new StreamObserver<Empty>() {
+    getStub().start(request, new StreamObserver<StartResponse>() {
       private int connectionErrors = 0;
       @Override
-      public void onNext(Empty empty) {
+      public void onNext(StartResponse response) {
         log.info("Successfully started client [" + networkAddress + "]");
         clientStatus = ClientStatus.RUNNING;
       }
@@ -117,7 +126,7 @@ public class Client {
           log.info("Interrupted during back off, retrying.");
         }
         log.info("Going to retry client connection, likely due to start up time.");
-        getStub().startClient(request, this);
+        getStub().start(request, this);
       }
 
       @Override

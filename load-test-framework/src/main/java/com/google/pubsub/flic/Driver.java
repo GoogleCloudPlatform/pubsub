@@ -19,7 +19,14 @@ import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.monitoring.v3.Monitoring;
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.controllers.Client;
@@ -29,8 +36,9 @@ import com.google.pubsub.flic.controllers.GCEController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.io.IOException;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.logging.LogManager;
 
@@ -141,6 +149,7 @@ class Driver {
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.batchSize = batchSize;
       Client.broker = broker;
+      Date startTime = new Date();
       GCEController gceController =
           GCEController.newGCEController(project, clientTypes, Executors.newCachedThreadPool());
       gceController.initialize();
@@ -149,8 +158,46 @@ class Driver {
       // Wait for the load test to finish.
       Thread.sleep(loadtestLengthSeconds * 1000);
       gceController.shutdown(new Exception("Loadtest completed."));
-      log.info("You can see all the results on your StackDriver dashboard. All metrics start with the path"
-          + "custom.googleapis.com/cloud-pubsub/loadclient/");
+      HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+      JsonFactory jsonFactory = new JacksonFactory();
+      GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
+      if (credential.createScopedRequired()) {
+        credential =
+            credential.createScoped(
+                Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
+      }
+      Monitoring monitoring = new Monitoring.Builder(transport, jsonFactory, credential)
+          .setApplicationName("Cloud Pub/Sub Loadtest Framework")
+          .build();
+      SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+      dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+      Date endTime = new Date();
+      endTime.setTime(startTime.getTime() + loadtestLengthSeconds * 1000);
+      for (String type : ImmutableList.of("gcloud", "kafka")) {
+        for (String metric : ImmutableList.of("end_to_end_latency", "publish_latency")) {
+          log.info("99% " + metric + " for " + type + ":");
+          monitoring.projects().timeSeries().list("projects/" + project)
+              .setFilter("metric.type = \"custom.googleapis.com/cloud-pubsub/loadtest/" + metric + "\" AND " +
+                  "metric.label = \"" + type + "\"")
+              .setIntervalStartTime(dateFormatter.format(startTime))
+              .setIntervalEndTime(dateFormatter.format(endTime))
+              .setView("FULL")
+              .setAggregationAlignmentPeriod(loadtestLengthSeconds + "s")
+              .setAggregationPerSeriesAligner("ALIGN_SUM")
+              .setAggregationCrossSeriesReducer("REDUCE_PERCENTILE_99")
+              .setAggregationGroupByFields(Collections.singletonList("client_type"))
+              .execute()
+              .getTimeSeries()
+              .forEach(timeSeries -> timeSeries.getPoints().forEach(point -> {
+                log.info(point.getInterval().getStartTime() + " to " + point.getInterval().getEndTime());
+                try {
+                  log.info(point.getValue().getDistributionValue().toPrettyString());
+                } catch (IOException e) {
+                  log.error("Somehow the value was not a distribution.", e);
+                }
+              }));
+        }
+      }
     } catch (Throwable t) {
       log.error("An error occurred...", t);
       System.exit(1);

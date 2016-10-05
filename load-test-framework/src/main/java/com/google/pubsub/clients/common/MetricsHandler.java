@@ -22,6 +22,7 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.monitoring.v3.Monitoring;
 import com.google.api.services.monitoring.v3.model.*;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -40,11 +41,10 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.text.SimpleDateFormat;
-import java.util.Collections;
-import java.util.Date;
-import java.util.TimeZone;
-import java.util.concurrent.Executor;
+import java.util.*;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 /**
  * A class that is used to record metrics related to the execution of the load tests, such metrics
@@ -56,18 +56,24 @@ public class MetricsHandler {
   private static final String PUBLISH_LATENCY_METRIC_NAME = "publish_latency";
   private final String project;
   private final SimpleDateFormat dateFormatter;
-  private final Executor executor;
+  private final LatencyDistribution endToEndLatencyDistribution;
+  private final LatencyDistribution publishLatencyDistribution;
+  private final ScheduledExecutorService executor;
   private final String clientType;
+  private final MonitoredResource monitoredResource;
+  private String startTime;
   private Monitoring monitoring;
-  private MonitoredResource monitoredResource;
-  private boolean ready = false;
 
   public MetricsHandler(String project, String clientType) {
     this.project = project;
     this.clientType = clientType;
     dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
-    executor = Executors.newFixedThreadPool(5);
+    startTime = dateFormatter.format(new Date());
+    endToEndLatencyDistribution = new LatencyDistribution();
+    publishLatencyDistribution = new LatencyDistribution();
+    monitoredResource = new MonitoredResource().setType("gce_instance");
+    executor = Executors.newSingleThreadScheduledExecutor();
     executor.execute(this::initialize);
   }
 
@@ -85,8 +91,6 @@ public class MetricsHandler {
         monitoring = new Monitoring.Builder(transport, jsonFactory, credential)
             .setApplicationName("Cloud Pub/Sub Loadtest Framework")
             .build();
-        monitoredResource = new MonitoredResource();
-        monitoredResource.setType("gce_instance");
         String zoneId;
         String instanceId;
         try {
@@ -133,7 +137,7 @@ public class MetricsHandler {
             "zone", zoneId
         ));
         createMetrics();
-        ready = true;
+        executor.scheduleAtFixedRate(this::reportMetrics, 30, 30, TimeUnit.SECONDS);
       } catch (IOException e) {
         log.error("Unable to initialize MetricsHandler, trying again.", e);
         executor.execute(this::initialize);
@@ -155,7 +159,7 @@ public class MetricsHandler {
               .setDescription("The type of client reporting latency.")
               .setValueType("STRING")))
           .setMetricKind("GAUGE")
-          .setValueType("INT64")
+          .setValueType("DISTRIBUTION")
           .setUnit("ms");
       monitoring.projects().metricDescriptors().create("projects/" + project, metricDescriptor).execute();
       metricDescriptor.setType("custom.googleapis.com/cloud-pubsub/loadclient/" + PUBLISH_LATENCY_METRIC_NAME)
@@ -168,46 +172,170 @@ public class MetricsHandler {
     }
   }
 
-  // We can only report one at a time, since any sent out of order will be rejected by Stackdriver.
   public void recordEndToEndLatency(long latencyMs) {
-    synchronized (END_TO_END_LATENCY_METRIC_NAME) {
-      recordLatency(latencyMs, END_TO_END_LATENCY_METRIC_NAME);
-    }
-  }
-
-  // We can only report one at a time, since any sent out of order will be rejected by Stackdriver.
-  public void recordPublishLatency(long latencyMs) {
-    synchronized (PUBLISH_LATENCY_METRIC_NAME) {
-      recordLatency(latencyMs, PUBLISH_LATENCY_METRIC_NAME);
-    }
-  }
-
-  private void recordLatency(long latencyMs, String name) {
     synchronized (this) {
-      if (!ready) {
-        return;
-      }
+      endToEndLatencyDistribution.recordLatency(latencyMs);
     }
-    log.debug("Adding a latency: " + latencyMs);
-    String now = dateFormatter.format(new Date());
-    try {
-      monitoring.projects().timeSeries().create("projects/" + project,
-          new CreateTimeSeriesRequest().setTimeSeries(Collections.singletonList(new TimeSeries()
+  }
+
+  public void recordPublishLatency(long latencyMs) {
+    synchronized (this) {
+      publishLatencyDistribution.recordLatency(latencyMs);
+    }
+  }
+
+  private Point distributionPoint(LatencyDistribution distribution) {
+    return new Point()
+        .setValue(new TypedValue()
+            .setDistributionValue(new Distribution()
+                .setBucketCounts(distribution.getBucketValues())
+                .setCount(distribution.getCount())
+                .setMean(distribution.getMean())
+                .setRange(new Range()
+                    .setMin(distribution.getMin())
+                    .setMax(distribution.getMax()))
+                .setSumOfSquaredDeviation(distribution.getSumOfSquareDeviations())
+                .setBucketOptions(new BucketOptions()
+                    .setExplicitBuckets(new Explicit().setBounds(LatencyDistribution.LATENCY_BUCKETS)))))
+        .setInterval(new TimeInterval()
+            .setStartTime(startTime)
+            .setEndTime(dateFormatter.format(new Date())));
+  }
+
+  private void reportMetrics() {
+    CreateTimeSeriesRequest request;
+    synchronized (this) {
+      request = new CreateTimeSeriesRequest().setTimeSeries(ImmutableList.of(
+          new TimeSeries()
               .setMetric(new Metric()
-                  .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + name)
+                  .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + END_TO_END_LATENCY_METRIC_NAME)
                   .setLabels(ImmutableMap.of("client_type", clientType)))
               .setMetricKind("GAUGE")
-              .setValueType("INT64")
-              .setPoints(Collections.singletonList(
-                  new Point()
-                      .setValue(new TypedValue()
-                          .setInt64Value(latencyMs))
-                      .setInterval(new TimeInterval()
-                          .setStartTime(now)
-                          .setEndTime(now)))
-              ).setResource(monitoredResource)))).execute();
+              .setValueType("DISTRIBUTION")
+              .setPoints(Collections.singletonList(distributionPoint(endToEndLatencyDistribution)))
+              .setResource(monitoredResource),
+          new TimeSeries()
+              .setMetric(new Metric()
+                  .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + PUBLISH_LATENCY_METRIC_NAME)
+                  .setLabels(ImmutableMap.of("client_type", clientType)))
+              .setMetricKind("GAUGE")
+              .setValueType("DISTRIBUTION")
+              .setPoints(Collections.singletonList(distributionPoint(publishLatencyDistribution)))
+              .setResource(monitoredResource)));
+      endToEndLatencyDistribution.reset();
+      publishLatencyDistribution.reset();
+      startTime = dateFormatter.format(new Date());
+    }
+    try {
+      monitoring.projects().timeSeries().create("projects/" + project, request).execute();
     } catch (IOException e) {
       log.error("Error reporting latency.", e);
     }
   }
+
+  private static class LatencyDistribution {
+    static final List<Double> LATENCY_BUCKETS =
+        ImmutableList.of(
+            0.0,
+            1.0,
+            5.0,
+            10.0,
+            20.0,
+            40.0,
+            60.0,
+            80.0,
+            100.0,
+            150.0,
+            200.0,
+            500.0,
+            1000.0,
+            2000.0,
+            3000.0,
+            10000.0,
+            20000.0,
+            100000.0,
+            400000.0,
+            1000000.0,
+            10000000.0,
+            100000000.0,
+            1000000000.0,
+            (double) Integer.MAX_VALUE
+        );
+    private final List<Long> bucketValues = new ArrayList<>(LATENCY_BUCKETS.size());
+    private long count = 0;
+    private double mean = 0;
+    private double sumOfSquaredDeviation = 0;
+
+    LatencyDistribution() {
+    }
+
+    synchronized void reset() {
+      count = 0;
+      mean = 0;
+      sumOfSquaredDeviation = 0;
+      bucketValues.clear();
+    }
+
+    long getCount() {
+      return count;
+    }
+
+    double getSumOfSquareDeviations() {
+      return sumOfSquaredDeviation;
+    }
+
+    double getMean() {
+      return mean;
+    }
+
+    List<Long> getBucketValues() {
+      return bucketValues;
+    }
+
+    double getMin() {
+      for (int i = 0; i < LATENCY_BUCKETS.size(); i++) {
+        if (bucketValues.get(i) > 0) {
+          return LATENCY_BUCKETS.get(i);
+        }
+      }
+      return LATENCY_BUCKETS.get(0);
+    }
+
+    double getMax() {
+      for (int i = LATENCY_BUCKETS.size() - 1; i >= 0; i--) {
+        if (bucketValues.get(i) > 0) {
+          return LATENCY_BUCKETS.get(i);
+        }
+      }
+      return LATENCY_BUCKETS.get(LATENCY_BUCKETS.size() - 1);
+    }
+
+    void recordLatency(long latencyMs) {
+      synchronized (this) {
+        count++;
+        double dev = latencyMs - mean;
+        mean += dev / count;
+        sumOfSquaredDeviation += dev * (latencyMs - mean);
+      }
+
+      boolean bucketFound = false;
+      for (int i = 0; i < LATENCY_BUCKETS.size(); i++) {
+        double bucket = LATENCY_BUCKETS.get(i);
+        if (latencyMs < bucket) {
+          synchronized (this) {
+            bucketValues.set(i, bucketValues.get(i) + 1);
+          }
+          bucketFound = true;
+          break;
+        }
+      }
+      if (!bucketFound) {
+        synchronized (this) {
+          int maxBucket = LATENCY_BUCKETS.size() - 1;
+          bucketValues.set(maxBucket, bucketValues.get(maxBucket) + 1);
+        }
+      }
+    }
+  }
+
 }

@@ -60,7 +60,7 @@ class KafkaSubscriberTask implements Runnable {
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run(request ->
-        new KafkaSubscriberTask(request.getSubscription(), request.getProject(),
+        new KafkaSubscriberTask(request.getKafkaOptions().getBroker(), request.getProject(),
             request.getTopic(), request.getRequestRate()));
   }
 

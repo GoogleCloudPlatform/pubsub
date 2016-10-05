@@ -48,7 +48,8 @@ class CPSSubscriberTask implements Runnable {
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run(request ->
-        new CPSSubscriberTask(request.getProject(), request.getSubscription(), request.getMaxMessagesPerPull()));
+        new CPSSubscriberTask(request.getProject(), request.getPubsubOptions().getSubscription(),
+            request.getPubsubOptions().getMaxMessagesPerPull()));
   }
 
 
