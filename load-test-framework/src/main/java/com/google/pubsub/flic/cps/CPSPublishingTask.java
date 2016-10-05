@@ -66,8 +66,8 @@ public class CPSPublishingTask extends CPSTask {
       List<PubsubMessage> batch = new ArrayList<>();
       // Keep track of the total # of bytes in this batch and the size of the batch.
       AtomicLong batchBytes = new AtomicLong(0);
-      AtomicInteger counter = new AtomicInteger(1);
-      for (; counter.intValue() <= args.getBatchSize(); counter.incrementAndGet()) {
+      AtomicInteger counter = new AtomicInteger(0);
+      for (; counter.intValue() < args.getBatchSize(); counter.incrementAndGet()) {
         String messageToSend = baseMessage + messageNo;
         batchBytes.addAndGet(messageToSend.getBytes().length);
         Map<String, String> attributes = new HashMap<>();
