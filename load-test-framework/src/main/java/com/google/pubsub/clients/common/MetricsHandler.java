@@ -191,9 +191,6 @@ public class MetricsHandler {
                 .setBucketCounts(distribution.getBucketValues())
                 .setCount(distribution.getCount())
                 .setMean(distribution.getMean())
-                .setRange(new Range()
-                    .setMin(distribution.getMin())
-                    .setMax(distribution.getMax()))
                 .setSumOfSquaredDeviation(distribution.getSumOfSquareDeviations())
                 .setBucketOptions(new BucketOptions()
                     .setExplicitBuckets(new Explicit().setBounds(LatencyDistribution.LATENCY_BUCKETS)))))
@@ -290,24 +287,6 @@ public class MetricsHandler {
 
     List<Long> getBucketValues() {
       return bucketValues;
-    }
-
-    double getMin() {
-      for (int i = 0; i < LATENCY_BUCKETS.size(); i++) {
-        if (bucketValues.get(i) > 0) {
-          return LATENCY_BUCKETS.get(i);
-        }
-      }
-      return LATENCY_BUCKETS.get(0);
-    }
-
-    double getMax() {
-      for (int i = LATENCY_BUCKETS.size() - 1; i >= 0; i--) {
-        if (bucketValues.get(i) > 0) {
-          return LATENCY_BUCKETS.get(i);
-        }
-      }
-      return LATENCY_BUCKETS.get(LATENCY_BUCKETS.size() - 1);
     }
 
     void recordLatency(long latencyMs) {

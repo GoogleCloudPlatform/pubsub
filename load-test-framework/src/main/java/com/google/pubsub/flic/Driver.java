@@ -177,15 +177,14 @@ class Driver {
         for (String metric : ImmutableList.of("end_to_end_latency", "publish_latency")) {
           log.info("99% " + metric + " for " + type + ":");
           monitoring.projects().timeSeries().list("projects/" + project)
-              .setFilter("metric.type = \"custom.googleapis.com/cloud-pubsub/loadtest/" + metric + "\" AND " +
-                  "metric.label = \"" + type + "\"")
+              .setFilter("metric.type = \"custom.googleapis.com/cloud-pubsub/loadclient/" + metric + "\" AND " +
+                  "metric.label.client_type = \"" + type + "\"")
               .setIntervalStartTime(dateFormatter.format(startTime))
               .setIntervalEndTime(dateFormatter.format(endTime))
               .setView("FULL")
               .setAggregationAlignmentPeriod(loadtestLengthSeconds + "s")
               .setAggregationPerSeriesAligner("ALIGN_SUM")
               .setAggregationCrossSeriesReducer("REDUCE_PERCENTILE_99")
-              .setAggregationGroupByFields(Collections.singletonList("client_type"))
               .execute()
               .getTimeSeries()
               .forEach(timeSeries -> timeSeries.getPoints().forEach(point -> {

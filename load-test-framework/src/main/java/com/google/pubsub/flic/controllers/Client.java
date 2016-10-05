@@ -84,9 +84,9 @@ public class Client {
         .setMaxConcurrentRequests(10)
         .setMessageSize(messageSize)
         .setRequestRate(5)
-        .setStartTime(startTime)
+        //.setStartTime(startTime)
         .setStopTime(Timestamp.newBuilder()
-            .setSeconds(startTime.getSeconds() / 1000 + loadtestLengthSeconds).build());
+            .setSeconds(System.currentTimeMillis() / 1000 + loadtestLengthSeconds).build());
     switch (clientType) {
       case CPS_GCLOUD_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
