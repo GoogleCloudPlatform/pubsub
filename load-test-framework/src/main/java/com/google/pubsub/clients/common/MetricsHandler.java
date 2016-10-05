@@ -40,7 +40,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.TimeZone;
@@ -146,20 +145,23 @@ public class MetricsHandler {
 
   private void createMetrics() {
     try {
-      MetricDescriptor metricDescriptor = new MetricDescriptor();
-      metricDescriptor.setType("custom.googleapis.com/cloud-pubsub/loadclient/" + END_TO_END_LATENCY_METRIC_NAME);
-      metricDescriptor.setDisplayName("end to end latency");
-      metricDescriptor.setDescription("End to end latency metric");
-      metricDescriptor.setName(metricDescriptor.getType());
-      metricDescriptor.setLabels(new ArrayList<>());
-      metricDescriptor.setMetricKind("GAUGE");
-      metricDescriptor.setValueType("INT64");
-      metricDescriptor.setUnit("ms");
+      MetricDescriptor metricDescriptor = new MetricDescriptor()
+          .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + END_TO_END_LATENCY_METRIC_NAME);
+      metricDescriptor.setDisplayName("end to end latency")
+          .setDescription("End to end latency metric")
+          .setName(metricDescriptor.getType())
+          .setLabels(Collections.singletonList(new LabelDescriptor()
+              .setKey("client_type")
+              .setDescription("The type of client reporting latency.")
+              .setValueType("STRING")))
+          .setMetricKind("GAUGE")
+          .setValueType("INT64")
+          .setUnit("ms");
       monitoring.projects().metricDescriptors().create("projects/" + project, metricDescriptor).execute();
-      metricDescriptor.setType("custom.googleapis.com/cloud-pubsub/loadclient/" + PUBLISH_LATENCY_METRIC_NAME);
-      metricDescriptor.setDisplayName("publish latency");
-      metricDescriptor.setDescription("Publish latency metric");
-      metricDescriptor.setName(metricDescriptor.getType());
+      metricDescriptor.setType("custom.googleapis.com/cloud-pubsub/loadclient/" + PUBLISH_LATENCY_METRIC_NAME)
+          .setDisplayName("publish latency")
+          .setDescription("Publish latency metric")
+          .setName(metricDescriptor.getType());
       monitoring.projects().metricDescriptors().create("projects/" + project, metricDescriptor).execute();
     } catch (Exception e) {
       log.info("Metrics already exist.");
