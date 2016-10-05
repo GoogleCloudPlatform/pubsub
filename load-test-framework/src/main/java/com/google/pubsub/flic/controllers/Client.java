@@ -20,16 +20,16 @@ import com.beust.jcommander.internal.Nullable;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.LoadtestGrpc;
-import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
-import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
-import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
-import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
+import com.google.pubsub.flic.common.LoadtestProto;
+import com.google.pubsub.flic.common.LoadtestProto.*;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 
 public class Client {
   static final String topicPrefix = "cloud-pubsub-loadtest-";
@@ -46,15 +46,21 @@ public class Client {
   private final String project;
   private final String topic;
   private final String subscription;
+  private final ScheduledExecutorService executorService;
   private ClientStatus clientStatus;
+  private LoadtestGrpc.LoadtestStub stub;
+  private int errors = 0;
+  private Distribution distribution;
 
-  Client(ClientType clientType, String networkAddress, String project, @Nullable String subscription) {
+  Client(ClientType clientType, String networkAddress, String project, @Nullable String subscription,
+         ScheduledExecutorService executorService) {
     this.clientType = clientType;
     this.networkAddress = networkAddress;
     this.clientStatus = ClientStatus.NONE;
     this.project = project;
     this.topic = topicPrefix + getTopicSuffix(clientType);
     this.subscription = subscription;
+    this.executorService = executorService;
   }
 
   static String getTopicSuffix(ClientType clientType) {
@@ -72,6 +78,10 @@ public class Client {
   private LoadtestGrpc.LoadtestStub getStub() {
     return LoadtestGrpc.newStub(
         ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build());
+  }
+
+  synchronized Distribution getDistribution() {
+    return distribution;
   }
 
   void start() throws Throwable {
@@ -102,7 +112,8 @@ public class Client {
     }
     StartRequest request = requestBuilder.build();
     SettableFuture<Void> startFuture = SettableFuture.create();
-    getStub().start(request, new StreamObserver<StartResponse>() {
+    stub = getStub();
+    stub.start(request, new StreamObserver<StartResponse>() {
       private int connectionErrors = 0;
       @Override
       public void onNext(StartResponse response) {
@@ -126,7 +137,8 @@ public class Client {
           log.info("Interrupted during back off, retrying.");
         }
         log.info("Going to retry client connection, likely due to start up time.");
-        getStub().start(request, this);
+        stub = getStub();
+        stub.start(request, this);
       }
 
       @Override
@@ -137,9 +149,45 @@ public class Client {
     });
     try {
       startFuture.get();
+      executorService.scheduleWithFixedDelay(this::checkClient, 20, 20, TimeUnit.SECONDS);
     } catch (ExecutionException e) {
       throw e.getCause();
     }
+  }
+
+  private void checkClient() {
+    if (clientStatus != ClientStatus.RUNNING) {
+      return;
+    }
+    stub.check(LoadtestProto.CheckRequest.getDefaultInstance(), new StreamObserver<LoadtestProto.CheckResponse>() {
+      @Override
+      public void onNext(LoadtestProto.CheckResponse checkResponse) {
+        log.debug("Connected to client.");
+        if (checkResponse.getIsFinished()) {
+          clientStatus = ClientStatus.STOPPED;
+        }
+        synchronized (this) {
+          distribution = checkResponse.getDistribution();
+        }
+      }
+
+      @Override
+      public void onError(Throwable throwable) {
+        if (errors > 10) {
+          clientStatus = ClientStatus.FAILED;
+          log.error("Client failed 10 health checks, something went wrong.");
+          return;
+        }
+        log.warn("Unable to connect to client, probably a transient error.");
+        stub = getStub();
+        errors++;
+      }
+
+      @Override
+      public void onCompleted() {
+        errors = 0;
+      }
+    });
   }
 
   public enum ClientType {
@@ -157,6 +205,7 @@ public class Client {
   private enum ClientStatus {
     NONE,
     RUNNING,
+    STOPPED,
     FAILED,
   }
 }

@@ -18,21 +18,21 @@ package com.google.pubsub.clients.kafka;
 import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
+import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.flic.common.LoadtestProto;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
 import java.util.Properties;
 
 /**
  * Runs a task that consumes messages utilizing Kafka's implementation of the Consumer<K,V>
  * interface.
  */
-class KafkaSubscriberTask implements Runnable {
+class KafkaSubscriberTask implements Task {
   private static final String CONSUMER_PROPERTIES = "/consumer.properties";
   private final Logger log = LoggerFactory.getLogger(KafkaSubscriberTask.class);
   private final long pollLength;
@@ -41,7 +41,7 @@ class KafkaSubscriberTask implements Runnable {
   private final MetricsHandler metricsHandler;
 
   private KafkaSubscriberTask(String broker, String project, String topic, long pollLength) {
-    this.metricsHandler = new MetricsHandler(project, "kafka");
+    this.metricsHandler = new MetricsHandler(project, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);
     this.pollLength = pollLength;
 
     // Create subscriber
@@ -68,10 +68,13 @@ class KafkaSubscriberTask implements Runnable {
   public void run() {
     log.trace("Polling for messages.");
     ConsumerRecords<String, String> records = subscriber.poll(pollLength);
-    List<Long> endToEndLatencies = new ArrayList<>();
     long now = System.currentTimeMillis();
-    records.forEach(record -> endToEndLatencies.add(now - record.timestamp()));
-    endToEndLatencies.stream().distinct().forEach(metricsHandler::recordEndToEndLatency);
+    records.forEach(record -> metricsHandler.recordLatency(now - record.timestamp()));
     subscriber.commitAsync();
+  }
+
+  @Override
+  public LoadtestProto.Distribution getDistribution() {
+    return metricsHandler.getDistribution();
   }
 }

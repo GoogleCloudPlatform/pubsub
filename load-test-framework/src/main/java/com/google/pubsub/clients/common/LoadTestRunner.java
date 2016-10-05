@@ -35,7 +35,6 @@ import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 /**
@@ -44,11 +43,11 @@ import java.util.function.Function;
 public class LoadTestRunner {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
   private static Server server;
-  private static AtomicInteger requestCount = new AtomicInteger(0);
+  private static Task client;
   private static AtomicBoolean finished = new AtomicBoolean(false);
   private static SettableFuture<Void> finishedFuture = SettableFuture.create();
 
-  public static void run(Function<StartRequest, Runnable> loadFunction) throws Exception {
+  public static void run(Function<StartRequest, Task> loadFunction) throws Exception {
     SettableFuture<StartRequest> requestFuture = SettableFuture.create();
     server = ServerBuilder.forPort(5000)
         .addService(new LoadtestGrpc.LoadtestImplBase() {
@@ -67,7 +66,7 @@ public class LoadTestRunner {
           public void check(CheckRequest request, StreamObserver<CheckResponse> responseObserver) {
             boolean finishedValue = finished.get();
             responseObserver.onNext(CheckResponse.newBuilder()
-                .setRequestCount(requestCount.get())
+                .setDistribution(client.getDistribution())
                 .setIsFinished(finishedValue)
                 .build());
             responseObserver.onCompleted();
@@ -102,14 +101,11 @@ public class LoadTestRunner {
     final long endTimeMillis = request.getStopTime().getSeconds() * 1000;
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
     final Semaphore outstandingTestLimiter = new Semaphore(request.getMaxConcurrentRequests(), false);
-    Runnable client = loadFunction.apply(request);
+    client = loadFunction.apply(request);
     while (System.currentTimeMillis() < endTimeMillis) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();
-      executor.submit(client).addListener(() -> {
-        outstandingTestLimiter.release();
-        requestCount.addAndGet(1);
-      }, executor);
+      executor.submit(client).addListener(outstandingTestLimiter::release, executor);
     }
     finished.set(true);
     finishedFuture.get();

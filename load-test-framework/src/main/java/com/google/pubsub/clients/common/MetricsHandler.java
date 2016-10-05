@@ -24,6 +24,7 @@ import com.google.api.services.monitoring.v3.Monitoring;
 import com.google.api.services.monitoring.v3.model.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.pubsub.flic.common.LoadtestProto;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.protocol.RequestAcceptEncoding;
@@ -52,26 +53,24 @@ import java.util.concurrent.TimeUnit;
  */
 public class MetricsHandler {
   private static final Logger log = LoggerFactory.getLogger(MetricsHandler.class);
-  private static final String END_TO_END_LATENCY_METRIC_NAME = "end_to_end_latency";
-  private static final String PUBLISH_LATENCY_METRIC_NAME = "publish_latency";
   private final String project;
   private final SimpleDateFormat dateFormatter;
-  private final LatencyDistribution endToEndLatencyDistribution;
-  private final LatencyDistribution publishLatencyDistribution;
+  private final LatencyDistribution distribution;
   private final ScheduledExecutorService executor;
   private final String clientType;
   private final MonitoredResource monitoredResource;
-  private String startTime;
+  private final String startTime;
   private Monitoring monitoring;
+  private MetricName metricName;
 
-  public MetricsHandler(String project, String clientType) {
+  public MetricsHandler(String project, String clientType, MetricName metricName) {
     this.project = project;
     this.clientType = clientType;
+    this.metricName = metricName;
     dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
     startTime = dateFormatter.format(new Date());
-    endToEndLatencyDistribution = new LatencyDistribution();
-    publishLatencyDistribution = new LatencyDistribution();
+    distribution = new LatencyDistribution();
     monitoredResource = new MonitoredResource().setType("gce_instance");
     executor = Executors.newSingleThreadScheduledExecutor();
     executor.execute(this::initialize);
@@ -150,83 +149,75 @@ public class MetricsHandler {
   private void createMetrics() {
     try {
       MetricDescriptor metricDescriptor = new MetricDescriptor()
-          .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + END_TO_END_LATENCY_METRIC_NAME);
-      metricDescriptor.setDisplayName("end to end latency")
-          .setDescription("End to end latency metric")
+          .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + metricName);
+      metricDescriptor.setDisplayName(metricName.toPrettyString())
+          .setDescription(metricName.toPrettyString())
           .setName(metricDescriptor.getType())
           .setLabels(Collections.singletonList(new LabelDescriptor()
               .setKey("client_type")
               .setDescription("The type of client reporting latency.")
               .setValueType("STRING")))
-          .setMetricKind("GAUGE")
+          .setMetricKind("CUMULATIVE")
           .setValueType("DISTRIBUTION")
           .setUnit("ms");
-      monitoring.projects().metricDescriptors().create("projects/" + project, metricDescriptor).execute();
-      metricDescriptor.setType("custom.googleapis.com/cloud-pubsub/loadclient/" + PUBLISH_LATENCY_METRIC_NAME)
-          .setDisplayName("publish latency")
-          .setDescription("Publish latency metric")
-          .setName(metricDescriptor.getType());
       monitoring.projects().metricDescriptors().create("projects/" + project, metricDescriptor).execute();
     } catch (Exception e) {
       log.info("Metrics already exist.");
     }
   }
 
-  public void recordEndToEndLatency(long latencyMs) {
+  public void recordLatency(long latencyMs) {
     synchronized (this) {
-      endToEndLatencyDistribution.recordLatency(latencyMs);
+      distribution.recordLatency(latencyMs);
     }
-  }
-
-  public void recordPublishLatency(long latencyMs) {
-    synchronized (this) {
-      publishLatencyDistribution.recordLatency(latencyMs);
-    }
-  }
-
-  private Point distributionPoint(LatencyDistribution distribution) {
-    return new Point()
-        .setValue(new TypedValue()
-            .setDistributionValue(new Distribution()
-                .setBucketCounts(distribution.getBucketValues())
-                .setCount(distribution.getCount())
-                .setMean(distribution.getMean())
-                .setSumOfSquaredDeviation(distribution.getSumOfSquareDeviations())
-                .setBucketOptions(new BucketOptions()
-                    .setExplicitBuckets(new Explicit().setBounds(LatencyDistribution.LATENCY_BUCKETS)))))
-        .setInterval(new TimeInterval()
-            .setStartTime(startTime)
-            .setEndTime(dateFormatter.format(new Date())));
   }
 
   private void reportMetrics() {
     CreateTimeSeriesRequest request;
     synchronized (this) {
-      request = new CreateTimeSeriesRequest().setTimeSeries(ImmutableList.of(
+      request = new CreateTimeSeriesRequest().setTimeSeries(Collections.singletonList(
           new TimeSeries()
               .setMetric(new Metric()
-                  .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + END_TO_END_LATENCY_METRIC_NAME)
+                  .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + metricName)
                   .setLabels(ImmutableMap.of("client_type", clientType)))
-              .setMetricKind("GAUGE")
+              .setMetricKind("CUMULATIVE")
               .setValueType("DISTRIBUTION")
-              .setPoints(Collections.singletonList(distributionPoint(endToEndLatencyDistribution)))
-              .setResource(monitoredResource),
-          new TimeSeries()
-              .setMetric(new Metric()
-                  .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + PUBLISH_LATENCY_METRIC_NAME)
-                  .setLabels(ImmutableMap.of("client_type", clientType)))
-              .setMetricKind("GAUGE")
-              .setValueType("DISTRIBUTION")
-              .setPoints(Collections.singletonList(distributionPoint(publishLatencyDistribution)))
+              .setPoints(Collections.singletonList(new Point()
+                  .setValue(new TypedValue()
+                      .setDistributionValue(new Distribution()
+                          .setBucketCounts(distribution.getBucketValues())
+                          .setCount(distribution.getCount())
+                          .setMean(distribution.getMean())
+                          .setSumOfSquaredDeviation(distribution.getSumOfSquareDeviations())
+                          .setBucketOptions(new BucketOptions()
+                              .setExplicitBuckets(new Explicit().setBounds(LatencyDistribution.LATENCY_BUCKETS)))))
+                  .setInterval(new TimeInterval()
+                      .setStartTime(startTime)
+                      .setEndTime(dateFormatter.format(new Date())))))
               .setResource(monitoredResource)));
-      endToEndLatencyDistribution.reset();
-      publishLatencyDistribution.reset();
-      startTime = dateFormatter.format(new Date());
     }
     try {
       monitoring.projects().timeSeries().create("projects/" + project, request).execute();
     } catch (IOException e) {
       log.error("Error reporting latency.", e);
+    }
+  }
+
+  public LoadtestProto.Distribution getDistribution() {
+    return distribution.toDistribution();
+  }
+
+  public enum MetricName {
+    END_TO_END_LATENCY,
+    PUBLISH_ACK_LATENCY;
+
+    @Override
+    public String toString() {
+      return name().toLowerCase();
+    }
+
+    public String toPrettyString() {
+      return name().toLowerCase().replace('-', ' ');
     }
   }
 
@@ -266,11 +257,13 @@ public class MetricsHandler {
     LatencyDistribution() {
     }
 
-    synchronized void reset() {
-      count = 0;
-      mean = 0;
-      sumOfSquaredDeviation = 0;
-      bucketValues.clear();
+    synchronized LoadtestProto.Distribution toDistribution() {
+      return LoadtestProto.Distribution.newBuilder()
+          .addAllBucketValues(bucketValues)
+          .setCount(count)
+          .setMean(mean)
+          .setSumOfSquaredDeviation(sumOfSquaredDeviation)
+          .build();
     }
 
     long getCount() {

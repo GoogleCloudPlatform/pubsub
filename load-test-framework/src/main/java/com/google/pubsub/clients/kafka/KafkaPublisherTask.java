@@ -19,6 +19,8 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
+import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.flic.common.LoadtestProto;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
@@ -31,7 +33,7 @@ import java.util.concurrent.TimeUnit;
  * Runs a task that publishes messages utilizing Kafka's implementation of the Producer<K,V>
  * interface
  */
-class KafkaPublisherTask implements Runnable {
+class KafkaPublisherTask implements Task {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaPublisherTask.class.getName());
   private static final String PRODUCER_PROPERTIES = "/producer.properties";
@@ -41,7 +43,7 @@ class KafkaPublisherTask implements Runnable {
   private final KafkaProducer<String, String> publisher;
 
   private KafkaPublisherTask(String broker, String project, String topic, int messageSize) {
-    this.metricsHandler = new MetricsHandler(project, "kafka");
+    this.metricsHandler = new MetricsHandler(project, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     this.topic = topic;
     this.payload = LoadTestRunner.createMessage(messageSize);
     Properties props = new Properties();
@@ -77,7 +79,12 @@ class KafkaPublisherTask implements Runnable {
             log.error(exception.getMessage(), exception);
             return;
           }
-          metricsHandler.recordPublishLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
+          metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
         });
+  }
+
+  @Override
+  public LoadtestProto.Distribution getDistribution() {
+    return metricsHandler.getDistribution();
   }
 }

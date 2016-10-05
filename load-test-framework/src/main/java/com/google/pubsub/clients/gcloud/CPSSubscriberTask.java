@@ -21,6 +21,8 @@ import com.google.cloud.pubsub.PubSubOptions;
 import com.google.common.base.Preconditions;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
+import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.flic.common.LoadtestProto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -30,7 +32,7 @@ import java.util.List;
 /**
  * Runs a task that consumes messages from a Cloud Pub/Sub subscription.
  */
-class CPSSubscriberTask implements Runnable {
+class CPSSubscriberTask implements Task {
   private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
   private final String subscription; // set null for Publish
   private final int batchSize;
@@ -42,7 +44,8 @@ class CPSSubscriberTask implements Runnable {
         .projectId(project)
         .build().service();
     this.subscription = Preconditions.checkNotNull(subscription);
-    this.metricsHandler = new MetricsHandler(Preconditions.checkNotNull(project), "gcloud");
+    this.metricsHandler = new MetricsHandler(Preconditions.checkNotNull(project), "gcloud",
+        MetricsHandler.MetricName.END_TO_END_LATENCY);
     this.batchSize = batchSize;
   }
 
@@ -58,12 +61,10 @@ class CPSSubscriberTask implements Runnable {
     try {
       List<String> ackIds = new ArrayList<>();
       long now = System.currentTimeMillis();
-      List<Long> endToEndLatencies = new ArrayList<>();
       pubSub.pull(subscription, batchSize).forEachRemaining((response) -> {
         ackIds.add(response.ackId());
-        endToEndLatencies.add(now - Long.parseLong(response.attributes().get("sendTime")));
+        metricsHandler.recordLatency(now - Long.parseLong(response.attributes().get("sendTime")));
       });
-      endToEndLatencies.stream().distinct().forEach(metricsHandler::recordEndToEndLatency);
       if (ackIds.isEmpty()) {
         return;
       }
@@ -71,5 +72,10 @@ class CPSSubscriberTask implements Runnable {
     } catch (PubSubException e) {
       log.error("Error pulling or acknowledging messages.", e);
     }
+  }
+
+  @Override
+  public LoadtestProto.Distribution getDistribution() {
+    return metricsHandler.getDistribution();
   }
 }

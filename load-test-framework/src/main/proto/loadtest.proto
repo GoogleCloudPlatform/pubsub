@@ -63,6 +63,13 @@ message CheckRequest {
 }
 
 message CheckResponse {
-  int32 request_count = 1;
+    Distribution distribution = 1;
   bool is_finished = 2;
+}
+
+message Distribution {
+    repeated int64 bucket_values = 1;
+    int64 count = 2;
+    double mean = 3;
+    double sum_of_squared_deviation = 4;
 }

@@ -23,6 +23,8 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
+import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.flic.common.LoadtestProto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -33,7 +35,7 @@ import java.util.concurrent.TimeUnit;
 /**
  * Runs a task that publishes messages to a Cloud Pub/Sub topic.
  */
-class CPSPublisherTask implements Runnable {
+class CPSPublisherTask implements Task {
   private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
   private final String topic;
   private final MetricsHandler metricsHandler;
@@ -45,7 +47,8 @@ class CPSPublisherTask implements Runnable {
     this.pubSub = PubSubOptions.builder()
         .projectId(project)
         .build().service();
-    this.metricsHandler = new MetricsHandler(Preconditions.checkNotNull(project), "gcloud");
+    this.metricsHandler = new MetricsHandler(Preconditions.checkNotNull(project), "gcloud",
+        MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     this.topic = Preconditions.checkNotNull(topic);
     this.payload = LoadTestRunner.createMessage(messageSize);
     this.batchSize = batchSize;
@@ -69,9 +72,14 @@ class CPSPublisherTask implements Runnable {
       Stopwatch stopwatch = Stopwatch.createStarted();
       pubSub.publish(topic, messages);
       stopwatch.stop();
-      metricsHandler.recordPublishLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
+      metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
     } catch (PubSubException e) {
       log.error("Publish request failed", e);
     }
+  }
+
+  @Override
+  public LoadtestProto.Distribution getDistribution() {
+    return metricsHandler.getDistribution();
   }
 }
