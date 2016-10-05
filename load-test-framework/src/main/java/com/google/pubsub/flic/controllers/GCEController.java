@@ -55,7 +55,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class GCEController extends Controller {
   private static final Logger log = LoggerFactory.getLogger(GCEController.class.getName());
   private static final String machineType = "n1-standard-4"; // quad core machines
-  private static final String sourceFamily = "projects/cloud-pubsub-load-tests/global/images/bring-down-the-world-image";
+  private static final String sourceFamily = "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930";
   private final Storage storage;
   private final Compute compute;
   private final PubSub pubSub;
@@ -74,9 +74,9 @@ public class GCEController extends Controller {
     this.pubSub = pubSub;
   }
 
-  public static GCEController newGCEController(String projectName,
-                                               Map<String, Map<ClientParams, Integer>> types, Executor executor)
-      throws IOException, GeneralSecurityException {
+  public static GCEController newGCEController(
+      String projectName, Map<String,
+      Map<ClientParams, Integer>> types, Executor executor) throws IOException, GeneralSecurityException {
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = new JacksonFactory();
     GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
@@ -202,7 +202,7 @@ public class GCEController extends Controller {
           try {
             startInstances(zone, type.clientType, n);
             resizingFuture.set(null);
-          } catch (IOException e) {
+          } catch (Exception e) {
             resizingFuture.setException(e);
           }
         });
@@ -334,17 +334,31 @@ public class GCEController extends Controller {
     }
   }
 
-  private void startInstances(String zone, ClientType type, Integer n) throws IOException {
+  private void startInstances(String zone, ClientType type, Integer n) throws Exception {
     synchronized (this) {
       if (shutdown) {
         return;
       }
     }
-    // We first resize to 0 in case any were left running from an improperly cleaned up prior run.
-    compute.instanceGroupManagers().resize(projectName, zone,
-        "cloud-pubsub-loadtest-framework-" + type, 0).execute();
-    compute.instanceGroupManagers().resize(projectName, zone,
-        "cloud-pubsub-loadtest-framework-" + type, n).execute();
+
+    int errors = 0;
+    while (true) {
+      try {
+        // We first resize to 0 in case any were left running from an improperly cleaned up prior run.
+        compute.instanceGroupManagers().resize(projectName, zone,
+            "cloud-pubsub-loadtest-framework-" + type, 0).execute();
+        compute.instanceGroupManagers().resize(projectName, zone,
+            "cloud-pubsub-loadtest-framework-" + type, n).execute();
+        return;
+      } catch (GoogleJsonResponseException e) {
+        if (errors > 10) {
+          throw e;
+        }
+        errors++;
+        log.warn("InstanceGroupManager not yet ready, will try again.");
+        Thread.sleep(100);
+      }
+    }
   }
 
   private void uploadFile(Path filePath) {
@@ -365,8 +379,7 @@ public class GCEController extends Controller {
         }
       }
       log.info("File " + filePath.getFileName() + " is out of date, uploading new version.");
-      return;
-      //storage.objects().delete("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
+      storage.objects().delete("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
     } catch (IOException e) {
       log.info("File " + filePath.getFileName() + " does not already exist.");
     }
@@ -412,32 +425,24 @@ public class GCEController extends Controller {
   }
 
   private InstanceTemplate defaultInstanceTemplate(String type) {
-    InstanceTemplate content = new InstanceTemplate();
-    content.setName("cloud-pubsub-loadtest-instance-" + type);
-    content.setProperties(new InstanceProperties());
-    content.getProperties().setMachineType(machineType);
-    List<AttachedDisk> disks = new ArrayList<>();
-    disks.add(new AttachedDisk());
-    disks.get(0).setInitializeParams(new AttachedDiskInitializeParams());
-    disks.get(0).getInitializeParams().setSourceImage(sourceFamily);
-    disks.get(0).setBoot(true);
-    content.getProperties().setDisks(disks);
-    List<NetworkInterface> networkInterfaces = new ArrayList<>();
-    networkInterfaces.add(new NetworkInterface());
-    networkInterfaces.get(0).setNetwork("global/networks/default");
-    networkInterfaces.get(0).setAccessConfigs(new ArrayList<>());
-    networkInterfaces.get(0).getAccessConfigs().add(new AccessConfig());
-    content.getProperties().setNetworkInterfaces(networkInterfaces);
-    content.getProperties().setMetadata(new Metadata());
-    content.getProperties().getMetadata().setItems(new ArrayList<>());
-    Metadata.Items metadata = new Metadata.Items();
-    metadata.setKey("startup-script-url");
-    metadata.setValue("https://storage.googleapis.com/cloud-pubsub-loadtest/" + type + "_startup_script.sh");
-    content.getProperties().getMetadata().getItems().add(metadata);
-    content.getProperties().setServiceAccounts(new ArrayList<>());
-    content.getProperties().getServiceAccounts().add(new ServiceAccount().setScopes(
-        Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")));
-    return content;
+    return new InstanceTemplate()
+        .setName("cloud-pubsub-loadtest-instance-" + type)
+        .setProperties(new InstanceProperties()
+            .setMachineType(machineType)
+            .setDisks(Collections.singletonList(new AttachedDisk()
+                .setBoot(true)
+                .setAutoDelete(true)
+                .setInitializeParams(new AttachedDiskInitializeParams()
+                    .setSourceImage(sourceFamily))))
+            .setNetworkInterfaces(Collections.singletonList(new NetworkInterface()
+                .setNetwork("global/networks/default")
+                .setAccessConfigs(Collections.singletonList(new AccessConfig()))))
+            .setMetadata(new Metadata()
+                .setItems(Collections.singletonList(new Metadata.Items()
+                    .setKey("startup-script-url")
+                    .setValue("https://storage.googleapis.com/cloud-pubsub-loadtest/" + type + "_startup_script.sh"))))
+            .setServiceAccounts(Collections.singletonList(new ServiceAccount().setScopes(
+                Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")))));
   }
 
   @Override

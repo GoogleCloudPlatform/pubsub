@@ -127,7 +127,8 @@ class Driver {
       for (int i = 0; i < subscriberFanout; ++i) {
         clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null),
             cpsPublisherCount / subscriberFanout);
-        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER, "grpc-subscription" + i),
+        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER,
+                "gcloud-subscription" + i),
             cpsSubscriberCount / subscriberFanout);
         clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_PUBLISHER, null),
             kafkaPublisherCount / subscriberFanout);
