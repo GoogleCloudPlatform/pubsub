@@ -90,11 +90,6 @@ public class LoadTestRunner {
 
     StartRequest request = requestFuture.get();
     log.info("Request received, starting up server.");
-    final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
-    if (request.hasStartTime() && toSleep > 0) {
-      Thread.sleep(toSleep);
-    }
-
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(request.getMaxConcurrentRequests() + 10));
 
@@ -102,6 +97,12 @@ public class LoadTestRunner {
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
     final Semaphore outstandingTestLimiter = new Semaphore(request.getMaxConcurrentRequests(), false);
     client = loadFunction.apply(request);
+
+    final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
+    if (toSleep > 0) {
+      Thread.sleep(toSleep);
+    }
+
     while (System.currentTimeMillis() < endTimeMillis) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();
