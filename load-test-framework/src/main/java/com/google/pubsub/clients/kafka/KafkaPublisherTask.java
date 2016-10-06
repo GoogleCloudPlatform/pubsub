@@ -76,6 +76,7 @@ class KafkaPublisherTask extends Task {
             log.error(exception.getMessage(), exception);
             return;
           }
+          numberOfMessages.incrementAndGet();
           metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
         });
   }

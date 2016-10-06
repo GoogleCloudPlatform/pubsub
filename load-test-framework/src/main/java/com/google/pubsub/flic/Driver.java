@@ -117,6 +117,13 @@ class Driver {
       description = "The duration, in seconds, to run without recording statistics in order to allow tuning."
   )
   private int burnInDurationSeconds = 20;
+  @Parameter(
+      names = {"--number_of_messages"},
+      description = "The number of messages to publish in the test. Enabling this will override " +
+          "--loadtest_length_seconds. Enabling this flag will also enable the check for message loss. If set less " +
+          "than 1, this flag is ignored."
+  )
+  private int numberOfMessages = 0;
 
   public static void main(String[] args) {
     // Turns off all java.util.logging.
@@ -162,6 +169,7 @@ class Driver {
       Client.requestRate = requestRate;
       Client.maxConcurrentRequests = maxConcurrentRequests;
       Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
+      Client.numberOfMessages = numberOfMessages;
       GCEController gceController =
           GCEController.newGCEController(project, clientTypes, Executors.newScheduledThreadPool(500));
       gceController.initialize();

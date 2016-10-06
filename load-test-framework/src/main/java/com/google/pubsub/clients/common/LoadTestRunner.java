@@ -93,9 +93,9 @@ public class LoadTestRunner {
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(request.getMaxConcurrentRequests() + 10));
 
-    final long endTimeMillis = request.getStopTime().getSeconds() * 1000;
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
     final Semaphore outstandingTestLimiter = new Semaphore(request.getMaxConcurrentRequests(), false);
+    int numberOfMessages = 0;
     client = loadFunction.apply(request);
 
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
@@ -103,14 +103,25 @@ public class LoadTestRunner {
       Thread.sleep(toSleep);
     }
 
-    while (System.currentTimeMillis() < endTimeMillis) {
+    while (shouldContinue(request, numberOfMessages)) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();
       executor.submit(client).addListener(outstandingTestLimiter::release, executor);
     }
+    executor.shutdownNow();
     finished.set(true);
     finishedFuture.get();
     log.info("Load test complete, shutting down.");
+  }
+
+  private static boolean shouldContinue(StartRequest request, int numberOfMessages) {
+    switch (request.getStopConditionsCase()) {
+      case STOP_TIME:
+        return System.currentTimeMillis() < request.getStopTime().getSeconds() * 1000;
+      case NUMBER_OF_MESSAGES:
+        return client.getNumberOfMessages() == request.getNumberOfMessages();
+    }
+    return false;
   }
 
   /**

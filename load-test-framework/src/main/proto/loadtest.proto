@@ -10,33 +10,38 @@ service Loadtest {
 }
 
 message StartRequest {
-  // The time at which the load test should start.
-  google.protobuf.Timestamp start_time = 1;
-
-  // The time at which the load test should be stopped.
-  google.protobuf.Timestamp stop_time = 2;
-
   // The GCP project. This must be set even for Kafka, as we use it to export metrics to Stackdriver.
-  string project = 3;
+  string project = 1;
 
   // The Pub/Sub or Kafka topic name.
-  string topic = 4;
+  string topic = 2;
 
   // The number of requests that can be made, each second, per client.
-  int32 request_rate = 5;
+  int32 request_rate = 3;
 
   // The size of each user message to publish
-  int32 message_size = 6;
+  int32 message_size = 4;
 
   // The number of user messages of size message_size to batch together in each publish
-  int32 batch_size = 7;
+  int32 batch_size = 5;
 
   // The maximum concurrent requests, per client.
-  int32 max_concurrent_requests = 8;
+  int32 max_concurrent_requests = 6;
+
+  // The time at which the load test should start.
+  google.protobuf.Timestamp start_time = 7;
+
+  oneof stop_conditions {
+    // The time at which the load test should be stopped.
+    google.protobuf.Timestamp stop_time = 8;
+
+    // The number of messages to publish or expect to receive.
+    int32 number_of_messages = 9;
+  }
 
   oneof options {
-   PubsubOptions pubsub_options = 9;
-   KafkaOptions kafka_options = 10;
+   PubsubOptions pubsub_options = 10;
+   KafkaOptions kafka_options = 11;
   }
 }
 

@@ -48,6 +48,7 @@ public class Client {
   public static String broker;
   public static int maxConcurrentRequests;
   public static long burnInTimeMillis;
+  public static int numberOfMessages = 0;
   private final ClientType clientType;
   private final String networkAddress;
   private final String project;
@@ -110,10 +111,14 @@ public class Client {
         .setMaxConcurrentRequests(maxConcurrentRequests)
         .setMessageSize(messageSize)
         .setRequestRate(requestRate)
-        .setStartTime(startTime)
-        .setStopTime(Timestamp.newBuilder()
-            .setSeconds(Math.max(startTime.getSeconds(), System.currentTimeMillis() / 1000) +
-                loadtestLengthSeconds).build());
+        .setStartTime(startTime);
+    if (numberOfMessages > 0) {
+      requestBuilder.setNumberOfMessages(numberOfMessages);
+    } else {
+      requestBuilder.setStopTime(Timestamp.newBuilder()
+          .setSeconds(Math.max(startTime.getSeconds(), System.currentTimeMillis() / 1000) +
+              loadtestLengthSeconds).build());
+    }
     switch (clientType) {
       case CPS_GCLOUD_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
