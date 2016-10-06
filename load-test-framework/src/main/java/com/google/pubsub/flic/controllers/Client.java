@@ -191,7 +191,7 @@ public class Client {
 
       @Override
       public void onError(Throwable throwable) {
-        if (errors > 10) {
+        if (errors > 3) {
           clientStatus = ClientStatus.FAILED;
           doneFuture.setException(throwable);
           log.error("Client failed " + errors + " health checks, something went wrong.");
