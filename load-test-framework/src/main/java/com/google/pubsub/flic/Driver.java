@@ -72,7 +72,7 @@ class Driver {
       description = "Message size in bytes (only when publishing messages).",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int messageSize = 10000;
+  private int messageSize = 100000;
   @Parameter(
       names = {"--loadtest_seconds"},
       description = "Duration of the load test, in seconds.",
@@ -90,7 +90,7 @@ class Driver {
       description = "Number of messages to batch per publish request.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int batchSize = 1000;
+  private int batchSize = 10;
   @Parameter(
       names = {"--subscriber_fanout"},
       description = "Number of subscription ids to use for each topic. Must be at least 1.",
