@@ -96,7 +96,7 @@ public class LoadTestRunner {
     }
 
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
-        Executors.newFixedThreadPool(request.getMaxConcurrentRequests()));
+        Executors.newFixedThreadPool(request.getMaxConcurrentRequests() + 10));
 
     final long endTimeMillis = request.getStopTime().getSeconds() * 1000;
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
