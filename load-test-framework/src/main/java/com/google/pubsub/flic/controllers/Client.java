@@ -47,6 +47,7 @@ public class Client {
   public static int batchSize;
   public static String broker;
   public static int maxConcurrentRequests;
+  public static long burnInTimeMillis;
   private final ClientType clientType;
   private final String networkAddress;
   private final String project;
@@ -181,6 +182,9 @@ public class Client {
         if (checkResponse.getIsFinished()) {
           clientStatus = ClientStatus.STOPPED;
           doneFuture.set(null);
+        }
+        if (System.currentTimeMillis() < burnInTimeMillis) {
+          return;
         }
         synchronized (this) {
           for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {

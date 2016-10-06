@@ -112,6 +112,11 @@ class Driver {
       description = "The maximum number of concurrent requests each client will allow."
   )
   private int maxConcurrentRequests = 20;
+  @Parameter(
+      names = {"--burn_in_duration_seconds"},
+      description = "The duration, in seconds, to run without recording statistics in order to allow tuning."
+  )
+  private int burnInDurationSeconds = 20;
 
   public static void main(String[] args) {
     // Turns off all java.util.logging.
@@ -156,6 +161,7 @@ class Driver {
       Client.broker = broker;
       Client.requestRate = requestRate;
       Client.maxConcurrentRequests = maxConcurrentRequests;
+      Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
       GCEController gceController =
           GCEController.newGCEController(project, clientTypes, Executors.newScheduledThreadPool(500));
       gceController.initialize();
