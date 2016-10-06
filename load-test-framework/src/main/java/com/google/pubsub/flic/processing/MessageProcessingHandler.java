@@ -122,7 +122,7 @@ public class MessageProcessingHandler {
    * results. Print the average time a callback had to wait to be run by a thread in the thread
    * pool. Do not print anything if the task failed for any reason.
    */
-  public void printStats(long start, @Nullable DelayTrackingThreadPool executor, AtomicBoolean failureFlag)
+  public void printStats(long start, long end, @Nullable DelayTrackingThreadPool executor, AtomicBoolean failureFlag)
       throws Exception {
     lockHelper.conditionLock.lock();
     while (!lockHelper.barrier.await(0, TimeUnit.MICROSECONDS) && !failureFlag.get()) {
@@ -158,7 +158,7 @@ public class MessageProcessingHandler {
               + "ms");
     }
     // Throughput stats.
-    double diff = (double) (System.currentTimeMillis() - start) / 1000;
+    double diff = (double) (end - start) / 1000;
     long averageMessagesPerSec = (long) (getTotalItems() / diff);
     long averageBytesPerSec = (long) (throughputStats.longValue() / diff);
     String averageBytesPerSecString = FileUtils.byteCountToDisplaySize(averageBytesPerSec);

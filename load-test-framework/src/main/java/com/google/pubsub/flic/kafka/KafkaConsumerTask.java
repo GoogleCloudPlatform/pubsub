@@ -90,10 +90,11 @@ public class KafkaConsumerTask extends Task {
         }
       }
     }
+    long end = System.currentTimeMillis();
     if (!failureFlag.get()) {
       subscriber.close();
     }
-    processingHandler.printStats(earliestReceived, null, failureFlag);
+    processingHandler.printStats(earliestReceived, end, null, failureFlag);
     log.info("Done!");
   }
 
