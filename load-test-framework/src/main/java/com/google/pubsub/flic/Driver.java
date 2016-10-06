@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic;
 
+import autovalue.shaded.org.apache.commons.lang.ArrayUtils;
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
@@ -27,11 +28,9 @@ import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.GCEController;
-import org.apache.commons.lang3.math.Fraction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -78,7 +77,7 @@ class Driver {
       description = "Duration of the load test, in seconds.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int loadtestLengthSeconds = 120;
+  private int loadtestLengthSeconds = 60;
   @Parameter(
       names = {"--project"},
       required = true,
@@ -144,7 +143,6 @@ class Driver {
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.batchSize = batchSize;
       Client.broker = broker;
-      Date startTime = new Date();
       GCEController gceController =
           GCEController.newGCEController(project, clientTypes, Executors.newScheduledThreadPool(500));
       gceController.initialize();
@@ -154,11 +152,12 @@ class Driver {
       Map<ClientType, long[]> results = gceController.getResults();
       results.forEach((type, bucketValues) -> {
         log.info("Results for " + type + ":");
-        log.info("50%: " + LatencyDistribution.getNthPercentile(bucketValues, Fraction.getFraction(1, 2)));
-        log.info("99%: " + LatencyDistribution.getNthPercentile(bucketValues, Fraction.getFraction(99, 100)));
-        log.info("99.9%: " + LatencyDistribution.getNthPercentile(bucketValues, Fraction.getFraction(999, 1000)));
+        log.info(ArrayUtils.toString(bucketValues));
+        log.info("50%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.5));
+        log.info("99%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.99));
+        log.info("99.9%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.999));
       });
-      gceController.shutdown(new Exception("Loadtest completed."));
+      gceController.shutdown(null);
     } catch (Throwable t) {
       log.error("An error occurred...", t);
       System.exit(1);

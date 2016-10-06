@@ -1,7 +1,6 @@
 package com.google.pubsub.flic.common;
 
 import com.google.common.base.Preconditions;
-import org.apache.commons.lang3.math.Fraction;
 
 public class LatencyDistribution {
   public static final double[] LATENCY_BUCKETS = {
@@ -38,24 +37,21 @@ public class LatencyDistribution {
   public LatencyDistribution() {
   }
 
-  public static double getNthPercentile(long[] bucketValues, Fraction percentile) {
-    Preconditions.checkArgument(percentile.doubleValue() > 0);
-    Preconditions.checkArgument(percentile.doubleValue() < 1.0);
+  public static String getNthPercentile(long[] bucketValues, double percentile) {
+    Preconditions.checkArgument(percentile > 0.0);
+    Preconditions.checkArgument(percentile < 1.0);
     long total = 0;
     for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
       total += bucketValues[i];
     }
-    long count = total * percentile.getNumerator() / percentile.getDenominator();
-    boolean isEvenlyDivisible = (total * percentile.getNumerator()) % percentile.getDenominator() == 0;
-    for (int i = LATENCY_BUCKETS.length - 1; i >= 0; i--) {
+    long count = (long) (total * (1.0 - percentile));
+    for (int i = LATENCY_BUCKETS.length - 1; i > 0; i--) {
       total -= bucketValues[i];
-      if (total == count && i > 0 && isEvenlyDivisible) {
-        return (LATENCY_BUCKETS[i] + LATENCY_BUCKETS[i - 1]) / 2.0;
-      } else if (total >= count) {
-        return LATENCY_BUCKETS[i];
+      if (total <= count) {
+        return LATENCY_BUCKETS[i - 1] + " - " + LATENCY_BUCKETS[i];
       }
     }
-    return LATENCY_BUCKETS[0];
+    return "N/A";
   }
 
   public synchronized void reset() {
