@@ -22,9 +22,9 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.monitoring.v3.Monitoring;
 import com.google.api.services.monitoring.v3.model.*;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.pubsub.flic.common.LoadtestProto;
+import com.google.pubsub.flic.common.LatencyDistribution;
+import org.apache.commons.lang3.ArrayUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.protocol.RequestAcceptEncoding;
@@ -59,17 +59,15 @@ public class MetricsHandler {
   private final ScheduledExecutorService executor;
   private final String clientType;
   private final MonitoredResource monitoredResource;
-  private final String startTime;
   private Monitoring monitoring;
   private MetricName metricName;
 
-  public MetricsHandler(String project, String clientType, MetricName metricName) {
+  MetricsHandler(String project, String clientType, MetricName metricName) {
     this.project = project;
     this.clientType = clientType;
     this.metricName = metricName;
     dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
     dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
-    startTime = dateFormatter.format(new Date());
     distribution = new LatencyDistribution();
     monitoredResource = new MonitoredResource().setType("gce_instance");
     executor = Executors.newSingleThreadScheduledExecutor();
@@ -157,7 +155,7 @@ public class MetricsHandler {
               .setKey("client_type")
               .setDescription("The type of client reporting latency.")
               .setValueType("STRING")))
-          .setMetricKind("CUMULATIVE")
+          .setMetricKind("GAUGE")
           .setValueType("DISTRIBUTION")
           .setUnit("ms");
       monitoring.projects().metricDescriptors().create("projects/" + project, metricDescriptor).execute();
@@ -166,35 +164,36 @@ public class MetricsHandler {
     }
   }
 
-  public void recordLatency(long latencyMs) {
-    synchronized (this) {
-      distribution.recordLatency(latencyMs);
-    }
+  public synchronized void recordLatency(long latencyMs) {
+    distribution.recordLatency(latencyMs);
   }
 
   private void reportMetrics() {
     CreateTimeSeriesRequest request;
     synchronized (this) {
+      String now = dateFormatter.format(new Date());
       request = new CreateTimeSeriesRequest().setTimeSeries(Collections.singletonList(
           new TimeSeries()
               .setMetric(new Metric()
                   .setType("custom.googleapis.com/cloud-pubsub/loadclient/" + metricName)
                   .setLabels(ImmutableMap.of("client_type", clientType)))
-              .setMetricKind("CUMULATIVE")
+              .setMetricKind("GAUGE")
               .setValueType("DISTRIBUTION")
               .setPoints(Collections.singletonList(new Point()
                   .setValue(new TypedValue()
                       .setDistributionValue(new Distribution()
-                          .setBucketCounts(distribution.getBucketValues())
+                          .setBucketCounts(getBucketValues())
                           .setCount(distribution.getCount())
                           .setMean(distribution.getMean())
                           .setSumOfSquaredDeviation(distribution.getSumOfSquareDeviations())
                           .setBucketOptions(new BucketOptions()
-                              .setExplicitBuckets(new Explicit().setBounds(LatencyDistribution.LATENCY_BUCKETS)))))
+                              .setExplicitBuckets(new Explicit().setBounds(
+                                  Arrays.asList(ArrayUtils.toObject(LatencyDistribution.LATENCY_BUCKETS)))))))
                   .setInterval(new TimeInterval()
-                      .setStartTime(startTime)
-                      .setEndTime(dateFormatter.format(new Date())))))
+                      .setStartTime(now)
+                      .setEndTime(now))))
               .setResource(monitoredResource)));
+      distribution.reset();
     }
     try {
       monitoring.projects().timeSeries().create("projects/" + project, request).execute();
@@ -203,8 +202,8 @@ public class MetricsHandler {
     }
   }
 
-  public LoadtestProto.Distribution getDistribution() {
-    return distribution.toDistribution();
+  List<Long> getBucketValues() {
+    return Arrays.asList(ArrayUtils.toObject(distribution.getBucketValues()));
   }
 
   public enum MetricName {
@@ -220,92 +219,4 @@ public class MetricsHandler {
       return name().toLowerCase().replace('-', ' ');
     }
   }
-
-  public static class LatencyDistribution {
-    public static final List<Double> LATENCY_BUCKETS =
-        ImmutableList.of(
-            0.0,
-            1.0,
-            5.0,
-            10.0,
-            20.0,
-            40.0,
-            60.0,
-            80.0,
-            100.0,
-            150.0,
-            200.0,
-            500.0,
-            1000.0,
-            2000.0,
-            3000.0,
-            10000.0,
-            20000.0,
-            100000.0,
-            400000.0,
-            1000000.0,
-            10000000.0,
-            100000000.0,
-            1000000000.0,
-            (double) Integer.MAX_VALUE
-        );
-    private final List<Long> bucketValues = new ArrayList<>(LATENCY_BUCKETS.size());
-    private long count = 0;
-    private double mean = 0;
-    private double sumOfSquaredDeviation = 0;
-
-    LatencyDistribution() {
-    }
-
-    synchronized LoadtestProto.Distribution toDistribution() {
-      return LoadtestProto.Distribution.newBuilder()
-          .addAllBucketValues(bucketValues)
-          .setCount(count)
-          .build();
-    }
-
-    long getCount() {
-      return count;
-    }
-
-    double getSumOfSquareDeviations() {
-      return sumOfSquaredDeviation;
-    }
-
-    double getMean() {
-      return mean;
-    }
-
-    List<Long> getBucketValues() {
-      return bucketValues;
-    }
-
-    void recordLatency(long latencyMs) {
-      synchronized (this) {
-        count++;
-        double dev = latencyMs - mean;
-        mean += dev / count;
-        sumOfSquaredDeviation += dev * (latencyMs - mean);
-      }
-
-      boolean bucketFound = false;
-      for (int i = 0; i < LATENCY_BUCKETS.size(); i++) {
-        double bucket = LATENCY_BUCKETS.get(i);
-        if (latencyMs < bucket) {
-          synchronized (this) {
-            bucketValues.set(i, bucketValues.get(i) + 1);
-          }
-          bucketFound = true;
-          break;
-        }
-      }
-      if (!bucketFound) {
-        synchronized (this) {
-          int maxBucket = LATENCY_BUCKETS.size() - 1;
-          bucketValues.set(maxBucket, bucketValues.get(maxBucket) + 1);
-        }
-      }
-    }
-  }
-
 }

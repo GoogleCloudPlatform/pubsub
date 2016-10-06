@@ -19,7 +19,7 @@ package com.google.pubsub.flic.controllers;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-import com.google.pubsub.flic.common.LoadtestProto;
+import com.google.pubsub.flic.common.LatencyDistribution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,7 +49,7 @@ abstract class Controller {
 
   protected abstract void shutdown(Throwable t);
 
-  public Map<Client.ClientType, LoadtestProto.Distribution> getResults() {
+  public Map<Client.ClientType, long[]> getResults() {
     try {
       List<ListenableFuture<Void>> doneFutures = new ArrayList<>();
       clients.forEach(c -> doneFutures.add(c.getDoneFuture()));
@@ -58,21 +58,14 @@ abstract class Controller {
       log.error("Client failed health check, will print results accumulated during test up to this point.",
           e instanceof ExecutionException ? e.getCause() : e);
     }
-    Map<Client.ClientType, LoadtestProto.Distribution> results = new HashMap<>();
+    Map<Client.ClientType, long[]> results = new HashMap<>();
     for (Client.ClientType type : Client.ClientType.values()) {
-      results.put(type, LoadtestProto.Distribution.getDefaultInstance());
+      results.put(type, new long[LatencyDistribution.LATENCY_BUCKETS.length]);
     }
     clients.forEach(client -> {
-      LoadtestProto.Distribution current = results.get(client.getClientType());
-      List<Long> bucketValues = current.getBucketValuesList();
-      for (int i = 0; i < bucketValues.size(); i++) {
-        bucketValues.set(i, bucketValues.get(i) + client.getDistribution().getBucketValues(i));
+      for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
+        results.get(client.getClientType())[i] += client.getBucketValues()[i];
       }
-      results.put(client.getClientType(), current.toBuilder()
-          .setCount(current.getCount() + client.getDistribution().getCount())
-          .clearBucketValues()
-          .addAllBucketValues(bucketValues)
-          .build());
     });
     return results;
   }

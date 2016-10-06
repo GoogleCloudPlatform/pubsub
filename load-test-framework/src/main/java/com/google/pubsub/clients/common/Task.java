@@ -1,7 +1,15 @@
 package com.google.pubsub.clients.common;
 
-import com.google.pubsub.flic.common.LoadtestProto;
+import java.util.List;
 
-public interface Task extends Runnable {
-  LoadtestProto.Distribution getDistribution();
+public abstract class Task implements Runnable {
+  protected final MetricsHandler metricsHandler;
+
+  protected Task(String project, String type, MetricsHandler.MetricName metricName) {
+    this.metricsHandler = new MetricsHandler(project, type, metricName);
+  }
+
+  List<Long> getBucketValues() {
+    return metricsHandler.getBucketValues();
+  }
 }

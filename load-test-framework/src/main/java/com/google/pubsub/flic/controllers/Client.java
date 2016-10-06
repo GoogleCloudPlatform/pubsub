@@ -20,9 +20,13 @@ import com.beust.jcommander.internal.Nullable;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Timestamp;
+import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.common.LoadtestGrpc;
 import com.google.pubsub.flic.common.LoadtestProto;
-import com.google.pubsub.flic.common.LoadtestProto.*;
+import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
+import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import org.slf4j.Logger;
@@ -34,7 +38,7 @@ import java.util.concurrent.TimeUnit;
 
 public class Client {
   static final String topicPrefix = "cloud-pubsub-loadtest-";
-  private static final Logger log = LoggerFactory.getLogger(Client.class.getName());
+  private static final Logger log = LoggerFactory.getLogger(Client.class);
   private static final int port = 5000;
   public static int messageSize;
   public static int requestRate;
@@ -51,7 +55,7 @@ public class Client {
   private ClientStatus clientStatus;
   private LoadtestGrpc.LoadtestStub stub;
   private int errors = 0;
-  private Distribution distribution;
+  private long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
   private SettableFuture<Void> doneFuture = SettableFuture.create();
 
   Client(ClientType clientType, String networkAddress, String project, @Nullable String subscription,
@@ -81,7 +85,7 @@ public class Client {
     return clientType;
   }
 
-  public ListenableFuture<Void> getDoneFuture() {
+  ListenableFuture<Void> getDoneFuture() {
     return doneFuture;
   }
 
@@ -90,8 +94,8 @@ public class Client {
         ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build());
   }
 
-  synchronized Distribution getDistribution() {
-    return distribution;
+  synchronized long[] getBucketValues() {
+    return bucketValues;
   }
 
   void start() throws Throwable {
@@ -134,11 +138,11 @@ public class Client {
       @Override
       public void onError(Throwable throwable) {
         log.error("Unable to start client [" + networkAddress + "]", throwable);
-        clientStatus = ClientStatus.FAILED;
-        doneFuture.setException(throwable);
         if (connectionErrors > 10) {
           log.error("Client failed " + connectionErrors + " times, shutting down.");
+          clientStatus = ClientStatus.FAILED;
           startFuture.setException(throwable);
+          doneFuture.setException(throwable);
           return;
         }
         connectionErrors++;
@@ -160,7 +164,7 @@ public class Client {
     });
     try {
       startFuture.get();
-      executorService.scheduleWithFixedDelay(this::checkClient, 20, 20, TimeUnit.SECONDS);
+      executorService.scheduleAtFixedRate(this::checkClient, 20, 20, TimeUnit.SECONDS);
     } catch (ExecutionException e) {
       throw e.getCause();
     }
@@ -179,7 +183,9 @@ public class Client {
           doneFuture.set(null);
         }
         synchronized (this) {
-          distribution = checkResponse.getDistribution();
+          for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
+            bucketValues[i] += checkResponse.getBucketValues(i);
+          }
         }
       }
 
@@ -188,7 +194,7 @@ public class Client {
         if (errors > 10) {
           clientStatus = ClientStatus.FAILED;
           doneFuture.setException(throwable);
-          log.error("Client failed 10 health checks, something went wrong.");
+          log.error("Client failed " + errors + " health checks, something went wrong.");
           return;
         }
         log.warn("Unable to connect to client, probably a transient error.");

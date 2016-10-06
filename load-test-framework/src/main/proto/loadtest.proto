@@ -63,11 +63,6 @@ message CheckRequest {
 }
 
 message CheckResponse {
-    Distribution distribution = 1;
+  repeated int64 bucket_values = 1;
   bool is_finished = 2;
-}
-
-message Distribution {
-    repeated int64 bucket_values = 1;
-    int64 count = 2;
 }

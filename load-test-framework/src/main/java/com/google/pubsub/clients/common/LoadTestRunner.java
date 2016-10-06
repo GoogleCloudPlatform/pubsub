@@ -66,7 +66,7 @@ public class LoadTestRunner {
           public void check(CheckRequest request, StreamObserver<CheckResponse> responseObserver) {
             boolean finishedValue = finished.get();
             responseObserver.onNext(CheckResponse.newBuilder()
-                .setDistribution(client.getDistribution())
+                .addAllBucketValues(client.getBucketValues())
                 .setIsFinished(finishedValue)
                 .build());
             responseObserver.onCompleted();

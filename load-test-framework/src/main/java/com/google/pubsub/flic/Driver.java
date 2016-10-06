@@ -22,12 +22,12 @@ import com.beust.jcommander.ParameterException;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Timestamp;
-import com.google.pubsub.clients.common.MetricsHandler;
-import com.google.pubsub.flic.common.LoadtestProto;
+import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.GCEController;
+import org.apache.commons.lang3.math.Fraction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -78,7 +78,7 @@ class Driver {
       description = "Duration of the load test, in seconds.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int loadtestLengthSeconds = 300;
+  private int loadtestLengthSeconds = 120;
   @Parameter(
       names = {"--project"},
       required = true,
@@ -151,48 +151,12 @@ class Driver {
       gceController.startClients();
 
       // Wait for the load test to finish.
-      Map<ClientType, LoadtestProto.Distribution> results = gceController.getResults();
-      results.forEach((type, distribution) -> {
+      Map<ClientType, long[]> results = gceController.getResults();
+      results.forEach((type, bucketValues) -> {
         log.info("Results for " + type + ":");
-        long total = 0;
-        long percentile50ind = distribution.getCount() / 2;
-        long percentile99ind = distribution.getCount() / 10;
-        long percentile999ind = distribution.getCount() / 100;
-        double percentile50 = -1;
-        double percentile99 = -1;
-        double percentile999 = -1;
-        for (int i = distribution.getBucketValuesCount() - 1; i >= 0; i--) {
-          total += distribution.getBucketValues(i);
-          if (percentile50 == -1) {
-            if (total == percentile50ind && i > 0) {
-              percentile50 = (MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i) +
-                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i - 1)) / 2.0;
-            } else if (total >= percentile50ind) {
-              percentile50 = MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i);
-            }
-          }
-          if (percentile99 == -1) {
-            if (total == percentile99ind && i > 0) {
-              percentile99 = (MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i) +
-                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i - 1)) / 2.0;
-            } else if (total >= percentile99ind) {
-              percentile99 = MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i);
-            }
-          }
-          if (percentile999 == -1) {
-            if (total == percentile999ind && i > 0) {
-              percentile999 = (MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i) +
-                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i - 1)) / 2.0;
-            } else if (total >= percentile50ind) {
-              percentile999 = MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i);
-            }
-          }
-        }
-        log.info("count: " + distribution.getCount());
-        log.info("mean: " + distribution.getMean());
-        log.info("50%: " + percentile50);
-        log.info("99%: " + percentile99);
-        log.info("99.9%: " + percentile999);
+        log.info("50%: " + LatencyDistribution.getNthPercentile(bucketValues, Fraction.getFraction(1, 2)));
+        log.info("99%: " + LatencyDistribution.getNthPercentile(bucketValues, Fraction.getFraction(99, 100)));
+        log.info("99.9%: " + LatencyDistribution.getNthPercentile(bucketValues, Fraction.getFraction(999, 1000)));
       });
       gceController.shutdown(new Exception("Loadtest completed."));
     } catch (Throwable t) {

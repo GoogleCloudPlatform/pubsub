@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.flic.common.LoadtestProto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -32,20 +31,18 @@ import java.util.List;
 /**
  * Runs a task that consumes messages from a Cloud Pub/Sub subscription.
  */
-class CPSSubscriberTask implements Task {
+class CPSSubscriberTask extends Task {
   private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
-  private final String subscription; // set null for Publish
+  private final String subscription;
   private final int batchSize;
-  private final MetricsHandler metricsHandler;
   private final PubSub pubSub;
 
   private CPSSubscriberTask(String project, String subscription, int batchSize) {
+    super(project, "gcloud", MetricsHandler.MetricName.END_TO_END_LATENCY);
     this.pubSub = PubSubOptions.builder()
         .projectId(project)
         .build().service();
     this.subscription = Preconditions.checkNotNull(subscription);
-    this.metricsHandler = new MetricsHandler(Preconditions.checkNotNull(project), "gcloud",
-        MetricsHandler.MetricName.END_TO_END_LATENCY);
     this.batchSize = batchSize;
   }
 
@@ -54,7 +51,6 @@ class CPSSubscriberTask implements Task {
         new CPSSubscriberTask(request.getProject(), request.getPubsubOptions().getSubscription(),
             request.getPubsubOptions().getMaxMessagesPerPull()));
   }
-
 
   @Override
   public void run() {
@@ -72,10 +68,5 @@ class CPSSubscriberTask implements Task {
     } catch (PubSubException e) {
       log.error("Error pulling or acknowledging messages.", e);
     }
-  }
-
-  @Override
-  public LoadtestProto.Distribution getDistribution() {
-    return metricsHandler.getDistribution();
   }
 }
