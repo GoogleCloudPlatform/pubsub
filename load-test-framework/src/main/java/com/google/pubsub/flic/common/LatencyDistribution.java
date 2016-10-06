@@ -2,6 +2,8 @@ package com.google.pubsub.flic.common;
 
 import com.google.common.base.Preconditions;
 
+import java.util.stream.LongStream;
+
 public class LatencyDistribution {
   public static final double[] LATENCY_BUCKETS = {
       0.0,
@@ -48,10 +50,7 @@ public class LatencyDistribution {
   public static String getNthPercentile(long[] bucketValues, double percentile) {
     Preconditions.checkArgument(percentile > 0.0);
     Preconditions.checkArgument(percentile < 1.0);
-    long total = 0;
-    for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
-      total += bucketValues[i];
-    }
+    long total = LongStream.of(bucketValues).sum();
     if (total == 0) {
       return "N/A";
     }

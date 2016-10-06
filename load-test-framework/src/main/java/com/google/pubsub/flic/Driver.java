@@ -30,10 +30,12 @@ import com.google.pubsub.flic.controllers.GCEController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.logging.LogManager;
+import java.util.stream.LongStream;
 
 /**
  * Drives the execution of the framework through command line arguments.
@@ -70,7 +72,7 @@ class Driver {
       description = "Message size in bytes (only when publishing messages).",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int messageSize = 1000;
+  private int messageSize = 10000;
   @Parameter(
       names = {"--loadtest_seconds"},
       description = "Duration of the load test, in seconds.",
@@ -100,6 +102,16 @@ class Driver {
       description = "The network address of the Kafka broker."
   )
   private String broker;
+  @Parameter(
+      names = {"--request_rate"},
+      description = "The rate at which each client will make requests."
+  )
+  private int requestRate = 10;
+  @Parameter(
+      names = {"--max_concurrent_requests"},
+      description = "The maximum number of concurrent requests each client will allow."
+  )
+  private int maxConcurrentRequests = 20;
 
   public static void main(String[] args) {
     // Turns off all java.util.logging.
@@ -138,10 +150,12 @@ class Driver {
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1;
-      Client.startTime = Timestamp.newBuilder().build();
+      Client.startTime = Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 90).build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.batchSize = batchSize;
       Client.broker = broker;
+      Client.requestRate = requestRate;
+      Client.maxConcurrentRequests = maxConcurrentRequests;
       GCEController gceController =
           GCEController.newGCEController(project, clientTypes, Executors.newScheduledThreadPool(500));
       gceController.initialize();
@@ -154,6 +168,11 @@ class Driver {
         log.info("50%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.5));
         log.info("99%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.99));
         log.info("99.9%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.999));
+        log.info("Average throughput: " +
+            new DecimalFormat("#.##").format(
+                (double) LongStream.of(bucketValues).sum() / loadtestLengthSeconds
+                    * messageSize / 1000000.0) +
+            " MB/s");
       });
       gceController.shutdown(null);
       System.exit(0);
