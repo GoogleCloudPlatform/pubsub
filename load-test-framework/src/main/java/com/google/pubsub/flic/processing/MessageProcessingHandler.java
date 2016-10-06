@@ -129,6 +129,9 @@ public class MessageProcessingHandler {
       lockHelper.condition.await();
     }
     lockHelper.conditionLock.unlock();
+    if (end == -1) {
+      end = System.currentTimeMillis();
+    }
     if (failureFlag.get()) {
       return;
     }

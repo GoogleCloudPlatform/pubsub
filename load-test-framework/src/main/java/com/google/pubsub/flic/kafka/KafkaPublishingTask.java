@@ -88,7 +88,7 @@ public class KafkaPublishingTask extends Task {
       log.info("Waiting for all acks to arrive...");
       publisher.flush();
     }
-    processingHandler.printStats(start, null, failureFlag);
+    processingHandler.printStats(start, System.currentTimeMillis(), null, failureFlag);
     log.info("Done!");
   }
 
