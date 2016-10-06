@@ -64,7 +64,7 @@ public class CPSSubscribingTask extends CPSTask {
     super(args);
     this.subscriber = subscriber;
     this.processingHandler = processingHandler;
-    earliestReceived = Long.MAX_VALUE;
+    earliestReceived = -1;
     lock = new ReentrantReadWriteLock();
   }
 
@@ -128,13 +128,13 @@ public class CPSSubscribingTask extends CPSTask {
                 // Each message in this callback gets received at the "same time".
                 long receivedTime = System.currentTimeMillis();
                 // Check if this is the first received message, if so, change variable
-                lock.readLock().lock();
-                if (receivedTime < earliestReceived) {
-                  lock.writeLock().lock(); // Should only lock on first block received
-                  earliestReceived = receivedTime;
-                  lock.writeLock().unlock();
-                }
-                lock.readLock().unlock();
+//                lock.readLock().lock();
+//                if (receivedTime < earliestReceived) {
+//                  lock.writeLock().lock(); // Should only lock on first block received
+//                  earliestReceived = receivedTime;
+//                  lock.writeLock().unlock();
+//                }
+//                lock.readLock().unlock();
                 while (receivedMessageIterator.hasNext()
                     && !failureFlag.get()
                     && messageNo.intValue() <= args.getNumMessages()) {
