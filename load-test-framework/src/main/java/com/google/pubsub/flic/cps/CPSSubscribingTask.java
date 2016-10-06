@@ -57,15 +57,13 @@ public class CPSSubscribingTask extends CPSTask {
   private CPSRoundRobinSubscriber subscriber;
   private MessageProcessingHandler processingHandler;
   private long earliestReceived;
-  private ReentrantReadWriteLock lock;
 
   public CPSSubscribingTask(
       TaskArgs args, CPSRoundRobinSubscriber subscriber, MessageProcessingHandler processingHandler) {
     super(args);
     this.subscriber = subscriber;
     this.processingHandler = processingHandler;
-    earliestReceived = -1;
-    lock = new ReentrantReadWriteLock();
+    earliestReceived = 0;
   }
 
   /** Consumes messages from Cloud Pub/Sub in the most optimal way possible */
@@ -116,9 +114,10 @@ public class CPSSubscribingTask extends CPSTask {
         rateLimiter.acquire();
         openPullsPerSubscription.get(s).increment();
         PullRequest request = getPullRequest(s.getName(), pullBuilder);
-        log.info("now-1");
         ListenableFuture<PullResponse> response = subscriber.pull(request);
-        log.info("now0");
+        if (messageNo.intValue() == 0) {
+          earliestReceived = System.currentTimeMillis();
+        }
         Futures.addCallback(
             response,
             new FutureCallback<PullResponse>() {
@@ -129,14 +128,6 @@ public class CPSSubscribingTask extends CPSTask {
                     response.getReceivedMessagesList().iterator();
                 // Each message in this callback gets received at the "same time".
                 long receivedTime = System.currentTimeMillis();
-                // Check if this is the first received message, if so, change variable
-//                lock.readLock().lock();
-//                if (receivedTime < earliestReceived) {
-//                  lock.writeLock().lock(); // Should only lock on first block received
-//                  earliestReceived = receivedTime;
-//                  lock.writeLock().unlock();
-//                }
-//                lock.readLock().unlock();
                 while (receivedMessageIterator.hasNext()
                     && !failureFlag.get()
                     && messageNo.intValue() <= args.getNumMessages()) {
@@ -198,7 +189,6 @@ public class CPSSubscribingTask extends CPSTask {
             callbackExecutor);
       }
     }
-    log.info("now1");
     processingHandler.printStats(earliestReceived, System.currentTimeMillis(), callbackExecutor, 
         failureFlag);
     callbackExecutor.shutdownNow();

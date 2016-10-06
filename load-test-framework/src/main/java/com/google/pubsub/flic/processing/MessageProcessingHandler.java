@@ -124,15 +124,11 @@ public class MessageProcessingHandler {
    */
   public void printStats(long start, long end, @Nullable DelayTrackingThreadPool executor, AtomicBoolean failureFlag)
       throws Exception {
-    log.info("now2");
     lockHelper.conditionLock.lock();
-    log.info("now3");
     while (!lockHelper.barrier.await(0, TimeUnit.MICROSECONDS) && !failureFlag.get()) {
       lockHelper.condition.await();
     }
-    log.info("now4");
     lockHelper.conditionLock.unlock();
-    log.info("now5");
     if (end == -1) {
       end = System.currentTimeMillis();
     }
