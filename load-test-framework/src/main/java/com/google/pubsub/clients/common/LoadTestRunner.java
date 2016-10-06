@@ -95,7 +95,6 @@ public class LoadTestRunner {
 
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
     final Semaphore outstandingTestLimiter = new Semaphore(request.getMaxConcurrentRequests(), false);
-    int numberOfMessages = 0;
     client = loadFunction.apply(request);
 
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
@@ -103,7 +102,7 @@ public class LoadTestRunner {
       Thread.sleep(toSleep);
     }
 
-    while (shouldContinue(request, numberOfMessages)) {
+    while (shouldContinue(request)) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();
       executor.submit(client).addListener(outstandingTestLimiter::release, executor);
@@ -114,7 +113,7 @@ public class LoadTestRunner {
     log.info("Load test complete, shutting down.");
   }
 
-  private static boolean shouldContinue(StartRequest request, int numberOfMessages) {
+  private static boolean shouldContinue(StartRequest request) {
     switch (request.getStopConditionsCase()) {
       case STOP_TIME:
         return System.currentTimeMillis() < request.getStopTime().getSeconds() * 1000;
