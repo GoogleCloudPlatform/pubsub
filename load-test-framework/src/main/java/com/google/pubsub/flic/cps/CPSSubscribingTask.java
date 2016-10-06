@@ -196,6 +196,7 @@ public class CPSSubscribingTask extends CPSTask {
             callbackExecutor);
       }
     }
+    log.info("now1");
     processingHandler.printStats(earliestReceived, System.currentTimeMillis(), callbackExecutor, 
         failureFlag);
     callbackExecutor.shutdownNow();
