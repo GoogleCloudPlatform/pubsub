@@ -70,6 +70,4 @@ message CheckResponse {
 message Distribution {
     repeated int64 bucket_values = 1;
     int64 count = 2;
-    double mean = 3;
-    double sum_of_squared_deviation = 4;
 }

@@ -19,16 +19,11 @@ import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.HttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.services.monitoring.v3.Monitoring;
 import com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.Timestamp;
+import com.google.pubsub.clients.common.MetricsHandler;
+import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
@@ -36,9 +31,9 @@ import com.google.pubsub.flic.controllers.GCEController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.logging.LogManager;
 
@@ -151,52 +146,53 @@ class Driver {
       Client.broker = broker;
       Date startTime = new Date();
       GCEController gceController =
-          GCEController.newGCEController(project, clientTypes, Executors.newCachedThreadPool());
+          GCEController.newGCEController(project, clientTypes, Executors.newScheduledThreadPool(500));
       gceController.initialize();
       gceController.startClients();
 
       // Wait for the load test to finish.
-      Thread.sleep(loadtestLengthSeconds * 1000);
-      gceController.shutdown(new Exception("Loadtest completed."));
-      HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
-      JsonFactory jsonFactory = new JacksonFactory();
-      GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
-      if (credential.createScopedRequired()) {
-        credential =
-            credential.createScoped(
-                Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
-      }
-      Monitoring monitoring = new Monitoring.Builder(transport, jsonFactory, credential)
-          .setApplicationName("Cloud Pub/Sub Loadtest Framework")
-          .build();
-      SimpleDateFormat dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
-      dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
-      Date endTime = new Date();
-      endTime.setTime(startTime.getTime() + loadtestLengthSeconds * 1000);
-      for (String type : ImmutableList.of("gcloud", "kafka")) {
-        for (String metric : ImmutableList.of("end_to_end_latency", "publish_latency")) {
-          log.info("99% " + metric + " for " + type + ":");
-          monitoring.projects().timeSeries().list("projects/" + project)
-              .setFilter("metric.type = \"custom.googleapis.com/cloud-pubsub/loadclient/" + metric + "\" AND " +
-                  "metric.label.client_type = \"" + type + "\"")
-              .setIntervalStartTime(dateFormatter.format(startTime))
-              .setIntervalEndTime(dateFormatter.format(endTime))
-              .setView("FULL")
-              .setAggregationAlignmentPeriod(loadtestLengthSeconds + "s")
-              .setAggregationPerSeriesAligner("ALIGN_SUM")
-              .setAggregationCrossSeriesReducer("REDUCE_PERCENTILE_99")
-              .execute()
-              .getTimeSeries()
-              .forEach(timeSeries -> timeSeries.getPoints().forEach(point -> {
-                log.info(point.getInterval().getStartTime() + " to " + point.getInterval().getEndTime());
-                try {
-                  log.info(point.getValue().getDistributionValue().toPrettyString());
-                } catch (IOException e) {
-                  log.error("Somehow the value was not a distribution.", e);
-                }
-              }));
+      Map<ClientType, LoadtestProto.Distribution> results = gceController.getResults();
+      results.forEach((type, distribution) -> {
+        log.info("Results for " + type + ":");
+        long total = 0;
+        long percentile50ind = distribution.getCount() / 2;
+        long percentile99ind = distribution.getCount() / 10;
+        long percentile999ind = distribution.getCount() / 100;
+        double percentile50 = -1;
+        double percentile99 = -1;
+        double percentile999 = -1;
+        for (int i = distribution.getBucketValuesCount() - 1; i >= 0; i--) {
+          total += distribution.getBucketValues(i);
+          if (percentile50 == -1) {
+            if (total == percentile50ind && i < distribution.getBucketValuesCount()) {
+              percentile50 = (MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i) +
+                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i + 1)) / 2.0;
+            } else if (total >= percentile50ind) {
+              percentile50 = MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i);
+            }
+          }
+          if (percentile99 == -1) {
+            if (total == percentile99ind && i < distribution.getBucketValuesCount()) {
+              percentile99 = (MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i) +
+                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i + 1)) / 2.0;
+            } else if (total >= percentile99ind) {
+              percentile99 = MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i);
+            }
+          }
+          if (percentile999 == -1) {
+            if (total == percentile999ind && i < distribution.getBucketValuesCount()) {
+              percentile999 = (MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i) +
+                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i + 1)) / 2.0;
+            } else if (total >= percentile50ind) {
+              percentile999 = MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i);
+            }
+          }
         }
-      }
+        log.info("50%: " + percentile50);
+        log.info("99%: " + percentile99);
+        log.info("99.9%: " + percentile999);
+      });
+      gceController.shutdown(new Exception("Loadtest completed."));
     } catch (Throwable t) {
       log.error("An error occurred...", t);
       System.exit(1);

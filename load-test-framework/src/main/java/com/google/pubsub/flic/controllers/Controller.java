@@ -16,18 +16,26 @@
 
 package com.google.pubsub.flic.controllers;
 
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.pubsub.flic.common.LoadtestProto;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 
 abstract class Controller {
+  final static Logger log = LoggerFactory.getLogger(Controller.class);
   final List<Client> clients = new ArrayList<>();
-  final Executor executor;
+  final ScheduledExecutorService executor;
 
-  Controller(Executor executor) {
+  Controller(ScheduledExecutorService executor) {
     this.executor = executor;
   }
 
@@ -40,6 +48,34 @@ abstract class Controller {
   public abstract void initialize() throws Throwable;
 
   protected abstract void shutdown(Throwable t);
+
+  public Map<Client.ClientType, LoadtestProto.Distribution> getResults() {
+    try {
+      List<ListenableFuture<Void>> doneFutures = new ArrayList<>();
+      clients.forEach(c -> doneFutures.add(c.getDoneFuture()));
+      Futures.allAsList(doneFutures).get();
+    } catch (InterruptedException | ExecutionException e) {
+      log.error("Client failed health check, will print results accumulated during test up to this point.",
+          e instanceof ExecutionException ? e.getCause() : e);
+    }
+    Map<Client.ClientType, LoadtestProto.Distribution> results = new HashMap<>();
+    for (Client.ClientType type : Client.ClientType.values()) {
+      results.put(type, LoadtestProto.Distribution.getDefaultInstance());
+    }
+    clients.forEach(client -> {
+      LoadtestProto.Distribution current = results.get(client.getClientType());
+      List<Long> bucketValues = current.getBucketValuesList();
+      for (int i = 0; i < bucketValues.size(); i++) {
+        bucketValues.set(i, bucketValues.get(i) + client.getDistribution().getBucketValues(i));
+      }
+      results.put(client.getClientType(), current.toBuilder()
+          .setCount(current.getCount() + client.getDistribution().getCount())
+          .clearBucketValues()
+          .addAllBucketValues(bucketValues)
+          .build());
+    });
+    return results;
+  }
 
   void startClients() {
     SettableFuture<Void> startFuture = SettableFuture.create();

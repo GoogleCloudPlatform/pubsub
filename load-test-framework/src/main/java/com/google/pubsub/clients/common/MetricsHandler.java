@@ -221,8 +221,8 @@ public class MetricsHandler {
     }
   }
 
-  private static class LatencyDistribution {
-    static final List<Double> LATENCY_BUCKETS =
+  public static class LatencyDistribution {
+    public static final List<Double> LATENCY_BUCKETS =
         ImmutableList.of(
             0.0,
             1.0,
@@ -261,8 +261,6 @@ public class MetricsHandler {
       return LoadtestProto.Distribution.newBuilder()
           .addAllBucketValues(bucketValues)
           .setCount(count)
-          .setMean(mean)
-          .setSumOfSquaredDeviation(sumOfSquaredDeviation)
           .build();
     }
 

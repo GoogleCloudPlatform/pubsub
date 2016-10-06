@@ -17,6 +17,7 @@
 package com.google.pubsub.flic.controllers;
 
 import com.beust.jcommander.internal.Nullable;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.LoadtestGrpc;
@@ -51,6 +52,7 @@ public class Client {
   private LoadtestGrpc.LoadtestStub stub;
   private int errors = 0;
   private Distribution distribution;
+  private SettableFuture<Void> doneFuture = SettableFuture.create();
 
   Client(ClientType clientType, String networkAddress, String project, @Nullable String subscription,
          ScheduledExecutorService executorService) {
@@ -73,6 +75,14 @@ public class Client {
         return "kafka";
     }
     return null;
+  }
+
+  ClientType getClientType() {
+    return clientType;
+  }
+
+  public ListenableFuture<Void> getDoneFuture() {
+    return doneFuture;
   }
 
   private LoadtestGrpc.LoadtestStub getStub() {
@@ -125,6 +135,7 @@ public class Client {
       public void onError(Throwable throwable) {
         log.error("Unable to start client [" + networkAddress + "]", throwable);
         clientStatus = ClientStatus.FAILED;
+        doneFuture.setException(throwable);
         if (connectionErrors > 10) {
           log.error("Client failed " + connectionErrors + " times, shutting down.");
           startFuture.setException(throwable);
@@ -165,6 +176,7 @@ public class Client {
         log.debug("Connected to client.");
         if (checkResponse.getIsFinished()) {
           clientStatus = ClientStatus.STOPPED;
+          doneFuture.set(null);
         }
         synchronized (this) {
           distribution = checkResponse.getDistribution();
@@ -175,6 +187,7 @@ public class Client {
       public void onError(Throwable throwable) {
         if (errors > 10) {
           clientStatus = ClientStatus.FAILED;
+          doneFuture.setException(throwable);
           log.error("Client failed 10 health checks, something went wrong.");
           return;
         }

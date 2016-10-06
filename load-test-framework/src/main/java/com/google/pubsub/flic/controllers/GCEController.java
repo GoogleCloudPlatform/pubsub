@@ -36,8 +36,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import org.apache.commons.codec.digest.DigestUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -49,11 +47,10 @@ import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class GCEController extends Controller {
-  private static final Logger log = LoggerFactory.getLogger(GCEController.class.getName());
   private static final String machineType = "n1-standard-4"; // quad core machines
   private static final String sourceFamily = "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930";
   private final Storage storage;
@@ -63,8 +60,8 @@ public class GCEController extends Controller {
   private final Map<String, Map<ClientParams, Integer>> types;
   private boolean shutdown;
 
-  private GCEController(String projectName, Map<String, Map<ClientParams, Integer>> types, Executor executor,
-                        Storage storage, Compute compute, PubSub pubSub) {
+  private GCEController(String projectName, Map<String, Map<ClientParams, Integer>> types,
+                        ScheduledExecutorService executor, Storage storage, Compute compute, PubSub pubSub) {
     super(executor);
     this.shutdown = false;
     this.projectName = projectName;
@@ -76,7 +73,8 @@ public class GCEController extends Controller {
 
   public static GCEController newGCEController(
       String projectName, Map<String,
-      Map<ClientParams, Integer>> types, Executor executor) throws IOException, GeneralSecurityException {
+      Map<ClientParams, Integer>> types,
+      ScheduledExecutorService executor) throws IOException, GeneralSecurityException {
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = new JacksonFactory();
     GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
@@ -419,7 +417,8 @@ public class GCEController extends Controller {
           params.clientType,
           instance.getNetworkInterfaces().get(0).getAccessConfigs().get(0).getNatIP(),
           projectName,
-          params.subscription));
+          params.subscription,
+          executor));
     }
     return true;
   }
