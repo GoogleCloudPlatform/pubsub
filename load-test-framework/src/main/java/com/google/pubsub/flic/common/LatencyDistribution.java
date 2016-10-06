@@ -44,6 +44,9 @@ public class LatencyDistribution {
     for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
       total += bucketValues[i];
     }
+    if (total == 0) {
+      return "N/A";
+    }
     long count = (long) (total * (1.0 - percentile));
     for (int i = LATENCY_BUCKETS.length - 1; i > 0; i--) {
       total -= bucketValues[i];

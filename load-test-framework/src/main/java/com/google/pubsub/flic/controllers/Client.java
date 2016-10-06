@@ -137,9 +137,8 @@ public class Client {
 
       @Override
       public void onError(Throwable throwable) {
-        log.error("Unable to start client [" + networkAddress + "]", throwable);
         if (connectionErrors > 10) {
-          log.error("Client failed " + connectionErrors + " times, shutting down.");
+          log.error("Client failed to start " + connectionErrors + " times, shutting down.");
           clientStatus = ClientStatus.FAILED;
           startFuture.setException(throwable);
           doneFuture.setException(throwable);
@@ -151,7 +150,7 @@ public class Client {
         } catch (InterruptedException e) {
           log.info("Interrupted during back off, retrying.");
         }
-        log.info("Going to retry client connection, likely due to start up time.");
+        log.debug("Going to retry client connection, likely due to start up time.");
         stub = getStub();
         stub.start(request, this);
       }

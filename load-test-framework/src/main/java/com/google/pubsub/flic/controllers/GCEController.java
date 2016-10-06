@@ -97,7 +97,9 @@ public class GCEController extends Controller {
       return;
     }
     shutdown = true;
-    log.error("Shutting down: ", t);
+    if (t != null) {
+      log.error("Shutting down: ", t);
+    }
     // Attempt to cleanly close all running instances.
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
           try {

@@ -156,6 +156,7 @@ class Driver {
         log.info("99.9%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.999));
       });
       gceController.shutdown(null);
+      System.exit(0);
     } catch (Throwable t) {
       log.error("An error occurred...", t);
       System.exit(1);
