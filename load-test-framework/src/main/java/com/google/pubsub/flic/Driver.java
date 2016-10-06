@@ -186,7 +186,7 @@ class Driver {
         log.info("Average throughput: " +
             new DecimalFormat("#.##").format(
                 (double) LongStream.of(bucketValues).sum() / loadtestLengthSeconds
-                    * messageSize / 1000000.0 * (type == ClientType.CPS_GCLOUD_SUBSCRIBER ? 1 : batchSize)) +
+                    * messageSize / 1000000.0 * (type == ClientType.CPS_GCLOUD_PUBLISHER ? batchSize : 1)) +
             " MB/s");
       });
       gceController.shutdown(null);
