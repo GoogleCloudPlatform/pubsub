@@ -15,7 +15,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic;
 
-import autovalue.shaded.org.apache.commons.lang.ArrayUtils;
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
@@ -152,7 +151,6 @@ class Driver {
       Map<ClientType, long[]> results = gceController.getResults();
       results.forEach((type, bucketValues) -> {
         log.info("Results for " + type + ":");
-        log.info(ArrayUtils.toString(bucketValues));
         log.info("50%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.5));
         log.info("99%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.99));
         log.info("99.9%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.999));
