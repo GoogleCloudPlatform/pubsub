@@ -130,7 +130,7 @@ public class CPSSubscribingTask extends CPSTask {
                 // Check if this is the first received message, if so, change variable
                 lock.readLock().lock();
                 if (receivedTime < earliestReceived) {
-                  lock.writeLock().lock();
+                  lock.writeLock().lock(); // Should only lock on first block received
                   earliestReceived = receivedTime;
                   lock.writeLock().unlock();
                 }

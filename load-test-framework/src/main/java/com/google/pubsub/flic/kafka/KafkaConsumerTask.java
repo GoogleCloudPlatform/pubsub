@@ -54,10 +54,14 @@ public class KafkaConsumerTask extends Task {
   public void execute() throws Exception {
     subscriber.subscribe(args.getTopics());
     log.info("Start publishing...");
+    long earliestReceived = Long.MAX_VALUE;
     while (messageNo.intValue() <= args.getNumMessages()) {
       ConsumerRecords<String, String> records = subscriber.poll(POLL_LENGTH);
       // Each message in this batch was received at the same time
       long receivedTime = System.currentTimeMillis();
+      if (receivedTime < earliestReceived) {
+        earliestReceived = receivedTime;
+      }
       Iterator<ConsumerRecord<String, String>> recordIterator = records.iterator();
       while (recordIterator.hasNext() && !failureFlag.get()) {
         ConsumerRecord<String, String> record = recordIterator.next();
@@ -89,6 +93,7 @@ public class KafkaConsumerTask extends Task {
     if (!failureFlag.get()) {
       subscriber.close();
     }
+    processingHandler.printStats(earliestReceived, null, failureFlag);
     log.info("Done!");
   }
 
