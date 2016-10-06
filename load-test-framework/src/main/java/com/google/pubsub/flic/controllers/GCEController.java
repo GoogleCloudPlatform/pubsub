@@ -29,6 +29,8 @@ import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Bucket;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubOptions;
+import com.google.cloud.pubsub.SubscriptionInfo;
+import com.google.cloud.pubsub.TopicInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
@@ -121,7 +123,7 @@ public class GCEController extends Controller {
       }
     }
     List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
-    /*types.values().forEach((paramsMap) -> paramsMap.keySet().stream().map((params) -> params.clientType)
+    types.values().forEach((paramsMap) -> paramsMap.keySet().stream().map((params) -> params.clientType)
         .distinct().forEach((clientType) -> {
           SettableFuture<Void> pubsubFuture = SettableFuture.create();
           pubsubFutures.add(pubsubFuture);
@@ -140,7 +142,7 @@ public class GCEController extends Controller {
             });
             pubsubFuture.set(null);
           });
-        }));*/
+        }));
     try {
       createStorageBucket();
 
