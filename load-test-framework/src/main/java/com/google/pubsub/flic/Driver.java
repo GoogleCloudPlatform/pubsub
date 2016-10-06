@@ -168,10 +168,11 @@ class Driver {
         log.info("50%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.5));
         log.info("99%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.99));
         log.info("99.9%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.999));
+        // CPS Subscribers report latency per individual message, but all others report per batch message.
         log.info("Average throughput: " +
             new DecimalFormat("#.##").format(
                 (double) LongStream.of(bucketValues).sum() / loadtestLengthSeconds
-                    * messageSize / 1000000.0) +
+                    * messageSize / 1000000.0 * (type == ClientType.CPS_GCLOUD_SUBSCRIBER ? 1 : batchSize)) +
             " MB/s");
       });
       gceController.shutdown(null);
