@@ -159,7 +159,6 @@ public class Client {
 
       @Override
       public void onCompleted() {
-        log.info("Start command completed.");
         startFuture.set(null);
       }
     });
