@@ -119,7 +119,7 @@ public class LoadTestRunner {
       case STOP_TIME:
         return System.currentTimeMillis() < request.getStopTime().getSeconds() * 1000;
       case NUMBER_OF_MESSAGES:
-        return client.getNumberOfMessages() == request.getNumberOfMessages();
+        return client.getNumberOfMessages() >= request.getNumberOfMessages();
     }
     return false;
   }
