@@ -164,30 +164,32 @@ class Driver {
         for (int i = distribution.getBucketValuesCount() - 1; i >= 0; i--) {
           total += distribution.getBucketValues(i);
           if (percentile50 == -1) {
-            if (total == percentile50ind && i < distribution.getBucketValuesCount()) {
+            if (total == percentile50ind && i > 0) {
               percentile50 = (MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i) +
-                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i + 1)) / 2.0;
+                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i - 1)) / 2.0;
             } else if (total >= percentile50ind) {
               percentile50 = MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i);
             }
           }
           if (percentile99 == -1) {
-            if (total == percentile99ind && i < distribution.getBucketValuesCount()) {
+            if (total == percentile99ind && i > 0) {
               percentile99 = (MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i) +
-                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i + 1)) / 2.0;
+                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i - 1)) / 2.0;
             } else if (total >= percentile99ind) {
               percentile99 = MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i);
             }
           }
           if (percentile999 == -1) {
-            if (total == percentile999ind && i < distribution.getBucketValuesCount()) {
+            if (total == percentile999ind && i > 0) {
               percentile999 = (MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i) +
-                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i + 1)) / 2.0;
+                  MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i - 1)) / 2.0;
             } else if (total >= percentile50ind) {
               percentile999 = MetricsHandler.LatencyDistribution.LATENCY_BUCKETS.get(i);
             }
           }
         }
+        log.info("count: " + distribution.getCount());
+        log.info("mean: " + distribution.getMean());
         log.info("50%: " + percentile50);
         log.info("99%: " + percentile99);
         log.info("99.9%: " + percentile999);
