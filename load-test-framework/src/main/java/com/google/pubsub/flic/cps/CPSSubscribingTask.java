@@ -116,7 +116,9 @@ public class CPSSubscribingTask extends CPSTask {
         rateLimiter.acquire();
         openPullsPerSubscription.get(s).increment();
         PullRequest request = getPullRequest(s.getName(), pullBuilder);
+        log.info("now-1");
         ListenableFuture<PullResponse> response = subscriber.pull(request);
+        log.info("now0");
         Futures.addCallback(
             response,
             new FutureCallback<PullResponse>() {
