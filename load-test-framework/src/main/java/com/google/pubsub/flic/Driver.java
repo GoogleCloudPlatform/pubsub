@@ -95,11 +95,11 @@ class Driver {
   )
   private int batchSize = 10;
   @Parameter(
-      names = {"--subscriber_fanout"},
-      description = "Number of subscription ids to use for each topic. Must be at least 1.",
+      names = {"--subscription_fanout"},
+      description = "Number of subscriptions to create for each topic. Must be at least 1.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int subscriberFanout = 1;
+  private int subscriptionFanout = 1;
   @Parameter(
       names = {"--broker"},
       description = "The network address of the Kafka broker."
@@ -122,7 +122,7 @@ class Driver {
   private int burnInDurationSeconds = 20;
   @Parameter(
       names = {"--number_of_messages"},
-      description = "The number of messages to publish in the test. Enabling this will override " +
+      description = "The total number of messages to publish in the test. Enabling this will override " +
           "--loadtest_length_seconds. Enabling this flag will also enable the check for message loss. If set less " +
           "than 1, this flag is ignored."
   )
@@ -158,9 +158,9 @@ class Driver {
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));
-      for (int i = 0; i < subscriberFanout; ++i) {
+      for (int i = 0; i < subscriptionFanout; ++i) {
         clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER, "gcloud-subscription" + i),
-            cpsSubscriberCount / subscriberFanout);
+            cpsSubscriberCount / subscriptionFanout);
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1;
