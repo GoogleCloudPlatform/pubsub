@@ -111,10 +111,10 @@ class Driver {
   )
   private int requestRate = 10;
   @Parameter(
-      names = {"--max_concurrent_requests"},
-      description = "The maximum number of concurrent requests each client will allow."
+      names = {"--max_outstanding_requests"},
+      description = "The maximum number of outstanding requests each client will allow."
   )
-  private int maxConcurrentRequests = 20;
+  private int maxOutstandingRequests = 20;
   @Parameter(
       names = {"--burn_in_duration_seconds"},
       description = "The duration, in seconds, to run without recording statistics in order to allow tuning."
@@ -169,7 +169,7 @@ class Driver {
       Client.batchSize = batchSize;
       Client.broker = broker;
       Client.requestRate = requestRate;
-      Client.maxConcurrentRequests = maxConcurrentRequests;
+      Client.maxOutstandingRequests = maxOutstandingRequests;
       Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
       Client.numberOfMessages = numberOfMessages;
       GCEController gceController = GCEController.newGCEController(

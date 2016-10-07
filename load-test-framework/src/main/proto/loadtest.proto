@@ -25,8 +25,8 @@ message StartRequest {
   // The number of user messages of size message_size to batch together in each publish
   int32 batch_size = 5;
 
-  // The maximum concurrent requests, per client.
-  int32 max_concurrent_requests = 6;
+  // The maximum outstanding requests, per client.
+  int32 max_outstanding_requests = 6;
 
   // The time at which the load test should start.
   google.protobuf.Timestamp start_time = 7;

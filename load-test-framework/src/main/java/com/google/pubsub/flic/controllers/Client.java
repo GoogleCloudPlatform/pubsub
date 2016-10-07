@@ -46,7 +46,7 @@ public class Client {
   public static int loadtestLengthSeconds;
   public static int batchSize;
   public static String broker;
-  public static int maxConcurrentRequests;
+  public static int maxOutstandingRequests;
   public static long burnInTimeMillis;
   public static int numberOfMessages = 0;
   private final ClientType clientType;
@@ -108,7 +108,7 @@ public class Client {
         .setProject(project)
         .setTopic(topic)
         .setBatchSize(batchSize)
-        .setMaxConcurrentRequests(maxConcurrentRequests)
+        .setMaxOutstandingRequests(maxOutstandingRequests)
         .setMessageSize(messageSize)
         .setRequestRate(requestRate)
         .setStartTime(startTime);
