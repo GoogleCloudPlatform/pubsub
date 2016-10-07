@@ -57,7 +57,7 @@ class Driver {
   private int cpsPublisherCount = 1;
   @Parameter(
       names = {"--cps_subscriber_count"},
-      description = "Number of CPS subscribers to start per ."
+      description = "Number of CPS subscribers to start."
   )
   private int cpsSubscriberCount = 1;
   @Parameter(
@@ -85,7 +85,7 @@ class Driver {
   @Parameter(
       names = {"--project"},
       required = true,
-      description = "Cloud Pub/Sub project name."
+      description = "Google Cloud Platform project name."
   )
   private String project = "";
   @Parameter(
@@ -142,8 +142,8 @@ class Driver {
 
   private void run() {
     try {
-      Map<String, Map<ClientParams, Integer>> clientTypes = ImmutableMap.of(
-          "us-central1-a", new HashMap<>());
+      //Map<String, Map<ClientParams, Integer>> clientTypes = ImmutableMap.of(
+      //    "us-central1-a", new HashMap<>());
       Preconditions.checkArgument(
           cpsPublisherCount > 0 ||
               cpsSubscriberCount > 0 ||
@@ -152,16 +152,15 @@ class Driver {
       );
       Preconditions.checkArgument(
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
+      Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
+      clientParamsMap.putAll(ImmutableMap.of(
+          new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null), cpsPublisherCount,
+          new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
+          new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
+      ));
       for (int i = 0; i < subscriberFanout; ++i) {
-        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null),
-            cpsPublisherCount / subscriberFanout);
-        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER,
-                "gcloud-subscription" + i),
+        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER, "gcloud-subscription" + i),
             cpsSubscriberCount / subscriberFanout);
-        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_PUBLISHER, null),
-            kafkaPublisherCount / subscriberFanout);
-        clientTypes.get("us-central1-a").put(new ClientParams(ClientType.KAFKA_SUBSCRIBER, null),
-            kafkaSubscriberCount / subscriberFanout);
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1;
@@ -173,8 +172,8 @@ class Driver {
       Client.maxConcurrentRequests = maxConcurrentRequests;
       Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
       Client.numberOfMessages = numberOfMessages;
-      GCEController gceController =
-          GCEController.newGCEController(project, clientTypes, Executors.newScheduledThreadPool(500));
+      GCEController gceController = GCEController.newGCEController(
+          project, ImmutableMap.of("us-central1-a", clientParamsMap), Executors.newScheduledThreadPool(500));
       gceController.initialize();
       gceController.startClients();
 
