@@ -36,17 +36,15 @@ public abstract class Controller {
   final List<Client> clients = new ArrayList<>();
   final ScheduledExecutorService executor;
 
-  Controller(ScheduledExecutorService executor) {
-    this.executor = executor;
-  }
-
   /*
   Creates the given environments and starts the virtual machines. When this function returns, each client is guaranteed
   to have been connected and be network reachable, but is not started. If an error occurred attempting to start the
   environment, the environment will be shut down, and an IOException will be thrown. It is not guaranteed that we have
   completed shutting down when this function returns, but it is guaranteed that we are in process.
    */
-  public abstract void initialize() throws Throwable;
+  Controller(ScheduledExecutorService executor) {
+    this.executor = executor;
+  }
 
   protected abstract void shutdown(Throwable t);
 

@@ -174,7 +174,6 @@ class Driver {
       Client.numberOfMessages = numberOfMessages;
       GCEController gceController = GCEController.newGCEController(
           project, ImmutableMap.of("us-central1-a", clientParamsMap), Executors.newScheduledThreadPool(500));
-      gceController.initialize();
       gceController.startClients();
 
       // Start a thread to poll and output results.

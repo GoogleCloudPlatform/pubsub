@@ -43,7 +43,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.security.GeneralSecurityException;
 import java.util.*;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -55,73 +54,19 @@ public class GCEController extends Controller {
   private static final String sourceFamily = "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930";
   private final Storage storage;
   private final Compute compute;
-  private final PubSub pubSub;
   private final String projectName;
   private final Map<String, Map<ClientParams, Integer>> types;
   private boolean shutdown;
 
   private GCEController(String projectName, Map<String, Map<ClientParams, Integer>> types,
-                        ScheduledExecutorService executor, Storage storage, Compute compute, PubSub pubSub) {
+                        ScheduledExecutorService executor, Storage storage, Compute compute, PubSub pubSub) throws Throwable {
     super(executor);
     this.shutdown = false;
     this.projectName = projectName;
     this.types = types;
     this.storage = storage;
     this.compute = compute;
-    this.pubSub = pubSub;
-  }
 
-  public static GCEController newGCEController(
-      String projectName, Map<String,
-      Map<ClientParams, Integer>> types,
-      ScheduledExecutorService executor) throws IOException, GeneralSecurityException {
-    HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
-    JsonFactory jsonFactory = new JacksonFactory();
-    GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
-    if (credential.createScopedRequired()) {
-      credential =
-          credential.createScoped(
-              Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
-    }
-    return new GCEController(projectName, types, executor,
-        new Storage.Builder(transport, jsonFactory, credential)
-            .setApplicationName("Cloud Pub/Sub Loadtest Framework")
-            .build(),
-        new Compute.Builder(transport, jsonFactory, credential)
-            .setApplicationName("Cloud Pub/Sub Loadtest Framework")
-            .build(),
-        PubSubOptions.builder().projectId(projectName).build().service());
-  }
-
-  @Override
-  public synchronized void shutdown(Throwable t) {
-    if (shutdown) {
-      return;
-    }
-    shutdown = true;
-    if (t != null) {
-      log.error("Shutting down: ", t);
-    }
-    // Attempt to cleanly close all running instances.
-    types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
-          try {
-            compute.instanceGroupManagers()
-                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.clientType, 0).execute();
-          } catch (IOException e) {
-            log.error("Unable to resize Instance Group for " + param.clientType +
-                ", please manually ensure you do not have any running instances to avoid being billed.");
-          }
-        })
-    );
-  }
-
-  @Override
-  public void initialize() throws Throwable {
-    synchronized (this) {
-      if (shutdown) {
-        throw new IOException("Already shutting down, cannot initialize.");
-      }
-    }
     List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
     types.values().forEach((paramsMap) -> paramsMap.keySet().stream().map((params) -> params.clientType)
         .distinct().forEach((clientType) -> {
@@ -223,6 +168,50 @@ public class GCEController extends Controller {
       shutdown(e);
       throw e;
     }
+  }
+
+  public static GCEController newGCEController(
+      String projectName, Map<String,
+      Map<ClientParams, Integer>> types,
+      ScheduledExecutorService executor) throws Throwable {
+    HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+    JsonFactory jsonFactory = new JacksonFactory();
+    GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
+    if (credential.createScopedRequired()) {
+      credential =
+          credential.createScoped(
+              Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
+    }
+    return new GCEController(projectName, types, executor,
+        new Storage.Builder(transport, jsonFactory, credential)
+            .setApplicationName("Cloud Pub/Sub Loadtest Framework")
+            .build(),
+        new Compute.Builder(transport, jsonFactory, credential)
+            .setApplicationName("Cloud Pub/Sub Loadtest Framework")
+            .build(),
+        PubSubOptions.builder().projectId(projectName).build().service());
+  }
+
+  @Override
+  public synchronized void shutdown(Throwable t) {
+    if (shutdown) {
+      return;
+    }
+    shutdown = true;
+    if (t != null) {
+      log.error("Shutting down: ", t);
+    }
+    // Attempt to cleanly close all running instances.
+    types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
+          try {
+            compute.instanceGroupManagers()
+                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.clientType, 0).execute();
+          } catch (IOException e) {
+            log.error("Unable to resize Instance Group for " + param.clientType +
+                ", please manually ensure you do not have any running instances to avoid being billed.");
+          }
+        })
+    );
   }
 
   private void createStorageBucket() {

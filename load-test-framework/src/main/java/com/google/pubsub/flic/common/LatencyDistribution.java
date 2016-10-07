@@ -97,21 +97,17 @@ public class LatencyDistribution {
       sumOfSquaredDeviation += dev * (latencyMs - mean);
     }
 
-    boolean bucketFound = false;
     for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
       double bucket = LATENCY_BUCKETS[i];
       if (latencyMs < bucket) {
         synchronized (this) {
           bucketValues[i]++;
         }
-        bucketFound = true;
-        break;
+        return;
       }
     }
-    if (!bucketFound) {
-      synchronized (this) {
-        bucketValues[LATENCY_BUCKETS.length - 1]++;
-      }
+    synchronized (this) {
+      bucketValues[LATENCY_BUCKETS.length - 1]++;
     }
   }
 }
