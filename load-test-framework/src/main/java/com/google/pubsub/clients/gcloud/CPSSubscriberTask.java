@@ -22,7 +22,6 @@ import com.google.common.base.Preconditions;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.flic.common.LoadtestProto.StartRequest.StopConditionsCase;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -38,7 +37,7 @@ class CPSSubscriberTask extends Task {
   private final int batchSize;
   private final PubSub pubSub;
 
-  private CPSSubscriberTask(String project, String subscription, int batchSize, int numberOfMessages) {
+  private CPSSubscriberTask(String project, String subscription, int batchSize) {
     super(project, "gcloud", MetricsHandler.MetricName.END_TO_END_LATENCY);
     this.pubSub = PubSubOptions.builder()
         .projectId(project)
@@ -50,9 +49,7 @@ class CPSSubscriberTask extends Task {
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run(request ->
         new CPSSubscriberTask(request.getProject(), request.getPubsubOptions().getSubscription(),
-            request.getPubsubOptions().getMaxMessagesPerPull(),
-            request.getStopConditionsCase() == StopConditionsCase.NUMBER_OF_MESSAGES ?
-                request.getNumberOfMessages() : 0));
+            request.getPubsubOptions().getMaxMessagesPerPull()));
   }
 
   @Override
