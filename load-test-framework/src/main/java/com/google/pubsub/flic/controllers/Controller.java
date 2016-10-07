@@ -29,8 +29,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Collectors;
 
-abstract class Controller {
+public abstract class Controller {
   final static Logger log = LoggerFactory.getLogger(Controller.class);
   final List<Client> clients = new ArrayList<>();
   final ScheduledExecutorService executor;
@@ -49,24 +50,50 @@ abstract class Controller {
 
   protected abstract void shutdown(Throwable t);
 
-  public Map<Client.ClientType, long[]> getResults() {
+  private Result resultsForType(Client.ClientType type, boolean wait) throws Throwable {
+    Result result = new Result();
+    List<Client> clientsOfType = clients.stream()
+        .filter(c -> c.getClientType() == type).collect(Collectors.toList());
+    if (wait) {
+      try {
+        Futures.allAsList(clientsOfType.stream()
+            .map(Client::getDoneFuture)
+            .collect(Collectors.toList())
+        ).get();
+      } catch (ExecutionException e) {
+        throw e.getCause();
+      }
+      result.endTimeMillis = System.currentTimeMillis();
+    }
+    clientsOfType.stream().map(Client::getBucketValues).forEach(bucketValues -> {
+      for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
+        result.bucketValues[i] += bucketValues[i];
+      }
+    });
+    return result;
+  }
+
+  public Map<Client.ClientType, Result> getResults(boolean wait) {
+    final Map<Client.ClientType, Result> results = new HashMap<>();
+    List<ListenableFuture<Void>> resultFutures = new ArrayList<>();
+    for (Client.ClientType type : Client.ClientType.values()) {
+      SettableFuture<Void> resultFuture = SettableFuture.create();
+      resultFutures.add(resultFuture);
+      executor.submit(() -> {
+        try {
+          results.put(type, resultsForType(type, wait));
+          resultFuture.set(null);
+        } catch (Throwable t) {
+          resultFuture.setException(t);
+        }
+      });
+    }
     try {
-      List<ListenableFuture<Void>> doneFutures = new ArrayList<>();
-      clients.forEach(c -> doneFutures.add(c.getDoneFuture()));
-      Futures.allAsList(doneFutures).get();
-    } catch (InterruptedException | ExecutionException e) {
+      Futures.allAsList(resultFutures).get();
+    } catch (ExecutionException | InterruptedException e) {
       log.error("Client failed health check, will print results accumulated during test up to this point.",
           e instanceof ExecutionException ? e.getCause() : e);
     }
-    Map<Client.ClientType, long[]> results = new HashMap<>();
-    for (Client.ClientType type : Client.ClientType.values()) {
-      results.put(type, new long[LatencyDistribution.LATENCY_BUCKETS.length]);
-    }
-    clients.forEach(client -> {
-      for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
-        results.get(client.getClientType())[i] += client.getBucketValues()[i];
-      }
-    });
     return results;
   }
 
@@ -87,6 +114,11 @@ abstract class Controller {
     } catch (InterruptedException e) {
       shutdown(e);
     }
+  }
+
+  public class Result {
+    public long endTimeMillis;
+    public long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
   }
 }
 

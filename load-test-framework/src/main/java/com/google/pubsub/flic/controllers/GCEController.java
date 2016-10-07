@@ -193,7 +193,7 @@ public class GCEController extends Controller {
       Futures.allAsList(filesRemaining).get();
       log.info("File uploads completed.");
       Futures.allAsList(createGroupFutures).get();
-      log.info("Instace group creation completed.");
+      log.info("Instance group creation completed.");
 
       // Everything is set up, let's start our instances
       log.info("Starting instances.");

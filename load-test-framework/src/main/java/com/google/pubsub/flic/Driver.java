@@ -26,6 +26,7 @@ import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
+import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +35,8 @@ import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.LogManager;
 import java.util.stream.LongStream;
 
@@ -175,17 +178,36 @@ class Driver {
       gceController.initialize();
       gceController.startClients();
 
+      // Start a thread to poll and output results.
+      ScheduledExecutorService pollingExecutor = Executors.newSingleThreadScheduledExecutor();
+      pollingExecutor.scheduleWithFixedDelay(() -> {
+        synchronized (pollingExecutor) {
+          Map<ClientType, Controller.Result> results = gceController.getResults(false);
+          log.info("===============================================");
+          results.forEach((type, result) -> {
+            log.info("Results for " + type + ":");
+            log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.5));
+            log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.99));
+            log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.999));
+          });
+          log.info("===============================================");
+        }
+      }, 5, 5, TimeUnit.SECONDS);
       // Wait for the load test to finish.
-      Map<ClientType, long[]> results = gceController.getResults();
-      results.forEach((type, bucketValues) -> {
+      Map<ClientType, Controller.Result> results = gceController.getResults(true);
+      synchronized (pollingExecutor) {
+        pollingExecutor.shutdownNow();
+      }
+      results.forEach((type, result) -> {
         log.info("Results for " + type + ":");
-        log.info("50%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.5));
-        log.info("99%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.99));
-        log.info("99.9%: " + LatencyDistribution.getNthPercentile(bucketValues, 0.999));
-        // CPS Subscribers report latency per individual message, but all others report per batch message.
+        log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.5));
+        log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.99));
+        log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.999));
+        // CPS Publishers report latency per batch message.
         log.info("Average throughput: " +
             new DecimalFormat("#.##").format(
-                (double) LongStream.of(bucketValues).sum() / loadtestLengthSeconds
+                (double) LongStream.of(
+                    result.bucketValues).sum() / (result.endTimeMillis - Client.startTime.getSeconds() * 1000)
                     * messageSize / 1000000.0 * (type == ClientType.CPS_GCLOUD_PUBLISHER ? batchSize : 1)) +
             " MB/s");
       });
