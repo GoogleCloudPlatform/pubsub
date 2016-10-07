@@ -33,8 +33,8 @@ public class CPSArguments {
   private String project;
   
   @Parameter(
-      names = {"--api", "-u"},
-      description = "Cloud Pub/Sub api name."
+      names = {"--api", "-a"},
+      description = "Cloud Pub/Sub api url."
   )
   private String api = "pubsub.googleapis.com";
 
