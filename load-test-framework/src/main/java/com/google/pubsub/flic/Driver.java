@@ -85,6 +85,7 @@ public class Driver {
         builder =
             builder
                 .cpsProject(cpsArgs.getProject())
+                .cpsApi(cpsArgs.getApi())
                 .numResponseThreads(cpsArgs.getNumResponseThreads())
                 .rateLimit(cpsArgs.getRateLimit());
         if (baseArgs.isPublish()) {
@@ -95,7 +96,8 @@ public class Driver {
                   .batchSize(cpsArgs.getBatchSize())
                   .build();
           cpsHandler.setLatencyType(MessageProcessingHandler.LatencyType.PUB_TO_ACK);
-          CPSRoundRobinPublisher publisher = new CPSRoundRobinPublisher(cpsArgs.getNumClients());
+          CPSRoundRobinPublisher publisher = new CPSRoundRobinPublisher(
+              cpsArgs.getNumClients(), cpsArgs.getApi());
           log.info("Creating a task which publishes to CPS.");
           new CPSPublishingTask(taskArgs, publisher, cpsHandler).execute();
         } else {
@@ -106,7 +108,8 @@ public class Driver {
           }
           taskArgs = builder.build();
           cpsHandler.setLatencyType(MessageProcessingHandler.LatencyType.END_TO_END);
-          CPSRoundRobinSubscriber subscriber = new CPSRoundRobinSubscriber(cpsArgs.getNumClients());
+          CPSRoundRobinSubscriber subscriber = new CPSRoundRobinSubscriber(
+              cpsArgs.getNumClients(), cpsArgs.getApi());
           log.info("Creating a task which consumes from CPS.");
           new CPSSubscribingTask(taskArgs, subscriber, cpsHandler).execute();
         }

@@ -31,6 +31,12 @@ public class CPSArguments {
     description = "Cloud Pub/Sub project name."
   )
   private String project;
+  
+  @Parameter(
+      names = {"--api", "-u"},
+      description = "Cloud Pub/Sub api name."
+  )
+  private String api = "pubsub.googleapis.com";
 
   @Parameter(
     names = {"--batch_size", "-b"},
@@ -62,6 +68,10 @@ public class CPSArguments {
 
   public String getProject() {
     return project;
+  }
+  
+  public String getApi() {
+    return api;
   }
 
   public int getBatchSize() {
