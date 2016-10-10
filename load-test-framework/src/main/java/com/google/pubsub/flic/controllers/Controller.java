@@ -23,10 +23,7 @@ import com.google.pubsub.flic.common.LatencyDistribution;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
@@ -50,21 +47,25 @@ public abstract class Controller {
 
   protected abstract void shutdown(Throwable t);
 
-  private Result resultsForType(Client.ClientType type, boolean wait) throws Throwable {
+  public void waitForClients() throws Throwable {
+    try {
+      Futures.allAsList(clients.stream()
+          .map(Client::getDoneFuture)
+          .collect(Collectors.toList())
+      ).get();
+    } catch (ExecutionException e) {
+      throw e.getCause();
+    }
+  }
+
+  private Result resultsForType(Client.ClientType type) {
     Result result = new Result();
     List<Client> clientsOfType = clients.stream()
         .filter(c -> c.getClientType() == type).collect(Collectors.toList());
-    if (wait) {
-      try {
-        Futures.allAsList(clientsOfType.stream()
-            .map(Client::getDoneFuture)
-            .collect(Collectors.toList())
-        ).get();
-      } catch (ExecutionException e) {
-        throw e.getCause();
-      }
-      result.endTimeMillis = System.currentTimeMillis();
-    }
+    Optional<Client> longestRunningClient = clientsOfType.stream()
+        .max((a, b) -> Long.compare(a.getRunningSeconds(), b.getRunningSeconds()));
+    result.endTimeMillis = longestRunningClient.isPresent() ?
+        longestRunningClient.get().getRunningSeconds() : System.currentTimeMillis();
     clientsOfType.stream().map(Client::getBucketValues).forEach(bucketValues -> {
       for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
         result.bucketValues[i] += bucketValues[i];
@@ -73,7 +74,7 @@ public abstract class Controller {
     return result;
   }
 
-  public Map<Client.ClientType, Result> getResults(boolean wait) {
+  public Map<Client.ClientType, Result> getResults() {
     final Map<Client.ClientType, Result> results = new HashMap<>();
     List<ListenableFuture<Void>> resultFutures = new ArrayList<>();
     for (Client.ClientType type : Client.ClientType.values()) {
@@ -81,7 +82,7 @@ public abstract class Controller {
       resultFutures.add(resultFuture);
       executor.submit(() -> {
         try {
-          results.put(type, resultsForType(type, wait));
+          results.put(type, resultsForType(type));
           resultFuture.set(null);
         } catch (Throwable t) {
           resultFuture.setException(t);

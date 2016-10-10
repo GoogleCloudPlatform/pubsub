@@ -195,41 +195,40 @@ class Driver {
       ScheduledExecutorService pollingExecutor = Executors.newSingleThreadScheduledExecutor();
       pollingExecutor.scheduleWithFixedDelay(() -> {
         synchronized (pollingExecutor) {
-          Map<ClientType, Controller.Result> results = gceController.getResults(false);
           log.info("===============================================");
-          results.forEach((type, result) -> {
-            log.info("Results for " + type + ":");
-            log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.5));
-            log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.99));
-            log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.999));
-          });
+          printStats(gceController.getResults());
           log.info("===============================================");
         }
       }, 5, 5, TimeUnit.SECONDS);
       // Wait for the load test to finish.
-      Map<ClientType, Controller.Result> results = gceController.getResults(true);
+      gceController.waitForClients();
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
-      results.forEach((type, result) -> {
-        log.info("Results for " + type + ":");
-        log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.5));
-        log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.99));
-        log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.999));
-        // CPS Publishers report latency per batch message.
-        log.info("Average throughput: " +
-            new DecimalFormat("#.##").format(
-                (double) LongStream.of(
-                    result.bucketValues).sum() / (result.endTimeMillis / 1000.0 - Client.startTime.getSeconds())
-                    * messageSize / 1000000.0 * (type == ClientType.CPS_GCLOUD_PUBLISHER ? batchSize : 1)) +
-            " MB/s");
-      });
+      printStats(gceController.getResults());
+
       gceController.shutdown(null);
       System.exit(0);
     } catch (Throwable t) {
       log.error("An error occurred...", t);
       System.exit(1);
     }
+  }
+
+  private void printStats(Map<ClientType, Controller.Result> results) {
+    results.forEach((type, result) -> {
+      log.info("Results for " + type + ":");
+      log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.5));
+      log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.99));
+      log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.999));
+      // CPS Publishers report latency per batch message.
+      log.info("Average throughput: " +
+          new DecimalFormat("#.##").format(
+              (double) LongStream.of(
+                  result.bucketValues).sum() / (result.endTimeMillis / 1000.0 - Client.startTime.getSeconds())
+                  * messageSize / 1000000.0 * (type == ClientType.CPS_GCLOUD_PUBLISHER ? batchSize : 1)) +
+          " MB/s");
+    });
   }
 
   /**

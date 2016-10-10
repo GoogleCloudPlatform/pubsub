@@ -61,6 +61,7 @@ public class Client {
   private LoadtestGrpc.LoadtestStub stub;
   private int errors = 0;
   private long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
+  private long runningSeconds = 0;
   private SettableFuture<Void> doneFuture = SettableFuture.create();
 
   Client(ClientType clientType, String networkAddress, String project, @Nullable String subscription,
@@ -99,7 +100,11 @@ public class Client {
         ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build());
   }
 
-  synchronized long[] getBucketValues() {
+  long getRunningSeconds() {
+    return runningSeconds;
+  }
+
+  long[] getBucketValues() {
     return bucketValues;
   }
 
@@ -197,6 +202,7 @@ public class Client {
           for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
             bucketValues[i] += checkResponse.getBucketValues(i);
           }
+          runningSeconds = checkResponse.getRunningDuration().getSeconds();
         }
       }
 

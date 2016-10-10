@@ -1,4 +1,5 @@
 syntax = "proto3";
+import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
 option java_package = "com.google.pubsub.flic.common";
@@ -69,5 +70,6 @@ message CheckRequest {
 
 message CheckResponse {
   repeated int64 bucket_values = 1;
-  bool is_finished = 2;
+  google.protobuf.Duration running_duration = 2;
+  bool is_finished = 3;
 }
