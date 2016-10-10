@@ -45,7 +45,6 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 /**
  * A class that is used to record metrics related to the execution of the load tests, such metrics
@@ -134,7 +133,6 @@ public class MetricsHandler {
             "zone", zoneId
         ));
         createMetrics();
-        executor.scheduleAtFixedRate(this::reportMetrics, 30, 30, TimeUnit.SECONDS);
       } catch (IOException e) {
         log.error("Unable to initialize MetricsHandler, trying again.", e);
         executor.execute(this::initialize);
@@ -168,7 +166,7 @@ public class MetricsHandler {
     distribution.recordLatency(latencyMs);
   }
 
-  private void reportMetrics() {
+  private void reportMetrics(LatencyDistribution distribution) {
     CreateTimeSeriesRequest request;
     synchronized (this) {
       String now = dateFormatter.format(new Date());
@@ -182,7 +180,7 @@ public class MetricsHandler {
               .setPoints(Collections.singletonList(new Point()
                   .setValue(new TypedValue()
                       .setDistributionValue(new Distribution()
-                          .setBucketCounts(getBucketValues())
+                          .setBucketCounts(distribution.getBucketValuesAsList())
                           .setCount(distribution.getCount())
                           .setMean(distribution.getMean())
                           .setSumOfSquaredDeviation(distribution.getSumOfSquareDeviations())
@@ -193,7 +191,6 @@ public class MetricsHandler {
                       .setStartTime(now)
                       .setEndTime(now))))
               .setResource(monitoredResource)));
-      distribution.reset();
     }
     try {
       monitoring.projects().timeSeries().create("projects/" + project, request).execute();
@@ -202,8 +199,13 @@ public class MetricsHandler {
     }
   }
 
-  List<Long> getBucketValues() {
-    return Arrays.asList(ArrayUtils.toObject(distribution.getBucketValues()));
+  // Flushes current bucket to Stackdriver and returns the bucket values.
+  synchronized List<Long> flushBucketValues() {
+    LatencyDistribution latencyDistribution = distribution.copy();
+    executor.submit(() -> reportMetrics(latencyDistribution));
+    List<Long> bucketValues = distribution.getBucketValuesAsList();
+    distribution.reset();
+    return bucketValues;
   }
 
   public enum MetricName {

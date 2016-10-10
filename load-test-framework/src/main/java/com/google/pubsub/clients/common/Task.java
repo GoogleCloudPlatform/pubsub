@@ -12,7 +12,7 @@ public abstract class Task implements Runnable {
   }
 
   List<Long> getBucketValues() {
-    return metricsHandler.getBucketValues();
+    return metricsHandler.flushBucketValues();
   }
 
   int getNumberOfMessages() {

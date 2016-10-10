@@ -1,7 +1,10 @@
 package com.google.pubsub.flic.common;
 
 import com.google.common.base.Preconditions;
+import org.apache.commons.lang3.ArrayUtils;
 
+import java.util.Arrays;
+import java.util.List;
 import java.util.stream.LongStream;
 
 public class LatencyDistribution {
@@ -87,6 +90,19 @@ public class LatencyDistribution {
 
   public long[] getBucketValues() {
     return bucketValues;
+  }
+
+  public synchronized LatencyDistribution copy() {
+    LatencyDistribution latencyDistribution = new LatencyDistribution();
+    latencyDistribution.count = count;
+    latencyDistribution.mean = mean;
+    latencyDistribution.sumOfSquaredDeviation = sumOfSquaredDeviation;
+    System.arraycopy(bucketValues, 0, latencyDistribution.bucketValues, 0, LATENCY_BUCKETS.length);
+    return latencyDistribution;
+  }
+
+  public List<Long> getBucketValuesAsList() {
+    return Arrays.asList(ArrayUtils.toObject(bucketValues));
   }
 
   public void recordLatency(long latencyMs) {
