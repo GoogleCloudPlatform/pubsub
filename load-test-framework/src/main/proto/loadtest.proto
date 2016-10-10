@@ -28,11 +28,11 @@ message StartRequest {
   // The maximum outstanding requests, per client.
   int32 max_outstanding_requests = 6;
 
-  // The time at which the load test should start.
+  // The time at which the load test should start. If this is less than the current time, we start immediately.
   google.protobuf.Timestamp start_time = 7;
 
   oneof stop_conditions {
-    // The time at which the load test should be stopped.
+    // The time at which the load test should be stopped. If less than the current time, the load test will not run.
     google.protobuf.Timestamp stop_time = 8;
 
     // The number of messages to publish or expect to receive.

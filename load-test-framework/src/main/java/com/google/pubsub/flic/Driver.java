@@ -57,7 +57,8 @@ class Driver {
   private int cpsPublisherCount = 1;
   @Parameter(
       names = {"--cps_subscriber_count"},
-      description = "Number of CPS subscribers to start."
+      description = "Number of CPS subscribers to start. If this is not divisible by cps_subscription_fanout, we will" +
+          " round down to the closest multiple of cps_subscription_fanout."
   )
   private int cpsSubscriberCount = 1;
   @Parameter(
@@ -95,11 +96,23 @@ class Driver {
   )
   private int batchSize = 10;
   @Parameter(
-      names = {"--subscription_fanout"},
+      names = {"--cps_max_messages_per_pull"},
+      description = "Number of messages to return in each pull request.",
+      validateWith = GreaterThanZeroValidator.class
+  )
+  private int cpsMaxMessagesPerPull = 10;
+  @Parameter(
+      names = {"--kafka_poll_length"},
+      description = "Length of time, in milliseconds, to poll for requests when subscribing with Kafka.",
+      validateWith = GreaterThanZeroValidator.class
+  )
+  private int kafkaPollLength = 100;
+  @Parameter(
+      names = {"--cps_subscription_fanout"},
       description = "Number of subscriptions to create for each topic. Must be at least 1.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int subscriptionFanout = 1;
+  private int cpsSubscriptionFanout = 1;
   @Parameter(
       names = {"--broker"},
       description = "The network address of the Kafka broker."
@@ -142,8 +155,6 @@ class Driver {
 
   private void run() {
     try {
-      //Map<String, Map<ClientParams, Integer>> clientTypes = ImmutableMap.of(
-      //    "us-central1-a", new HashMap<>());
       Preconditions.checkArgument(
           cpsPublisherCount > 0 ||
               cpsSubscriberCount > 0 ||
@@ -158,15 +169,17 @@ class Driver {
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));
-      for (int i = 0; i < subscriptionFanout; ++i) {
+      for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER, "gcloud-subscription" + i),
-            cpsSubscriberCount / subscriptionFanout);
+            cpsSubscriberCount / cpsSubscriptionFanout);
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1;
       Client.startTime = Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 90).build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.batchSize = batchSize;
+      Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
+      Client.pollLength = kafkaPollLength;
       Client.broker = broker;
       Client.requestRate = requestRate;
       Client.maxOutstandingRequests = maxOutstandingRequests;

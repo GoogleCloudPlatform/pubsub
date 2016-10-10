@@ -45,6 +45,8 @@ public class Client {
   public static Timestamp startTime;
   public static int loadtestLengthSeconds;
   public static int batchSize;
+  public static int maxMessagesPerPull;
+  public static int pollLength;
   public static String broker;
   public static int maxOutstandingRequests;
   public static long burnInTimeMillis;
@@ -122,14 +124,14 @@ public class Client {
     switch (clientType) {
       case CPS_GCLOUD_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
-            .setMaxMessagesPerPull(10)
+            .setMaxMessagesPerPull(maxMessagesPerPull)
             .setSubscription(subscription));
         break;
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)
-            .setPollLength(100));
+            .setPollLength(pollLength));
         break;
     }
     StartRequest request = requestBuilder.build();
@@ -141,6 +143,7 @@ public class Client {
       public void onNext(StartResponse response) {
         log.info("Successfully started client [" + networkAddress + "]");
         clientStatus = ClientStatus.RUNNING;
+        startFuture.set(null);
       }
 
       @Override
@@ -165,7 +168,6 @@ public class Client {
 
       @Override
       public void onCompleted() {
-        startFuture.set(null);
       }
     });
     try {
