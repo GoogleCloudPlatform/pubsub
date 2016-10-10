@@ -169,6 +169,8 @@ class Driver {
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));
+      // Each type of client will have its own topic, so each subscription will get cpsSubscriberCount subscribers
+      // cumulatively among each of the subscriptions.
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER, "gcloud-subscription" + i),
             cpsSubscriberCount / cpsSubscriptionFanout);
