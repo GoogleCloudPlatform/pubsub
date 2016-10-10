@@ -50,21 +50,33 @@ public class LatencyDistribution {
   public LatencyDistribution() {
   }
 
-  public static String getNthPercentile(long[] bucketValues, double percentile) {
+  private static int getNthPercentileIndex(long[] bucketValues, double percentile) {
     Preconditions.checkArgument(percentile > 0.0);
     Preconditions.checkArgument(percentile < 1.0);
     long total = LongStream.of(bucketValues).sum();
     if (total == 0) {
-      return "N/A";
+      return 0;
     }
     long count = (long) (total * percentile);
     for (int i = LATENCY_BUCKETS.length - 1; i > 0; i--) {
       total -= bucketValues[i];
       if (total <= count) {
-        return LATENCY_BUCKETS[i - 1] + " - " + LATENCY_BUCKETS[i];
+        return i;
       }
     }
-    return "N/A";
+    return 0;
+  }
+
+  public static double getNthPercentileUpperBound(long[] bucketValues, double percentile) {
+    return LATENCY_BUCKETS[getNthPercentileIndex(bucketValues, percentile)];
+  }
+
+  public static String getNthPercentile(long[] bucketValues, double percentile) {
+    int index = getNthPercentileIndex(bucketValues, percentile);
+    if (index == 0) {
+      return "N/A";
+    }
+    return LATENCY_BUCKETS[index - 1] + " - " + LATENCY_BUCKETS[index];
   }
 
   public synchronized void reset() {

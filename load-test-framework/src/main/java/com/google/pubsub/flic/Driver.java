@@ -21,6 +21,7 @@ import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.AtomicDouble;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.controllers.Client;
@@ -127,6 +128,14 @@ class Driver {
           "than 1, this flag is ignored."
   )
   private int numberOfMessages = 0;
+  @Parameter(
+      names = {"--max_publish_latency_test"},
+      description = "This sets the maximum latency, in this test we will continuously run load tests with increasing " +
+          "request rates until we hit the provided latency. You must only provide a single type of publisher to use " +
+          "this test. This uses the 99% latency as the bound to check."
+  )
+  private int maxPublishLatency = 0;
+
 
   public static void main(String[] args) {
     // Turns off all java.util.logging.
@@ -152,6 +161,11 @@ class Driver {
       );
       Preconditions.checkArgument(
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
+      // If max publish latency is set, exactly one publisher type must be specified.
+      Preconditions.checkArgument(
+          maxPublishLatency == 0 || ((kafkaPublisherCount == 0 || cpsPublisherCount == 0) &&
+              kafkaPublisherCount + cpsPublisherCount > 0)
+      );
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
           new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null), cpsPublisherCount,
@@ -174,7 +188,6 @@ class Driver {
       Client.numberOfMessages = numberOfMessages;
       GCEController gceController = GCEController.newGCEController(
           project, ImmutableMap.of("us-central1-a", clientParamsMap), Executors.newScheduledThreadPool(500));
-      gceController.startClients();
 
       // Start a thread to poll and output results.
       ScheduledExecutorService pollingExecutor = Executors.newSingleThreadScheduledExecutor();
@@ -191,24 +204,38 @@ class Driver {
           log.info("===============================================");
         }
       }, 5, 5, TimeUnit.SECONDS);
-      // Wait for the load test to finish.
-      Map<ClientType, Controller.Result> results = gceController.getResults(true);
+      Map<ClientType, Controller.Result> results;
+      AtomicDouble publishLatency = new AtomicDouble(0);
+      do {
+        gceController.startClients();
+        // Wait for the load test to finish.
+        results = gceController.getResults(true);
+        results.forEach((type, result) -> {
+          if (type.toString().contains("publish")) {
+            publishLatency.set(LatencyDistribution.getNthPercentileUpperBound(result.bucketValues, 0.99));
+          }
+          log.info("Results for " + type + ":");
+          log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.5));
+          log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.99));
+          log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.999));
+          // CPS Publishers report latency per batch message.
+          log.info("Average throughput: " +
+              new DecimalFormat("#.##").format(
+                  (double) LongStream.of(
+                      result.bucketValues).sum() / (result.endTimeMillis / 1000.0 - Client.startTime.getSeconds())
+                      * messageSize / 1000000.0 * (type == ClientType.CPS_GCLOUD_PUBLISHER ? batchSize : 1)) +
+              " MB/s");
+          Client.requestRate *= 1.1;
+        });
+
+      } while (publishLatency.get() < maxPublishLatency);
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
-      results.forEach((type, result) -> {
-        log.info("Results for " + type + ":");
-        log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.5));
-        log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.99));
-        log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.999));
-        // CPS Publishers report latency per batch message.
-        log.info("Average throughput: " +
-            new DecimalFormat("#.##").format(
-                (double) LongStream.of(
-                    result.bucketValues).sum() / (result.endTimeMillis / 1000.0 - Client.startTime.getSeconds())
-                    * messageSize / 1000000.0 * (type == ClientType.CPS_GCLOUD_PUBLISHER ? batchSize : 1)) +
-            " MB/s");
-      });
+      if (maxPublishLatency > 0) {
+        // This calculates the request rate of the last successful run.
+        log.info("Maximum Request Rate: " + Client.requestRate * 0.9 * 0.9);
+      }
       gceController.shutdown(null);
       System.exit(0);
     } catch (Throwable t) {
