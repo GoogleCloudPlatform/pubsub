@@ -43,7 +43,8 @@ public class MessageProcessingHandler {
 
   // If the buffer gets to a size of a million, flush it.
   private static final int BUFFER_FLUSH_SIZE = 1000000;
-  private static final String LATENCY_STATS_FORMAT =
+  // Public to allow stat aggregator to access it
+  public static final String LATENCY_STATS_FORMAT =
       " (min, max, avg, 50%%, 95%%, 99%%) = %d, %d, %.1f, %d, %d, %d (ms)";
   private static final Logger log =
       LoggerFactory.getLogger(MessageProcessingHandler.class.getName());
@@ -78,9 +79,13 @@ public class MessageProcessingHandler {
     }
   }
 
-  public MessageProcessingHandler(int totalItems) {
+  public MessageProcessingHandler(int totalItems, boolean isDumpData) {
     this.totalItems = totalItems;
-    buffer = new ArrayList<>(totalItems);
+    if (isDumpData) {
+      buffer = new ArrayList<>(totalItems);
+    } else {
+      buffer = null;
+    }
     lockHelper = new LockingHelper(totalItems);
   }
 
@@ -117,13 +122,16 @@ public class MessageProcessingHandler {
    * results. Print the average time a callback had to wait to be run by a thread in the thread
    * pool. Do not print anything if the task failed for any reason.
    */
-  public void printStats(long start, @Nullable DelayTrackingThreadPool executor, AtomicBoolean failureFlag)
+  public void printStats(long start, long end, @Nullable DelayTrackingThreadPool executor, AtomicBoolean failureFlag)
       throws Exception {
     lockHelper.conditionLock.lock();
     while (!lockHelper.barrier.await(0, TimeUnit.MICROSECONDS) && !failureFlag.get()) {
       lockHelper.condition.await();
     }
     lockHelper.conditionLock.unlock();
+    if (end == -1) {
+      end = System.currentTimeMillis();
+    }
     if (failureFlag.get()) {
       return;
     }
@@ -144,7 +152,7 @@ public class MessageProcessingHandler {
     // Print delay on sender side for processing and batching delay in case of CPS, null w/ Kafka
     if(executor != null) {
       log.info(
-          "The average delay for processing "
+          "The average delay in-client for processing "
               + latencyType
               + " latency was "
               + executor.getAverageTaskWaitTime()
@@ -153,7 +161,7 @@ public class MessageProcessingHandler {
               + "ms");
     }
     // Throughput stats.
-    double diff = (double) (System.currentTimeMillis() - start) / 1000;
+    double diff = (double) (end - start) / 1000;
     long averageMessagesPerSec = (long) (getTotalItems() / diff);
     long averageBytesPerSec = (long) (throughputStats.longValue() / diff);
     String averageBytesPerSecString = FileUtils.byteCountToDisplaySize(averageBytesPerSec);
@@ -172,18 +180,12 @@ public class MessageProcessingHandler {
   }
 
   /**
-   * Creates a {@link MessagePacket} from the passed in data and adds it to {@link #buffer}. When
+   * Adds the given {@link MessagePacket} to {@link #buffer}. When
    * the buffer reaches its capacity, write the contents to a file.
    */
-  public synchronized void createMessagePacketAndAdd(String topic, String key, String value)
+  public synchronized void addMessagePacket(MessagePacket packet)
       throws Exception {
     if (buffer.size() < totalItems) {
-      MessagePacket packet =
-          MessagePacket.newBuilder()
-              .setTopic(topic)
-              .setKey(key == null ? "" : key)
-              .setValue(value)
-              .build();
       buffer.add(packet);
       if (buffer.size() == totalItems || buffer.size() == BUFFER_FLUSH_SIZE) {
         Utils.writeToFile(buffer, filedump);

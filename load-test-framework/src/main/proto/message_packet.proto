@@ -5,4 +5,6 @@ message MessagePacket {
   optional string topic = 1;
   optional string value = 2;
   optional string key = 3;
+  optional int64 latency = 4;
+  optional int64 receivedTime = 5;
 }

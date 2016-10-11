@@ -20,6 +20,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.flic.common.Utils;
+import com.google.pubsub.flic.common.MessagePacketProto.MessagePacket;
 import com.google.pubsub.flic.kafka.KafkaConsumerTask;
 import com.google.pubsub.flic.processing.MessageProcessingHandler;
 import com.google.pubsub.flic.task.CPSTask;
@@ -39,6 +40,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.commons.lang3.mutable.MutableInt;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,12 +56,14 @@ public class CPSSubscribingTask extends CPSTask {
 
   private CPSRoundRobinSubscriber subscriber;
   private MessageProcessingHandler processingHandler;
+  private long earliestReceived;
 
   public CPSSubscribingTask(
       TaskArgs args, CPSRoundRobinSubscriber subscriber, MessageProcessingHandler processingHandler) {
     super(args);
     this.subscriber = subscriber;
     this.processingHandler = processingHandler;
+    earliestReceived = 0;
   }
 
   /** Consumes messages from Cloud Pub/Sub in the most optimal way possible */
@@ -98,7 +102,6 @@ public class CPSSubscribingTask extends CPSTask {
     }
     log.info("Start publishing...");
     // Get the overall start time.
-    long start = System.currentTimeMillis();
     PullRequest.Builder pullBuilder = PullRequest.newBuilder();
     while (messageNo.intValue() <= args.getNumMessages() && !failureFlag.get()) {
       for (Subscription s : subscriptions) {
@@ -112,6 +115,9 @@ public class CPSSubscribingTask extends CPSTask {
         openPullsPerSubscription.get(s).increment();
         PullRequest request = getPullRequest(s.getName(), pullBuilder);
         ListenableFuture<PullResponse> response = subscriber.pull(request);
+        if (messageNo.intValue() == 0) {
+          earliestReceived = System.currentTimeMillis();
+        }
         Futures.addCallback(
             response,
             new FutureCallback<PullResponse>() {
@@ -129,15 +135,13 @@ public class CPSSubscribingTask extends CPSTask {
                   PubsubMessage message = rm.getMessage();
                   Map<String, String> attributes = message.getAttributes();
                   ackIds.add(rm.getAckId());
+                  long latency = 0;
                   if (attributes.get(Utils.TIMESTAMP_ATTRIBUTE) != null) {
                     // Calculate end-to-end latency if this message has the appropriate attribute.
-                    long latency =
+                    latency =
                         receivedTime - Long.valueOf(attributes.get(Utils.TIMESTAMP_ATTRIBUTE));
-                    processingHandler.addStats(1, latency, message.getData().size());
-                  } else {
-                    // Add a dummy value if we cannot calculate end-to-end latency.
-                    processingHandler.addStats(1, 0, message.getData().size());
                   }
+                  processingHandler.addStats(1, latency, message.getData().size());
                   if (processingHandler.getFiledump() != null) {
                     // If the user wanted to dump this data to a file, then do so.
                     String topic = extractTopic(s.getTopic());
@@ -147,10 +151,15 @@ public class CPSSubscribingTask extends CPSTask {
                       topic = attributes.get(KAFKA_TOPIC_ATTRIBUTE);
                     }
                     try {
-                      processingHandler.createMessagePacketAndAdd(
-                          topic,
-                          attributes.get(Utils.KEY_ATTRIBUTE),
-                          message.getData().toStringUtf8());
+                      MessagePacket packet =
+                          MessagePacket.newBuilder()
+                              .setTopic(topic)
+                              .setKey(attributes.get(Utils.KEY_ATTRIBUTE))
+                              .setValue(message.getData().toStringUtf8())
+                              .setLatency(latency)
+                              .setReceivedTime(receivedTime)
+                              .build();
+                      processingHandler.addMessagePacket(packet);
                     } catch (Exception e) {
                       failureFlag.set(true);
                       log.error(e.getMessage(), e);
@@ -180,7 +189,8 @@ public class CPSSubscribingTask extends CPSTask {
             callbackExecutor);
       }
     }
-    processingHandler.printStats(start, callbackExecutor, failureFlag);
+    processingHandler.printStats(earliestReceived, System.currentTimeMillis(), callbackExecutor, 
+        failureFlag);
     callbackExecutor.shutdownNow();
     log.info("Done!");
   }

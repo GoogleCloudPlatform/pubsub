@@ -16,6 +16,7 @@
 package com.google.pubsub.flic.kafka;
 
 import com.google.pubsub.flic.common.Utils;
+import com.google.pubsub.flic.common.MessagePacketProto.MessagePacket;
 import com.google.pubsub.flic.processing.MessageProcessingHandler;
 import com.google.pubsub.flic.task.Task;
 import com.google.pubsub.flic.task.TaskArgs;
@@ -53,10 +54,14 @@ public class KafkaConsumerTask extends Task {
   public void execute() throws Exception {
     subscriber.subscribe(args.getTopics());
     log.info("Start publishing...");
+    long earliestReceived = Long.MAX_VALUE;
     while (messageNo.intValue() <= args.getNumMessages()) {
       ConsumerRecords<String, String> records = subscriber.poll(POLL_LENGTH);
       // Each message in this batch was received at the same time
       long receivedTime = System.currentTimeMillis();
+      if (receivedTime < earliestReceived) {
+        earliestReceived = receivedTime;
+      }
       Iterator<ConsumerRecord<String, String>> recordIterator = records.iterator();
       while (recordIterator.hasNext() && !failureFlag.get()) {
         ConsumerRecord<String, String> record = recordIterator.next();
@@ -64,8 +69,15 @@ public class KafkaConsumerTask extends Task {
         processingHandler.addStats(1, latency, record.serializedValueSize());
         if (processingHandler.getFiledump() != null) {
           try {
-            processingHandler.createMessagePacketAndAdd(
-                record.topic(), record.key(), record.value());
+            MessagePacket packet =
+                MessagePacket.newBuilder()
+                    .setTopic(record.topic())
+                    .setKey(record.key())
+                    .setValue(record.value())
+                    .setLatency(latency)
+                    .setReceivedTime(receivedTime)
+                    .build();
+            processingHandler.addMessagePacket(packet);
           } catch (Exception e) {
             failureFlag.set(true);
             log.error(e.getMessage(), e);
@@ -78,9 +90,11 @@ public class KafkaConsumerTask extends Task {
         }
       }
     }
+    long end = System.currentTimeMillis();
     if (!failureFlag.get()) {
       subscriber.close();
     }
+    processingHandler.printStats(earliestReceived, end, null, failureFlag);
     log.info("Done!");
   }
 

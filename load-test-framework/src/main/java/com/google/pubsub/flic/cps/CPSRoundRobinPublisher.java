@@ -30,11 +30,11 @@ public class CPSRoundRobinPublisher {
   private List<PublisherFutureStub> clients;
   private int currentClientIdx = 0;
 
-  public CPSRoundRobinPublisher(int numClients) throws Exception {
+  public CPSRoundRobinPublisher(int numClients, String cpsApi) throws Exception {
     clients = new ArrayList<>(numClients);
     for (int i = 0; i < numClients; ++i) {
       // Each stub gets its own channel
-      clients.add(PublisherGrpc.newFutureStub(Utils.createChannel()));
+      clients.add(PublisherGrpc.newFutureStub(Utils.createChannel(cpsApi)));
     }
   }
 

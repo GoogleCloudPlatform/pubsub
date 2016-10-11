@@ -35,7 +35,6 @@ import org.apache.commons.io.FileUtils;
 /** A collection of common methods/enums/constants. */
 public class Utils {
 
-  private static final String ENDPOINT = "pubsub.googleapis.com";
   private static final List<String> CPS_SCOPE =
       Arrays.asList("https://www.googleapis.com/auth/pubsub");
 
@@ -87,9 +86,9 @@ public class Utils {
   }
 
   /** Return a {@link io.grpc.Channel} for use with Cloud Pub/Sub gRPC API. */
-  public static Channel createChannel() throws Exception {
+  public static Channel createChannel(String cpsApi) throws Exception {
     final ManagedChannelImpl channelImpl =
-        NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
+        NettyChannelBuilder.forAddress(cpsApi, 443).negotiationType(NegotiationType.TLS).build();
     final ClientAuthInterceptor interceptor =
         new ClientAuthInterceptor(
             GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE),

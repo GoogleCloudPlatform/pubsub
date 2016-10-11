@@ -122,7 +122,7 @@ public class CPSPublishingTask extends CPSTask {
       messageBuilder.clear();
     }
     log.info("Waiting for all acks to arrive...");
-    processingHandler.printStats(start, callbackExecutor, failureFlag);
+    processingHandler.printStats(start, -1, callbackExecutor, failureFlag);
     callbackExecutor.shutdownNow();
     log.info("Done!");
   }

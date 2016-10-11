@@ -36,13 +36,13 @@ public class CPSRoundRobinSubscriber {
   private int currentPullClientIdx = 0;
   private int currentAckClientIdx = 0;
 
-  public CPSRoundRobinSubscriber(int numClients) throws Exception {
+  public CPSRoundRobinSubscriber(int numClients, String cpsApi) throws Exception {
     pullClients = new ArrayList<>(numClients);
     ackClients = new ArrayList<>(numClients);
     for (int i = 0; i < numClients; ++i) {
       // Each stub gets its own channel
-      pullClients.add(SubscriberGrpc.newFutureStub(Utils.createChannel()));
-      ackClients.add(SubscriberGrpc.newFutureStub(Utils.createChannel()));
+      pullClients.add(SubscriberGrpc.newFutureStub(Utils.createChannel(cpsApi)));
+      ackClients.add(SubscriberGrpc.newFutureStub(Utils.createChannel(cpsApi)));
     }
   }
 

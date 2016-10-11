@@ -23,6 +23,7 @@ public class TaskArgs {
   private String broker;
   private List<String> topics;
   private String cpsProject;
+  private String cpsApi;
   private int batchSize;
   private int numMessages;
   private int messageSize;
@@ -39,6 +40,10 @@ public class TaskArgs {
 
   public String getCPSProject() {
     return cpsProject;
+  }
+  
+  public String getCPSApi() {
+    return cpsApi;
   }
 
   public int getNumMessages() {
@@ -70,6 +75,7 @@ public class TaskArgs {
     this.batchSize = builder.batchSize;
     this.numResponseThreads = builder.numResponseThreads;
     this.rateLimit = builder.rateLimit;
+    this.cpsApi = builder.cpsApi;
   }
 
   /** Builder class for {@link TaskArgs} */
@@ -78,6 +84,7 @@ public class TaskArgs {
     private String broker;
     private List<String> topics;
     private String cpsProject;
+    private String cpsApi;
     private int numMessages;
     private int messageSize;
     private int batchSize;
@@ -91,6 +98,11 @@ public class TaskArgs {
 
     public TaskArgsBuilder cpsProject(String cpsProject) {
       this.cpsProject = cpsProject;
+      return this;
+    }
+    
+    public TaskArgsBuilder cpsApi(String cpsApi) {
+      this.cpsApi = cpsApi;
       return this;
     }
 
