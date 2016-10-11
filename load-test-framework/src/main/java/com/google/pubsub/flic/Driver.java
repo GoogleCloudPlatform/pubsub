@@ -225,9 +225,8 @@ class Driver {
       log.info("Average throughput: " +
           new DecimalFormat("#.##").format(
               (double) LongStream.of(
-                  result.bucketValues).sum() / (result.endTimeMillis / 1000.0 - Client.startTime.getSeconds())
-                  * messageSize / 1000000.0 * (type == ClientType.CPS_GCLOUD_PUBLISHER ? batchSize : 1)) +
-          " MB/s");
+                  result.bucketValues).sum() / result.runningSeconds * messageSize / 1000000.0
+                  * (type == ClientType.CPS_GCLOUD_PUBLISHER ? batchSize : 1)) + " MB/s");
     });
   }
 

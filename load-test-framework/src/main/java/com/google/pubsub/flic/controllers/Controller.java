@@ -64,7 +64,7 @@ public abstract class Controller {
         .filter(c -> c.getClientType() == type).collect(Collectors.toList());
     Optional<Client> longestRunningClient = clientsOfType.stream()
         .max((a, b) -> Long.compare(a.getRunningSeconds(), b.getRunningSeconds()));
-    result.endTimeMillis = longestRunningClient.isPresent() ?
+    result.runningSeconds = longestRunningClient.isPresent() ?
         longestRunningClient.get().getRunningSeconds() : System.currentTimeMillis();
     clientsOfType.stream().map(Client::getBucketValues).forEach(bucketValues -> {
       for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
@@ -118,7 +118,7 @@ public abstract class Controller {
   }
 
   public class Result {
-    public long endTimeMillis;
+    public long runningSeconds;
     public long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
   }
 }
