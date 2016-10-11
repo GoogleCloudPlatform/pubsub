@@ -226,7 +226,7 @@ class Driver {
           new DecimalFormat("#.##").format(
               (double) LongStream.of(
                   result.bucketValues).sum() / result.runningSeconds * messageSize / 1000000.0
-                  * (type == ClientType.CPS_GCLOUD_PUBLISHER ? cpsPublishBatchSize : 1)) + " MB/s");
+                  * (type.isCpsPublisher() ? cpsPublishBatchSize : 1)) + " MB/s");
     });
   }
 

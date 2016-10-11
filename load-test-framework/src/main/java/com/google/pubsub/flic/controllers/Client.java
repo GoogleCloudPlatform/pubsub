@@ -232,6 +232,15 @@ public class Client {
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
 
+    public boolean isCpsPublisher() {
+      switch (this) {
+        case CPS_GCLOUD_PUBLISHER:
+          return true;
+        default:
+          return false;
+      }
+    }
+
     @Override
     public String toString() {
       return name().toLowerCase().replace('_', '-');
