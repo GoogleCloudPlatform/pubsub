@@ -92,7 +92,7 @@ public abstract class Controller {
     try {
       Futures.allAsList(resultFutures).get();
     } catch (ExecutionException | InterruptedException e) {
-      log.error("Client failed health check, will print results accumulated during test up to this point.",
+      log.error("Client failed health check, will return results accumulated during test up to this point.",
           e instanceof ExecutionException ? e.getCause() : e);
     }
     return results;
