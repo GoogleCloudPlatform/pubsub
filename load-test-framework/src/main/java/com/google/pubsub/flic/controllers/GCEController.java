@@ -171,8 +171,8 @@ public class GCEController extends Controller {
   }
 
   public static GCEController newGCEController(
-      String projectName, Map<String,
-      Map<ClientParams, Integer>> types,
+      String projectName,
+      Map<String, Map<ClientParams, Integer>> types,
       ScheduledExecutorService executor) throws Throwable {
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = new JacksonFactory();
