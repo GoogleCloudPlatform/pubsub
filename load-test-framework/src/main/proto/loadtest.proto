@@ -23,26 +23,23 @@ message StartRequest {
   // The size of each user message to publish
   int32 message_size = 4;
 
-  // The number of user messages of size message_size to batch together in each publish
-  int32 batch_size = 5;
-
   // The maximum outstanding requests, per client.
-  int32 max_outstanding_requests = 6;
+  int32 max_outstanding_requests = 5;
 
   // The time at which the load test should start. If this is less than the current time, we start immediately.
-  google.protobuf.Timestamp start_time = 7;
+  google.protobuf.Timestamp start_time = 6;
 
   oneof stop_conditions {
     // The time at which the load test should be stopped. If less than the current time, the load test will not run.
-    google.protobuf.Timestamp stop_time = 8;
+    google.protobuf.Timestamp stop_time = 7;
 
     // The number of messages to publish or expect to receive.
-    int32 number_of_messages = 9;
+    int32 number_of_messages = 8;
   }
 
   oneof options {
-   PubsubOptions pubsub_options = 10;
-   KafkaOptions kafka_options = 11;
+    PubsubOptions pubsub_options = 9;
+    KafkaOptions kafka_options = 10;
   }
 }
 
@@ -55,6 +52,9 @@ message PubsubOptions {
 
   // The maximum number of messages to pull which each request.
   int32 max_messages_per_pull = 2;
+
+  // The number of user messages of size message_size to batch together in each publish
+  int32 publish_batch_size = 3;
 }
 
 message KafkaOptions {
