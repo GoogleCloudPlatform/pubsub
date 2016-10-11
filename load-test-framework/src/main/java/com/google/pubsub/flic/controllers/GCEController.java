@@ -27,10 +27,7 @@ import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.*;
 import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Bucket;
-import com.google.cloud.pubsub.PubSub;
-import com.google.cloud.pubsub.PubSubOptions;
-import com.google.cloud.pubsub.SubscriptionInfo;
-import com.google.cloud.pubsub.TopicInfo;
+import com.google.cloud.pubsub.*;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
@@ -77,7 +74,10 @@ public class GCEController extends Controller {
             String topic = Client.topicPrefix + Client.getTopicSuffix(clientType);
             try {
               pubSub.create(TopicInfo.of(topic));
-            } catch (Exception e) {
+            } catch (PubSubException e) {
+              if (!e.reason().equals("ALREADY_EXISTS")) {
+                throw e;
+              }
               log.info("Topic already exists, reusing.");
             }
             paramsMap.keySet().stream().filter((params) -> params.clientType == clientType && params.subscription != null)
