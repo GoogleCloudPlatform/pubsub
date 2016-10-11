@@ -5,7 +5,7 @@ import subprocess
 
 
 def main(argv):
-    arg_list = ['java', '-jar', 'target/flic.jar']
+    arg_list = ['java', '-jar', 'target/driver.jar']
     for arg in argv:
         arg_list.append(arg)
     subprocess.call(arg_list)
