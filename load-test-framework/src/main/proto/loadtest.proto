@@ -30,7 +30,7 @@ message StartRequest {
   google.protobuf.Timestamp start_time = 6;
 
   oneof stop_conditions {
-    // The time at which the load test should be stopped. If less than the current time, the load test will not run.
+    // The time at which the load test should be stopped. If less than the current time, we will complete immediately.
     google.protobuf.Timestamp stop_time = 7;
 
     // The number of messages to publish or expect to receive.
@@ -71,8 +71,10 @@ message CheckRequest {
 message CheckResponse {
   // Histogram of latencies, each one a delta from the previous CheckResponse sent.
   repeated int64 bucket_values = 1;
+
   // The duration from the start of the loadtest to its completion or now if is_finished is false.
   google.protobuf.Duration running_duration = 2;
+
   // True if the load test has finished running.
   bool is_finished = 3;
 }
