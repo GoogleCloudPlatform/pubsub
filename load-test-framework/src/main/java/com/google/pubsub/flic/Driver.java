@@ -218,9 +218,9 @@ class Driver {
   private void printStats(Map<ClientType, Controller.Result> results) {
     results.forEach((type, result) -> {
       log.info("Results for " + type + ":");
-      log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.5));
-      log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.99));
-      log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.999));
+      log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 50.0));
+      log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 99.0));
+      log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 99.9));
       // CPS Publishers report latency per batch message.
       log.info("Average throughput: " +
           new DecimalFormat("#.##").format(

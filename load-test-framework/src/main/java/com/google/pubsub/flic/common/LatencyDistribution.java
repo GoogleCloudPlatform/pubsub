@@ -52,12 +52,12 @@ public class LatencyDistribution {
 
   public static String getNthPercentile(long[] bucketValues, double percentile) {
     Preconditions.checkArgument(percentile > 0.0);
-    Preconditions.checkArgument(percentile < 1.0);
+    Preconditions.checkArgument(percentile < 100.0);
     long total = LongStream.of(bucketValues).sum();
     if (total == 0) {
       return "N/A";
     }
-    long count = (long) (total * percentile);
+    long count = (long) (total * percentile / 100.0);
     for (int i = LATENCY_BUCKETS.length - 1; i > 0; i--) {
       total -= bucketValues[i];
       if (total <= count) {
