@@ -233,7 +233,7 @@ class Driver {
   /**
    * A validator that makes sure the parameter is an integer that is greater than 0.
    */
-  public static class GreaterThanZeroValidator implements IParameterValidator {
+  private static class GreaterThanZeroValidator implements IParameterValidator {
     @Override
     public void validate(String name, String value) throws ParameterException {
       try {
