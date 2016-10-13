@@ -28,6 +28,11 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
+/**
+ * Each subclass of Controller is responsible for instantiating and cleaning up a given environment. When an environment
+ * is started, it adds {@link Client} objects to the clients array, which is used to start the load test and collect
+ * results. This base class manages every environment-agnostic part of this process.
+ */
 public abstract class Controller {
   final static Logger log = LoggerFactory.getLogger(Controller.class);
   final List<Client> clients = new ArrayList<>();
@@ -45,8 +50,17 @@ public abstract class Controller {
     this.executor = executor;
   }
 
+  /**
+   * Shuts down the given environment. When this function returns, each client is guaranteed to be in process of being
+   * deleted, or else output directions on how to manually delete any potential remaining instances if unable.
+   *
+   * @param t the error that caused the shutdown, or null if shutting down successfully
+   */
   protected abstract void shutdown(Throwable t);
 
+  /**
+   * Waits for clients to complete the load test.
+   */
   public void waitForClients() throws Throwable {
     try {
       Futures.allAsList(clients.stream()
@@ -58,6 +72,12 @@ public abstract class Controller {
     }
   }
 
+  /**
+   * Gets the current statistics for the given type.
+   *
+   * @param type the client type to aggregate results for
+   * @return the results from the load test up to this point
+   */
   private Result resultsForType(Client.ClientType type) {
     Result result = new Result();
     List<Client> clientsOfType = clients.stream()
@@ -74,6 +94,11 @@ public abstract class Controller {
     return result;
   }
 
+  /**
+   * Gets the results for all available types.
+   *
+   * @return the map from type to result, every type running is a valid key
+   */
   public Map<Client.ClientType, Result> getResults() {
     final Map<Client.ClientType, Result> results = new HashMap<>();
     List<ListenableFuture<Void>> resultFutures = new ArrayList<>();
@@ -98,7 +123,11 @@ public abstract class Controller {
     return results;
   }
 
-  void startClients() {
+  /**
+   * Sends a LoadtestFramework.Start command to all clients to commence the load test. When this function returns it is
+   * guaranteed that all clients have started.
+   */
+  public void startClients() {
     SettableFuture<Void> startFuture = SettableFuture.create();
     clients.forEach((client) -> executor.execute(() -> {
       try {

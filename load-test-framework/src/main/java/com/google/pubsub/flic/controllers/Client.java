@@ -241,6 +241,17 @@ public class Client {
       }
     }
 
+    public ClientType getSubscriberType() {
+      switch (this) {
+        case CPS_GCLOUD_PUBLISHER:
+          return CPS_GCLOUD_SUBSCRIBER;
+        case KAFKA_PUBLISHER:
+          return KAFKA_SUBSCRIBER;
+        default:
+          return this;
+      }
+    }
+
     @Override
     public String toString() {
       return name().toLowerCase().replace('_', '-');
