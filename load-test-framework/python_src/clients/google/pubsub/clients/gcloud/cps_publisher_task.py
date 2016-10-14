@@ -48,16 +48,22 @@ if __name__ == "__main__":
 
     # Continously Publish
     while True:
-        connection, client_address = sock.accept()
-        while True:
-            try:
-                connection.recv(1)  # Server will send 1 byte every time we want to publish
-                batch = topic.batch()
-                start = time.clock()
-                for i in range(0, batch_size):
-                    batch.publish("A" * message_size, sendTime=str(int(start * 1000)))
-                batch.commit()
-                end = time.clock()
-                connection.sendall(int((start - end) * 1000))
-            finally:
-                connection.close()
+        try:
+            connection, client_address = sock.accept()
+            while True:
+                try:
+                    connection.recv(1)  # Server will send 1 byte every time we want to publish
+                    batch = topic.batch()
+                    start = time.clock()
+                    for i in range(0, batch_size):
+                        batch.publish("A" * message_size, sendTime=str(int(start * 1000)))
+                    batch.commit()
+                    end = time.clock()
+                except:
+                    # in case of failure, we just don't log anything
+                    connection.sendall(int(0))
+                else:
+                    connection.sendall(int((start - end) * 1000))
+
+        finally:
+            connection.close()
