@@ -126,6 +126,7 @@ public class Client {
           .setSeconds(loadtestLengthSeconds).build());
     }
     switch (clientType) {
+      case CPS_GCLOUD_PUBLISHER:
       case CPS_GCLOUD_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
             .setSubscription(subscription)

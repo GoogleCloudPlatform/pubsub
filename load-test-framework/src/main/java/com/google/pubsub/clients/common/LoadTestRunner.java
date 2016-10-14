@@ -57,7 +57,8 @@ public class LoadTestRunner {
         Executors.newFixedThreadPool(request.getMaxOutstandingRequests() + 10));
 
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
-    final Semaphore outstandingTestLimiter = new Semaphore(request.getMaxOutstandingRequests(), false);
+    final Semaphore outstandingTestLimiter =
+        new Semaphore(request.getMaxOutstandingRequests(), false);
 
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
     if (toSleep > 0) {
@@ -119,6 +120,8 @@ public class LoadTestRunner {
         }
       }
     });
+    // Deadlock forever, since we do not want the server to stop.
+    Thread.currentThread().join();
   }
 
   private static boolean shouldContinue(StartRequest request) {
