@@ -64,11 +64,13 @@ public class LoadTestRunner {
       Thread.sleep(toSleep);
     }
 
+    stopwatch.start();
     while (shouldContinue(request)) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();
       executor.submit(client).addListener(outstandingTestLimiter::release, executor);
     }
+    stopwatch.stop();
     executor.shutdownNow();
     finished.set(true);
     log.info("Load test complete.");
@@ -83,6 +85,7 @@ public class LoadTestRunner {
               responseObserver.onError(new Exception("A load test is already running!"));
             }
             finishedFuture = SettableFuture.create();
+            stopwatch.reset();
             client = function.apply(request);
             Executors.newSingleThreadExecutor().submit(() -> new LoadTestRunner(request));
             responseObserver.onNext(StartResponse.getDefaultInstance());

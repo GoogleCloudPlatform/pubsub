@@ -226,10 +226,10 @@ class Driver {
         statsMap.forEach((type, stats) -> {
           if (type.isPublisher()) {
             publishLatency.set(LatencyDistribution
-                .getNthPercentileUpperBound(result.bucketValues, 99));
+                .getNthPercentileUpperBound(stats.bucketValues, 99));
           }
         });
-        printStats(stats);
+        printStats(statsMap);
         Client.requestRate *= 1.1;
       } while (publishLatency.get() < maxPublishLatency);
       synchronized (pollingExecutor) {

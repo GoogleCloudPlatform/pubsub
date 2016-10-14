@@ -100,7 +100,7 @@ public class LatencyDistribution {
     return mean;
   }
 
-  public long[] getBucketValues() {
+  long[] getBucketValues() {
     return bucketValues;
   }
 

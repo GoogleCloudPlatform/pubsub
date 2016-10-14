@@ -242,6 +242,16 @@ public class Client {
       }
     }
 
+    public boolean isPublisher() {
+      switch (this) {
+        case CPS_GCLOUD_PUBLISHER:
+        case KAFKA_PUBLISHER:
+          return true;
+        default:
+          return false;
+      }
+    }
+
     public ClientType getSubscriberType() {
       switch (this) {
         case CPS_GCLOUD_PUBLISHER:
