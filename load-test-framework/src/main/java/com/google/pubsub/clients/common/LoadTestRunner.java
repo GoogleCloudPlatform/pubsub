@@ -58,7 +58,8 @@ public class LoadTestRunner {
           @Override
           public void start(StartRequest request, StreamObserver<StartResponse> responseObserver) {
             if (requestFuture.isDone()) {
-              responseObserver.onError(new Exception("Start should only be called once, ignoring this request."));
+              responseObserver.onError(
+                  new Exception("Start should only be called once, ignoring this request."));
               return;
             }
             requestFuture.set(request);
@@ -71,7 +72,8 @@ public class LoadTestRunner {
             boolean finishedValue = finished.get();
             responseObserver.onNext(CheckResponse.newBuilder()
                 .addAllBucketValues(client.getBucketValues())
-                .setRunningDuration(Duration.newBuilder().setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
+                .setRunningDuration(Duration.newBuilder()
+                    .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
                 .setIsFinished(finishedValue)
                 .build());
             responseObserver.onCompleted();
@@ -99,7 +101,8 @@ public class LoadTestRunner {
         Executors.newFixedThreadPool(request.getMaxOutstandingRequests() + 10));
 
     final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
-    final Semaphore outstandingTestLimiter = new Semaphore(request.getMaxOutstandingRequests(), false);
+    final Semaphore outstandingTestLimiter =
+        new Semaphore(request.getMaxOutstandingRequests(), false);
     client = loadFunction.apply(request);
 
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
@@ -122,8 +125,9 @@ public class LoadTestRunner {
 
   private static boolean shouldContinue(StartRequest request) {
     switch (request.getStopConditionsCase()) {
-      case STOP_TIME:
-        return System.currentTimeMillis() < request.getStopTime().getSeconds() * 1000;
+      case TEST_DURATION:
+        return System.currentTimeMillis() <
+            (request.getStartTime().getSeconds() + request.getTestDuration().getSeconds()) * 1000;
       case NUMBER_OF_MESSAGES:
         return client.getNumberOfMessages() < request.getNumberOfMessages();
     }

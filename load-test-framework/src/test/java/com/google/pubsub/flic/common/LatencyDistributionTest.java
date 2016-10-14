@@ -39,7 +39,8 @@ public class LatencyDistributionTest {
     assertEquals(distribution.getMean(), 0, EPSILON);
     assertEquals(distribution.getCount(), 0, EPSILON);
     assertEquals(distribution.getSumOfSquareDeviations(), 0, EPSILON);
-    assertArrayEquals(distribution.getBucketValues(), new long[LatencyDistribution.LATENCY_BUCKETS.length]);
+    assertArrayEquals(distribution.getBucketValues(),
+        new long[LatencyDistribution.LATENCY_BUCKETS.length]);
   }
 
   @Test
@@ -83,6 +84,7 @@ public class LatencyDistributionTest {
     assertEquals(distribution.getMean(), 0, EPSILON);
     assertEquals(distribution.getCount(), 0, EPSILON);
     assertEquals(distribution.getSumOfSquareDeviations(), 0, EPSILON);
-    assertArrayEquals(distribution.getBucketValues(), new long[LatencyDistribution.LATENCY_BUCKETS.length]);
+    assertArrayEquals(distribution.getBucketValues(),
+        new long[LatencyDistribution.LATENCY_BUCKETS.length]);
   }
 }

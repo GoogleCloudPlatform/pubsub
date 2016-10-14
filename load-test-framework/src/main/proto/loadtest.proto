@@ -30,8 +30,8 @@ message StartRequest {
   google.protobuf.Timestamp start_time = 6;
 
   oneof stop_conditions {
-    // The time at which the load test should be stopped. If less than the current time, we will complete immediately.
-    google.protobuf.Timestamp stop_time = 7;
+    // The duration the load test should run for.
+    google.protobuf.Duration test_duration = 7;
 
     // The number of messages to publish or expect to receive.
     int32 number_of_messages = 8;

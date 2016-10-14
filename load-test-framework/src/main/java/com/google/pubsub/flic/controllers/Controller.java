@@ -29,9 +29,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
 
 /**
- * Each subclass of Controller is responsible for instantiating and cleaning up a given environment. When an environment
- * is started, it adds {@link Client} objects to the clients array, which is used to start the load test and collect
- * results. This base class manages every environment-agnostic part of this process.
+ * Each subclass of Controller is responsible for instantiating and cleaning up a given environment.
+ * When an environment is started, it adds {@link Client} objects to the clients array, which is
+ * used to start the load test and collect results. This base class manages every
+ * environment-agnostic part of this process.
  */
 public abstract class Controller {
   final static Logger log = LoggerFactory.getLogger(Controller.class);
@@ -39,20 +40,22 @@ public abstract class Controller {
   final ScheduledExecutorService executor;
 
   /**
-   * Creates the given environments and starts the virtual machines. When this function returns, each client is
-   * guaranteed to have been connected and be network reachable, but is not started. If an error occurred attempting to
-   * start the environment, the environment will be shut down, and an Exception will be thrown. It is not guaranteed
-   * that we have completed shutting down when this function returns, but it is guaranteed that we are in process.
+   * Creates the given environments and starts the virtual machines. When this function returns,
+   * each client is guaranteed to have been connected and be network reachable, but is not started.
+   * If an error occurred attempting to start the environment, the environment will be shut down,
+   * and an Exception will be thrown. It is not guaranteed that we have completed shutting down when
+   * this function returns, but it is guaranteed that we are in process.
    *
-   * @param  executor the executor that will be used to schedule all environment initialization tasks
+   * @param executor the executor that will be used to schedule all environment initialization tasks
    */
   Controller(ScheduledExecutorService executor) {
     this.executor = executor;
   }
 
   /**
-   * Shuts down the given environment. When this function returns, each client is guaranteed to be in process of being
-   * deleted, or else output directions on how to manually delete any potential remaining instances if unable.
+   * Shuts down the given environment. When this function returns, each client is guaranteed to be
+   * in process of being deleted, or else output directions on how to manually delete any potential
+   * remaining instances if unable.
    *
    * @param t the error that caused the shutdown, or null if shutting down successfully
    */
@@ -78,20 +81,21 @@ public abstract class Controller {
    * @param type the client type to aggregate results for
    * @return the results from the load test up to this point
    */
-  private Result resultsForType(Client.ClientType type) {
-    Result result = new Result();
+  private LoadtestStats getStatsForClientType(Client.ClientType type) {
+    LoadtestStats stats = new LoadtestStats();
     List<Client> clientsOfType = clients.stream()
         .filter(c -> c.getClientType() == type).collect(Collectors.toList());
     Optional<Client> longestRunningClient = clientsOfType.stream()
         .max((a, b) -> Long.compare(a.getRunningSeconds(), b.getRunningSeconds()));
-    result.runningSeconds = longestRunningClient.isPresent() ? longestRunningClient.get().getRunningSeconds() :
-        System.currentTimeMillis() / 1000 - Client.startTime.getSeconds();
+    stats.runningSeconds =
+        longestRunningClient.isPresent() ? longestRunningClient.get().getRunningSeconds() :
+            System.currentTimeMillis() / 1000 - Client.startTime.getSeconds();
     clientsOfType.stream().map(Client::getBucketValues).forEach(bucketValues -> {
       for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
-        result.bucketValues[i] += bucketValues[i];
+        stats.bucketValues[i] += bucketValues[i];
       }
     });
-    return result;
+    return stats;
   }
 
   /**
@@ -99,15 +103,15 @@ public abstract class Controller {
    *
    * @return the map from type to result, every type running is a valid key
    */
-  public Map<Client.ClientType, Result> getResults() {
-    final Map<Client.ClientType, Result> results = new HashMap<>();
+  public Map<Client.ClientType, LoadtestStats> getStatsForAllClientTypes() {
+    final Map<Client.ClientType, LoadtestStats> results = new HashMap<>();
     List<ListenableFuture<Void>> resultFutures = new ArrayList<>();
     for (Client.ClientType type : Client.ClientType.values()) {
       SettableFuture<Void> resultFuture = SettableFuture.create();
       resultFutures.add(resultFuture);
       executor.submit(() -> {
         try {
-          results.put(type, resultsForType(type));
+          results.put(type, getStatsForClientType(type));
           resultFuture.set(null);
         } catch (Throwable t) {
           resultFuture.setException(t);
@@ -117,15 +121,15 @@ public abstract class Controller {
     try {
       Futures.allAsList(resultFutures).get();
     } catch (ExecutionException | InterruptedException e) {
-      log.error("Client failed health check, will return results accumulated during test up to this point.",
+      log.error("Failed health check, will return results accumulated during test up to now.",
           e instanceof ExecutionException ? e.getCause() : e);
     }
     return results;
   }
 
   /**
-   * Sends a LoadtestFramework.Start command to all clients to commence the load test. When this function returns it is
-   * guaranteed that all clients have started.
+   * Sends a LoadtestFramework.Start RPC to all clients to commence the load test. When this
+   * function returns it is guaranteed that all clients have started.
    */
   public void startClients() {
     SettableFuture<Void> startFuture = SettableFuture.create();
@@ -146,7 +150,7 @@ public abstract class Controller {
     }
   }
 
-  public class Result {
+  public class LoadtestStats {
     public long runningSeconds;
     public long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
   }

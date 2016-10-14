@@ -57,8 +57,9 @@ class Driver {
   private int cpsPublisherCount = 1;
   @Parameter(
       names = {"--cps_subscriber_count"},
-      description = "Number of CPS subscribers to start. If this is not divisible by cps_subscription_fanout, we will" +
-          " round down to the closest multiple of cps_subscription_fanout."
+      description =
+          "Number of CPS subscribers to start. If this is not divisible by cps_subscription_fanout"
+              + ", we will round down to the closest multiple of cps_subscription_fanout."
   )
   private int cpsSubscriberCount = 1;
   @Parameter(
@@ -103,7 +104,7 @@ class Driver {
   private int cpsMaxMessagesPerPull = 10;
   @Parameter(
       names = {"--kafka_poll_length"},
-      description = "Length of time, in milliseconds, to poll for requests when subscribing with Kafka.",
+      description = "Length of time, in milliseconds, to poll when subscribing with Kafka.",
       validateWith = GreaterThanZeroValidator.class
   )
   private int kafkaPollLength = 100;
@@ -130,14 +131,14 @@ class Driver {
   private int maxOutstandingRequests = 20;
   @Parameter(
       names = {"--burn_in_duration_seconds"},
-      description = "The duration, in seconds, to run without recording statistics in order to allow tuning."
+      description = "The duration, in seconds, to run without recording statistics to allow tuning."
   )
   private int burnInDurationSeconds = 20;
   @Parameter(
       names = {"--number_of_messages"},
-      description = "The total number of messages to publish in the test. Enabling this will override " +
-          "--loadtest_length_seconds. Enabling this flag will also enable the check for message loss. If set less " +
-          "than 1, this flag is ignored."
+      description = "The total number of messages to publish in the test. Enabling this will " +
+          "override --loadtest_length_seconds. Enabling this flag will also enable the check for " +
+          "message loss. If set less than 1, this flag is ignored."
   )
   private int numberOfMessages = 0;
 
@@ -169,15 +170,16 @@ class Driver {
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));
-      // Each type of client will have its own topic, so each subscription will get cpsSubscriberCount subscribers
-      // cumulatively among each of the subscriptions.
+      // Each type of client will have its own topic, so each subscription will get
+      // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
-        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER, "gcloud-subscription" + i),
-            cpsSubscriberCount / cpsSubscriptionFanout);
+        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER,
+            "gcloud-subscription" + i), cpsSubscriberCount / cpsSubscriptionFanout);
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1;
-      Client.startTime = Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 90).build();
+      Client.startTime = Timestamp.newBuilder()
+          .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.cpsPublishBatchSize = cpsPublishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
@@ -188,7 +190,8 @@ class Driver {
       Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
       Client.numberOfMessages = numberOfMessages;
       GCEController gceController = GCEController.newGCEController(
-          project, ImmutableMap.of("us-central1-a", clientParamsMap), Executors.newScheduledThreadPool(500));
+          project, ImmutableMap.of("us-central1-a", clientParamsMap),
+          Executors.newScheduledThreadPool(500));
       gceController.startClients();
 
       // Start a thread to poll and output results.
@@ -196,7 +199,7 @@ class Driver {
       pollingExecutor.scheduleWithFixedDelay(() -> {
         synchronized (pollingExecutor) {
           log.info("===============================================");
-          printStats(gceController.getResults());
+          printStats(gceController.getStatsForAllClientTypes());
           log.info("===============================================");
         }
       }, 5, 5, TimeUnit.SECONDS);
@@ -205,7 +208,7 @@ class Driver {
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
-      printStats(gceController.getResults());
+      printStats(gceController.getStatsForAllClientTypes());
 
       gceController.shutdown(null);
       System.exit(0);
@@ -215,17 +218,17 @@ class Driver {
     }
   }
 
-  private void printStats(Map<ClientType, Controller.Result> results) {
-    results.forEach((type, result) -> {
+  private void printStats(Map<ClientType, Controller.LoadtestStats> results) {
+    results.forEach((type, stats) -> {
       log.info("Results for " + type + ":");
-      log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 50.0));
-      log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 99.0));
-      log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 99.9));
+      log.info("50%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
+      log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
+      log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
       // CPS Publishers report latency per batch message.
       log.info("Average throughput: " +
           new DecimalFormat("#.##").format(
               (double) LongStream.of(
-                  result.bucketValues).sum() / result.runningSeconds * messageSize / 1000000.0
+                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
                   * (type.isCpsPublisher() ? cpsPublishBatchSize : 1)) + " MB/s");
     });
   }

@@ -78,7 +78,8 @@ public class MetricsHandler {
       try {
         HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
         JsonFactory jsonFactory = new JacksonFactory();
-        GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
+        GoogleCredential credential =
+            GoogleCredential.getApplicationDefault(transport, jsonFactory);
         if (credential.createScopedRequired()) {
           credential =
               credential.createScoped(
@@ -156,7 +157,8 @@ public class MetricsHandler {
           .setMetricKind("GAUGE")
           .setValueType("DISTRIBUTION")
           .setUnit("ms");
-      monitoring.projects().metricDescriptors().create("projects/" + project, metricDescriptor).execute();
+      monitoring.projects().metricDescriptors().create("projects/" + project, metricDescriptor)
+          .execute();
     } catch (Exception e) {
       log.info("Metrics already exist.");
     }
@@ -186,7 +188,8 @@ public class MetricsHandler {
                           .setSumOfSquaredDeviation(distribution.getSumOfSquareDeviations())
                           .setBucketOptions(new BucketOptions()
                               .setExplicitBuckets(new Explicit().setBounds(
-                                  Arrays.asList(ArrayUtils.toObject(LatencyDistribution.LATENCY_BUCKETS)))))))
+                                  Arrays.asList(ArrayUtils.toObject(
+                                      LatencyDistribution.LATENCY_BUCKETS)))))))
                   .setInterval(new TimeInterval()
                       .setStartTime(now)
                       .setEndTime(now))))

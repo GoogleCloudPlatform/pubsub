@@ -45,11 +45,12 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 
 /**
- * This is a subclass of {@link Controller} that creates a load test running on Google Compute Engine.
+ * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
  */
 public class GCEController extends Controller {
   private static final String machineType = "n1-standard-4"; // quad core machines
-  private static final String sourceFamily = "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930";
+  private static final String sourceFamily =
+      "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
   private static final int ALREADY_EXISTS = 409;
   private static final int NOT_FOUND = 404;
   private final Storage storage;
@@ -69,8 +70,9 @@ public class GCEController extends Controller {
     this.storage = storage;
     this.compute = compute;
 
-    // For each unique type of CPS Publisher, create a Topic if it does not already exist, and then delete
-    // and recreate any subscriptions under it so that we do not have backlog from previous runs.
+    // For each unique type of CPS Publisher, create a Topic if it does not already exist, and then
+    // delete and recreate any subscriptions attached to it so that we do not have backlog from
+    // previous runs.
     List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
     types.values().forEach((paramsMap) -> paramsMap.keySet().stream().map(p -> p.clientType)
         .distinct().filter(ClientType::isCpsPublisher).forEach(clientType -> {
@@ -87,7 +89,7 @@ public class GCEController extends Controller {
               }
               log.info("Topic already exists, reusing.");
             }
-            // Go through each subscriber that corresponds to the given topic and recreate its subscriptions.
+            // Recreate each subscription attached to the topic.
             paramsMap.keySet().stream()
                 .filter(p -> p.clientType == clientType.getSubscriberType())
                 .map(p -> p.subscription).forEach(subscription -> {
@@ -154,8 +156,8 @@ public class GCEController extends Controller {
       }));
       Futures.allAsList(resizingFutures).get();
 
-      // We wait for all instances to finish starting, and get the external network address of each newly
-      // created instance.
+      // We wait for all instances to finish starting, and get the external network address of each
+      // newly created instance.
       List<SettableFuture<Void>> startFutures = new ArrayList<>();
       for (String zone : types.keySet()) {
         Map<ClientParams, Integer> paramsMap = types.get(zone);
@@ -219,8 +221,8 @@ public class GCEController extends Controller {
   }
 
   /**
-   * Shuts down all managed instance groups, or prints a log message so that you can go to Pantheon in case of failure.
-   * This is idempotent and it is not an error to shutdown multiple times.
+   * Shuts down all managed instance groups, or prints a log message so that you can go to Pantheon
+   * in case of failure. This is idempotent and it is not an error to shutdown multiple times.
    */
   @Override
   public void shutdown(Throwable t) {
@@ -229,10 +231,11 @@ public class GCEController extends Controller {
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
           try {
             compute.instanceGroupManagers()
-                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.clientType, 0).execute();
+                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.clientType, 0)
+                .execute();
           } catch (IOException e) {
-            log.error("Unable to resize Instance Group for " + param.clientType +
-                ", please manually ensure you do not have any running instances to avoid being billed.");
+            log.error("Unable to resize Instance Group for " + param.clientType + ", please " +
+                "manually ensure you do not have any running instances to avoid being billed.");
           }
         })
     );
@@ -269,7 +272,8 @@ public class GCEController extends Controller {
       if (e.getStatusCode() != ALREADY_EXISTS) {
         throw e;
       }
-      compute.firewalls().update(projectName, "cloud-loadtest-framework-firewall-rule", firewallRule).execute();
+      compute.firewalls()
+          .update(projectName, "cloud-loadtest-framework-firewall-rule", firewallRule).execute();
     }
   }
 
@@ -314,14 +318,14 @@ public class GCEController extends Controller {
   }
 
   /**
-   * Re-sizes the instance groups to zero and then to the given size in order to ensure previous runs do not interfere
-   * in case they were not cleaned up properly.
+   * Re-sizes the instance groups to zero and then to the given size in order to ensure previous
+   * runs do not interfere in case they were not cleaned up properly.
    */
   private void startInstances(String zone, ClientType type, Integer n) throws Exception {
     int errors = 0;
     while (true) {
       try {
-        // We first resize to 0 in case any were left running from an improperly cleaned up prior run.
+        // We first resize to 0 to delete any left running from an improperly cleaned up prior run.
         compute.instanceGroupManagers().resize(projectName, zone,
             "cloud-pubsub-loadtest-framework-" + type, 0).execute();
         compute.instanceGroupManagers().resize(projectName, zone,
@@ -344,8 +348,8 @@ public class GCEController extends Controller {
   private void uploadFile(Path filePath) throws IOException {
     try {
       byte md5hash[] = Base64.decodeBase64(
-          storage.objects().get("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute()
-              .getMd5Hash()
+          storage.objects().get("cloud-pubsub-loadtest", filePath.getFileName().toString())
+              .execute().getMd5Hash()
       );
       try (InputStream inputStream = Files.newInputStream(filePath, StandardOpenOption.READ)) {
         if (Arrays.equals(md5hash, DigestUtils.md5(inputStream))) {
@@ -354,7 +358,8 @@ public class GCEController extends Controller {
         }
       }
       log.info("File " + filePath.getFileName() + " is out of date, uploading new version.");
-      storage.objects().delete("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
+      storage.objects()
+          .delete("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
     } catch (GoogleJsonResponseException e) {
       if (e.getStatusCode() != NOT_FOUND) {
         throw e;
@@ -369,19 +374,22 @@ public class GCEController extends Controller {
   }
 
   /**
-   * For the given zone and client type, we add the instances created to the clients array, for the base controller.
+   * For the given zone and client type, we add the instances created to the clients array, for the
+   * base controller.
    */
   private void addInstanceGroupInfo(String zone, ClientParams params) throws IOException {
     InstanceGroupManagersListManagedInstancesResponse response;
     do {
       response = compute.instanceGroupManagers().
-          listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-" + params.clientType).execute();
+          listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-" +
+              params.clientType).execute();
 
       // If we are not instantiating any instances of this type, just return.
       if (response.getManagedInstances() == null) {
         return;
       }
-    } while (!response.getManagedInstances().stream().allMatch(i -> i.getCurrentAction().equals("NONE")));
+    } while (!response.getManagedInstances().stream()
+        .allMatch(i -> i.getCurrentAction().equals("NONE")));
 
     for (ManagedInstance managedInstance : response.getManagedInstances()) {
       String instanceName = managedInstance.getInstance()
@@ -399,7 +407,8 @@ public class GCEController extends Controller {
   }
 
   /**
-   * Creates the default instance template for each type. Each type only changes the name and startup script used.
+   * Creates the default instance template for each type. Each type only changes the name and
+   * startup script used.
    */
   private InstanceTemplate defaultInstanceTemplate(String type) {
     return new InstanceTemplate()
@@ -417,7 +426,8 @@ public class GCEController extends Controller {
             .setMetadata(new Metadata()
                 .setItems(Collections.singletonList(new Metadata.Items()
                     .setKey("startup-script-url")
-                    .setValue("https://storage.googleapis.com/cloud-pubsub-loadtest/" + type + "_startup_script.sh"))))
+                    .setValue("https://storage.googleapis.com/cloud-pubsub-loadtest/" + type +
+                        "_startup_script.sh"))))
             .setServiceAccounts(Collections.singletonList(new ServiceAccount().setScopes(
                 Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")))));
   }
