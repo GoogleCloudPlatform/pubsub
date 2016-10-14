@@ -19,6 +19,7 @@ package com.google.pubsub.flic.controllers;
 import com.beust.jcommander.internal.Nullable;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.Duration;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.common.LoadtestGrpc;
@@ -44,7 +45,9 @@ public class Client {
   public static int requestRate;
   public static Timestamp startTime;
   public static int loadtestLengthSeconds;
-  public static int batchSize;
+  public static int cpsPublishBatchSize;
+  public static int maxMessagesPerPull;
+  public static int pollLength;
   public static String broker;
   public static int maxOutstandingRequests;
   public static long burnInTimeMillis;
@@ -59,10 +62,11 @@ public class Client {
   private LoadtestGrpc.LoadtestStub stub;
   private int errors = 0;
   private long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
+  private long runningSeconds = 0;
   private SettableFuture<Void> doneFuture = SettableFuture.create();
 
-  Client(ClientType clientType, String networkAddress, String project, @Nullable String subscription,
-         ScheduledExecutorService executorService) {
+  Client(ClientType clientType, String networkAddress, String project,
+         @Nullable String subscription, ScheduledExecutorService executorService) {
     this.clientType = clientType;
     this.networkAddress = networkAddress;
     this.clientStatus = ClientStatus.NONE;
@@ -97,7 +101,11 @@ public class Client {
         ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build());
   }
 
-  synchronized long[] getBucketValues() {
+  long getRunningSeconds() {
+    return runningSeconds;
+  }
+
+  long[] getBucketValues() {
     return bucketValues;
   }
 
@@ -107,7 +115,6 @@ public class Client {
     StartRequest.Builder requestBuilder = StartRequest.newBuilder()
         .setProject(project)
         .setTopic(topic)
-        .setBatchSize(batchSize)
         .setMaxOutstandingRequests(maxOutstandingRequests)
         .setMessageSize(messageSize)
         .setRequestRate(requestRate)
@@ -115,21 +122,21 @@ public class Client {
     if (numberOfMessages > 0) {
       requestBuilder.setNumberOfMessages(numberOfMessages);
     } else {
-      requestBuilder.setStopTime(Timestamp.newBuilder()
-          .setSeconds(Math.max(startTime.getSeconds(), System.currentTimeMillis() / 1000) +
-              loadtestLengthSeconds).build());
+      requestBuilder.setTestDuration(Duration.newBuilder()
+          .setSeconds(loadtestLengthSeconds).build());
     }
     switch (clientType) {
       case CPS_GCLOUD_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
-            .setMaxMessagesPerPull(10)
-            .setSubscription(subscription));
+            .setSubscription(subscription)
+            .setMaxMessagesPerPull(maxMessagesPerPull)
+            .setPublishBatchSize(cpsPublishBatchSize));
         break;
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)
-            .setPollLength(100));
+            .setPollLength(pollLength));
         break;
     }
     StartRequest request = requestBuilder.build();
@@ -141,6 +148,7 @@ public class Client {
       public void onNext(StartResponse response) {
         log.info("Successfully started client [" + networkAddress + "]");
         clientStatus = ClientStatus.RUNNING;
+        startFuture.set(null);
       }
 
       @Override
@@ -165,7 +173,6 @@ public class Client {
 
       @Override
       public void onCompleted() {
-        startFuture.set(null);
       }
     });
     try {
@@ -180,42 +187,44 @@ public class Client {
     if (clientStatus != ClientStatus.RUNNING) {
       return;
     }
-    stub.check(LoadtestProto.CheckRequest.getDefaultInstance(), new StreamObserver<LoadtestProto.CheckResponse>() {
-      @Override
-      public void onNext(LoadtestProto.CheckResponse checkResponse) {
-        log.debug("Connected to client.");
-        if (checkResponse.getIsFinished()) {
-          clientStatus = ClientStatus.STOPPED;
-          doneFuture.set(null);
-        }
-        if (System.currentTimeMillis() < burnInTimeMillis) {
-          return;
-        }
-        synchronized (this) {
-          for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
-            bucketValues[i] += checkResponse.getBucketValues(i);
+    stub.check(LoadtestProto.CheckRequest.getDefaultInstance(),
+        new StreamObserver<LoadtestProto.CheckResponse>() {
+          @Override
+          public void onNext(LoadtestProto.CheckResponse checkResponse) {
+            log.debug("Connected to client.");
+            if (checkResponse.getIsFinished()) {
+              clientStatus = ClientStatus.STOPPED;
+              doneFuture.set(null);
+            }
+            if (System.currentTimeMillis() < burnInTimeMillis) {
+              return;
+            }
+            synchronized (this) {
+              for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
+                bucketValues[i] += checkResponse.getBucketValues(i);
+              }
+              runningSeconds = checkResponse.getRunningDuration().getSeconds();
+            }
           }
-        }
-      }
 
-      @Override
-      public void onError(Throwable throwable) {
-        if (errors > 3) {
-          clientStatus = ClientStatus.FAILED;
-          doneFuture.setException(throwable);
-          log.error("Client failed " + errors + " health checks, something went wrong.");
-          return;
-        }
-        log.warn("Unable to connect to client, probably a transient error.");
-        stub = getStub();
-        errors++;
-      }
+          @Override
+          public void onError(Throwable throwable) {
+            if (errors > 3) {
+              clientStatus = ClientStatus.FAILED;
+              doneFuture.setException(throwable);
+              log.error("Client failed " + errors + " health checks, something went wrong.");
+              return;
+            }
+            log.warn("Unable to connect to client, probably a transient error.");
+            stub = getStub();
+            errors++;
+          }
 
-      @Override
-      public void onCompleted() {
-        errors = 0;
-      }
-    });
+          @Override
+          public void onCompleted() {
+            errors = 0;
+          }
+        });
   }
 
   public enum ClientType {
@@ -223,6 +232,26 @@ public class Client {
     CPS_GCLOUD_SUBSCRIBER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
+
+    public boolean isCpsPublisher() {
+      switch (this) {
+        case CPS_GCLOUD_PUBLISHER:
+          return true;
+        default:
+          return false;
+      }
+    }
+
+    public ClientType getSubscriberType() {
+      switch (this) {
+        case CPS_GCLOUD_PUBLISHER:
+          return CPS_GCLOUD_SUBSCRIBER;
+        case KAFKA_PUBLISHER:
+          return KAFKA_SUBSCRIBER;
+        default:
+          return this;
+      }
+    }
 
     @Override
     public String toString() {

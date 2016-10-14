@@ -58,7 +58,9 @@ class Driver {
   private int cpsPublisherCount = 1;
   @Parameter(
       names = {"--cps_subscriber_count"},
-      description = "Number of CPS subscribers to start."
+      description =
+          "Number of CPS subscribers to start. If this is not divisible by cps_subscription_fanout"
+              + ", we will round down to the closest multiple of cps_subscription_fanout."
   )
   private int cpsSubscriberCount = 1;
   @Parameter(
@@ -90,17 +92,29 @@ class Driver {
   )
   private String project = "";
   @Parameter(
-      names = {"--batch_size", "-b"},
-      description = "Number of messages to batch per publish request.",
+      names = {"--cps_publish_batch_size"},
+      description = "Number of messages to batch per Cloud Pub/Sub publish request.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int batchSize = 10;
+  private int cpsPublishBatchSize = 10;
   @Parameter(
-      names = {"--subscription_fanout"},
+      names = {"--cps_max_messages_per_pull"},
+      description = "Number of messages to return in each pull request.",
+      validateWith = GreaterThanZeroValidator.class
+  )
+  private int cpsMaxMessagesPerPull = 10;
+  @Parameter(
+      names = {"--kafka_poll_length"},
+      description = "Length of time, in milliseconds, to poll when subscribing with Kafka.",
+      validateWith = GreaterThanZeroValidator.class
+  )
+  private int kafkaPollLength = 100;
+  @Parameter(
+      names = {"--cps_subscription_fanout"},
       description = "Number of subscriptions to create for each topic. Must be at least 1.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int subscriptionFanout = 1;
+  private int cpsSubscriptionFanout = 1;
   @Parameter(
       names = {"--broker"},
       description = "The network address of the Kafka broker."
@@ -118,14 +132,14 @@ class Driver {
   private int maxOutstandingRequests = 20;
   @Parameter(
       names = {"--burn_in_duration_seconds"},
-      description = "The duration, in seconds, to run without recording statistics in order to allow tuning."
+      description = "The duration, in seconds, to run without recording statistics to allow tuning."
   )
   private int burnInDurationSeconds = 20;
   @Parameter(
       names = {"--number_of_messages"},
-      description = "The total number of messages to publish in the test. Enabling this will override " +
-          "--loadtest_length_seconds. Enabling this flag will also enable the check for message loss. If set less " +
-          "than 1, this flag is ignored."
+      description = "The total number of messages to publish in the test. Enabling this will " +
+          "override --loadtest_length_seconds. Enabling this flag will also enable the check for " +
+          "message loss. If set less than 1, this flag is ignored."
   )
   private int numberOfMessages = 0;
   @Parameter(
@@ -151,8 +165,6 @@ class Driver {
 
   private void run() {
     try {
-      //Map<String, Map<ClientParams, Integer>> clientTypes = ImmutableMap.of(
-      //    "us-central1-a", new HashMap<>());
       Preconditions.checkArgument(
           cpsPublisherCount > 0 ||
               cpsSubscriberCount > 0 ||
@@ -172,62 +184,53 @@ class Driver {
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));
-      for (int i = 0; i < subscriptionFanout; ++i) {
-        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER, "gcloud-subscription" + i),
-            cpsSubscriberCount / subscriptionFanout);
+      // Each type of client will have its own topic, so each topic will get
+      // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
+      for (int i = 0; i < cpsSubscriptionFanout; ++i) {
+        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER,
+            "gcloud-subscription" + i), cpsSubscriberCount / cpsSubscriptionFanout);
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1;
-      Client.startTime = Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 90).build();
+      Client.startTime = Timestamp.newBuilder()
+          .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
-      Client.batchSize = batchSize;
+      Client.cpsPublishBatchSize = cpsPublishBatchSize;
+      Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
+      Client.pollLength = kafkaPollLength;
       Client.broker = broker;
       Client.requestRate = requestRate;
       Client.maxOutstandingRequests = maxOutstandingRequests;
       Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
       Client.numberOfMessages = numberOfMessages;
       GCEController gceController = GCEController.newGCEController(
-          project, ImmutableMap.of("us-central1-a", clientParamsMap), Executors.newScheduledThreadPool(500));
+          project, ImmutableMap.of("us-central1-a", clientParamsMap),
+          Executors.newScheduledThreadPool(500));
 
       // Start a thread to poll and output results.
       ScheduledExecutorService pollingExecutor = Executors.newSingleThreadScheduledExecutor();
       pollingExecutor.scheduleWithFixedDelay(() -> {
         synchronized (pollingExecutor) {
-          Map<ClientType, Controller.Result> results = gceController.getResults(false);
           log.info("===============================================");
-          results.forEach((type, result) -> {
-            log.info("Results for " + type + ":");
-            log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.5));
-            log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.99));
-            log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.999));
-          });
+          printStats(gceController.getStatsForAllClientTypes());
           log.info("===============================================");
         }
       }, 5, 5, TimeUnit.SECONDS);
-      Map<ClientType, Controller.Result> results;
+      Map<ClientType, Controller.LoadtestStats> statsMap;
       AtomicDouble publishLatency = new AtomicDouble(0);
       do {
         gceController.startClients();
         // Wait for the load test to finish.
-        results = gceController.getResults(true);
-        results.forEach((type, result) -> {
-          if (type.toString().contains("publish")) {
-            publishLatency.set(LatencyDistribution.getNthPercentileUpperBound(result.bucketValues, 0.99));
+        gceController.waitForClients();
+        statsMap = gceController.getStatsForAllClientTypes();
+        statsMap.forEach((type, stats) -> {
+          if (type.isPublisher()) {
+            publishLatency.set(LatencyDistribution
+                .getNthPercentileUpperBound(result.bucketValues, 99));
           }
-          log.info("Results for " + type + ":");
-          log.info("50%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.5));
-          log.info("99%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.99));
-          log.info("99.9%: " + LatencyDistribution.getNthPercentile(result.bucketValues, 0.999));
-          // CPS Publishers report latency per batch message.
-          log.info("Average throughput: " +
-              new DecimalFormat("#.##").format(
-                  (double) LongStream.of(
-                      result.bucketValues).sum() / (result.endTimeMillis / 1000.0 - Client.startTime.getSeconds())
-                      * messageSize / 1000000.0 * (type == ClientType.CPS_GCLOUD_PUBLISHER ? batchSize : 1)) +
-              " MB/s");
-          Client.requestRate *= 1.1;
         });
-
+        printStats(stats);
+        Client.requestRate *= 1.1;
       } while (publishLatency.get() < maxPublishLatency);
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
@@ -244,10 +247,25 @@ class Driver {
     }
   }
 
+  private void printStats(Map<ClientType, Controller.LoadtestStats> results) {
+    results.forEach((type, stats) -> {
+      log.info("Results for " + type + ":");
+      log.info("50%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
+      log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
+      log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
+      // CPS Publishers report latency per batch message.
+      log.info("Average throughput: " +
+          new DecimalFormat("#.##").format(
+              (double) LongStream.of(
+                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
+                  * (type.isCpsPublisher() ? cpsPublishBatchSize : 1)) + " MB/s");
+    });
+  }
+
   /**
    * A validator that makes sure the parameter is an integer that is greater than 0.
    */
-  private static class GreaterThanZeroValidator implements IParameterValidator {
+  public static class GreaterThanZeroValidator implements IParameterValidator {
     @Override
     public void validate(String name, String value) throws ParameterException {
       try {

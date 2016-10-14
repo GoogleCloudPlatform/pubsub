@@ -15,10 +15,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.common;
 
+import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.Duration;
 import com.google.pubsub.flic.common.LoadtestGrpc;
 import com.google.pubsub.flic.common.LoadtestProto.CheckRequest;
 import com.google.pubsub.flic.common.LoadtestProto.CheckResponse;
@@ -34,6 +36,7 @@ import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
@@ -42,6 +45,7 @@ import java.util.function.Function;
  */
 public class LoadTestRunner {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
+  private static final Stopwatch stopwatch = Stopwatch.createUnstarted();
   private static Server server;
   private static Task client;
   private static AtomicBoolean finished = new AtomicBoolean(true);
@@ -90,6 +94,8 @@ public class LoadTestRunner {
             boolean finishedValue = finished.get();
             responseObserver.onNext(CheckResponse.newBuilder()
                 .addAllBucketValues(client.getBucketValues())
+                .setRunningDuration(Duration.newBuilder()
+                    .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
                 .setIsFinished(finishedValue)
                 .build());
             responseObserver.onCompleted();
@@ -114,8 +120,9 @@ public class LoadTestRunner {
 
   private static boolean shouldContinue(StartRequest request) {
     switch (request.getStopConditionsCase()) {
-      case STOP_TIME:
-        return System.currentTimeMillis() < request.getStopTime().getSeconds() * 1000;
+      case TEST_DURATION:
+        return System.currentTimeMillis() <
+            (request.getStartTime().getSeconds() + request.getTestDuration().getSeconds()) * 1000;
       case NUMBER_OF_MESSAGES:
         return client.getNumberOfMessages() < request.getNumberOfMessages();
     }
