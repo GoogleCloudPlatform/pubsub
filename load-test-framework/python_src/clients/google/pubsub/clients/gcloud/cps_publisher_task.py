@@ -39,7 +39,7 @@ if __name__ == "__main__":
 
     # Create Pub/Sub client
     pubsub_client = pubsub.Client()
-    topic = pubsub_client.topic(args.topic)
+    batch = pubsub_client.topic(args.topic).batch()
 
     # Bind to local socket
     sock = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -53,7 +53,6 @@ if __name__ == "__main__":
             while True:
                 try:
                     connection.recv(1)  # Server will send 1 byte every time we want to publish
-                    batch = topic.batch()
                     start = time.clock()
                     for i in range(0, batch_size):
                         batch.publish("A" * message_size, sendTime=str(int(start * 1000)))
