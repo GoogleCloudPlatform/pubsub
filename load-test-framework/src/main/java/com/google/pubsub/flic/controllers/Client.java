@@ -130,11 +130,14 @@ public class Client {
           .setSeconds(loadtestLengthSeconds).build());
     }
     switch (clientType) {
+      case CPS_GCLOUD_PUBLISHER:
+        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
+            .setPublishBatchSize(cpsPublishBatchSize));
+        break;
       case CPS_GCLOUD_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
             .setSubscription(subscription)
-            .setMaxMessagesPerPull(maxMessagesPerPull)
-            .setPublishBatchSize(cpsPublishBatchSize));
+            .setMaxMessagesPerPull(maxMessagesPerPull));
         break;
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
