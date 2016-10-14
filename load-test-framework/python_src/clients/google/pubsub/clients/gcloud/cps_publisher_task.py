@@ -30,9 +30,11 @@ if __name__ == "__main__":
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument('topic')
+    parser.add_argument('batch_size')
     parser.add_argument('message_size')
     args = parser.parse_args()
 
+    batch_size = int(args.batch_size)
     message_size = int(args.message_size)
 
     # Create Pub/Sub client
@@ -50,8 +52,11 @@ if __name__ == "__main__":
         while True:
             try:
                 connection.recv(1)  # Server will send 1 byte every time we want to publish
+                batch = topic.batch()
                 start = time.clock()
-                topic.publish("A" * message_size, sendTime=str(int(start * 1000)))
+                for i in range(0, batch_size):
+                    batch.publish("A" * message_size, sendTime=str(int(start * 1000)))
+                batch.commit()
                 end = time.clock()
                 connection.sendall(int((start - end) * 1000))
             finally:
