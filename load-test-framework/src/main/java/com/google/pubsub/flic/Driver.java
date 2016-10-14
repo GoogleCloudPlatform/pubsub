@@ -30,9 +30,35 @@ import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
+import com.google.api.client.auth.oauth2.Credential;
+import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
+import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
+import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
+import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.client.util.store.FileDataStoreFactory;
+import com.google.api.services.sheets.v4.Sheets;
+import com.google.api.services.sheets.v4.SheetsScopes;
+import com.google.api.services.sheets.v4.model.AppendCellsRequest;
+import com.google.api.services.sheets.v4.model.BatchUpdateSpreadsheetRequest;
+import com.google.api.services.sheets.v4.model.CellData;
+import com.google.api.services.sheets.v4.model.ExtendedValue;
+import com.google.api.services.sheets.v4.model.Request;
+import com.google.api.services.sheets.v4.model.RowData;
+import com.google.api.services.sheets.v4.model.ValueRange;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.text.DecimalFormat;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -141,6 +167,11 @@ class Driver {
           "message loss. If set less than 1, this flag is ignored."
   )
   private int numberOfMessages = 0;
+  
+  private final String SPREADSHEET_ID = System.getenv("LOADTEST_SPREADSHEET_ID");
+  private final String APPLICATION_NAME = "loadtest-framework";
+  private final String DATA_STORE_DIR = 
+      System.getProperty("user.home") + "/.credentials/sheets.googleapis.com-loadtest-framework";
 
   public static void main(String[] args) {
     // Turns off all java.util.logging.
@@ -199,7 +230,7 @@ class Driver {
       pollingExecutor.scheduleWithFixedDelay(() -> {
         synchronized (pollingExecutor) {
           log.info("===============================================");
-          printStats(gceController.getStatsForAllClientTypes());
+          printStats(getStatsFromResults(gceController.getStatsForAllClientTypes()));
           log.info("===============================================");
         }
       }, 5, 5, TimeUnit.SECONDS);
@@ -208,8 +239,15 @@ class Driver {
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
-      printStats(gceController.getStatsForAllClientTypes());
-
+      
+      List<String[]> stats = getStatsFromResults(gceController.getStatsForAllClientTypes());
+      printStats(stats);
+      
+      if (SPREADSHEET_ID.length() < 0) {
+        // Output results to common Google sheet
+        Sheets sheetService = getSheetsService();
+        sendToSheets(sheetService, stats);
+      }
       gceController.shutdown(null);
       System.exit(0);
     } catch (Throwable t) {
@@ -217,20 +255,106 @@ class Driver {
       System.exit(1);
     }
   }
-
-  private void printStats(Map<ClientType, Controller.LoadtestStats> results) {
+  
+  private List<String[]> getStatsFromResults(Map<ClientType, Controller.LoadtestStats> results) {
+    List<String[]> out = new ArrayList<String[]>(results.size());
     results.forEach((type, stats) -> {
-      log.info("Results for " + type + ":");
-      log.info("50%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
-      log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
-      log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
-      // CPS Publishers report latency per batch message.
-      log.info("Average throughput: " +
-          new DecimalFormat("#.##").format(
-              (double) LongStream.of(
-                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
-                  * (type.isCpsPublisher() ? cpsPublishBatchSize : 1)) + " MB/s");
+      String[] row = new String[5];
+      row[0] = type.toString();
+      row[1] = LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0);
+      row[2] = LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0);
+      row[3] = LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9);
+      row[4] = new DecimalFormat("#.##").format(
+          (double) LongStream.of(
+              stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
+              * (type.isCpsPublisher() ? cpsPublishBatchSize : 1));
     });
+    return out;
+  }
+
+  private void printStats(List<String[]> stats) {
+    for(String[] row : stats) {
+      log.info("Results for " + row[0] + ":");
+      log.info("50%: " + row[1]);
+      log.info("99%: " + row[2]);
+      log.info("99.9%: " + row[3]);
+      // CPS Publishers report latency per batch message.
+      log.info("Average throughput: " + row[4] + " MB/s");
+    }
+  }
+  
+  private Sheets getSheetsService() throws Exception {
+    InputStream in = new FileInputStream(new File(System.getenv("GOOGLE_OATH2_CREDENTIALS")));
+    JsonFactory factory = new JacksonFactory();
+    GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(factory, new InputStreamReader(in));
+    HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport(); 
+    FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(new File(DATA_STORE_DIR));
+    List<String> scopes = Arrays.asList(SheetsScopes.SPREADSHEETS);
+    GoogleAuthorizationCodeFlow flow =
+        new GoogleAuthorizationCodeFlow.Builder(
+                transport, factory, clientSecrets, scopes)
+        .setAccessType("offline")
+        .setDataStoreFactory(dataStoreFactory)
+        .build();
+    Credential credential = new AuthorizationCodeInstalledApp(
+        flow, new LocalServerReceiver()).authorize("user");
+    return new Sheets.Builder(transport, factory, credential).setApplicationName(APPLICATION_NAME).build();
+  }
+  
+  private void sendToSheets(Sheets sheetService, List<String[]> stats) {
+    List<List<Object>> cpsValues = new ArrayList<List<Object>>();
+    List<List<Object>> kafkaValues = new ArrayList<List<Object>>();
+    for (String[] row : stats) {
+      List<Object> valueRow = new ArrayList<Object>(13);
+      switch (row[0]) {
+        case "cps-gcloud-publisher":
+          valueRow.add(cpsPublisherCount);
+          valueRow.add(0);
+          cpsValues.add(valueRow);
+          break;
+        case "cps-gcloud-subscriber":
+          valueRow.add(0);
+          valueRow.add(cpsSubscriberCount);
+          cpsValues.add(valueRow);
+          break;
+        case "kafka-publisher":
+          valueRow.add(kafkaPublisherCount);
+          valueRow.add(0);
+          kafkaValues.add(valueRow);
+          break;
+        case "kafka-subscriber":
+          valueRow.add(0);
+          valueRow.add(kafkaSubscriberCount);
+          kafkaValues.add(valueRow);
+          break;
+      }
+      valueRow.add(messageSize);
+      if (numberOfMessages <= 0) {
+        valueRow.add(loadtestLengthSeconds);
+        valueRow.add("N/A");
+      }
+      else {
+        valueRow.add("N/A");
+        valueRow.add(numberOfMessages);
+      }
+      valueRow.add(cpsPublishBatchSize);
+      valueRow.add(cpsMaxMessagesPerPull);
+      valueRow.add(requestRate);
+      valueRow.add(maxOutstandingRequests);
+      valueRow.add(row[4]);
+      valueRow.add(row[1]);
+      valueRow.add(row[2]);
+      valueRow.add(row[3]); 
+    }
+    // Add stats rows to the spreadsheet
+    try {
+      sheetService.spreadsheets().values().append(SPREADSHEET_ID, "CPS", 
+          new ValueRange().setValues(cpsValues)).setValueInputOption("USER_ENTERED").execute();
+      sheetService.spreadsheets().values().append(SPREADSHEET_ID, "Kafka", 
+          new ValueRange().setValues(kafkaValues)).setValueInputOption("USER_ENTERED").execute();
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
   }
 
   /**
