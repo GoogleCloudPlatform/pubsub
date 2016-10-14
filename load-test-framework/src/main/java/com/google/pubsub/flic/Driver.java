@@ -301,6 +301,11 @@ class Driver {
     return new Sheets.Builder(transport, factory, credential).setApplicationName(APPLICATION_NAME).build();
   }
   
+  /* Publishes stats information to Google Sheets document. Format for sheet assumes the following
+   * column order: Publisher #; Subscriber #; Message size (B); Test length (s); # messages;
+   * Publish batch size; Subscribe pull size; Request rate; Max outstanding requests; 
+   * Throughput (MB/s); 50% (ms); 90% (ms); 99% (ms)
+   */
   private void sendToSheets(Sheets sheetService, List<String[]> stats) {
     List<List<Object>> cpsValues = new ArrayList<List<Object>>();
     List<List<Object>> kafkaValues = new ArrayList<List<Object>>();
@@ -353,7 +358,7 @@ class Driver {
       sheetService.spreadsheets().values().append(SPREADSHEET_ID, "Kafka", 
           new ValueRange().setValues(kafkaValues)).setValueInputOption("USER_ENTERED").execute();
     } catch (IOException e) {
-      e.printStackTrace();
+      log.error("Error publishing to spreadsheet: " + SPREADSHEET_ID);
     }
   }
 
