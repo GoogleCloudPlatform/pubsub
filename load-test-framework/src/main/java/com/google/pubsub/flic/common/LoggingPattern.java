@@ -27,11 +27,6 @@ public class LoggingPattern extends PatternLayout {
 
   @Override
   public String format(LoggingEvent event) {
-    return new StringBuilder()
-        .append(event.getLevel())
-        .append(" - ")
-        .append(event.getMessage())
-        .append(Layout.LINE_SEP)
-        .toString();
+    return event.getLevel() + "-" + event.getMessage() + Layout.LINE_SEP;
   }
 }
