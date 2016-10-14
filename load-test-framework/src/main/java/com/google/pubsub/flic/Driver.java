@@ -28,6 +28,7 @@ import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
+import com.google.pubsub.flic.output.SheetsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import com.google.api.client.auth.oauth2.Credential;
@@ -167,10 +168,18 @@ class Driver {
           "message loss. If set less than 1, this flag is ignored."
   )
   private int numberOfMessages = 0;
-  
-  private final String SPREADSHEET_ID = System.getenv("LOADTEST_SPREADSHEET_ID");
-  private final String APPLICATION_NAME = "loadtest-framework";
-  private final String DATA_STORE_DIR = 
+  @Parameter(
+      names = {"--spreadsheet_id"},
+      description = "The id of the spreadsheet to which results are output."
+  )
+  private String spreadsheetId;
+  @Parameter(
+      names = {"--data_store_dir"},
+      description = "The directory to store credentials for sheets output verification. Note: " +
+          "sheets output is only turned on when spreadsheet_id is set to a non-empty value, so " +
+          "data will only be stored to this directory if the spreadsheet_id flag is activated."
+  )
+  private String dataStoreDirectory = 
       System.getProperty("user.home") + "/.credentials/sheets.googleapis.com-loadtest-framework";
 
   public static void main(String[] args) {
@@ -230,7 +239,7 @@ class Driver {
       pollingExecutor.scheduleWithFixedDelay(() -> {
         synchronized (pollingExecutor) {
           log.info("===============================================");
-          printStats(getStatsFromResults(gceController.getStatsForAllClientTypes()));
+          printStats(gceController.getStatsForAllClientTypes());
           log.info("===============================================");
         }
       }, 5, 5, TimeUnit.SECONDS);
@@ -239,14 +248,13 @@ class Driver {
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
+      Map<ClientType, Controller.LoadtestStats> results = gceController.getStatsForAllClientTypes();
+      printStats(results);
       
-      List<String[]> stats = getStatsFromResults(gceController.getStatsForAllClientTypes());
-      printStats(stats);
-      
-      if (SPREADSHEET_ID.length() < 0) {
+      if (spreadsheetId.length() < 0) {
         // Output results to common Google sheet
-        Sheets sheetService = getSheetsService();
-        sendToSheets(sheetService, stats);
+        SheetsService service = new SheetsService(dataStoreDirectory);
+        service.sendToSheets(spreadsheetId, results);
       }
       gceController.shutdown(null);
       System.exit(0);
@@ -255,111 +263,20 @@ class Driver {
       System.exit(1);
     }
   }
-  
-  private List<String[]> getStatsFromResults(Map<ClientType, Controller.LoadtestStats> results) {
-    List<String[]> out = new ArrayList<String[]>(results.size());
-    results.forEach((type, stats) -> {
-      String[] row = new String[5];
-      row[0] = type.toString();
-      row[1] = LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0);
-      row[2] = LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0);
-      row[3] = LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9);
-      row[4] = new DecimalFormat("#.##").format(
-          (double) LongStream.of(
-              stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
-              * (type.isCpsPublisher() ? cpsPublishBatchSize : 1));
-    });
-    return out;
-  }
 
-  private void printStats(List<String[]> stats) {
-    for(String[] row : stats) {
-      log.info("Results for " + row[0] + ":");
-      log.info("50%: " + row[1]);
-      log.info("99%: " + row[2]);
-      log.info("99.9%: " + row[3]);
+  private void printStats(Map<ClientType, Controller.LoadtestStats> results) {
+    results.forEach((type, stats) -> {
+      log.info("Results for " + type + ":");
+      log.info("50%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
+      log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
+      log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
       // CPS Publishers report latency per batch message.
-      log.info("Average throughput: " + row[4] + " MB/s");
-    }
-  }
-  
-  private Sheets getSheetsService() throws Exception {
-    InputStream in = new FileInputStream(new File(System.getenv("GOOGLE_OATH2_CREDENTIALS")));
-    JsonFactory factory = new JacksonFactory();
-    GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(factory, new InputStreamReader(in));
-    HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport(); 
-    FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(new File(DATA_STORE_DIR));
-    List<String> scopes = Arrays.asList(SheetsScopes.SPREADSHEETS);
-    GoogleAuthorizationCodeFlow flow =
-        new GoogleAuthorizationCodeFlow.Builder(
-                transport, factory, clientSecrets, scopes)
-        .setAccessType("offline")
-        .setDataStoreFactory(dataStoreFactory)
-        .build();
-    Credential credential = new AuthorizationCodeInstalledApp(
-        flow, new LocalServerReceiver()).authorize("user");
-    return new Sheets.Builder(transport, factory, credential).setApplicationName(APPLICATION_NAME).build();
-  }
-  
-  /* Publishes stats information to Google Sheets document. Format for sheet assumes the following
-   * column order: Publisher #; Subscriber #; Message size (B); Test length (s); # messages;
-   * Publish batch size; Subscribe pull size; Request rate; Max outstanding requests; 
-   * Throughput (MB/s); 50% (ms); 90% (ms); 99% (ms)
-   */
-  private void sendToSheets(Sheets sheetService, List<String[]> stats) {
-    List<List<Object>> cpsValues = new ArrayList<List<Object>>();
-    List<List<Object>> kafkaValues = new ArrayList<List<Object>>();
-    for (String[] row : stats) {
-      List<Object> valueRow = new ArrayList<Object>(13);
-      switch (row[0]) {
-        case "cps-gcloud-publisher":
-          valueRow.add(cpsPublisherCount);
-          valueRow.add(0);
-          cpsValues.add(valueRow);
-          break;
-        case "cps-gcloud-subscriber":
-          valueRow.add(0);
-          valueRow.add(cpsSubscriberCount);
-          cpsValues.add(valueRow);
-          break;
-        case "kafka-publisher":
-          valueRow.add(kafkaPublisherCount);
-          valueRow.add(0);
-          kafkaValues.add(valueRow);
-          break;
-        case "kafka-subscriber":
-          valueRow.add(0);
-          valueRow.add(kafkaSubscriberCount);
-          kafkaValues.add(valueRow);
-          break;
-      }
-      valueRow.add(messageSize);
-      if (numberOfMessages <= 0) {
-        valueRow.add(loadtestLengthSeconds);
-        valueRow.add("N/A");
-      }
-      else {
-        valueRow.add("N/A");
-        valueRow.add(numberOfMessages);
-      }
-      valueRow.add(cpsPublishBatchSize);
-      valueRow.add(cpsMaxMessagesPerPull);
-      valueRow.add(requestRate);
-      valueRow.add(maxOutstandingRequests);
-      valueRow.add(row[4]);
-      valueRow.add(row[1]);
-      valueRow.add(row[2]);
-      valueRow.add(row[3]); 
-    }
-    // Add stats rows to the spreadsheet
-    try {
-      sheetService.spreadsheets().values().append(SPREADSHEET_ID, "CPS", 
-          new ValueRange().setValues(cpsValues)).setValueInputOption("USER_ENTERED").execute();
-      sheetService.spreadsheets().values().append(SPREADSHEET_ID, "Kafka", 
-          new ValueRange().setValues(kafkaValues)).setValueInputOption("USER_ENTERED").execute();
-    } catch (IOException e) {
-      log.error("Error publishing to spreadsheet: " + SPREADSHEET_ID);
-    }
+      log.info("Average throughput: " +
+          new DecimalFormat("#.##").format(
+              (double) LongStream.of(
+                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
+                  * (type.isCpsPublisher() ? cpsPublishBatchSize : 1)) + " MB/s");
+    });
   }
 
   /**

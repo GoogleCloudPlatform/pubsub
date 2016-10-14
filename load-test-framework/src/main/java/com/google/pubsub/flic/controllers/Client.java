@@ -52,6 +52,10 @@ public class Client {
   public static int maxOutstandingRequests;
   public static long burnInTimeMillis;
   public static int numberOfMessages = 0;
+  public static int cpsPublisherCount;
+  public static int cpsSubscriberCount;
+  public static int kafkaPublisherCount;
+  public static int kafkaSubscriberCount;
   private final ClientType clientType;
   private final String networkAddress;
   private final String project;
