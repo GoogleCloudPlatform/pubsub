@@ -51,7 +51,7 @@ if __name__ == "__main__":
             try:
                 connection.recv(1)  # Server will send 1 byte every time we want to publish
                 start = time.clock()
-                topic.publish("A" * message_size, attr1=str(int(start * 1000)))
+                topic.publish("A" * message_size, sendTime=str(int(start * 1000)))
                 end = time.clock()
                 connection.sendall(int((start - end) * 1000))
             finally:
