@@ -19,7 +19,6 @@ import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -69,21 +68,25 @@ public class SheetsService {
       List<Object> valueRow = new ArrayList<Object>(13);
       switch (type) {
         case CPS_GCLOUD_PUBLISHER:
+          if (Client.cpsPublisherCount == 0) return;
           valueRow.add(Client.cpsPublisherCount);
           valueRow.add(0);
           cpsValues.add(valueRow);
           break;
         case CPS_GCLOUD_SUBSCRIBER:
+          if (Client.cpsSubscriberCount == 0) return;
           valueRow.add(0);
           valueRow.add(Client.cpsSubscriberCount);
           cpsValues.add(valueRow);
           break;
         case KAFKA_PUBLISHER:
+          if (Client.kafkaPublisherCount == 0) return;
           valueRow.add(Client.kafkaPublisherCount);
           valueRow.add(0);
           kafkaValues.add(valueRow);
           break;
         case KAFKA_SUBSCRIBER:
+          if (Client.kafkaSubscriberCount == 0) return;
           valueRow.add(0);
           valueRow.add(Client.kafkaSubscriberCount);
           kafkaValues.add(valueRow);
