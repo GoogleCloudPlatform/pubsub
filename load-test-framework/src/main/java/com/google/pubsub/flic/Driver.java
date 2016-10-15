@@ -31,35 +31,8 @@ import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.output.SheetsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import com.google.api.client.auth.oauth2.Credential;
-import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInstalledApp;
-import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
-import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
-import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
-import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.HttpTransport;
-import com.google.api.client.json.JsonFactory;
-import com.google.api.client.json.jackson2.JacksonFactory;
-import com.google.api.client.util.store.FileDataStoreFactory;
-import com.google.api.services.sheets.v4.Sheets;
-import com.google.api.services.sheets.v4.SheetsScopes;
-import com.google.api.services.sheets.v4.model.AppendCellsRequest;
-import com.google.api.services.sheets.v4.model.BatchUpdateSpreadsheetRequest;
-import com.google.api.services.sheets.v4.model.CellData;
-import com.google.api.services.sheets.v4.model.ExtendedValue;
-import com.google.api.services.sheets.v4.model.Request;
-import com.google.api.services.sheets.v4.model.RowData;
-import com.google.api.services.sheets.v4.model.ValueRange;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -172,7 +145,7 @@ class Driver {
       names = {"--spreadsheet_id"},
       description = "The id of the spreadsheet to which results are output."
   )
-  private String spreadsheetId;
+  private String spreadsheetId = "";
   @Parameter(
       names = {"--data_store_dir"},
       description = "The directory to store credentials for sheets output verification. Note: " +
@@ -229,6 +202,10 @@ class Driver {
       Client.maxOutstandingRequests = maxOutstandingRequests;
       Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
       Client.numberOfMessages = numberOfMessages;
+      Client.cpsPublisherCount = cpsPublisherCount;
+      Client.cpsSubscriberCount = cpsSubscriberCount;
+      Client.kafkaPublisherCount = kafkaPublisherCount;
+      Client.kafkaSubscriberCount = kafkaSubscriberCount;
       GCEController gceController = GCEController.newGCEController(
           project, ImmutableMap.of("us-central1-a", clientParamsMap),
           Executors.newScheduledThreadPool(500));
@@ -251,7 +228,7 @@ class Driver {
       Map<ClientType, Controller.LoadtestStats> results = gceController.getStatsForAllClientTypes();
       printStats(results);
       
-      if (spreadsheetId.length() < 0) {
+      if (spreadsheetId.length() > 0) {
         // Output results to common Google sheet
         SheetsService service = new SheetsService(dataStoreDirectory);
         service.sendToSheets(spreadsheetId, results);
