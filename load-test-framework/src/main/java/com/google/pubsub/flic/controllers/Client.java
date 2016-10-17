@@ -81,6 +81,8 @@ public class Client {
       case CPS_GCLOUD_PUBLISHER:
       case CPS_GCLOUD_SUBSCRIBER:
         return "gcloud";
+      case CPS_GCLOUD_PYTHON_PUBLISHER:
+        return "python";
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
         return "kafka";
@@ -127,6 +129,7 @@ public class Client {
     }
     switch (clientType) {
       case CPS_GCLOUD_PUBLISHER:
+      case CPS_GCLOUD_PYTHON_PUBLISHER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
             .setPublishBatchSize(cpsPublishBatchSize));
         break;

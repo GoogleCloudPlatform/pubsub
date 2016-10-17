@@ -42,11 +42,12 @@ class LoadtestServicer(loadtest_pb2.LoadtestServicer):
         if not self.batch:
             return loadtest_pb2.CheckResponse()
         start = time.clock()
-        for i in range(0, request.pubsub_options.publish_batch_size):
-            self.batch.publish("A" * request.message_size, sendTime=str(int(start * 1000)))
+        for i in range(0, self.batch_size):
+            self.batch.publish(("A" * self.message_size).encode(), sendTime=str(int(start * 1000)))
+        self.batch.commit()
         end = time.clock()
         response = loadtest_pb2.CheckResponse()
-        response.bucket_values = [(end - start) * 1000] * self.batch_size
+        response.bucket_values.extend([int((end - start) * 1000)] * self.batch_size)
         return response
 
 
