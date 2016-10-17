@@ -228,8 +228,8 @@ class Driver {
       log.info("Average throughput: " +
           new DecimalFormat("#.##").format(
               (double) LongStream.of(
-                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
-                  * (type.isCpsPublisher() ? cpsPublishBatchSize : 1)) + " MB/s");
+                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0)
+          + " MB/s");
     });
   }
 

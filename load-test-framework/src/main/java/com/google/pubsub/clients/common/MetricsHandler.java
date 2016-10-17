@@ -168,6 +168,12 @@ public class MetricsHandler {
     distribution.recordLatency(latencyMs);
   }
 
+  public synchronized void recordLatencyBatch(long latencyMs, int batch) {
+    for (int i = 0; i < batch; i++) {
+      distribution.recordLatency(latencyMs);
+    }
+  }
+
   private void reportMetrics(LatencyDistribution distribution) {
     CreateTimeSeriesRequest request;
     synchronized (this) {

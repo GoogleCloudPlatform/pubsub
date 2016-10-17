@@ -233,12 +233,14 @@ public class Client {
   public enum ClientType {
     CPS_GCLOUD_PUBLISHER,
     CPS_GCLOUD_SUBSCRIBER,
+    CPS_GCLOUD_PYTHON_PUBLISHER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
 
     public boolean isCpsPublisher() {
       switch (this) {
         case CPS_GCLOUD_PUBLISHER:
+        case CPS_GCLOUD_PYTHON_PUBLISHER:
           return true;
         default:
           return false;
@@ -248,6 +250,7 @@ public class Client {
     public ClientType getSubscriberType() {
       switch (this) {
         case CPS_GCLOUD_PUBLISHER:
+        case CPS_GCLOUD_PYTHON_PUBLISHER:
           return CPS_GCLOUD_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;
