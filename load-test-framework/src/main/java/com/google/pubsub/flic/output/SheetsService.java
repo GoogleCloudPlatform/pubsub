@@ -34,7 +34,7 @@ import org.slf4j.LoggerFactory;
 
 public class SheetsService {
   private final static Logger log = LoggerFactory.getLogger(SheetsService.class);
-  private Sheets service;
+  private final Sheets service;
   
   private final String APPLICATION_NAME = "loadtest-framework";
   
