@@ -28,6 +28,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -35,6 +36,10 @@ import org.slf4j.LoggerFactory;
 public class SheetsService {
   private final static Logger log = LoggerFactory.getLogger(SheetsService.class);
   private final Sheets service;
+  private int cpsPublisherCount = 0;
+  private int cpsSubscriberCount = 0;
+  private int kafkaPublisherCount = 0;
+  private int kafkaSubscriberCount = 0;
   
   private final String APPLICATION_NAME = "loadtest-framework";
   
@@ -66,35 +71,39 @@ public class SheetsService {
       GCEController controller) {
     List<List<Object>> cpsValues = new ArrayList<List<Object>>(results.size());
     List<List<Object>> kafkaValues = new ArrayList<List<Object>>(results.size());
+    controller.getTypes().values().forEach(paramsMap -> {
+      Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
+        collect(Collectors.groupingBy(a -> a.getClientType(), Collectors.summingInt(t -> 1)));
+      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
+      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
+      kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
+      kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
+    });
     results.forEach((type, stats) -> {
       List<Object> valueRow = new ArrayList<Object>(13);
       switch (type) {
         case CPS_GCLOUD_PUBLISHER:
-          int count = controller.getCpsPublisherCount();
-          if (count == 0) return;
-          valueRow.add(count);
+          if (cpsPublisherCount == 0) return;
+          valueRow.add(cpsPublisherCount);
           valueRow.add(0);
           cpsValues.add(valueRow);
           break;
         case CPS_GCLOUD_SUBSCRIBER:
-          count = controller.getCpsSubscriberCount();
-          if (count == 0) return;
+          if (cpsSubscriberCount == 0) return;
           valueRow.add(0);
-          valueRow.add(count);
+          valueRow.add(cpsSubscriberCount);
           cpsValues.add(valueRow);
           break;
         case KAFKA_PUBLISHER:
-          count = controller.getKafkaPublisherCount();
-          if (count == 0) return;
-          valueRow.add(count);
+          if (kafkaPublisherCount == 0) return;
+          valueRow.add(kafkaPublisherCount);
           valueRow.add(0);
           kafkaValues.add(valueRow);
           break;
         case KAFKA_SUBSCRIBER:
-          count = controller.getKafkaSubscriberCount();
-          if (count == 0) return;
+          if (kafkaSubscriberCount == 0) return;
           valueRow.add(0);
-          valueRow.add(count);
+          valueRow.add(kafkaSubscriberCount);
           kafkaValues.add(valueRow);
           break;
       }

@@ -43,7 +43,6 @@ import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Collectors;
 
 /**
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
@@ -58,10 +57,6 @@ public class GCEController extends Controller {
   private final Compute compute;
   private final String projectName;
   private final Map<String, Map<ClientParams, Integer>> types;
-  private int cpsPublisherCount;
-  private int cpsSubscriberCount;
-  private int kafkaPublisherCount;
-  private int kafkaSubscriberCount;
 
   /**
    * Instantiates the load test on Google Compute Engine.
@@ -75,19 +70,12 @@ public class GCEController extends Controller {
     this.storage = storage;
     this.compute = compute;
 
+    // For each unique type of CPS Publisher, create a Topic if it does not already exist, and then
+    // delete and recreate any subscriptions attached to it so that we do not have backlog from
+    // previous runs.
     List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
     types.values().forEach(paramsMap -> {
-      // Iterate through map to aggregate subscriber and publisher counts
-      Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
-        collect(Collectors.groupingBy(a -> a.clientType, Collectors.summingInt(t -> 1)));
-      cpsPublisherCount = countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
-      cpsSubscriberCount = countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
-      kafkaPublisherCount = countMap.get(ClientType.KAFKA_PUBLISHER);
-      kafkaSubscriberCount = countMap.get(ClientType.KAFKA_PUBLISHER);
-      // For each unique type of CPS Publisher, create a Topic if it does not already exist, and then
-      // delete and recreate any subscriptions attached to it so that we do not have backlog from
-      // previous runs.
-      paramsMap.keySet().stream().map(p -> p.clientType)
+      paramsMap.keySet().stream().map(p -> p.getClientType())
         .distinct().filter(ClientType::isCpsPublisher).forEach(clientType -> {
           SettableFuture<Void> pubsubFuture = SettableFuture.create();
           pubsubFutures.add(pubsubFuture);
@@ -104,7 +92,7 @@ public class GCEController extends Controller {
             }
             // Recreate each subscription attached to the topic.
             paramsMap.keySet().stream()
-                .filter(p -> p.clientType == clientType.getSubscriberType())
+                .filter(p -> p.getClientType() == clientType.getSubscriberType())
                 .map(p -> p.subscription).forEach(subscription -> {
               pubSub.deleteSubscription(subscription);
               pubSub.create(SubscriptionInfo.of(topic, subscription));
@@ -137,7 +125,7 @@ public class GCEController extends Controller {
         createGroupFutures.add(createGroupFuture);
         executor.execute(() -> {
           try {
-            createManagedInstanceGroup(zone, param.clientType);
+            createManagedInstanceGroup(zone, param.getClientType());
             createGroupFuture.set(null);
           } catch (Exception e) {
             createGroupFuture.setException(e);
@@ -161,7 +149,7 @@ public class GCEController extends Controller {
         resizingFutures.add(resizingFuture);
         executor.execute(() -> {
           try {
-            startInstances(zone, type.clientType, n);
+            startInstances(zone, type.getClientType(), n);
             resizingFuture.set(null);
           } catch (Exception e) {
             resizingFuture.setException(e);
@@ -249,10 +237,10 @@ public class GCEController extends Controller {
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
           try {
             compute.instanceGroupManagers()
-                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.clientType, 0)
+                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.getClientType(), 0)
                 .execute();
           } catch (IOException e) {
-            log.error("Unable to resize Instance Group for " + param.clientType + ", please " +
+            log.error("Unable to resize Instance Group for " + param.getClientType() + ", please " +
                 "manually ensure you do not have any running instances to avoid being billed.");
           }
         })
@@ -400,7 +388,7 @@ public class GCEController extends Controller {
     do {
       response = compute.instanceGroupManagers().
           listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-" +
-              params.clientType).execute();
+              params.getClientType()).execute();
 
       // If we are not instantiating any instances of this type, just return.
       if (response.getManagedInstances() == null) {
@@ -415,7 +403,7 @@ public class GCEController extends Controller {
       Instance instance = compute.instances().get(projectName, zone, instanceName).execute();
       synchronized (this) {
         clients.add(new Client(
-            params.clientType,
+            params.getClientType(),
             instance.getNetworkInterfaces().get(0).getAccessConfigs().get(0).getNatIP(),
             projectName,
             params.subscription,
@@ -449,28 +437,11 @@ public class GCEController extends Controller {
             .setServiceAccounts(Collections.singletonList(new ServiceAccount().setScopes(
                 Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")))));
   }
-
+  
   /**
-   * @return the cpsPublisherCount
+   * @return the types map
    */
-  public int getCpsPublisherCount() {
-    return cpsPublisherCount;}
-
-  /**
-   * @return the cpsSubscriberCount
-   */
-  public int getCpsSubscriberCount() {
-    return cpsSubscriberCount;}
-
-  /**
-   * @return the kafkaPublisherCount
-   */
-  public int getKafkaPublisherCount() {
-    return kafkaPublisherCount;}
-
-  /**
-   * @return the kafkaSubscriberCount
-   */
-  public int getKafkaSubscriberCount() {
-    return kafkaSubscriberCount;}
+  public Map<String, Map<ClientParams, Integer>> getTypes() {
+    return types;
+  }
 }
