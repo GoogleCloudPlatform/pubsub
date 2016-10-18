@@ -204,8 +204,7 @@ class Driver {
       Client.numberOfMessages = numberOfMessages;
       GCEController gceController = GCEController.newGCEController(
           project, ImmutableMap.of("us-central1-a", clientParamsMap),
-          Executors.newScheduledThreadPool(500), cpsPublisherCount,
-          cpsSubscriberCount, kafkaPublisherCount, kafkaSubscriberCount);
+          Executors.newScheduledThreadPool(500));
       gceController.startClients();
 
       // Start a thread to poll and output results.

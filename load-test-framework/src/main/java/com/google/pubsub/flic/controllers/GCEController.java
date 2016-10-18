@@ -67,24 +67,41 @@ public class GCEController extends Controller {
    */
   private GCEController(String projectName, Map<String, Map<ClientParams, Integer>> types,
                         ScheduledExecutorService executor, Storage storage,
-                        Compute compute, PubSub pubSub, int cpsPublisherCount,
-                        int cpsSubscriberCount, int kafkaPublisherCount,
-                        int kafkaSubscriberCount) throws Throwable {
+                        Compute compute, PubSub pubSub) throws Throwable {
     super(executor);
     this.projectName = projectName;
     this.types = types;
     this.storage = storage;
     this.compute = compute;
-    this.cpsPublisherCount = cpsPublisherCount;
-    this.cpsSubscriberCount = cpsSubscriberCount;
-    this.kafkaPublisherCount = kafkaPublisherCount;
-    this.kafkaSubscriberCount = kafkaSubscriberCount;
+    cpsPublisherCount = 0;
+    cpsSubscriberCount = 0;
+    kafkaPublisherCount = 0;
+    kafkaSubscriberCount = 0;
 
-    // For each unique type of CPS Publisher, create a Topic if it does not already exist, and then
-    // delete and recreate any subscriptions attached to it so that we do not have backlog from
-    // previous runs.
     List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
-    types.values().forEach((paramsMap) -> paramsMap.keySet().stream().map(p -> p.clientType)
+    types.values().forEach((paramsMap) -> {
+      // Iterate through map to aggregate subscriber and publisher counts
+      paramsMap.forEach((param, count) -> {
+        switch (param.clientType) {
+          case CPS_GCLOUD_PUBLISHER:
+            cpsPublisherCount += count;
+            break;
+          case CPS_GCLOUD_SUBSCRIBER:
+            cpsSubscriberCount += count;
+            break;
+          case KAFKA_PUBLISHER:
+            kafkaPublisherCount += count;
+            break;
+          case KAFKA_SUBSCRIBER:
+            kafkaSubscriberCount += count;
+            break;
+        }
+      });
+      
+      // For each unique type of CPS Publisher, create a Topic if it does not already exist, and then
+      // delete and recreate any subscriptions attached to it so that we do not have backlog from
+      // previous runs.
+      paramsMap.keySet().stream().map(p -> p.clientType)
         .distinct().filter(ClientType::isCpsPublisher).forEach(clientType -> {
           SettableFuture<Void> pubsubFuture = SettableFuture.create();
           pubsubFutures.add(pubsubFuture);
@@ -108,7 +125,8 @@ public class GCEController extends Controller {
             });
             pubsubFuture.set(null);
           });
-        }));
+        });
+      });
     try {
       createStorageBucket();
       createFirewall();
@@ -211,9 +229,7 @@ public class GCEController extends Controller {
   public static GCEController newGCEController(
       String projectName,
       Map<String, Map<ClientParams, Integer>> types,
-      ScheduledExecutorService executor, 
-      int cpsPublisherCount, int cpsSubscriberCount, 
-      int kafkaPublisherCount, int kafkaSubscriberCount) throws Throwable {
+      ScheduledExecutorService executor) throws Throwable {
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = new JacksonFactory();
     GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
@@ -229,9 +245,7 @@ public class GCEController extends Controller {
         new Compute.Builder(transport, jsonFactory, credential)
             .setApplicationName("Cloud Pub/Sub Loadtest Framework")
             .build(),
-        PubSubOptions.builder().projectId(projectName).build().service(), 
-        cpsPublisherCount, cpsSubscriberCount, 
-        kafkaPublisherCount, kafkaSubscriberCount);
+        PubSubOptions.builder().projectId(projectName).build().service());
   }
 
   /**
