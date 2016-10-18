@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,6 +69,19 @@ public class SheetsService {
    * Throughput (MB/s); 50% (ms); 90% (ms); 99% (ms)
    */
   public void sendToSheets(String sheetId, Map<ClientType, Controller.LoadtestStats> results,
+      GCEController controller) {
+    List<List<List<Object>>> values = getValuesList(results, controller);
+    try {
+      service.spreadsheets().values().append(sheetId, "CPS", 
+          new ValueRange().setValues(values.get(0))).setValueInputOption("USER_ENTERED").execute();
+      service.spreadsheets().values().append(sheetId, "Kafka", 
+          new ValueRange().setValues(values.get(1))).setValueInputOption("USER_ENTERED").execute();
+    } catch (IOException e) {
+      log.error("Error publishing to spreadsheet: " + sheetId);
+    }
+  }
+  
+  private List<List<List<Object>>> getValuesList(Map<ClientType, Controller.LoadtestStats> results,
       GCEController controller) {
     List<List<Object>> cpsValues = new ArrayList<List<Object>>(results.size());
     List<List<Object>> kafkaValues = new ArrayList<List<Object>>(results.size());
@@ -128,13 +142,9 @@ public class SheetsService {
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
     });
-    try {
-      service.spreadsheets().values().append(sheetId, "CPS", 
-          new ValueRange().setValues(cpsValues)).setValueInputOption("USER_ENTERED").execute();
-      service.spreadsheets().values().append(sheetId, "Kafka", 
-          new ValueRange().setValues(kafkaValues)).setValueInputOption("USER_ENTERED").execute();
-    } catch (IOException e) {
-      log.error("Error publishing to spreadsheet: " + sheetId);
-    }
+    List<List<List<Object>>> out = new ArrayList<List<List<Object>>>();
+    out.add(cpsValues);
+    out.add(kafkaValues);
+    return out;
   }
 }
