@@ -43,6 +43,7 @@ import java.nio.file.StandardOpenOption;
 import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.stream.Collectors;
 
 /**
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
@@ -73,31 +74,16 @@ public class GCEController extends Controller {
     this.types = types;
     this.storage = storage;
     this.compute = compute;
-    cpsPublisherCount = 0;
-    cpsSubscriberCount = 0;
-    kafkaPublisherCount = 0;
-    kafkaSubscriberCount = 0;
 
     List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
-    types.values().forEach((paramsMap) -> {
+    types.values().forEach(paramsMap -> {
       // Iterate through map to aggregate subscriber and publisher counts
-      paramsMap.forEach((param, count) -> {
-        switch (param.clientType) {
-          case CPS_GCLOUD_PUBLISHER:
-            cpsPublisherCount += count;
-            break;
-          case CPS_GCLOUD_SUBSCRIBER:
-            cpsSubscriberCount += count;
-            break;
-          case KAFKA_PUBLISHER:
-            kafkaPublisherCount += count;
-            break;
-          case KAFKA_SUBSCRIBER:
-            kafkaSubscriberCount += count;
-            break;
-        }
-      });
-      
+      Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
+        collect(Collectors.groupingBy(a -> a.clientType, Collectors.summingInt(t -> 1)));
+      cpsPublisherCount = countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
+      cpsSubscriberCount = countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
+      kafkaPublisherCount = countMap.get(ClientType.KAFKA_PUBLISHER);
+      kafkaSubscriberCount = countMap.get(ClientType.KAFKA_PUBLISHER);
       // For each unique type of CPS Publisher, create a Topic if it does not already exist, and then
       // delete and recreate any subscriptions attached to it so that we do not have backlog from
       // previous runs.
