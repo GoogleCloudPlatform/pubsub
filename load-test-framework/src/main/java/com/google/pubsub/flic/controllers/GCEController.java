@@ -240,10 +240,11 @@ public class GCEController extends Controller {
    */
   @Override
   public void shutdown(Throwable t) {
-    if (t != null)
+    if (t != null) {
       log.error("Shutting down: ", t);
-    else
+    } else {
       log.info("Shutting down...");
+    }
     // Attempt to cleanly close all running instances.
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
           try {
