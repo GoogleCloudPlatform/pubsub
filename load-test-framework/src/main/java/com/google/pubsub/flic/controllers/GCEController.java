@@ -57,18 +57,28 @@ public class GCEController extends Controller {
   private final Compute compute;
   private final String projectName;
   private final Map<String, Map<ClientParams, Integer>> types;
+  private int cpsPublisherCount;
+  private int cpsSubscriberCount;
+  private int kafkaPublisherCount;
+  private int kafkaSubscriberCount;
 
   /**
    * Instantiates the load test on Google Compute Engine.
    */
   private GCEController(String projectName, Map<String, Map<ClientParams, Integer>> types,
                         ScheduledExecutorService executor, Storage storage,
-                        Compute compute, PubSub pubSub) throws Throwable {
+                        Compute compute, PubSub pubSub, int cpsPublisherCount,
+                        int cpsSubscriberCount, int kafkaPublisherCount,
+                        int kafkaSubscriberCount) throws Throwable {
     super(executor);
     this.projectName = projectName;
     this.types = types;
     this.storage = storage;
     this.compute = compute;
+    this.cpsPublisherCount = cpsPublisherCount;
+    this.cpsSubscriberCount = cpsSubscriberCount;
+    this.kafkaPublisherCount = kafkaPublisherCount;
+    this.kafkaSubscriberCount = kafkaSubscriberCount;
 
     // For each unique type of CPS Publisher, create a Topic if it does not already exist, and then
     // delete and recreate any subscriptions attached to it so that we do not have backlog from
@@ -201,7 +211,9 @@ public class GCEController extends Controller {
   public static GCEController newGCEController(
       String projectName,
       Map<String, Map<ClientParams, Integer>> types,
-      ScheduledExecutorService executor) throws Throwable {
+      ScheduledExecutorService executor, 
+      int cpsPublisherCount, int cpsSubscriberCount, 
+      int kafkaPublisherCount, int kafkaSubscriberCount) throws Throwable {
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     JsonFactory jsonFactory = new JacksonFactory();
     GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
@@ -217,7 +229,9 @@ public class GCEController extends Controller {
         new Compute.Builder(transport, jsonFactory, credential)
             .setApplicationName("Cloud Pub/Sub Loadtest Framework")
             .build(),
-        PubSubOptions.builder().projectId(projectName).build().service());
+        PubSubOptions.builder().projectId(projectName).build().service(), 
+        cpsPublisherCount, cpsSubscriberCount, 
+        kafkaPublisherCount, kafkaSubscriberCount);
   }
 
   /**
@@ -434,4 +448,28 @@ public class GCEController extends Controller {
             .setServiceAccounts(Collections.singletonList(new ServiceAccount().setScopes(
                 Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")))));
   }
+
+  /**
+   * @return the cpsPublisherCount
+   */
+  public int getCpsPublisherCount() {
+    return cpsPublisherCount;}
+
+  /**
+   * @return the cpsSubscriberCount
+   */
+  public int getCpsSubscriberCount() {
+    return cpsSubscriberCount;}
+
+  /**
+   * @return the kafkaPublisherCount
+   */
+  public int getKafkaPublisherCount() {
+    return kafkaPublisherCount;}
+
+  /**
+   * @return the kafkaSubscriberCount
+   */
+  public int getKafkaSubscriberCount() {
+    return kafkaSubscriberCount;}
 }

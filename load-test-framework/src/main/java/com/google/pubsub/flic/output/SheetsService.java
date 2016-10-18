@@ -15,6 +15,7 @@ import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.controllers.Controller;
+import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import java.io.File;
@@ -61,34 +62,39 @@ public class SheetsService {
    * Publish batch size; Subscribe pull size; Request rate; Max outstanding requests; 
    * Throughput (MB/s); 50% (ms); 90% (ms); 99% (ms)
    */
-  public void sendToSheets(String sheetId, Map<ClientType, Controller.LoadtestStats> results) {
+  public void sendToSheets(String sheetId, Map<ClientType, Controller.LoadtestStats> results,
+      GCEController controller) {
     List<List<Object>> cpsValues = new ArrayList<List<Object>>(results.size());
     List<List<Object>> kafkaValues = new ArrayList<List<Object>>(results.size());
     results.forEach((type, stats) -> {
       List<Object> valueRow = new ArrayList<Object>(13);
       switch (type) {
         case CPS_GCLOUD_PUBLISHER:
-          if (Client.cpsPublisherCount == 0) return;
-          valueRow.add(Client.cpsPublisherCount);
+          int count = controller.getCpsPublisherCount();
+          if (count == 0) return;
+          valueRow.add(count);
           valueRow.add(0);
           cpsValues.add(valueRow);
           break;
         case CPS_GCLOUD_SUBSCRIBER:
-          if (Client.cpsSubscriberCount == 0) return;
+          count = controller.getCpsSubscriberCount();
+          if (count == 0) return;
           valueRow.add(0);
-          valueRow.add(Client.cpsSubscriberCount);
+          valueRow.add(count);
           cpsValues.add(valueRow);
           break;
         case KAFKA_PUBLISHER:
-          if (Client.kafkaPublisherCount == 0) return;
-          valueRow.add(Client.kafkaPublisherCount);
+          count = controller.getKafkaPublisherCount();
+          if (count == 0) return;
+          valueRow.add(count);
           valueRow.add(0);
           kafkaValues.add(valueRow);
           break;
         case KAFKA_SUBSCRIBER:
-          if (Client.kafkaSubscriberCount == 0) return;
+          count = controller.getKafkaSubscriberCount();
+          if (count == 0) return;
           valueRow.add(0);
-          valueRow.add(Client.kafkaSubscriberCount);
+          valueRow.add(count);
           kafkaValues.add(valueRow);
           break;
       }

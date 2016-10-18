@@ -202,13 +202,10 @@ class Driver {
       Client.maxOutstandingRequests = maxOutstandingRequests;
       Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
       Client.numberOfMessages = numberOfMessages;
-      Client.cpsPublisherCount = cpsPublisherCount;
-      Client.cpsSubscriberCount = cpsSubscriberCount;
-      Client.kafkaPublisherCount = kafkaPublisherCount;
-      Client.kafkaSubscriberCount = kafkaSubscriberCount;
       GCEController gceController = GCEController.newGCEController(
           project, ImmutableMap.of("us-central1-a", clientParamsMap),
-          Executors.newScheduledThreadPool(500));
+          Executors.newScheduledThreadPool(500), cpsPublisherCount,
+          cpsSubscriberCount, kafkaPublisherCount, kafkaSubscriberCount);
       gceController.startClients();
 
       // Start a thread to poll and output results.
@@ -231,7 +228,7 @@ class Driver {
       if (spreadsheetId.length() > 0) {
         // Output results to common Google sheet
         SheetsService service = new SheetsService(dataStoreDirectory);
-        service.sendToSheets(spreadsheetId, results);
+        service.sendToSheets(spreadsheetId, results, gceController);
       }
       gceController.shutdown(null);
       System.exit(0);
