@@ -19,6 +19,15 @@ import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.monitoring.v3.Monitoring;
+import com.google.api.services.monitoring.v3.model.ListTimeSeriesResponse;
+import com.google.api.services.monitoring.v3.model.Point;
+import com.google.api.services.monitoring.v3.model.TimeSeries;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AtomicDouble;
@@ -33,8 +42,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -144,11 +156,19 @@ class Driver {
   private int numberOfMessages = 0;
   @Parameter(
       names = {"--max_publish_latency_test"},
-      description = "This sets the maximum latency, in this test we will continuously run load tests with increasing " +
-          "request rates until we hit the provided latency. You must only provide a single type of publisher to use " +
-          "this test. This uses the 99% latency as the bound to check."
+      description = "This sets the maximum latency, in this test we will continuously run load " +
+          "tests with increasing request rates until we hit the provided latency. You must only " +
+          "provide a single type of publisher to use this test. This uses the 99% latency as the " +
+          "bound to check."
   )
   private int maxPublishLatency = 0;
+  @Parameter(
+      names = {"--max_subscriber_throughput_test"},
+      description = "This test will continuously run load tests with greater publish request " +
+          "rate until the subscriber can no longer keep up, and will let you know the maximum " +
+          "throughput per subscribing client."
+  )
+  private boolean maxSubscriberThroughputTest = false;
 
 
   public static void main(String[] args) {
@@ -192,8 +212,6 @@ class Driver {
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1;
-      Client.startTime = Timestamp.newBuilder()
-          .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.cpsPublishBatchSize = cpsPublishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
@@ -218,20 +236,64 @@ class Driver {
       }, 5, 5, TimeUnit.SECONDS);
       Map<ClientType, Controller.LoadtestStats> statsMap;
       AtomicDouble publishLatency = new AtomicDouble(0);
+      // This should be a number_of_messages test so that we know when the publisher is done.
+      // If the publisher has finished, check pubsub.googleapis.com/subscription/num_undelivered_messages.
+      // If greater than some threshold, like 1 pull, we fail and return the previous one.
+      final HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+      final JsonFactory jsonFactory = new JacksonFactory();
+      final GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
+      final Monitoring monitoring = new Monitoring.Builder(transport, jsonFactory, credential)
+          .setApplicationName("Cloud Pub/Sub Loadtest Framework")
+          .build();
+      final SimpleDateFormat dateFormatter;
+      dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+      dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
       do {
+        Client.startTime = Timestamp.newBuilder()
+            .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
+        Date startDate = new Date();
+        startDate.setTime(Client.startTime.getSeconds() * 1000);
         gceController.startClients();
+        if (maxSubscriberThroughputTest) {
+          gceController.waitForPublisherClients();
+          ListTimeSeriesResponse response =
+              monitoring.projects().timeSeries().list("projects/" + project)
+                  .setFilter(
+                      "metric.type = \"pubsub.googleapis.com/subscription/num_undelivered_messages\"")
+                  .setIntervalStartTime(dateFormatter.format(startDate))
+                  .setIntervalEndTime(dateFormatter.format(new Date()))
+                  .execute();
+          // Get most recent point.
+          Point maxPoint = null;
+          for (TimeSeries timeSeries : response.getTimeSeries()) {
+            for (Point point : timeSeries.getPoints()) {
+              if (maxPoint == null ||
+                  dateFormatter.parse(point.getInterval().getStartTime()).after(
+                      dateFormatter.parse(maxPoint.getInterval().getStartTime()))) {
+                maxPoint = point;
+              }
+            }
+          }
+          if (maxPoint != null && maxPoint.getValue().getInt64Value() > cpsMaxMessagesPerPull) {
+            log.info("We accumulated a backlog during this test, refer to the last run " +
+                "for the maximum throughput capable before accumulating backlog.");
+            maxSubscriberThroughputTest = false;
+          }
+        }
         // Wait for the load test to finish.
         gceController.waitForClients();
         statsMap = gceController.getStatsForAllClientTypes();
-        statsMap.forEach((type, stats) -> {
-          if (type.isPublisher()) {
-            publishLatency.set(LatencyDistribution
-                .getNthPercentileUpperBound(stats.bucketValues, 99));
-          }
-        });
-        printStats(statsMap);
+        if (maxPublishLatency > 0) {
+          statsMap.forEach((type, stats) -> {
+            if (type.isPublisher()) {
+              publishLatency.set(LatencyDistribution
+                  .getNthPercentileUpperBound(stats.bucketValues, 99));
+            }
+          });
+        }
         Client.requestRate *= 1.1;
-      } while (publishLatency.get() < maxPublishLatency);
+        printStats(statsMap);
+      } while (publishLatency.get() < maxPublishLatency || maxSubscriberThroughputTest);
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }

@@ -76,6 +76,21 @@ public abstract class Controller {
   }
 
   /**
+   * Waits for publishers to complete the load test.
+   */
+  public void waitForPublisherClients() throws Throwable {
+    try {
+      Futures.allAsList(clients.stream()
+          .filter(c -> c.getClientType().isPublisher())
+          .map(Client::getDoneFuture)
+          .collect(Collectors.toList())
+      ).get();
+    } catch (ExecutionException e) {
+      throw e.getCause();
+    }
+  }
+
+  /**
    * Gets the current statistics for the given type.
    *
    * @param type the client type to aggregate results for
