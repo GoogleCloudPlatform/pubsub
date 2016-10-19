@@ -167,28 +167,28 @@ public class SheetsService {
   /**
    * @return the cpsPublisherCount
    */
-  protected int getCpsPublisherCount() {
+  int getCpsPublisherCount() {
     return cpsPublisherCount;
   }
 
   /**
    * @return the cpsSubscriberCount
    */
-  protected int getCpsSubscriberCount() {
+  int getCpsSubscriberCount() {
     return cpsSubscriberCount;
   }
 
   /**
    * @return the kafkaPublisherCount
    */
-  protected int getKafkaPublisherCount() {
+  int getKafkaPublisherCount() {
     return kafkaPublisherCount;
   }
 
   /**
    * @return the kafkaSubscriberCount
    */
-  protected int getKafkaSubscriberCount() {
+  int getKafkaSubscriberCount() {
     return kafkaSubscriberCount;
   }
 }
