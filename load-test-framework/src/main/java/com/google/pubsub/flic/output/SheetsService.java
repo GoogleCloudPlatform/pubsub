@@ -15,8 +15,8 @@ import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.controllers.Controller;
-import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.controllers.Client;
+import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import java.io.File;
 import java.io.FileInputStream;
@@ -30,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,10 +40,34 @@ public class SheetsService {
   private int cpsSubscriberCount = 0;
   private int kafkaPublisherCount = 0;
   private int kafkaSubscriberCount = 0;
+  private String dataStoreDirectory;
   
   private final String APPLICATION_NAME = "loadtest-framework";
   
-  public SheetsService(String dataStoreDirectory) throws Exception {
+  public SheetsService(String dataStoreDirectory, Map<String, Map<ClientParams, Integer>> types) {
+    this.dataStoreDirectory = dataStoreDirectory;
+    Sheets tmp;
+    try {
+      tmp = authorize();
+      fillClientCounts(types);
+    } catch(Exception e) { 
+      tmp = null;
+    }
+    service = tmp;
+  }
+  
+  private void fillClientCounts(Map<String, Map<ClientParams, Integer>> types) {
+    types.values().forEach(paramsMap -> {
+      Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
+        collect(Collectors.groupingBy(a -> a.getClientType(), Collectors.summingInt(t -> 1)));
+      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
+      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
+      kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
+      kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
+    });
+  }
+  
+  private Sheets authorize() throws Exception {
     InputStream in = new FileInputStream(new File(System.getenv("GOOGLE_OATH2_CREDENTIALS")));
     JsonFactory factory = new JacksonFactory();
     GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(factory, new InputStreamReader(in));
@@ -59,7 +82,7 @@ public class SheetsService {
         .build();
     Credential credential = new AuthorizationCodeInstalledApp(
         flow, new LocalServerReceiver()).authorize("user");
-    service = new Sheets.Builder(transport, factory, credential)
+    return new Sheets.Builder(transport, factory, credential)
         .setApplicationName(APPLICATION_NAME).build();
   }
   
@@ -68,9 +91,8 @@ public class SheetsService {
    * Publish batch size; Subscribe pull size; Request rate; Max outstanding requests; 
    * Throughput (MB/s); 50% (ms); 90% (ms); 99% (ms)
    */
-  public void sendToSheets(String sheetId, Map<ClientType, Controller.LoadtestStats> results,
-      GCEController controller) {
-    List<List<List<Object>>> values = getValuesList(results, controller);
+  public void sendToSheets(String sheetId, Map<ClientType, Controller.LoadtestStats> results) {
+    List<List<List<Object>>> values = getValuesList(results);
     try {
       service.spreadsheets().values().append(sheetId, "CPS", 
           new ValueRange().setValues(values.get(0))).setValueInputOption("USER_ENTERED").execute();
@@ -81,18 +103,10 @@ public class SheetsService {
     }
   }
   
-  private List<List<List<Object>>> getValuesList(Map<ClientType, Controller.LoadtestStats> results,
-      GCEController controller) {
+  public List<List<List<Object>>> getValuesList(Map<ClientType, Controller.LoadtestStats> results) {
     List<List<Object>> cpsValues = new ArrayList<List<Object>>(results.size());
     List<List<Object>> kafkaValues = new ArrayList<List<Object>>(results.size());
-    controller.getTypes().values().forEach(paramsMap -> {
-      Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
-        collect(Collectors.groupingBy(a -> a.getClientType(), Collectors.summingInt(t -> 1)));
-      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
-      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
-      kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
-      kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
-    });
+    
     results.forEach((type, stats) -> {
       List<Object> valueRow = new ArrayList<Object>(13);
       switch (type) {
@@ -146,5 +160,33 @@ public class SheetsService {
     out.add(cpsValues);
     out.add(kafkaValues);
     return out;
+  }
+
+  /**
+   * @return the cpsPublisherCount
+   */
+  public int getCpsPublisherCount() {
+    return cpsPublisherCount;
+  }
+
+  /**
+   * @return the cpsSubscriberCount
+   */
+  public int getCpsSubscriberCount() {
+    return cpsSubscriberCount;
+  }
+
+  /**
+   * @return the kafkaPublisherCount
+   */
+  public int getKafkaPublisherCount() {
+    return kafkaPublisherCount;
+  }
+
+  /**
+   * @return the kafkaSubscriberCount
+   */
+  public int getKafkaSubscriberCount() {
+    return kafkaSubscriberCount;
   }
 }
