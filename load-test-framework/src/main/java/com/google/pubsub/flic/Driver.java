@@ -226,8 +226,8 @@ class Driver {
       
       if (spreadsheetId.length() > 0) {
         // Output results to common Google sheet
-        SheetsService service = new SheetsService(dataStoreDirectory);
-        service.sendToSheets(spreadsheetId, results, gceController);
+        SheetsService service = new SheetsService(dataStoreDirectory, gceController.getTypes());
+        service.sendToSheets(spreadsheetId, results);
       }
       gceController.shutdown(null);
       System.exit(0);

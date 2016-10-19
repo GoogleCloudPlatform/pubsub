@@ -49,10 +49,10 @@ public class SheetsService {
     Sheets tmp;
     try {
       tmp = authorize();
-      fillClientCounts(types);
     } catch(Exception e) { 
       tmp = null;
     }
+    fillClientCounts(types);
     service = tmp;
   }
   
@@ -134,6 +134,8 @@ public class SheetsService {
           valueRow.add(kafkaSubscriberCount);
           kafkaValues.add(valueRow);
           break;
+        default:
+          throw new IllegalArgumentException("Type " + type + " in results map was not expected.");
       }
       valueRow.add(Client.messageSize);
       if (Client.numberOfMessages <= 0) {
