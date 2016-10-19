@@ -111,25 +111,33 @@ public class SheetsService {
       List<Object> valueRow = new ArrayList<Object>(13);
       switch (type) {
         case CPS_GCLOUD_PUBLISHER:
-          if (cpsPublisherCount == 0) { return; }
+          if (cpsPublisherCount == 0) { 
+            return; 
+          }
           valueRow.add(cpsPublisherCount);
           valueRow.add(0);
           cpsValues.add(valueRow);
           break;
         case CPS_GCLOUD_SUBSCRIBER:
-          if (cpsSubscriberCount == 0) { return; }
+          if (cpsSubscriberCount == 0) { 
+            return; 
+          }
           valueRow.add(0);
           valueRow.add(cpsSubscriberCount);
           cpsValues.add(valueRow);
           break;
         case KAFKA_PUBLISHER:
-          if (kafkaPublisherCount == 0) { return; }
+          if (kafkaPublisherCount == 0) { 
+            return; 
+          }
           valueRow.add(kafkaPublisherCount);
           valueRow.add(0);
           kafkaValues.add(valueRow);
           break;
         case KAFKA_SUBSCRIBER:
-          if (kafkaSubscriberCount == 0) { return; }
+          if (kafkaSubscriberCount == 0) { 
+            return; 
+          }
           valueRow.add(0);
           valueRow.add(kafkaSubscriberCount);
           kafkaValues.add(valueRow);
