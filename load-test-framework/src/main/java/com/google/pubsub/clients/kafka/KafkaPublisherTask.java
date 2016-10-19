@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
@@ -39,25 +40,26 @@ class KafkaPublisherTask extends Task {
   private final String payload;
   private final KafkaProducer<String, String> publisher;
 
-  private KafkaPublisherTask(String broker, String project, String topic, int messageSize) {
+  private KafkaPublisherTask(String broker, String project, String topic, int messageSize, 
+      int batchSize) {
     super(project, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     this.topic = topic;
     this.payload = LoadTestRunner.createMessage(messageSize);
     Properties props = new Properties();
-    props.putAll(ImmutableMap.of(
-        "max.block.ms", "30000",
-        "key.serializer", "org.apache.kafka.common.serialization.StringSerializer",
-        "value.serializer", "org.apache.kafka.common.serialization.StringSerializer",
-        "acks", "all",
-        "bootstrap.servers", broker
-    ));
+    props.putAll(new ImmutableMap.Builder<String, String>().
+        put("max.block.ms", "30000").
+        put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer").
+        put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer").
+        put("acks", "all").
+        put("bootstrap.servers", broker).
+        put("batch.size", "batchSize").build());
     this.publisher = new KafkaProducer<>(props);
   }
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run(request ->
         new KafkaPublisherTask(request.getKafkaOptions().getBroker(), request.getProject(),
-            request.getTopic(), request.getMessageSize()));
+            request.getTopic(), request.getMessageSize(), request.getPublishBatchSize()));
   }
 
   @Override

@@ -22,6 +22,7 @@ import com.google.common.base.Preconditions;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

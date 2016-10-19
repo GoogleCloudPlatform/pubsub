@@ -127,8 +127,7 @@ public class Client {
     }
     switch (clientType) {
       case CPS_GCLOUD_PUBLISHER:
-        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
-            .setPublishBatchSize(cpsPublishBatchSize));
+        requestBuilder.setPublishBatchSize(cpsPublishBatchSize);
         break;
       case CPS_GCLOUD_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()

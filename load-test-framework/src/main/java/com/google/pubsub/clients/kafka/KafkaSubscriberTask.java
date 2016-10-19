@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
