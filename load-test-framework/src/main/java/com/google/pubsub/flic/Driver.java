@@ -28,9 +28,9 @@ import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
+import com.google.pubsub.flic.output.SheetsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
 import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.Map;
@@ -141,6 +141,19 @@ class Driver {
           "message loss. If set less than 1, this flag is ignored."
   )
   private int numberOfMessages = 0;
+  @Parameter(
+      names = {"--spreadsheet_id"},
+      description = "The id of the spreadsheet to which results are output."
+  )
+  private String spreadsheetId = "";
+  @Parameter(
+      names = {"--data_store_dir"},
+      description = "The directory to store credentials for sheets output verification. Note: " +
+          "sheets output is only turned on when spreadsheet_id is set to a non-empty value, so " +
+          "data will only be stored to this directory if the spreadsheet_id flag is activated."
+  )
+  private String dataStoreDirectory = 
+      System.getProperty("user.home") + "/.credentials/sheets.googleapis.com-loadtest-framework";
 
   public static void main(String[] args) {
     // Turns off all java.util.logging.
@@ -208,8 +221,14 @@ class Driver {
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
-      printStats(gceController.getStatsForAllClientTypes());
-
+      Map<ClientType, Controller.LoadtestStats> results = gceController.getStatsForAllClientTypes();
+      printStats(results);
+      
+      if (spreadsheetId.length() > 0) {
+        // Output results to common Google sheet
+        SheetsService service = new SheetsService(dataStoreDirectory, gceController.getTypes());
+        service.sendToSheets(spreadsheetId, results);
+      }
       gceController.shutdown(null);
       System.exit(0);
     } catch (Throwable t) {

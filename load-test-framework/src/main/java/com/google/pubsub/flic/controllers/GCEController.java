@@ -74,7 +74,8 @@ public class GCEController extends Controller {
     // delete and recreate any subscriptions attached to it so that we do not have backlog from
     // previous runs.
     List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
-    types.values().forEach((paramsMap) -> paramsMap.keySet().stream().map(p -> p.clientType)
+    types.values().forEach(paramsMap -> {
+      paramsMap.keySet().stream().map(p -> p.getClientType())
         .distinct().filter(ClientType::isCpsPublisher).forEach(clientType -> {
           SettableFuture<Void> pubsubFuture = SettableFuture.create();
           pubsubFutures.add(pubsubFuture);
@@ -91,14 +92,15 @@ public class GCEController extends Controller {
             }
             // Recreate each subscription attached to the topic.
             paramsMap.keySet().stream()
-                .filter(p -> p.clientType == clientType.getSubscriberType())
+                .filter(p -> p.getClientType() == clientType.getSubscriberType())
                 .map(p -> p.subscription).forEach(subscription -> {
               pubSub.deleteSubscription(subscription);
               pubSub.create(SubscriptionInfo.of(topic, subscription));
             });
             pubsubFuture.set(null);
           });
-        }));
+        });
+      });
     try {
       createStorageBucket();
       createFirewall();
@@ -123,7 +125,7 @@ public class GCEController extends Controller {
         createGroupFutures.add(createGroupFuture);
         executor.execute(() -> {
           try {
-            createManagedInstanceGroup(zone, param.clientType);
+            createManagedInstanceGroup(zone, param.getClientType());
             createGroupFuture.set(null);
           } catch (Exception e) {
             createGroupFuture.setException(e);
@@ -147,7 +149,7 @@ public class GCEController extends Controller {
         resizingFutures.add(resizingFuture);
         executor.execute(() -> {
           try {
-            startInstances(zone, type.clientType, n);
+            startInstances(zone, type.getClientType(), n);
             resizingFuture.set(null);
           } catch (Exception e) {
             resizingFuture.setException(e);
@@ -226,15 +228,19 @@ public class GCEController extends Controller {
    */
   @Override
   public void shutdown(Throwable t) {
-    log.error("Shutting down: ", t);
+    if (t != null) {
+      log.error("Shutting down: ", t);
+    } else {
+      log.info("Shutting down...");
+    }
     // Attempt to cleanly close all running instances.
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
           try {
             compute.instanceGroupManagers()
-                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.clientType, 0)
+                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.getClientType(), 0)
                 .execute();
           } catch (IOException e) {
-            log.error("Unable to resize Instance Group for " + param.clientType + ", please " +
+            log.error("Unable to resize Instance Group for " + param.getClientType() + ", please " +
                 "manually ensure you do not have any running instances to avoid being billed.");
           }
         })
@@ -382,7 +388,7 @@ public class GCEController extends Controller {
     do {
       response = compute.instanceGroupManagers().
           listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-" +
-              params.clientType).execute();
+              params.getClientType()).execute();
 
       // If we are not instantiating any instances of this type, just return.
       if (response.getManagedInstances() == null) {
@@ -397,7 +403,7 @@ public class GCEController extends Controller {
       Instance instance = compute.instances().get(projectName, zone, instanceName).execute();
       synchronized (this) {
         clients.add(new Client(
-            params.clientType,
+            params.getClientType(),
             instance.getNetworkInterfaces().get(0).getAccessConfigs().get(0).getNatIP(),
             projectName,
             params.subscription,
@@ -430,5 +436,12 @@ public class GCEController extends Controller {
                         "_startup_script.sh"))))
             .setServiceAccounts(Collections.singletonList(new ServiceAccount().setScopes(
                 Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")))));
+  }
+  
+  /**
+   * @return the types map
+   */
+  public Map<String, Map<ClientParams, Integer>> getTypes() {
+    return types;
   }
 }

@@ -40,7 +40,7 @@ public class LatencyDistribution {
       10000000.0,
       100000000.0,
       1000000000.0,
-      (double) Integer.MAX_VALUE
+      Integer.MAX_VALUE
   };
   private final long[] bucketValues = new long[LATENCY_BUCKETS.length];
   private long count = 0;
