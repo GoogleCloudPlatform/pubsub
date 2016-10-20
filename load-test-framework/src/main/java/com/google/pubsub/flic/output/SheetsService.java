@@ -1,3 +1,19 @@
+// Copyright 2016 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 package com.google.pubsub.flic.output;
 
 import com.google.api.client.auth.oauth2.Credential;
@@ -14,10 +30,13 @@ import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.ValueRange;
 import com.google.pubsub.flic.common.LatencyDistribution;
-import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.Client;
-import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Client.ClientType;
+import com.google.pubsub.flic.controllers.ClientParams;
+import com.google.pubsub.flic.controllers.Controller;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -25,24 +44,21 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class SheetsService {
   private final static Logger log = LoggerFactory.getLogger(SheetsService.class);
   private final Sheets service;
+  private final String APPLICATION_NAME = "loadtest-framework";
   private int cpsPublisherCount = 0;
   private int cpsSubscriberCount = 0;
   private int kafkaPublisherCount = 0;
   private int kafkaSubscriberCount = 0;
   private String dataStoreDirectory;
-  
-  private final String APPLICATION_NAME = "loadtest-framework";
   
   public SheetsService(String dataStoreDirectory, Map<String, Map<ClientParams, Integer>> types) {
     this.dataStoreDirectory = dataStoreDirectory;
@@ -59,7 +75,7 @@ public class SheetsService {
   private void fillClientCounts(Map<String, Map<ClientParams, Integer>> types) {
     types.values().forEach(paramsMap -> {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
-        collect(Collectors.groupingBy(a -> a.getClientType(), Collectors.summingInt(t -> 1)));
+          collect(Collectors.groupingBy(ClientParams::getClientType, Collectors.summingInt(t -> 1)));
       cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
       cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
       kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
@@ -73,7 +89,7 @@ public class SheetsService {
     GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(factory, new InputStreamReader(in));
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport(); 
     FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(new File(dataStoreDirectory));
-    List<String> scopes = Arrays.asList(SheetsScopes.SPREADSHEETS);
+    List<String> scopes = Collections.singletonList(SheetsScopes.SPREADSHEETS);
     GoogleAuthorizationCodeFlow flow =
         new GoogleAuthorizationCodeFlow.Builder(
                 transport, factory, clientSecrets, scopes)
@@ -104,11 +120,11 @@ public class SheetsService {
   }
   
   public List<List<List<Object>>> getValuesList(Map<ClientType, Controller.LoadtestStats> results) {
-    List<List<Object>> cpsValues = new ArrayList<List<Object>>(results.size());
-    List<List<Object>> kafkaValues = new ArrayList<List<Object>>(results.size());
+    List<List<Object>> cpsValues = new ArrayList<>(results.size());
+    List<List<Object>> kafkaValues = new ArrayList<>(results.size());
     
     results.forEach((type, stats) -> {
-      List<Object> valueRow = new ArrayList<Object>(13);
+      List<Object> valueRow = new ArrayList<>(13);
       switch (type) {
         case CPS_GCLOUD_PUBLISHER:
           if (cpsPublisherCount == 0) { 
@@ -166,7 +182,7 @@ public class SheetsService {
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
     });
-    List<List<List<Object>>> out = new ArrayList<List<List<Object>>>();
+    List<List<List<Object>>> out = new ArrayList<>();
     out.add(cpsValues);
     out.add(kafkaValues);
     return out;
