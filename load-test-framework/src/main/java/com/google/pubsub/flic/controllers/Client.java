@@ -216,10 +216,11 @@ public class Client {
             if (errors > 3) {
               clientStatus = ClientStatus.FAILED;
               doneFuture.setException(throwable);
-              log.error("Client failed " + errors + " health checks, something went wrong.");
+              log.error(clientType + " client failed " + errors + 
+                        " health checks, something went wrong.");
               return;
             }
-            log.warn("Unable to connect to client, probably a transient error.");
+            log.warn("Unable to connect to " + clientType + " client, probably a transient error.");
             stub = getStub();
             errors++;
           }
