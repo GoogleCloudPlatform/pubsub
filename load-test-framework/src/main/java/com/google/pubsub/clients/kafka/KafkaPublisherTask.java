@@ -21,7 +21,6 @@ import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
-import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
@@ -69,18 +68,13 @@ class KafkaPublisherTask extends Task {
   @Override
   public void run() {
     Stopwatch stopwatch = Stopwatch.createStarted();
-    Callback callback = (metadata, exception) -> {
-      if (exception != null) {
-        log.error(exception.getMessage(), exception);
-        return;
-      }
-      numberOfMessages.incrementAndGet();
-      metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
-    };
     for (int i = 0; i < batchSize; i++) {
       publisher.send(
-          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload), callback);
+          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload));
     }
+    publisher.flush(); // Blocking call to wait for batch to finish
     stopwatch.stop();
+    numberOfMessages.addAndGet(batchSize);
+    metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
   }
 }
