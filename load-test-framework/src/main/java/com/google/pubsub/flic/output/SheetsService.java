@@ -116,7 +116,7 @@ public class SheetsService {
           }
           valueRow.add(cpsPublisherCount);
           valueRow.add(0);
-          cpsValues.add(valueRow);
+          cpsValues.add(0, valueRow);
           break;
         case CPS_GCLOUD_SUBSCRIBER:
           if (cpsSubscriberCount == 0) { 
@@ -132,7 +132,7 @@ public class SheetsService {
           }
           valueRow.add(kafkaPublisherCount);
           valueRow.add(0);
-          kafkaValues.add(valueRow);
+          kafkaValues.add(0, valueRow);
           break;
         case KAFKA_SUBSCRIBER:
           if (kafkaSubscriberCount == 0) { 

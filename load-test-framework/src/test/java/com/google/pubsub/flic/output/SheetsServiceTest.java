@@ -34,7 +34,7 @@ public class SheetsServiceTest {
       }
     }
     types.put("zone-test", paramsMap);
-    SheetsService service = new SheetsService("", types);
+    SheetsService service = new SheetsService(null, types);
     
     assertEquals(
         service.getCpsPublisherCount() + service.getCpsSubscriberCount(), expectedCpsCount);
