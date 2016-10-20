@@ -91,11 +91,11 @@ class Driver {
   )
   private String project = "";
   @Parameter(
-      names = {"--cps_publish_batch_size"},
+      names = {"--publish_batch_size"},
       description = "Number of messages to batch per Cloud Pub/Sub publish request.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int cpsPublishBatchSize = 10;
+  private int publishBatchSize = 10;
   @Parameter(
       names = {"--cps_max_messages_per_pull"},
       description = "Number of messages to return in each pull request.",
@@ -194,7 +194,7 @@ class Driver {
       Client.startTime = Timestamp.newBuilder()
           .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
-      Client.publishBatchSize = cpsPublishBatchSize;
+      Client.publishBatchSize = publishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
       Client.pollLength = kafkaPollLength;
       Client.broker = broker;
@@ -248,7 +248,7 @@ class Driver {
           new DecimalFormat("#.##").format(
               (double) LongStream.of(
                   stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
-                  * (type.isCpsPublisher() ? cpsPublishBatchSize : 1)) + " MB/s");
+                  * (type.isCpsPublisher() ? publishBatchSize : 1)) + " MB/s");
     });
   }
 
