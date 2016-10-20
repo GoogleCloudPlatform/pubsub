@@ -31,6 +31,7 @@ import org.slf4j.LoggerFactory;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * Runs a task that publishes messages to a Cloud Pub/Sub topic.
@@ -53,7 +54,7 @@ class CPSPublisherTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.run((Function<StartRequest, Task>) request ->
         new CPSPublisherTask(request.getProject(), request.getTopic(),
             request.getMessageSize(), request.getPublishBatchSize())
     );

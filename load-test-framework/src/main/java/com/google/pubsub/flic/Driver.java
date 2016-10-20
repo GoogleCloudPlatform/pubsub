@@ -194,7 +194,7 @@ class Driver {
       Client.startTime = Timestamp.newBuilder()
           .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
-      Client.cpsPublishBatchSize = cpsPublishBatchSize;
+      Client.publishBatchSize = cpsPublishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
       Client.pollLength = kafkaPollLength;
       Client.broker = broker;

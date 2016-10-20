@@ -25,6 +25,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import java.util.Collections;
 import java.util.Properties;
+import java.util.function.Function;
 
 /**
  * Runs a task that consumes messages utilizing Kafka's implementation of the Consumer<K,V>
@@ -53,7 +54,7 @@ class KafkaSubscriberTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.run((Function<StartRequest, Task>) request ->
         new KafkaSubscriberTask(request.getKafkaOptions().getBroker(), request.getProject(),
             request.getTopic(), request.getRequestRate()));
   }

@@ -21,6 +21,7 @@ import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
@@ -28,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Function;
 
 /**
  * Runs a task that publishes messages utilizing Kafka's implementation of the Producer<K,V>
@@ -38,6 +40,7 @@ class KafkaPublisherTask extends Task {
   private static final Logger log = LoggerFactory.getLogger(KafkaPublisherTask.class);
   private final String topic;
   private final String payload;
+  private final int batchSize;
   private final KafkaProducer<String, String> publisher;
 
   private KafkaPublisherTask(String broker, String project, String topic, int messageSize, 
@@ -45,6 +48,7 @@ class KafkaPublisherTask extends Task {
     super(project, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     this.topic = topic;
     this.payload = LoadTestRunner.createMessage(messageSize);
+    this.batchSize = batchSize;
     Properties props = new Properties();
     props.putAll(new ImmutableMap.Builder<String, String>().
         put("max.block.ms", "30000").
@@ -52,12 +56,12 @@ class KafkaPublisherTask extends Task {
         put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer").
         put("acks", "all").
         put("bootstrap.servers", broker).
-        put("batch.size", "batchSize").build());
+        put("batch.size", Integer.toString(batchSize)).build());
     this.publisher = new KafkaProducer<>(props);
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.run((Function<StartRequest, Task>) request ->
         new KafkaPublisherTask(request.getKafkaOptions().getBroker(), request.getProject(),
             request.getTopic(), request.getMessageSize(), request.getPublishBatchSize()));
   }
@@ -65,21 +69,18 @@ class KafkaPublisherTask extends Task {
   @Override
   public void run() {
     Stopwatch stopwatch = Stopwatch.createStarted();
-    publisher.send(
-        new ProducerRecord<>(
-            topic,
-            null,
-            System.currentTimeMillis(),
-            null,
-            payload),
-        (metadata, exception) -> {
-          stopwatch.stop();
-          if (exception != null) {
-            log.error(exception.getMessage(), exception);
-            return;
-          }
-          numberOfMessages.incrementAndGet();
-          metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
-        });
+    Callback callback = (metadata, exception) -> {
+      if (exception != null) {
+        log.error(exception.getMessage(), exception);
+        return;
+      }
+      numberOfMessages.incrementAndGet();
+      metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
+    };
+    for (int i = 0; i < batchSize; i++) {
+      publisher.send(
+          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload), callback);
+    }
+    stopwatch.stop();
   }
 }

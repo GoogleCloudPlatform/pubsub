@@ -45,7 +45,7 @@ public class Client {
   public static int requestRate;
   public static Timestamp startTime;
   public static int loadtestLengthSeconds;
-  public static int cpsPublishBatchSize;
+  public static int publishBatchSize;
   public static int maxMessagesPerPull;
   public static int pollLength;
   public static String broker;
@@ -127,7 +127,7 @@ public class Client {
     }
     switch (clientType) {
       case CPS_GCLOUD_PUBLISHER:
-        requestBuilder.setPublishBatchSize(cpsPublishBatchSize);
+        requestBuilder.setPublishBatchSize(publishBatchSize);
         break;
       case CPS_GCLOUD_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
@@ -135,6 +135,8 @@ public class Client {
             .setMaxMessagesPerPull(maxMessagesPerPull));
         break;
       case KAFKA_PUBLISHER:
+        requestBuilder.setPublishBatchSize(publishBatchSize);
+        break;
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)

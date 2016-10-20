@@ -28,6 +28,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Function;
 
 /**
  * Runs a task that consumes messages from a Cloud Pub/Sub subscription.
@@ -48,7 +49,7 @@ class CPSSubscriberTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.run((Function<StartRequest, Task>) request ->
         new CPSSubscriberTask(request.getProject(), request.getPubsubOptions().getSubscription(),
             request.getPubsubOptions().getMaxMessagesPerPull()));
   }
