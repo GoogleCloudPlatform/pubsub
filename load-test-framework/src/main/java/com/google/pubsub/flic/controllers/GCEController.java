@@ -24,10 +24,26 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.Base64;
 import com.google.api.services.compute.Compute;
-import com.google.api.services.compute.model.*;
+import com.google.api.services.compute.model.AccessConfig;
+import com.google.api.services.compute.model.AttachedDisk;
+import com.google.api.services.compute.model.AttachedDiskInitializeParams;
+import com.google.api.services.compute.model.Firewall;
+import com.google.api.services.compute.model.Instance;
+import com.google.api.services.compute.model.InstanceGroupManager;
+import com.google.api.services.compute.model.InstanceGroupManagersListManagedInstancesResponse;
+import com.google.api.services.compute.model.InstanceProperties;
+import com.google.api.services.compute.model.InstanceTemplate;
+import com.google.api.services.compute.model.ManagedInstance;
+import com.google.api.services.compute.model.Metadata;
+import com.google.api.services.compute.model.NetworkInterface;
+import com.google.api.services.compute.model.ServiceAccount;
 import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Bucket;
-import com.google.cloud.pubsub.*;
+import com.google.cloud.pubsub.PubSub;
+import com.google.cloud.pubsub.PubSubException;
+import com.google.cloud.pubsub.PubSubOptions;
+import com.google.cloud.pubsub.SubscriptionInfo;
+import com.google.cloud.pubsub.TopicInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
@@ -40,7 +56,11 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 
@@ -74,7 +94,8 @@ public class GCEController extends Controller {
     // delete and recreate any subscriptions attached to it so that we do not have backlog from
     // previous runs.
     List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
-    types.values().forEach((paramsMap) -> paramsMap.keySet().stream().map(p -> p.clientType)
+    types.values().forEach(paramsMap -> {
+      paramsMap.keySet().stream().map(p -> p.getClientType())
         .distinct().filter(ClientType::isCpsPublisher).forEach(clientType -> {
           SettableFuture<Void> pubsubFuture = SettableFuture.create();
           pubsubFutures.add(pubsubFuture);
@@ -91,14 +112,15 @@ public class GCEController extends Controller {
             }
             // Recreate each subscription attached to the topic.
             paramsMap.keySet().stream()
-                .filter(p -> p.clientType == clientType.getSubscriberType())
+                .filter(p -> p.getClientType() == clientType.getSubscriberType())
                 .map(p -> p.subscription).forEach(subscription -> {
               pubSub.deleteSubscription(subscription);
               pubSub.create(SubscriptionInfo.of(topic, subscription));
             });
             pubsubFuture.set(null);
           });
-        }));
+        });
+      });
     try {
       createStorageBucket();
       createFirewall();
@@ -123,7 +145,7 @@ public class GCEController extends Controller {
         createGroupFutures.add(createGroupFuture);
         executor.execute(() -> {
           try {
-            createManagedInstanceGroup(zone, param.clientType);
+            createManagedInstanceGroup(zone, param.getClientType());
             createGroupFuture.set(null);
           } catch (Exception e) {
             createGroupFuture.setException(e);
@@ -147,7 +169,7 @@ public class GCEController extends Controller {
         resizingFutures.add(resizingFuture);
         executor.execute(() -> {
           try {
-            startInstances(zone, type.clientType, n);
+            startInstances(zone, type.getClientType(), n);
             resizingFuture.set(null);
           } catch (Exception e) {
             resizingFuture.setException(e);
@@ -226,15 +248,19 @@ public class GCEController extends Controller {
    */
   @Override
   public void shutdown(Throwable t) {
-    log.error("Shutting down: ", t);
+    if (t != null) {
+      log.error("Shutting down: ", t);
+    } else {
+      log.info("Shutting down...");
+    }
     // Attempt to cleanly close all running instances.
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
           try {
             compute.instanceGroupManagers()
-                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.clientType, 0)
+                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.getClientType(), 0)
                 .execute();
           } catch (IOException e) {
-            log.error("Unable to resize Instance Group for " + param.clientType + ", please " +
+            log.error("Unable to resize Instance Group for " + param.getClientType() + ", please " +
                 "manually ensure you do not have any running instances to avoid being billed.");
           }
         })
@@ -382,7 +408,7 @@ public class GCEController extends Controller {
     do {
       response = compute.instanceGroupManagers().
           listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-" +
-              params.clientType).execute();
+              params.getClientType()).execute();
 
       // If we are not instantiating any instances of this type, just return.
       if (response.getManagedInstances() == null) {
@@ -397,7 +423,7 @@ public class GCEController extends Controller {
       Instance instance = compute.instances().get(projectName, zone, instanceName).execute();
       synchronized (this) {
         clients.add(new Client(
-            params.clientType,
+            params.getClientType(),
             instance.getNetworkInterfaces().get(0).getAccessConfigs().get(0).getNatIP(),
             projectName,
             params.subscription,
@@ -430,5 +456,12 @@ public class GCEController extends Controller {
                         "_startup_script.sh"))))
             .setServiceAccounts(Collections.singletonList(new ServiceAccount().setScopes(
                 Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")))));
+  }
+  
+  /**
+   * @return the types map
+   */
+  public Map<String, Map<ClientParams, Integer>> getTypes() {
+    return types;
   }
 }
