@@ -46,7 +46,7 @@ public class ClientTest {
       assertTrue(type.getSubscriberType().toString().endsWith("subscriber"));
       // Any type that begins with cps and ends with publisher should be a CPS publisher
       assertEquals(type.toString().startsWith("cps") && type.toString().endsWith("publisher"),
-          type.isCpsPublisher());
+          type.isBatchPublisher());
     }
   }
 }

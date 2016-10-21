@@ -118,7 +118,8 @@ public class Client {
         .setMaxOutstandingRequests(maxOutstandingRequests)
         .setMessageSize(messageSize)
         .setRequestRate(requestRate)
-        .setStartTime(startTime);
+        .setStartTime(startTime)
+        .setPublishBatchSize(publishBatchSize);
     if (numberOfMessages > 0) {
       requestBuilder.setNumberOfMessages(numberOfMessages);
     } else {
@@ -127,7 +128,7 @@ public class Client {
     }
     switch (clientType) {
       case CPS_GCLOUD_PUBLISHER:
-        requestBuilder.setPublishBatchSize(publishBatchSize);
+        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder());
         break;
       case CPS_GCLOUD_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
@@ -135,7 +136,7 @@ public class Client {
             .setMaxMessagesPerPull(maxMessagesPerPull));
         break;
       case KAFKA_PUBLISHER:
-        requestBuilder.setPublishBatchSize(publishBatchSize);
+        requestBuilder.setKafkaOptions(KafkaOptions.newBuilder());
         break;
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
@@ -243,6 +244,15 @@ public class Client {
         case CPS_GCLOUD_PUBLISHER:
           return true;
         case KAFKA_PUBLISHER:
+          return true;
+        default:
+          return false;
+      }
+    }
+    
+    public boolean isCpsPublisher() {
+      switch (this) {
+        case CPS_GCLOUD_PUBLISHER:
           return true;
         default:
           return false;
