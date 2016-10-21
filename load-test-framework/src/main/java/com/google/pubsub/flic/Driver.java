@@ -166,7 +166,7 @@ class Driver {
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
-          new ClientParams(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER, null), cpsPublisherCount,
+          new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null), cpsPublisherCount,
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));
