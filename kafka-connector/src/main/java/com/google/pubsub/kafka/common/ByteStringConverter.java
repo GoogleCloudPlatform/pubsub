@@ -25,8 +25,9 @@ import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.storage.Converter;
 
 /**
- * A {@link Converter} for use with the {@link com.google.pubsub.kafka.sink.CloudPubSubSinkConnector}
- * and {@link com.google.pubsub.kafka.source.CloudPubSubSourceConnector} that converts between Kafka
+ * A {@link Converter} for use with the
+ * {@link com.google.pubsub.kafka.sink.CloudPubSubSinkConnector} and
+ * {@link com.google.pubsub.kafka.source.CloudPubSubSourceConnector} that converts between Kafka
  * data and connector data via a {@link ByteString}.
  */
 public class ByteStringConverter implements Converter {
