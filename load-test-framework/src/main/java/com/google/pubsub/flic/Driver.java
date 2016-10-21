@@ -77,7 +77,7 @@ class Driver {
       description = "Message size in bytes (only when publishing messages).",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int messageSize = 1000;
+  private int messageSize = 100000;
   @Parameter(
       names = {"--loadtest_seconds"},
       description = "Duration of the load test, in seconds.",
