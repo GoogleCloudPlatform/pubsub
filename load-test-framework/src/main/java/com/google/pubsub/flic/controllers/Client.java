@@ -238,9 +238,11 @@ public class Client {
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
 
-    public boolean isCpsPublisher() {
+    public boolean isBatchPublisher() {
       switch (this) {
         case CPS_GCLOUD_PUBLISHER:
+          return true;
+        case KAFKA_PUBLISHER:
           return true;
         default:
           return false;

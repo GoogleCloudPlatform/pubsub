@@ -248,7 +248,7 @@ class Driver {
           new DecimalFormat("#.##").format(
               (double) LongStream.of(
                   stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
-                  * (type.isCpsPublisher() ? publishBatchSize : 1)) + " MB/s");
+                  * (type.isBatchPublisher() ? publishBatchSize : 1)) + " MB/s");
     });
   }
 
