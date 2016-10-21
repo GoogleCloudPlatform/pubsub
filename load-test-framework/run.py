@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
-import sys
 import subprocess
+import sys
 
 
 def main(argv):

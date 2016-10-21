@@ -50,10 +50,13 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
 
+/**
+ * Outputs load test results to Google Sheets.
+ */
 public class SheetsService {
-  private final static Logger log = LoggerFactory.getLogger(SheetsService.class);
+  private static final Logger log = LoggerFactory.getLogger(SheetsService.class);
+  private static final String APPLICATION_NAME = "loadtest-framework";
   private final Sheets service;
-  private final String APPLICATION_NAME = "loadtest-framework";
   private int cpsPublisherCount = 0;
   private int cpsSubscriberCount = 0;
   private int kafkaPublisherCount = 0;
@@ -65,7 +68,7 @@ public class SheetsService {
     Sheets tmp;
     try {
       tmp = authorize();
-    } catch(Exception e) { 
+    } catch (Exception e) {
       tmp = null;
     }
     fillClientCounts(types);
@@ -75,7 +78,8 @@ public class SheetsService {
   private void fillClientCounts(Map<String, Map<ClientParams, Integer>> types) {
     types.values().forEach(paramsMap -> {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
-          collect(Collectors.groupingBy(ClientParams::getClientType, Collectors.summingInt(t -> 1)));
+          collect(Collectors.groupingBy(
+              ClientParams::getClientType, Collectors.summingInt(t -> 1)));
       cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
       cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
       kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
@@ -86,7 +90,8 @@ public class SheetsService {
   private Sheets authorize() throws Exception {
     InputStream in = new FileInputStream(new File(System.getenv("GOOGLE_OATH2_CREDENTIALS")));
     JsonFactory factory = new JacksonFactory();
-    GoogleClientSecrets clientSecrets = GoogleClientSecrets.load(factory, new InputStreamReader(in));
+    GoogleClientSecrets clientSecrets =
+        GoogleClientSecrets.load(factory, new InputStreamReader(in));
     HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport(); 
     FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(new File(dataStoreDirectory));
     List<String> scopes = Collections.singletonList(SheetsScopes.SPREADSHEETS);
@@ -165,8 +170,7 @@ public class SheetsService {
       if (Client.numberOfMessages <= 0) {
         valueRow.add(Client.loadtestLengthSeconds);
         valueRow.add("N/A");
-      }
-      else {
+      } else {
         valueRow.add("N/A");
         valueRow.add(Client.numberOfMessages);
       }

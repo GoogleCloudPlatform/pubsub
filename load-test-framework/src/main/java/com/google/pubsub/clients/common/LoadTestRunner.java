@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
+
 /**
  * Starts a server to get the start request, then starts the client runner.
  */
@@ -126,8 +127,8 @@ public class LoadTestRunner {
   private static boolean shouldContinue(StartRequest request) {
     switch (request.getStopConditionsCase()) {
       case TEST_DURATION:
-        return System.currentTimeMillis() <
-            (request.getStartTime().getSeconds() + request.getTestDuration().getSeconds()) * 1000;
+        return System.currentTimeMillis()
+            < (request.getStartTime().getSeconds() + request.getTestDuration().getSeconds()) * 1000;
       case NUMBER_OF_MESSAGES:
         return client.getNumberOfMessages() < request.getNumberOfMessages();
     }

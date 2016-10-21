@@ -16,6 +16,9 @@
 
 package com.google.pubsub.flic.controllers;
 
+/**
+ * Keeps track of the parameters that define a client.
+ */
 public class ClientParams {
   final String subscription;
   private final Client.ClientType clientType;

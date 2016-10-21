@@ -1,4 +1,7 @@
 syntax = "proto3";
+
+package google.pubsub.loadtest;
+
 import "google/protobuf/duration.proto";
 import "google/protobuf/timestamp.proto";
 
@@ -6,7 +9,10 @@ option java_package = "com.google.pubsub.flic.common";
 option java_outer_classname = "LoadtestProto";
 
 service Loadtest {
+  // Starts a load test
   rpc Start(StartRequest) returns (StartResponse);
+
+  // Checks the status of a load test
   rpc Check(CheckRequest) returns (CheckResponse);
 }
 

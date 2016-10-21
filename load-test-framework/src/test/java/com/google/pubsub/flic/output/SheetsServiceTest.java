@@ -28,7 +28,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 
-/*
+/**
  * Tests for {@link SheetsService}.
  */
 public class SheetsServiceTest {
@@ -62,7 +62,7 @@ public class SheetsServiceTest {
       stats.put(type, null);
       try {
         service.getValuesList(stats);
-      } catch(Exception e) {
+      } catch (Exception e) {
         assertTrue(e instanceof NullPointerException);
       }
       // Remove type so only the next type in the enum will be tested.
