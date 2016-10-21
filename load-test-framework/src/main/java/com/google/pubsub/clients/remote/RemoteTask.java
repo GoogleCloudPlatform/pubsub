@@ -15,7 +15,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.remote;
 
-import com.google.common.base.Stopwatch;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
@@ -26,7 +25,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Arrays;
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -59,13 +57,10 @@ class RemoteTask extends Task {
   @Override
   public void run() {
     try {
-      Stopwatch stopwatch = Stopwatch.createStarted();
       LoadtestProto.CheckResponse response =
           stub.check(LoadtestProto.CheckRequest.getDefaultInstance());
-      stopwatch.stop();
       numberOfMessages.addAndGet(response.getBucketValuesCount());
-      metricsHandler.recordLatencyBatch(stopwatch.elapsed(TimeUnit.MILLISECONDS),
-          response.getBucketValuesCount());
+      response.getBucketValuesList().forEach(metricsHandler::recordLatency);
     } catch (Throwable t) {
       log.error("Error running command on remote task.", t);
     }
