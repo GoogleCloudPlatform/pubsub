@@ -56,8 +56,7 @@ class CPSPublisherTask extends Task {
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run((Function<StartRequest, Task>) request ->
         new CPSPublisherTask(request.getProject(), request.getTopic(),
-            request.getMessageSize(), request.getPublishBatchSize())
-    );
+            request.getMessageSize(), request.getPublishBatchSize()));
   }
 
   @Override
