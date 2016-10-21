@@ -136,7 +136,8 @@ public class Client {
             .setMaxMessagesPerPull(maxMessagesPerPull));
         break;
       case KAFKA_PUBLISHER:
-        requestBuilder.setKafkaOptions(KafkaOptions.newBuilder());
+        requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
+            .setBroker(broker));
         break;
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
