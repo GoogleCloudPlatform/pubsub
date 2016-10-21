@@ -176,8 +176,7 @@ public class SheetsService {
       valueRow.add(Client.maxOutstandingRequests);
       valueRow.add(new DecimalFormat("#.##").format(
           (double) LongStream.of(
-              stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0
-              * (type.isCpsPublisher() ? Client.cpsPublishBatchSize : 1)));
+              stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
