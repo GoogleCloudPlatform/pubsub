@@ -37,11 +37,7 @@ import com.google.pubsub.flic.controllers.Controller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -76,8 +72,8 @@ public class SheetsService {
     types.values().forEach(paramsMap -> {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
           collect(Collectors.groupingBy(ClientParams::getClientType, Collectors.summingInt(t -> 1)));
-      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
-      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
+      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER);
+      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER);
       kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
       kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
     });
@@ -126,7 +122,7 @@ public class SheetsService {
     results.forEach((type, stats) -> {
       List<Object> valueRow = new ArrayList<>(13);
       switch (type) {
-        case CPS_GCLOUD_PUBLISHER:
+        case CPS_GCLOUD_JAVA_PUBLISHER:
           if (cpsPublisherCount == 0) { 
             return; 
           }
@@ -134,7 +130,7 @@ public class SheetsService {
           valueRow.add(0);
           cpsValues.add(0, valueRow);
           break;
-        case CPS_GCLOUD_SUBSCRIBER:
+        case CPS_GCLOUD_JAVA_SUBSCRIBER:
           if (cpsSubscriberCount == 0) { 
             return; 
           }

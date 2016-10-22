@@ -21,9 +21,7 @@ import org.junit.Test;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.*;
 
 /**
  * Tests for {@link Client}.
@@ -33,11 +31,11 @@ public class ClientTest {
 
   @Test
   public void testEmpty() {
-    Client client = new Client(Client.ClientType.CPS_GCLOUD_PUBLISHER, "127.0.0.1",
+    Client client = new Client(Client.ClientType.CPS_GCLOUD_JAVA_PUBLISHER, "127.0.0.1",
         "my-project", null, executor);
     assertArrayEquals(client.getBucketValues(),
         new long[LatencyDistribution.LATENCY_BUCKETS.length]);
-    assertEquals(client.getClientType(), Client.ClientType.CPS_GCLOUD_PUBLISHER);
+    assertEquals(client.getClientType(), Client.ClientType.CPS_GCLOUD_JAVA_PUBLISHER);
     assertEquals(client.getRunningSeconds(), 0);
   }
 
