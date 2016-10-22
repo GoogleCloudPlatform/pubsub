@@ -48,8 +48,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.controllers.Client.ClientType;
-import org.apache.commons.codec.digest.DigestUtils;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -63,6 +61,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.

@@ -95,7 +95,7 @@ latency and throughput, are equivalent.
     from the command line. In a single invocation, the framework allows you to
     use Kafka or Cloud Pub/Sub as the message service, and to publish or consume
     messages from this service. The following command runs a load test for Cloud
-    Pub/Sub using driver.jar. Make sure to fill in the required
+    Pub/Sub using the provided script run.py. Make sure to fill in the required
     field in the script before execution. For example, you must replace '[YOUR
     TOPIC HERE]' with an existing topic.
 
