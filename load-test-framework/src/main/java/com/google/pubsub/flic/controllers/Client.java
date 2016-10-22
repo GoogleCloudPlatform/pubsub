@@ -37,10 +37,14 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Manages remote clients by starting, performing health checks, and collecting statistics
+ * on running clients.
+ */
 public class Client {
-  static final String topicPrefix = "cloud-pubsub-loadtest-";
+  static final String TOPIC_PREFIX = "cloud-pubsub-loadtest-";
   private static final Logger log = LoggerFactory.getLogger(Client.class);
-  private static final int port = 5000;
+  private static final int PORT = 5000;
   public static int messageSize;
   public static int requestRate;
   public static Timestamp startTime;
@@ -71,7 +75,7 @@ public class Client {
     this.networkAddress = networkAddress;
     this.clientStatus = ClientStatus.NONE;
     this.project = project;
-    this.topic = topicPrefix + getTopicSuffix(clientType);
+    this.topic = TOPIC_PREFIX + getTopicSuffix(clientType);
     this.subscription = subscription;
     this.executorService = executorService;
   }
@@ -99,7 +103,7 @@ public class Client {
 
   private LoadtestGrpc.LoadtestStub getStub() {
     return LoadtestGrpc.newStub(
-        ManagedChannelBuilder.forAddress(networkAddress, port).usePlaintext(true).build());
+        ManagedChannelBuilder.forAddress(networkAddress, PORT).usePlaintext(true).build());
   }
 
   long getRunningSeconds() {
@@ -112,7 +116,7 @@ public class Client {
 
   void start() throws Throwable {
     // Send a gRPC call to start the server
-    log.info("Connecting to " + networkAddress + ":" + port);
+    log.info("Connecting to " + networkAddress + ":" + PORT);
     StartRequest.Builder requestBuilder = StartRequest.newBuilder()
         .setProject(project)
         .setTopic(topic)
@@ -232,6 +236,9 @@ public class Client {
         });
   }
 
+  /**
+   * An enum representing the possible client types.
+   */
   public enum ClientType {
     CPS_GCLOUD_JAVA_PUBLISHER,
     CPS_GCLOUD_JAVA_SUBSCRIBER,

@@ -232,6 +232,9 @@ public class MetricsHandler {
     return bucketValues;
   }
 
+  /**
+   * The possible metrics to report to Stackdriver.
+   */
   public enum MetricName {
     END_TO_END_LATENCY,
     PUBLISH_ACK_LATENCY;

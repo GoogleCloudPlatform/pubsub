@@ -68,8 +68,8 @@ import java.util.concurrent.ScheduledExecutorService;
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
  */
 public class GCEController extends Controller {
-  private static final String machineType = "n1-standard-4"; // quad core machines
-  private static final String sourceFamily =
+  private static final String MACHINE_TYPE = "n1-standard-4"; // quad core machines
+  private static final String SOURCE_FAMILY =
       "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
   private static final int ALREADY_EXISTS = 409;
   private static final int NOT_FOUND = 404;
@@ -96,31 +96,31 @@ public class GCEController extends Controller {
     List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
     types.values().forEach(paramsMap -> {
       paramsMap.keySet().stream().map(p -> p.getClientType())
-        .distinct().filter(ClientType::isCpsPublisher).forEach(clientType -> {
-          SettableFuture<Void> pubsubFuture = SettableFuture.create();
-          pubsubFutures.add(pubsubFuture);
-          executor.execute(() -> {
-            String topic = Client.topicPrefix + Client.getTopicSuffix(clientType);
-            try {
-              pubSub.create(TopicInfo.of(topic));
-            } catch (PubSubException e) {
-              if (!e.reason().equals("ALREADY_EXISTS")) {
-                pubsubFuture.setException(e);
-                return;
-              }
-              log.info("Topic already exists, reusing.");
+          .distinct().filter(ClientType::isCpsPublisher).forEach(clientType -> {
+        SettableFuture<Void> pubsubFuture = SettableFuture.create();
+        pubsubFutures.add(pubsubFuture);
+        executor.execute(() -> {
+          String topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
+          try {
+            pubSub.create(TopicInfo.of(topic));
+          } catch (PubSubException e) {
+            if (!e.reason().equals("ALREADY_EXISTS")) {
+              pubsubFuture.setException(e);
+              return;
             }
-            // Recreate each subscription attached to the topic.
-            paramsMap.keySet().stream()
-                .filter(p -> p.getClientType() == clientType.getSubscriberType())
-                .map(p -> p.subscription).forEach(subscription -> {
-              pubSub.deleteSubscription(subscription);
-              pubSub.create(SubscriptionInfo.of(topic, subscription));
-            });
-            pubsubFuture.set(null);
+            log.info("Topic already exists, reusing.");
+          }
+          // Recreate each subscription attached to the topic.
+          paramsMap.keySet().stream()
+              .filter(p -> p.getClientType() == clientType.getSubscriberType())
+              .map(p -> p.subscription).forEach(subscription -> {
+            pubSub.deleteSubscription(subscription);
+            pubSub.create(SubscriptionInfo.of(topic, subscription));
           });
+          pubsubFuture.set(null);
         });
       });
+    });
     try {
       createStorageBucket();
       createFirewall();
@@ -257,11 +257,12 @@ public class GCEController extends Controller {
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
           try {
             compute.instanceGroupManagers()
-                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-" + param.getClientType(), 0)
+                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-"
+                    + param.getClientType(), 0)
                 .execute();
           } catch (IOException e) {
-            log.error("Unable to resize Instance Group for " + param.getClientType() + ", please " +
-                "manually ensure you do not have any running instances to avoid being billed.");
+            log.error("Unable to resize Instance Group for " + param.getClientType() + ", please "
+                + "manually ensure you do not have any running instances to avoid being billed.");
           }
         })
     );
@@ -323,8 +324,8 @@ public class GCEController extends Controller {
       try {
         compute.instanceGroupManagers().insert(projectName, zone,
             (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
-                .setInstanceTemplate("projects/" + projectName +
-                    "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
+                .setInstanceTemplate("projects/" + projectName
+                    + "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
                 .setTargetSize(0))
             .execute();
         return;
@@ -407,8 +408,8 @@ public class GCEController extends Controller {
     InstanceGroupManagersListManagedInstancesResponse response;
     do {
       response = compute.instanceGroupManagers().
-          listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-" +
-              params.getClientType()).execute();
+          listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-"
+              + params.getClientType()).execute();
 
       // If we are not instantiating any instances of this type, just return.
       if (response.getManagedInstances() == null) {
@@ -440,24 +441,24 @@ public class GCEController extends Controller {
     return new InstanceTemplate()
         .setName("cloud-pubsub-loadtest-instance-" + type)
         .setProperties(new InstanceProperties()
-            .setMachineType(machineType)
+            .setMachineType(MACHINE_TYPE)
             .setDisks(Collections.singletonList(new AttachedDisk()
                 .setBoot(true)
                 .setAutoDelete(true)
                 .setInitializeParams(new AttachedDiskInitializeParams()
-                    .setSourceImage(sourceFamily))))
+                    .setSourceImage(SOURCE_FAMILY))))
             .setNetworkInterfaces(Collections.singletonList(new NetworkInterface()
                 .setNetwork("global/networks/default")
                 .setAccessConfigs(Collections.singletonList(new AccessConfig()))))
             .setMetadata(new Metadata()
                 .setItems(Collections.singletonList(new Metadata.Items()
                     .setKey("startup-script-url")
-                    .setValue("https://storage.googleapis.com/cloud-pubsub-loadtest/" + type +
-                        "_startup_script.sh"))))
+                    .setValue("https://storage.googleapis.com/cloud-pubsub-loadtest/" + type
+                        + "_startup_script.sh"))))
             .setServiceAccounts(Collections.singletonList(new ServiceAccount().setScopes(
                 Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")))));
   }
-  
+
   /**
    * @return the types map
    */
