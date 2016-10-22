@@ -23,11 +23,10 @@ from google.cloud import pubsub
 import loadtest_pb2
 
 
-class LoadtestServicer(loadtest_pb2.LoadtestServicer):
+class AdapterServicer(loadtest_pb2.AdapterServicer):
     """Provides methods that implement functionality of load test server."""
 
     def __init__(self):
-        self.pubsub_client = pubsub.Client()
         self.message_size = None
         self.batch_size = None
         self.batch = None
@@ -35,25 +34,23 @@ class LoadtestServicer(loadtest_pb2.LoadtestServicer):
     def Start(self, request, context):
         self.message_size = request.message_size
         self.batch_size = request.pubsub_options.publish_batch_size
-        self.batch = self.pubsub_client.topic(request.topic).batch()
+        self.batch = pubsub.Client().topic(request.topic).batch()
         return loadtest_pb2.StartResponse()
 
-    def Check(self, request, context):
-        if not self.batch:
-            return loadtest_pb2.CheckResponse()
+    def Execute(self, request, context):
         start = time.clock()
         for i in range(0, self.batch_size):
             self.batch.publish(("A" * self.message_size).encode(), sendTime=str(int(start * 1000)))
         self.batch.commit()
         end = time.clock()
-        response = loadtest_pb2.CheckResponse()
-        response.bucket_values.extend([int((end - start) * 1000)] * self.batch_size)
+        response = loadtest_pb2.ExecuteResponse()
+        response.latencies.extend([int((end - start) * 1000)] * self.batch_size)
         return response
 
 
 if __name__ == "__main__":
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=50))
-    loadtest_pb2.add_LoadtestServicer_to_server(LoadtestServicer(), server)
+    loadtest_pb2.add_AdapterServicer_to_server(AdapterServicer(), server)
     server.add_insecure_port('localhost:6000')
     server.start()
     while True:

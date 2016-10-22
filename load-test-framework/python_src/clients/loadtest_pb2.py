@@ -2,496 +2,446 @@
 # source: loadtest.proto
 
 import sys
-
-_b = sys.version_info[0] < 3 and (lambda x: x) or (lambda x: x.encode('latin1'))
+_b=sys.version_info[0]<3 and (lambda x:x) or (lambda x:x.encode('latin1'))
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from google.protobuf import reflection as _reflection
 from google.protobuf import symbol_database as _symbol_database
 from google.protobuf import descriptor_pb2
-
 # @@protoc_insertion_point(imports)
 
 _sym_db = _symbol_database.Default()
 
+
 from google.protobuf import duration_pb2 as google_dot_protobuf_dot_duration__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
+
 DESCRIPTOR = _descriptor.FileDescriptor(
-    name='loadtest.proto',
-    package='',
-    syntax='proto3',
-    serialized_pb=_b(
-        '\n\x0eloadtest.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xee\x02\n\x0cStartRequest\x12\x0f\n\x07project\x18\x01 \x01(\t\x12\r\n\x05topic\x18\x02 \x01(\t\x12\x14\n\x0crequest_rate\x18\x03 \x01(\x05\x12\x14\n\x0cmessage_size\x18\x04 \x01(\x05\x12 \n\x18max_outstanding_requests\x18\x05 \x01(\x05\x12.\n\nstart_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x32\n\rtest_duration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.DurationH\x00\x12\x1c\n\x12number_of_messages\x18\x08 \x01(\x05H\x00\x12(\n\x0epubsub_options\x18\t \x01(\x0b\x32\x0e.PubsubOptionsH\x01\x12&\n\rkafka_options\x18\n \x01(\x0b\x32\r.KafkaOptionsH\x01\x42\x11\n\x0fstop_conditionsB\t\n\x07options\"\x0f\n\rStartResponse\"`\n\rPubsubOptions\x12\x14\n\x0csubscription\x18\x01 \x01(\t\x12\x1d\n\x15max_messages_per_pull\x18\x02 \x01(\x05\x12\x1a\n\x12publish_batch_size\x18\x03 \x01(\x05\"3\n\x0cKafkaOptions\x12\x0e\n\x06\x62roker\x18\x01 \x01(\t\x12\x13\n\x0bpoll_length\x18\x02 \x01(\x05\"\x0e\n\x0c\x43heckRequest\"p\n\rCheckResponse\x12\x15\n\rbucket_values\x18\x01 \x03(\x03\x12\x33\n\x10running_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x13\n\x0bis_finished\x18\x03 \x01(\x08\x32Z\n\x08Loadtest\x12&\n\x05Start\x12\r.StartRequest\x1a\x0e.StartResponse\x12&\n\x05\x43heck\x12\r.CheckRequest\x1a\x0e.CheckResponseB.\n\x1d\x63om.google.pubsub.flic.commonB\rLoadtestProtob\x06proto3')
-    ,
-    dependencies=[google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,
-                  google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR, ])
+  name='loadtest.proto',
+  package='',
+  syntax='proto3',
+  serialized_pb=_b('\n\x0eloadtest.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xee\x02\n\x0cStartRequest\x12\x0f\n\x07project\x18\x01 \x01(\t\x12\r\n\x05topic\x18\x02 \x01(\t\x12\x14\n\x0crequest_rate\x18\x03 \x01(\x05\x12\x14\n\x0cmessage_size\x18\x04 \x01(\x05\x12 \n\x18max_outstanding_requests\x18\x05 \x01(\x05\x12.\n\nstart_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x32\n\rtest_duration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.DurationH\x00\x12\x1c\n\x12number_of_messages\x18\x08 \x01(\x05H\x00\x12(\n\x0epubsub_options\x18\t \x01(\x0b\x32\x0e.PubsubOptionsH\x01\x12&\n\rkafka_options\x18\n \x01(\x0b\x32\r.KafkaOptionsH\x01\x42\x11\n\x0fstop_conditionsB\t\n\x07options\"\x0f\n\rStartResponse\"`\n\rPubsubOptions\x12\x14\n\x0csubscription\x18\x01 \x01(\t\x12\x1d\n\x15max_messages_per_pull\x18\x02 \x01(\x05\x12\x1a\n\x12publish_batch_size\x18\x03 \x01(\x05\"3\n\x0cKafkaOptions\x12\x0e\n\x06\x62roker\x18\x01 \x01(\t\x12\x13\n\x0bpoll_length\x18\x02 \x01(\x05\"\x0e\n\x0c\x43heckRequest\"p\n\rCheckResponse\x12\x15\n\rbucket_values\x18\x01 \x03(\x03\x12\x33\n\x10running_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x13\n\x0bis_finished\x18\x03 \x01(\x08\"\x10\n\x0e\x45xecuteRequest\"$\n\x0f\x45xecuteResponse\x12\x11\n\tlatencies\x18\x01 \x03(\x03\x32Z\n\x08Loadtest\x12&\n\x05Start\x12\r.StartRequest\x1a\x0e.StartResponse\x12&\n\x05\x43heck\x12\r.CheckRequest\x1a\x0e.CheckResponse2_\n\x07\x41\x64\x61pter\x12&\n\x05Start\x12\r.StartRequest\x1a\x0e.StartResponse\x12,\n\x07\x45xecute\x12\x0f.ExecuteRequest\x1a\x10.ExecuteResponseB.\n\x1d\x63om.google.pubsub.flic.commonB\rLoadtestProtob\x06proto3')
+  ,
+  dependencies=[google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
 
+
+
+
 _STARTREQUEST = _descriptor.Descriptor(
-    name='StartRequest',
-    full_name='StartRequest',
-    filename=None,
-    file=DESCRIPTOR,
-    containing_type=None,
-    fields=[
-        _descriptor.FieldDescriptor(
-            name='project', full_name='StartRequest.project', index=0,
-            number=1, type=9, cpp_type=9, label=1,
-            has_default_value=False, default_value=_b("").decode('utf-8'),
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='topic', full_name='StartRequest.topic', index=1,
-            number=2, type=9, cpp_type=9, label=1,
-            has_default_value=False, default_value=_b("").decode('utf-8'),
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='request_rate', full_name='StartRequest.request_rate', index=2,
-            number=3, type=5, cpp_type=1, label=1,
-            has_default_value=False, default_value=0,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='message_size', full_name='StartRequest.message_size', index=3,
-            number=4, type=5, cpp_type=1, label=1,
-            has_default_value=False, default_value=0,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='max_outstanding_requests', full_name='StartRequest.max_outstanding_requests',
-            index=4,
-            number=5, type=5, cpp_type=1, label=1,
-            has_default_value=False, default_value=0,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='start_time', full_name='StartRequest.start_time', index=5,
-            number=6, type=11, cpp_type=10, label=1,
-            has_default_value=False, default_value=None,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='test_duration', full_name='StartRequest.test_duration', index=6,
-            number=7, type=11, cpp_type=10, label=1,
-            has_default_value=False, default_value=None,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='number_of_messages', full_name='StartRequest.number_of_messages', index=7,
-            number=8, type=5, cpp_type=1, label=1,
-            has_default_value=False, default_value=0,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='pubsub_options', full_name='StartRequest.pubsub_options', index=8,
-            number=9, type=11, cpp_type=10, label=1,
-            has_default_value=False, default_value=None,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='kafka_options', full_name='StartRequest.kafka_options', index=9,
-            number=10, type=11, cpp_type=10, label=1,
-            has_default_value=False, default_value=None,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-    ],
-    extensions=[
-    ],
-    nested_types=[],
-    enum_types=[
-    ],
-    options=None,
-    is_extendable=False,
-    syntax='proto3',
-    extension_ranges=[],
-    oneofs=[
-        _descriptor.OneofDescriptor(
-            name='stop_conditions', full_name='StartRequest.stop_conditions',
-            index=0, containing_type=None, fields=[]),
-        _descriptor.OneofDescriptor(
-            name='options', full_name='StartRequest.options',
-            index=1, containing_type=None, fields=[]),
-    ],
-    serialized_start=84,
-    serialized_end=450,
+  name='StartRequest',
+  full_name='StartRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='project', full_name='StartRequest.project', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='topic', full_name='StartRequest.topic', index=1,
+      number=2, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='request_rate', full_name='StartRequest.request_rate', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='message_size', full_name='StartRequest.message_size', index=3,
+      number=4, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='max_outstanding_requests', full_name='StartRequest.max_outstanding_requests', index=4,
+      number=5, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='start_time', full_name='StartRequest.start_time', index=5,
+      number=6, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='test_duration', full_name='StartRequest.test_duration', index=6,
+      number=7, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='number_of_messages', full_name='StartRequest.number_of_messages', index=7,
+      number=8, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='pubsub_options', full_name='StartRequest.pubsub_options', index=8,
+      number=9, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='kafka_options', full_name='StartRequest.kafka_options', index=9,
+      number=10, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+    _descriptor.OneofDescriptor(
+      name='stop_conditions', full_name='StartRequest.stop_conditions',
+      index=0, containing_type=None, fields=[]),
+    _descriptor.OneofDescriptor(
+      name='options', full_name='StartRequest.options',
+      index=1, containing_type=None, fields=[]),
+  ],
+  serialized_start=84,
+  serialized_end=450,
 )
+
 
 _STARTRESPONSE = _descriptor.Descriptor(
-    name='StartResponse',
-    full_name='StartResponse',
-    filename=None,
-    file=DESCRIPTOR,
-    containing_type=None,
-    fields=[
-    ],
-    extensions=[
-    ],
-    nested_types=[],
-    enum_types=[
-    ],
-    options=None,
-    is_extendable=False,
-    syntax='proto3',
-    extension_ranges=[],
-    oneofs=[
-    ],
-    serialized_start=452,
-    serialized_end=467,
+  name='StartResponse',
+  full_name='StartResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=452,
+  serialized_end=467,
 )
+
 
 _PUBSUBOPTIONS = _descriptor.Descriptor(
-    name='PubsubOptions',
-    full_name='PubsubOptions',
-    filename=None,
-    file=DESCRIPTOR,
-    containing_type=None,
-    fields=[
-        _descriptor.FieldDescriptor(
-            name='subscription', full_name='PubsubOptions.subscription', index=0,
-            number=1, type=9, cpp_type=9, label=1,
-            has_default_value=False, default_value=_b("").decode('utf-8'),
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='max_messages_per_pull', full_name='PubsubOptions.max_messages_per_pull', index=1,
-            number=2, type=5, cpp_type=1, label=1,
-            has_default_value=False, default_value=0,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='publish_batch_size', full_name='PubsubOptions.publish_batch_size', index=2,
-            number=3, type=5, cpp_type=1, label=1,
-            has_default_value=False, default_value=0,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-    ],
-    extensions=[
-    ],
-    nested_types=[],
-    enum_types=[
-    ],
-    options=None,
-    is_extendable=False,
-    syntax='proto3',
-    extension_ranges=[],
-    oneofs=[
-    ],
-    serialized_start=469,
-    serialized_end=565,
+  name='PubsubOptions',
+  full_name='PubsubOptions',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='subscription', full_name='PubsubOptions.subscription', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='max_messages_per_pull', full_name='PubsubOptions.max_messages_per_pull', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='publish_batch_size', full_name='PubsubOptions.publish_batch_size', index=2,
+      number=3, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=469,
+  serialized_end=565,
 )
+
 
 _KAFKAOPTIONS = _descriptor.Descriptor(
-    name='KafkaOptions',
-    full_name='KafkaOptions',
-    filename=None,
-    file=DESCRIPTOR,
-    containing_type=None,
-    fields=[
-        _descriptor.FieldDescriptor(
-            name='broker', full_name='KafkaOptions.broker', index=0,
-            number=1, type=9, cpp_type=9, label=1,
-            has_default_value=False, default_value=_b("").decode('utf-8'),
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='poll_length', full_name='KafkaOptions.poll_length', index=1,
-            number=2, type=5, cpp_type=1, label=1,
-            has_default_value=False, default_value=0,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-    ],
-    extensions=[
-    ],
-    nested_types=[],
-    enum_types=[
-    ],
-    options=None,
-    is_extendable=False,
-    syntax='proto3',
-    extension_ranges=[],
-    oneofs=[
-    ],
-    serialized_start=567,
-    serialized_end=618,
+  name='KafkaOptions',
+  full_name='KafkaOptions',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='broker', full_name='KafkaOptions.broker', index=0,
+      number=1, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='poll_length', full_name='KafkaOptions.poll_length', index=1,
+      number=2, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=567,
+  serialized_end=618,
 )
+
 
 _CHECKREQUEST = _descriptor.Descriptor(
-    name='CheckRequest',
-    full_name='CheckRequest',
-    filename=None,
-    file=DESCRIPTOR,
-    containing_type=None,
-    fields=[
-    ],
-    extensions=[
-    ],
-    nested_types=[],
-    enum_types=[
-    ],
-    options=None,
-    is_extendable=False,
-    syntax='proto3',
-    extension_ranges=[],
-    oneofs=[
-    ],
-    serialized_start=620,
-    serialized_end=634,
+  name='CheckRequest',
+  full_name='CheckRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=620,
+  serialized_end=634,
 )
+
 
 _CHECKRESPONSE = _descriptor.Descriptor(
-    name='CheckResponse',
-    full_name='CheckResponse',
-    filename=None,
-    file=DESCRIPTOR,
-    containing_type=None,
-    fields=[
-        _descriptor.FieldDescriptor(
-            name='bucket_values', full_name='CheckResponse.bucket_values', index=0,
-            number=1, type=3, cpp_type=2, label=3,
-            has_default_value=False, default_value=[],
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='running_duration', full_name='CheckResponse.running_duration', index=1,
-            number=2, type=11, cpp_type=10, label=1,
-            has_default_value=False, default_value=None,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-        _descriptor.FieldDescriptor(
-            name='is_finished', full_name='CheckResponse.is_finished', index=2,
-            number=3, type=8, cpp_type=7, label=1,
-            has_default_value=False, default_value=False,
-            message_type=None, enum_type=None, containing_type=None,
-            is_extension=False, extension_scope=None,
-            options=None),
-    ],
-    extensions=[
-    ],
-    nested_types=[],
-    enum_types=[
-    ],
-    options=None,
-    is_extendable=False,
-    syntax='proto3',
-    extension_ranges=[],
-    oneofs=[
-    ],
-    serialized_start=636,
-    serialized_end=748,
+  name='CheckResponse',
+  full_name='CheckResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='bucket_values', full_name='CheckResponse.bucket_values', index=0,
+      number=1, type=3, cpp_type=2, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='running_duration', full_name='CheckResponse.running_duration', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='is_finished', full_name='CheckResponse.is_finished', index=2,
+      number=3, type=8, cpp_type=7, label=1,
+      has_default_value=False, default_value=False,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=636,
+  serialized_end=748,
 )
 
-_STARTREQUEST.fields_by_name[
-    'start_time'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
-_STARTREQUEST.fields_by_name[
-    'test_duration'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
+
+_EXECUTEREQUEST = _descriptor.Descriptor(
+  name='ExecuteRequest',
+  full_name='ExecuteRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=750,
+  serialized_end=766,
+)
+
+
+_EXECUTERESPONSE = _descriptor.Descriptor(
+  name='ExecuteResponse',
+  full_name='ExecuteResponse',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='latencies', full_name='ExecuteResponse.latencies', index=0,
+      number=1, type=3, cpp_type=2, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=768,
+  serialized_end=804,
+)
+
+_STARTREQUEST.fields_by_name['start_time'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
+_STARTREQUEST.fields_by_name['test_duration'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
 _STARTREQUEST.fields_by_name['pubsub_options'].message_type = _PUBSUBOPTIONS
 _STARTREQUEST.fields_by_name['kafka_options'].message_type = _KAFKAOPTIONS
 _STARTREQUEST.oneofs_by_name['stop_conditions'].fields.append(
-    _STARTREQUEST.fields_by_name['test_duration'])
-_STARTREQUEST.fields_by_name['test_duration'].containing_oneof = _STARTREQUEST.oneofs_by_name[
-    'stop_conditions']
+  _STARTREQUEST.fields_by_name['test_duration'])
+_STARTREQUEST.fields_by_name['test_duration'].containing_oneof = _STARTREQUEST.oneofs_by_name['stop_conditions']
 _STARTREQUEST.oneofs_by_name['stop_conditions'].fields.append(
-    _STARTREQUEST.fields_by_name['number_of_messages'])
-_STARTREQUEST.fields_by_name['number_of_messages'].containing_oneof = _STARTREQUEST.oneofs_by_name[
-    'stop_conditions']
+  _STARTREQUEST.fields_by_name['number_of_messages'])
+_STARTREQUEST.fields_by_name['number_of_messages'].containing_oneof = _STARTREQUEST.oneofs_by_name['stop_conditions']
 _STARTREQUEST.oneofs_by_name['options'].fields.append(
-    _STARTREQUEST.fields_by_name['pubsub_options'])
-_STARTREQUEST.fields_by_name['pubsub_options'].containing_oneof = _STARTREQUEST.oneofs_by_name[
-    'options']
+  _STARTREQUEST.fields_by_name['pubsub_options'])
+_STARTREQUEST.fields_by_name['pubsub_options'].containing_oneof = _STARTREQUEST.oneofs_by_name['options']
 _STARTREQUEST.oneofs_by_name['options'].fields.append(
-    _STARTREQUEST.fields_by_name['kafka_options'])
-_STARTREQUEST.fields_by_name['kafka_options'].containing_oneof = _STARTREQUEST.oneofs_by_name[
-    'options']
-_CHECKRESPONSE.fields_by_name[
-    'running_duration'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
+  _STARTREQUEST.fields_by_name['kafka_options'])
+_STARTREQUEST.fields_by_name['kafka_options'].containing_oneof = _STARTREQUEST.oneofs_by_name['options']
+_CHECKRESPONSE.fields_by_name['running_duration'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
 DESCRIPTOR.message_types_by_name['StartRequest'] = _STARTREQUEST
 DESCRIPTOR.message_types_by_name['StartResponse'] = _STARTRESPONSE
 DESCRIPTOR.message_types_by_name['PubsubOptions'] = _PUBSUBOPTIONS
 DESCRIPTOR.message_types_by_name['KafkaOptions'] = _KAFKAOPTIONS
 DESCRIPTOR.message_types_by_name['CheckRequest'] = _CHECKREQUEST
 DESCRIPTOR.message_types_by_name['CheckResponse'] = _CHECKRESPONSE
+DESCRIPTOR.message_types_by_name['ExecuteRequest'] = _EXECUTEREQUEST
+DESCRIPTOR.message_types_by_name['ExecuteResponse'] = _EXECUTERESPONSE
 
 StartRequest = _reflection.GeneratedProtocolMessageType('StartRequest', (_message.Message,), dict(
-    DESCRIPTOR=_STARTREQUEST,
-    __module__='loadtest_pb2'
-    # @@protoc_insertion_point(class_scope:StartRequest)
-))
+  DESCRIPTOR = _STARTREQUEST,
+  __module__ = 'loadtest_pb2'
+  # @@protoc_insertion_point(class_scope:StartRequest)
+  ))
 _sym_db.RegisterMessage(StartRequest)
 
 StartResponse = _reflection.GeneratedProtocolMessageType('StartResponse', (_message.Message,), dict(
-    DESCRIPTOR=_STARTRESPONSE,
-    __module__='loadtest_pb2'
-    # @@protoc_insertion_point(class_scope:StartResponse)
-))
+  DESCRIPTOR = _STARTRESPONSE,
+  __module__ = 'loadtest_pb2'
+  # @@protoc_insertion_point(class_scope:StartResponse)
+  ))
 _sym_db.RegisterMessage(StartResponse)
 
 PubsubOptions = _reflection.GeneratedProtocolMessageType('PubsubOptions', (_message.Message,), dict(
-    DESCRIPTOR=_PUBSUBOPTIONS,
-    __module__='loadtest_pb2'
-    # @@protoc_insertion_point(class_scope:PubsubOptions)
-))
+  DESCRIPTOR = _PUBSUBOPTIONS,
+  __module__ = 'loadtest_pb2'
+  # @@protoc_insertion_point(class_scope:PubsubOptions)
+  ))
 _sym_db.RegisterMessage(PubsubOptions)
 
 KafkaOptions = _reflection.GeneratedProtocolMessageType('KafkaOptions', (_message.Message,), dict(
-    DESCRIPTOR=_KAFKAOPTIONS,
-    __module__='loadtest_pb2'
-    # @@protoc_insertion_point(class_scope:KafkaOptions)
-))
+  DESCRIPTOR = _KAFKAOPTIONS,
+  __module__ = 'loadtest_pb2'
+  # @@protoc_insertion_point(class_scope:KafkaOptions)
+  ))
 _sym_db.RegisterMessage(KafkaOptions)
 
 CheckRequest = _reflection.GeneratedProtocolMessageType('CheckRequest', (_message.Message,), dict(
-    DESCRIPTOR=_CHECKREQUEST,
-    __module__='loadtest_pb2'
-    # @@protoc_insertion_point(class_scope:CheckRequest)
-))
+  DESCRIPTOR = _CHECKREQUEST,
+  __module__ = 'loadtest_pb2'
+  # @@protoc_insertion_point(class_scope:CheckRequest)
+  ))
 _sym_db.RegisterMessage(CheckRequest)
 
 CheckResponse = _reflection.GeneratedProtocolMessageType('CheckResponse', (_message.Message,), dict(
-    DESCRIPTOR=_CHECKRESPONSE,
-    __module__='loadtest_pb2'
-    # @@protoc_insertion_point(class_scope:CheckResponse)
-))
+  DESCRIPTOR = _CHECKRESPONSE,
+  __module__ = 'loadtest_pb2'
+  # @@protoc_insertion_point(class_scope:CheckResponse)
+  ))
 _sym_db.RegisterMessage(CheckResponse)
 
+ExecuteRequest = _reflection.GeneratedProtocolMessageType('ExecuteRequest', (_message.Message,), dict(
+  DESCRIPTOR = _EXECUTEREQUEST,
+  __module__ = 'loadtest_pb2'
+  # @@protoc_insertion_point(class_scope:ExecuteRequest)
+  ))
+_sym_db.RegisterMessage(ExecuteRequest)
+
+ExecuteResponse = _reflection.GeneratedProtocolMessageType('ExecuteResponse', (_message.Message,), dict(
+  DESCRIPTOR = _EXECUTERESPONSE,
+  __module__ = 'loadtest_pb2'
+  # @@protoc_insertion_point(class_scope:ExecuteResponse)
+  ))
+_sym_db.RegisterMessage(ExecuteResponse)
+
+
 DESCRIPTOR.has_options = True
-DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b(
-    '\n\035com.google.pubsub.flic.commonB\rLoadtestProto'))
-import grpc
-from grpc.beta import implementations as beta_implementations
-from grpc.beta import interfaces as beta_interfaces
-from grpc.framework.common import cardinality
-from grpc.framework.interfaces.face import utilities as face_utilities
-
-
-class LoadtestStub(object):
-    def __init__(self, channel):
-        """Constructor.
-
-        Args:
-          channel: A grpc.Channel.
-        """
-        self.Start = channel.unary_unary(
-            '/Loadtest/Start',
-            request_serializer=StartRequest.SerializeToString,
-            response_deserializer=StartResponse.FromString,
-        )
-        self.Check = channel.unary_unary(
-            '/Loadtest/Check',
-            request_serializer=CheckRequest.SerializeToString,
-            response_deserializer=CheckResponse.FromString,
-        )
-
-
-class LoadtestServicer(object):
-    def Start(self, request, context):
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-    def Check(self, request, context):
-        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
-        context.set_details('Method not implemented!')
-        raise NotImplementedError('Method not implemented!')
-
-
-def add_LoadtestServicer_to_server(servicer, server):
-    rpc_method_handlers = {
-        'Start': grpc.unary_unary_rpc_method_handler(
-            servicer.Start,
-            request_deserializer=StartRequest.FromString,
-            response_serializer=StartResponse.SerializeToString,
-        ),
-        'Check': grpc.unary_unary_rpc_method_handler(
-            servicer.Check,
-            request_deserializer=CheckRequest.FromString,
-            response_serializer=CheckResponse.SerializeToString,
-        ),
-    }
-    generic_handler = grpc.method_handlers_generic_handler(
-        'Loadtest', rpc_method_handlers)
-    server.add_generic_rpc_handlers((generic_handler,))
-
-
-class BetaLoadtestServicer(object):
-    def Start(self, request, context):
-        context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
-
-    def Check(self, request, context):
-        context.code(beta_interfaces.StatusCode.UNIMPLEMENTED)
-
-
-class BetaLoadtestStub(object):
-    def Start(self, request, timeout, metadata=None, with_call=False, protocol_options=None):
-        raise NotImplementedError()
-
-    Start.future = None
-
-    def Check(self, request, timeout, metadata=None, with_call=False, protocol_options=None):
-        raise NotImplementedError()
-
-    Check.future = None
-
-
-def beta_create_Loadtest_server(servicer, pool=None, pool_size=None, default_timeout=None,
-                                maximum_timeout=None):
-    request_deserializers = {
-        ('Loadtest', 'Check'): CheckRequest.FromString,
-        ('Loadtest', 'Start'): StartRequest.FromString,
-    }
-    response_serializers = {
-        ('Loadtest', 'Check'): CheckResponse.SerializeToString,
-        ('Loadtest', 'Start'): StartResponse.SerializeToString,
-    }
-    method_implementations = {
-        ('Loadtest', 'Check'): face_utilities.unary_unary_inline(servicer.Check),
-        ('Loadtest', 'Start'): face_utilities.unary_unary_inline(servicer.Start),
-    }
-    server_options = beta_implementations.server_options(
-        request_deserializers=request_deserializers, response_serializers=response_serializers,
-        thread_pool=pool, thread_pool_size=pool_size, default_timeout=default_timeout,
-        maximum_timeout=maximum_timeout)
-    return beta_implementations.server(method_implementations, options=server_options)
-
-
-def beta_create_Loadtest_stub(channel, host=None, metadata_transformer=None, pool=None,
-                              pool_size=None):
-    request_serializers = {
-        ('Loadtest', 'Check'): CheckRequest.SerializeToString,
-        ('Loadtest', 'Start'): StartRequest.SerializeToString,
-    }
-    response_deserializers = {
-        ('Loadtest', 'Check'): CheckResponse.FromString,
-        ('Loadtest', 'Start'): StartResponse.FromString,
-    }
-    cardinalities = {
-        'Check': cardinality.Cardinality.UNARY_UNARY,
-        'Start': cardinality.Cardinality.UNARY_UNARY,
-    }
-    stub_options = beta_implementations.stub_options(host=host,
-                                                     metadata_transformer=metadata_transformer,
-                                                     request_serializers=request_serializers,
-                                                     response_deserializers=response_deserializers,
-                                                     thread_pool=pool, thread_pool_size=pool_size)
-    return beta_implementations.dynamic_stub(channel, 'Loadtest', cardinalities,
-                                             options=stub_options)
-
+DESCRIPTOR._options = _descriptor._ParseOptions(descriptor_pb2.FileOptions(), _b('\n\035com.google.pubsub.flic.commonB\rLoadtestProto'))
 # @@protoc_insertion_point(module_scope)

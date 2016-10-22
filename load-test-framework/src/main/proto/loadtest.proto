@@ -10,6 +10,11 @@ service Loadtest {
   rpc Check(CheckRequest) returns (CheckResponse);
 }
 
+service Adapter {
+  rpc Start (StartRequest) returns (StartResponse);
+  rpc Execute (ExecuteRequest) returns (ExecuteResponse);
+}
+
 message StartRequest {
   // The GCP project. This must be set even for Kafka, as we use it to export metrics to Stackdriver.
   string project = 1;
@@ -77,4 +82,12 @@ message CheckResponse {
 
   // True if the load test has finished running.
   bool is_finished = 3;
+}
+
+message ExecuteRequest {
+}
+
+message ExecuteResponse {
+  // Latencies to reportfor the given action
+  repeated int64 latencies = 1;
 }
