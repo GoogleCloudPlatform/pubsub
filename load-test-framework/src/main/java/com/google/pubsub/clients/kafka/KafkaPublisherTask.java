@@ -50,7 +50,7 @@ class KafkaPublisherTask extends Task {
     this.payload = LoadTestRunner.createMessage(messageSize);
     this.batchSize = batchSize;
     Properties props = new Properties();
-    props.putAll(new ImmutableMap.Builder<String, String>().
+    props.putAll(new ImmutableMap.Builder<>().
         put("max.block.ms", "30000").
         put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer").
         put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer").
