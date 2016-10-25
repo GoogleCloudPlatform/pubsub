@@ -65,6 +65,5 @@ class KafkaSubscriberTask extends Task {
     records.forEach(record -> {
       metricsHandler.recordLatency(now - record.timestamp());
     });
-    subscriber.commitAsync();
   }
 }
