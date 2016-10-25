@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -29,7 +28,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Function;
 
 /**
  * Runs a task that publishes messages utilizing Kafka's implementation of the Producer<K,V>
@@ -61,7 +59,7 @@ class KafkaPublisherTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run((Function<StartRequest, Task>) request ->
+    LoadTestRunner.run(request ->
         new KafkaPublisherTask(request.getKafkaOptions().getBroker(), request.getProject(),
             request.getTopic(), request.getMessageSize(), request.getPublishBatchSize()));
   }

@@ -19,13 +19,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 import java.util.Collections;
 import java.util.Properties;
-import java.util.function.Function;
 
 /**
  * Runs a task that consumes messages utilizing Kafka's implementation of the Consumer<K,V>
@@ -54,7 +52,7 @@ class KafkaSubscriberTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run((Function<StartRequest, Task>) request ->
+    LoadTestRunner.run(request ->
         new KafkaSubscriberTask(request.getKafkaOptions().getBroker(), request.getProject(),
             request.getTopic(), request.getRequestRate()));
   }

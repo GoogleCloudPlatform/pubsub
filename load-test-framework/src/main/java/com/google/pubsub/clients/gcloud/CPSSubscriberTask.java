@@ -22,13 +22,11 @@ import com.google.common.base.Preconditions;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.function.Function;
 
 /**
  * Runs a task that consumes messages from a Cloud Pub/Sub subscription.
@@ -49,7 +47,7 @@ class CPSSubscriberTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run((Function<StartRequest, Task>) request ->
+    LoadTestRunner.run(request ->
         new CPSSubscriberTask(request.getProject(), request.getPubsubOptions().getSubscription(),
             request.getPubsubOptions().getMaxMessagesPerPull()));
   }
