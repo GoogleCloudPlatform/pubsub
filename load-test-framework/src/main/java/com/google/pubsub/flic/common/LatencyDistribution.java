@@ -17,12 +17,16 @@
 package com.google.pubsub.flic.common;
 
 import com.google.common.base.Preconditions;
-import org.apache.commons.lang3.ArrayUtils;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.LongStream;
+import org.apache.commons.lang3.ArrayUtils;
 
+
+/**
+ * Takes latency measurements and stores them in buckets for more efficient storage, along with
+ * utilities to calculate percentiles for analysis of results.
+ */
 public class LatencyDistribution {
   public static final double[] LATENCY_BUCKETS = {
       0.0,

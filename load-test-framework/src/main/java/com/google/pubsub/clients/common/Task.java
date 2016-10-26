@@ -19,6 +19,9 @@ package com.google.pubsub.clients.common;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
+/**
+ * Each task is responsible for implementing its action and for creating {@link LoadTestRunner}.
+ */
 public abstract class Task implements Runnable {
   protected final MetricsHandler metricsHandler;
   protected AtomicInteger numberOfMessages = new AtomicInteger(0);
