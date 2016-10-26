@@ -32,6 +32,7 @@ import com.google.pubsub.flic.output.SheetsService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.text.DecimalFormat;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
@@ -244,6 +245,7 @@ class Driver {
       log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
       log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
       // CPS Publishers report latency per batch message.
+      log.info(Arrays.toString(stats.bucketValues));
       log.info("Average throughput: " +
           new DecimalFormat("#.##").format(
               (double) LongStream.of(
