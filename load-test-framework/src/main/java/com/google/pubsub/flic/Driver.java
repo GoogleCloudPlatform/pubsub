@@ -245,7 +245,6 @@ class Driver {
       log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
       log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
       // CPS Publishers report latency per batch message.
-      log.info(Arrays.toString(stats.bucketValues));
       log.info("Average throughput: " +
           new DecimalFormat("#.##").format(
               (double) LongStream.of(
