@@ -173,14 +173,14 @@ public class SheetsService {
         valueRow.add("N/A");
         valueRow.add(Client.numberOfMessages);
       }
-      valueRow.add(Client.cpsPublishBatchSize);
+      valueRow.add(Client.publishBatchSize);
       valueRow.add(Client.maxMessagesPerPull);
       valueRow.add(Client.requestRate);
       valueRow.add(Client.maxOutstandingRequests);
       valueRow.add(new DecimalFormat("#.##").format(
           (double) LongStream.of(
               stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0
-              * (type.isCpsPublisher() ? Client.cpsPublishBatchSize : 1)));
+              * (Client.publishBatchSize)));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));

@@ -130,8 +130,9 @@ public class LoadTestRunner {
             < (request.getStartTime().getSeconds() + request.getTestDuration().getSeconds()) * 1000;
       case NUMBER_OF_MESSAGES:
         return client.getNumberOfMessages() < request.getNumberOfMessages();
+       default:
+         return false;
     }
-    return false;
   }
 
   /**

@@ -62,6 +62,5 @@ class KafkaSubscriberTask extends Task {
     numberOfMessages.addAndGet(records.count());
     long now = System.currentTimeMillis();
     records.forEach(record -> metricsHandler.recordLatency(now - record.timestamp()));
-    subscriber.commitAsync();
   }
 }

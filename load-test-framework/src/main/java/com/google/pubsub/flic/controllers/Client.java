@@ -48,7 +48,7 @@ public class Client {
   public static int requestRate;
   public static Timestamp startTime;
   public static int loadtestLengthSeconds;
-  public static int cpsPublishBatchSize;
+  public static int publishBatchSize;
   public static int maxMessagesPerPull;
   public static int pollLength;
   public static String broker;
@@ -121,7 +121,8 @@ public class Client {
         .setMaxOutstandingRequests(maxOutstandingRequests)
         .setMessageSize(messageSize)
         .setRequestRate(requestRate)
-        .setStartTime(startTime);
+        .setStartTime(startTime)
+        .setPublishBatchSize(publishBatchSize);
     if (numberOfMessages > 0) {
       requestBuilder.setNumberOfMessages(numberOfMessages);
     } else {
@@ -130,8 +131,7 @@ public class Client {
     }
     switch (clientType) {
       case CPS_GCLOUD_PUBLISHER:
-        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
-            .setPublishBatchSize(cpsPublishBatchSize));
+        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder());
         break;
       case CPS_GCLOUD_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
@@ -139,6 +139,9 @@ public class Client {
             .setMaxMessagesPerPull(maxMessagesPerPull));
         break;
       case KAFKA_PUBLISHER:
+        requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
+            .setBroker(broker));
+        break;
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)
@@ -218,10 +221,11 @@ public class Client {
             if (errors > 3) {
               clientStatus = ClientStatus.FAILED;
               doneFuture.setException(throwable);
-              log.error("Client failed " + errors + " health checks, something went wrong.");
+              log.error(clientType + " client failed " + errors + 
+                        " health checks, something went wrong.");
               return;
             }
-            log.warn("Unable to connect to client, probably a transient error.");
+            log.warn("Unable to connect to " + clientType + " client, probably a transient error.");
             stub = getStub();
             errors++;
           }
@@ -241,7 +245,7 @@ public class Client {
     CPS_GCLOUD_SUBSCRIBER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
-
+    
     public boolean isCpsPublisher() {
       switch (this) {
         case CPS_GCLOUD_PUBLISHER:
