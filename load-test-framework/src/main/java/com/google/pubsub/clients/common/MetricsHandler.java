@@ -179,7 +179,7 @@ public class MetricsHandler {
   }
   
   public synchronized void recordLatency(long latencyMs) {
-    recordLatency(latencyMs, 1);
+    distribution.recordLatency(latencyMs);
   }
 
   public synchronized void recordLatency(long latencyMs, int count) {

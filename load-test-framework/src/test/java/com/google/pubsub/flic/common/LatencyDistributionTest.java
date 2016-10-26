@@ -53,6 +53,22 @@ public class LatencyDistributionTest {
     expected[2]++;
     assertArrayEquals(distribution.getBucketValues(), expected);
   }
+  
+  @Test
+  public void testBatch() {
+    long[] latencies = {1, 5, 10, 20, 50};
+    LatencyDistribution control = new LatencyDistribution();
+    for (long lat : latencies) {
+      int n = 10;
+      distribution.recordLatency(lat, n);
+      for (int i = 0; i < n; i++) {
+        control.recordLatency(lat);
+      }
+    }
+    assertEquals(distribution.getMean(), control.getMean(), EPSILON);
+    assertEquals(distribution.getCount(), control.getMean(), EPSILON);
+    assertEquals(distribution.getSumOfSquareDeviations(), control.getMean(), EPSILON);
+  }
 
   @Test
   public void testMany() {
