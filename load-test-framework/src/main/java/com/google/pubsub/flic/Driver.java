@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 package com.google.pubsub.flic;
 
 import com.beust.jcommander.IParameterValidator;
@@ -29,8 +30,6 @@ import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.output.SheetsService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import java.text.DecimalFormat;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -38,14 +37,15 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.LogManager;
 import java.util.stream.LongStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Drives the execution of the framework through command line arguments.
  */
 class Driver {
-  private final static Logger log = LoggerFactory.getLogger(Driver.class);
+  private static final Logger log = LoggerFactory.getLogger(Driver.class);
   @Parameter(
       names = {"--help"},
       help = true
@@ -137,9 +137,9 @@ class Driver {
   private int burnInDurationSeconds = 20;
   @Parameter(
       names = {"--number_of_messages"},
-      description = "The total number of messages to publish in the test. Enabling this will " +
-          "override --loadtest_length_seconds. Enabling this flag will also enable the check for " +
-          "message loss. If set less than 1, this flag is ignored."
+      description = "The total number of messages to publish in the test. Enabling this will "
+          + "override --loadtest_length_seconds. Enabling this flag will also enable the check for "
+          + "message loss. If set less than 1, this flag is ignored."
   )
   private int numberOfMessages = 0;
   @Parameter(
@@ -149,16 +149,19 @@ class Driver {
   private String spreadsheetId = "";
   @Parameter(
       names = {"--data_store_dir"},
-      description = "The directory to store credentials for sheets output verification. Note: " +
-          "sheets output is only turned on when spreadsheet_id is set to a non-empty value, so " +
-          "data will only be stored to this directory if the spreadsheet_id flag is activated."
+      description = "The directory to store credentials for sheets output verification. Note: "
+          + "sheets output is only turned on when spreadsheet_id is set to a non-empty value, so "
+          + "data will only be stored to this directory if the spreadsheet_id flag is activated."
   )
-  private String dataStoreDirectory = 
+  private String dataStoreDirectory =
       System.getProperty("user.home") + "/.credentials/sheets.googleapis.com-loadtest-framework";
+  @Parameter(
+    names = {"--resource_dir"},
+    description = "The directory to look for resources to upload, if different than the default."
+  )
+  private String resourceDirectory = "src/main/resources/gce";
 
   public static void main(String[] args) {
-    // Turns off all java.util.logging.
-    LogManager.getLogManager().reset();
     Driver driver = new Driver();
     JCommander jCommander = new JCommander(driver, args);
     if (driver.help) {
@@ -171,13 +174,14 @@ class Driver {
   private void run() {
     try {
       Preconditions.checkArgument(
-          cpsPublisherCount > 0 ||
-              cpsSubscriberCount > 0 ||
-              kafkaPublisherCount > 0 ||
-              kafkaSubscriberCount > 0
+          cpsPublisherCount > 0
+              || cpsSubscriberCount > 0
+              || kafkaPublisherCount > 0
+              || kafkaSubscriberCount > 0
       );
       Preconditions.checkArgument(
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
+      GCEController.resourceDirectory = resourceDirectory;
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
           new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null), cpsPublisherCount,
@@ -245,8 +249,8 @@ class Driver {
       log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
       log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
       // CPS Publishers report latency per batch message.
-      log.info("Average throughput: " +
-          new DecimalFormat("#.##").format(
+      log.info("Average throughput: "
+          + new DecimalFormat("#.##").format(
               (double) LongStream.of(
                   stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
                   * publishBatchSize) + " MB/s");
@@ -261,7 +265,9 @@ class Driver {
     public void validate(String name, String value) throws ParameterException {
       try {
         int n = Integer.parseInt(value);
-        if (n > 0) return;
+        if (n > 0) {
+          return;
+        }
         throw new NumberFormatException();
       } catch (NumberFormatException e) {
         throw new ParameterException(
