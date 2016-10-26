@@ -120,10 +120,14 @@ public class LatencyDistribution {
   public List<Long> getBucketValuesAsList() {
     return Arrays.asList(ArrayUtils.toObject(bucketValues));
   }
-
+  
   public void recordLatency(long latencyMs) {
+    recordLatency(latencyMs, 1);
+  }
+
+  public void recordLatency(long latencyMs, int numberOfRecords) {
     synchronized (this) {
-      count++;
+      count+= numberOfRecords;
       double dev = latencyMs - mean;
       mean += dev / count;
       sumOfSquaredDeviation += dev * (latencyMs - mean);
@@ -133,13 +137,13 @@ public class LatencyDistribution {
       double bucket = LATENCY_BUCKETS[i];
       if (latencyMs < bucket) {
         synchronized (this) {
-          bucketValues[i]++;
+          bucketValues[i]+= numberOfRecords;
         }
         return;
       }
     }
     synchronized (this) {
-      bucketValues[LATENCY_BUCKETS.length - 1]++;
+      bucketValues[LATENCY_BUCKETS.length - 1]+= numberOfRecords;
     }
   }
 }
