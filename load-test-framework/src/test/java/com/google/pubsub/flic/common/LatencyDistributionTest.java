@@ -55,7 +55,7 @@ public class LatencyDistributionTest {
   }
   
   @Test
-  public void testBatch() {
+  public void testBatchRecord() {
     long[] latencies = {2, 7, 31, 67, 137};
     LatencyDistribution control = new LatencyDistribution();
     for (long lat : latencies) {
