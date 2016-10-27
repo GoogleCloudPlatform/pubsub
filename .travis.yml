@@ -7,4 +7,4 @@ install:
 - mvn -f load-test-framework/pom.xml package
 
 script:
-- ls
+- ./run.py --help
