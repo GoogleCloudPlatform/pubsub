@@ -124,7 +124,7 @@ public class LatencyDistribution {
   public List<Long> getBucketValuesAsList() {
     return Arrays.asList(ArrayUtils.toObject(bucketValues));
   }
-  
+
   public void recordLatency(long latencyMs) {
     synchronized (this) {
       count++;
@@ -147,25 +147,25 @@ public class LatencyDistribution {
     }
   }
 
-  public void recordLatency(long latencyMs, int addCount) {
+  public void recordLatencyBatch(long latencyMs, int batchSize) {
     synchronized (this) {
       double dev = latencyMs - mean;
-      mean = (mean * count + latencyMs * addCount) / (count + addCount);
-      count+= addCount;
-      sumOfSquaredDeviation += dev * (latencyMs - mean) * addCount;
+      mean = (mean * count + latencyMs * batchSize) / (count + batchSize);
+      count+= batchSize;
+      sumOfSquaredDeviation += dev * (latencyMs - mean) * batchSize;
     }
 
     for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
       double bucket = LATENCY_BUCKETS[i];
       if (latencyMs < bucket) {
         synchronized (this) {
-          bucketValues[i]+= addCount;
+          bucketValues[i]+= batchSize;
         }
         return;
       }
     }
     synchronized (this) {
-      bucketValues[LATENCY_BUCKETS.length - 1]+= addCount;
+      bucketValues[LATENCY_BUCKETS.length - 1]+= batchSize;
     }
   }
 }

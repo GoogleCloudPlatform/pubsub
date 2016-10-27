@@ -177,13 +177,13 @@ public class MetricsHandler {
       log.info("Metrics already exist.");
     }
   }
-  
+
   public synchronized void recordLatency(long latencyMs) {
     distribution.recordLatency(latencyMs);
   }
 
-  public synchronized void recordLatency(long latencyMs, int count) {
-    distribution.recordLatency(latencyMs, count);
+  public synchronized void recordLatencyBatch(long latencyMs, int batchSize) {
+    distribution.recordLatencyBatch(latencyMs, batchSize);
   }
 
   private void reportMetrics(LatencyDistribution distribution) {
