@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Properties;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -62,22 +63,20 @@ class KafkaPublisherTask extends Task {
 
   @Override
   public void run() {
-    Stopwatch stopwatch = Stopwatch.createStarted();
-    publisher.send(
-        new ProducerRecord<>(
-            topic,
-            null,
-            System.currentTimeMillis(),
-            null,
-            payload),
-        (metadata, exception) -> {
-          stopwatch.stop();
-          if (exception != null) {
-            log.error(exception.getMessage(), exception);
-            return;
-          }
-          numberOfMessages.incrementAndGet();
-          metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
-        });
+    try {
+      Stopwatch stopwatch = Stopwatch.createStarted();
+      publisher.send(
+          new ProducerRecord<>(
+              topic,
+              null,
+              System.currentTimeMillis(),
+              null,
+              payload)).get();
+      stopwatch.stop();
+      numberOfMessages.incrementAndGet();
+      metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
+    } catch (InterruptedException | ExecutionException e) {
+      log.error("Error publishing.", e);
+    }
   }
 }
