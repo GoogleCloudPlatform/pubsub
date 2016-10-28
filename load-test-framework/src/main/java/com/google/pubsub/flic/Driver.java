@@ -56,14 +56,26 @@ class Driver {
       names = {"--cps_publisher_count"},
       description = "Number of CPS publishers to start."
   )
-  private int cpsPublisherCount = 1;
+  private int cpsPublisherCount = 0;
   @Parameter(
       names = {"--cps_subscriber_count"},
       description =
           "Number of CPS subscribers to start. If this is not divisible by cps_subscription_fanout"
               + ", we will round down to the closest multiple of cps_subscription_fanout."
   )
-  private int cpsSubscriberCount = 1;
+  private int cpsSubscriberCount = 0;
+  @Parameter(
+      names = {"--cps_grpc_publisher_count"},
+      description = "Number of gRPC CPS publishers to start."
+  )
+  private int cpsGrpcPublisherCount = 1;
+  @Parameter(
+      names = {"--cps_grpc_subscriber_count"},
+      description =
+          "Number of gRPC CPS subscribers to start. If this is not divisible by cps_subscription_fanout"
+              + ", we will round down to the closest multiple of cps_subscription_fanout."
+  )
+  private int cpsGrpcSubscriberCount = 1;
   @Parameter(
       names = {"--kafka_publisher_count"},
       description = "Number of Kafka publishers to start."
@@ -182,6 +194,7 @@ class Driver {
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
           new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null), cpsPublisherCount,
+          new ClientParams(ClientType.CPS_GRPC_PUBLISHER, null), cpsGrpcPublisherCount,
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));
@@ -190,6 +203,8 @@ class Driver {
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER,
             "gcloud-subscription" + i), cpsSubscriberCount / cpsSubscriptionFanout);
+        clientParamsMap.put(new ClientParams(ClientType.CPS_GRPC_SUBSCRIBER,
+            "grpc-subscription" + i), cpsGrpcSubscriberCount / cpsSubscriptionFanout);
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1;
