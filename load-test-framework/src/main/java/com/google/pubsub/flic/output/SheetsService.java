@@ -181,9 +181,9 @@ public class SheetsService {
           (double) LongStream.of(
               stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0
               * (Client.publishBatchSize)));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
+      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 95.0));
+      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.0));
+      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9));
     });
     List<List<List<Object>>> out = new ArrayList<>();
     out.add(cpsValues);
