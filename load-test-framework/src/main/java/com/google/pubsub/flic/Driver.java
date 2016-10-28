@@ -121,7 +121,7 @@ class Driver {
   private String broker;
   @Parameter(
       names = {"--request_rate"},
-      description = "The rate at which each client will make requests."
+      description = "The rate at which each client will make requests (batches per millisecond)."
   )
   private int requestRate = 10;
   @Parameter(
