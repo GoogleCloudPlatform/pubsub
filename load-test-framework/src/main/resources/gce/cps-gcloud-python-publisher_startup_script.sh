@@ -19,4 +19,4 @@ pip3 install -r requirements.txt
 python3 cps_publisher_task.py &
 
 # Run the loadtest binary
-java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.AdapterPublisherTask
+java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.PublisherAdapterTask

@@ -23,7 +23,7 @@ from google.cloud import pubsub
 import loadtest_pb2
 
 
-class AdapterServicer(loadtest_pb2.AdapterServicer):
+class LoadtestWorkerServicer(loadtest_pb2.LoadtestWorkerServicer):
     """Provides methods that implement functionality of load test server."""
 
     def __init__(self):
@@ -50,7 +50,7 @@ class AdapterServicer(loadtest_pb2.AdapterServicer):
 
 if __name__ == "__main__":
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=50))
-    loadtest_pb2.add_AdapterServicer_to_server(AdapterServicer(), server)
+    loadtest_pb2.add_LoadtestWorkerServicer_to_server(LoadtestWorkerServicer(), server)
     server.add_insecure_port('localhost:6000')
     server.start()
     while True:

@@ -17,8 +17,8 @@ package com.google.pubsub.clients.adapter;
 
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.flic.common.AdapterGrpc;
 import com.google.pubsub.flic.common.LoadtestProto;
+import com.google.pubsub.flic.common.LoadtestWorkerGrpc;
 import io.grpc.ManagedChannelBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -29,11 +29,11 @@ import org.slf4j.LoggerFactory;
  */
 class AdapterTask extends Task {
   private static final Logger log = LoggerFactory.getLogger(AdapterTask.class);
-  private AdapterGrpc.AdapterBlockingStub stub;
+  private LoadtestWorkerGrpc.LoadtestWorkerBlockingStub stub;
 
   AdapterTask(LoadtestProto.StartRequest request, MetricsHandler.MetricName metricName) {
     super(request.getProject(), "adapter", metricName);
-    stub = AdapterGrpc.newBlockingStub(
+    stub = LoadtestWorkerGrpc.newBlockingStub(
         ManagedChannelBuilder.forAddress("localhost", 6000).usePlaintext(true).build());
     try {
       stub.start(request);

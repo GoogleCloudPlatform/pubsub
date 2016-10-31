@@ -20,15 +20,15 @@ import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.flic.common.LoadtestProto;
 
 /**
- * Runs a task that publishes on the adapter server.
+ * Runs a task that subscribes on the worker.
  */
-class AdapterSubscriberTask extends AdapterTask {
+class SubscriberAdapterTask extends AdapterTask {
 
-  private AdapterSubscriberTask(LoadtestProto.StartRequest request) {
+  private SubscriberAdapterTask(LoadtestProto.StartRequest request) {
     super(request, MetricsHandler.MetricName.END_TO_END_LATENCY);
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(AdapterSubscriberTask::new);
+    LoadTestRunner.run(SubscriberAdapterTask::new);
   }
 }

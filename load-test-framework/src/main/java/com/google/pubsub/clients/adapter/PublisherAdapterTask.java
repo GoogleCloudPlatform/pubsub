@@ -20,15 +20,15 @@ import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.flic.common.LoadtestProto;
 
 /**
- * Runs a task that publishes on the adapter server.
+ * Runs a task that publishes on the worker.
  */
-class AdapterPublisherTask extends AdapterTask {
+class PublisherAdapterTask extends AdapterTask {
 
-  private AdapterPublisherTask(LoadtestProto.StartRequest request) {
+  private PublisherAdapterTask(LoadtestProto.StartRequest request) {
     super(request, MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(AdapterPublisherTask::new);
+    LoadTestRunner.run(PublisherAdapterTask::new);
   }
 }
