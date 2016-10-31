@@ -30,17 +30,15 @@ import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.output.SheetsService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.LogManager;
 import java.util.stream.LongStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Drives the execution of the framework through command line arguments.
@@ -93,11 +91,11 @@ class Driver {
   )
   private String project = "";
   @Parameter(
-      names = {"--cps_publish_batch_size"},
-      description = "Number of messages to batch per Cloud Pub/Sub publish request.",
+      names = {"--publish_batch_size"},
+      description = "Number of messages to batch per publish request.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int cpsPublishBatchSize = 10;
+  private int publishBatchSize = 10;
   @Parameter(
       names = {"--cps_max_messages_per_pull"},
       description = "Number of messages to return in each pull request.",
@@ -154,12 +152,15 @@ class Driver {
           + "sheets output is only turned on when spreadsheet_id is set to a non-empty value, so "
           + "data will only be stored to this directory if the spreadsheet_id flag is activated."
   )
-  private String dataStoreDirectory = 
+  private String dataStoreDirectory =
       System.getProperty("user.home") + "/.credentials/sheets.googleapis.com-loadtest-framework";
+  @Parameter(
+    names = {"--resource_dir"},
+    description = "The directory to look for resources to upload, if different than the default."
+  )
+  private String resourceDirectory = "src/main/resources/gce";
 
   public static void main(String[] args) {
-    // Turns off all java.util.logging.
-    LogManager.getLogManager().reset();
     Driver driver = new Driver();
     JCommander jCommander = new JCommander(driver, args);
     if (driver.help) {
@@ -179,6 +180,7 @@ class Driver {
       );
       Preconditions.checkArgument(
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
+      GCEController.resourceDirectory = resourceDirectory;
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
           new ClientParams(ClientType.CPS_GCLOUD_JAVA_PUBLISHER, null), cpsPublisherCount,
@@ -196,7 +198,7 @@ class Driver {
       Client.startTime = Timestamp.newBuilder()
           .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
-      Client.cpsPublishBatchSize = cpsPublishBatchSize;
+      Client.publishBatchSize = publishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
       Client.pollLength = kafkaPollLength;
       Client.broker = broker;

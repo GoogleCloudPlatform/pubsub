@@ -57,6 +57,9 @@ message StartRequest {
     PubsubOptions pubsub_options = 9;
     KafkaOptions kafka_options = 10;
   }
+
+  // The number of user messages of size message_size to batch together in each publish
+  int32 publish_batch_size = 11;
 }
 
 message StartResponse {
@@ -68,9 +71,6 @@ message PubsubOptions {
 
   // The maximum number of messages to pull which each request.
   int32 max_messages_per_pull = 2;
-
-  // The number of user messages of size message_size to batch together in each publish
-  int32 publish_batch_size = 3;
 }
 
 message KafkaOptions {

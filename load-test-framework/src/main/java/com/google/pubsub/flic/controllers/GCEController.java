@@ -37,19 +37,15 @@ import com.google.api.services.compute.model.ManagedInstance;
 import com.google.api.services.compute.model.Metadata;
 import com.google.api.services.compute.model.NetworkInterface;
 import com.google.api.services.compute.model.ServiceAccount;
+import com.google.api.services.pubsub.Pubsub;
+import com.google.api.services.pubsub.model.Subscription;
+import com.google.api.services.pubsub.model.Topic;
 import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Bucket;
-import com.google.cloud.pubsub.PubSub;
-import com.google.cloud.pubsub.PubSubException;
-import com.google.cloud.pubsub.PubSubOptions;
-import com.google.cloud.pubsub.SubscriptionInfo;
-import com.google.cloud.pubsub.TopicInfo;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.controllers.Client.ClientType;
-import org.apache.commons.codec.digest.DigestUtils;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -63,11 +59,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
  */
 public class GCEController extends Controller {
+  public static String resourceDirectory = "src/main/resources/gce";
   private static final String MACHINE_TYPE = "n1-standard-4"; // quad core machines
   private static final String SOURCE_FAMILY =
       "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
@@ -83,7 +81,7 @@ public class GCEController extends Controller {
    */
   private GCEController(String projectName, Map<String, Map<ClientParams, Integer>> types,
                         ScheduledExecutorService executor, Storage storage,
-                        Compute compute, PubSub pubSub) throws Throwable {
+                        Compute compute, Pubsub pubsub) throws Throwable {
     super(executor);
     this.projectName = projectName;
     this.types = types;
@@ -102,20 +100,32 @@ public class GCEController extends Controller {
         executor.execute(() -> {
           String topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
           try {
-            pubSub.create(TopicInfo.of(topic));
-          } catch (PubSubException e) {
-            if (!e.reason().equals("ALREADY_EXISTS")) {
+            pubsub.projects().topics()
+                .create("projects/" + projectName + "/topics/" + topic, new Topic()).execute();
+          } catch (GoogleJsonResponseException e) {
+            if (e.getStatusCode() != ALREADY_EXISTS) {
               pubsubFuture.setException(e);
               return;
             }
             log.info("Topic already exists, reusing.");
+          } catch (IOException e) {
+            pubsubFuture.setException(e);
+            return;
           }
           // Recreate each subscription attached to the topic.
           paramsMap.keySet().stream()
               .filter(p -> p.getClientType() == clientType.getSubscriberType())
               .map(p -> p.subscription).forEach(subscription -> {
-            pubSub.deleteSubscription(subscription);
-            pubSub.create(SubscriptionInfo.of(topic, subscription));
+              try {
+                pubsub.projects().subscriptions().delete("projects/" + projectName
+                    + "/subscriptions/" + subscription).execute();
+                pubsub.projects().subscriptions().create("projects/" + projectName
+                    + "/subscriptions/" + subscription, new Subscription()
+                      .setTopic("projects/" + projectName + "/topics/" + topic)
+                      .setAckDeadlineSeconds(10)).execute();
+              } catch (IOException e) {
+                pubsubFuture.setException(e);
+              }
           });
           pubsubFuture.set(null);
         });
@@ -126,7 +136,7 @@ public class GCEController extends Controller {
       createFirewall();
 
       List<SettableFuture<Void>> filesRemaining = new ArrayList<>();
-      Files.walk(Paths.get("src/main/resources/gce"))
+      Files.walk(Paths.get(resourceDirectory))
           .filter(Files::isRegularFile).forEach(filePath -> {
         SettableFuture<Void> fileRemaining = SettableFuture.create();
         filesRemaining.add(fileRemaining);
@@ -239,7 +249,9 @@ public class GCEController extends Controller {
         new Compute.Builder(transport, jsonFactory, credential)
             .setApplicationName("Cloud Pub/Sub Loadtest Framework")
             .build(),
-        PubSubOptions.builder().projectId(projectName).build().service());
+        new Pubsub.Builder(transport, jsonFactory, credential)
+            .setApplicationName("Cloud Pub/Sub Loadtest Framework")
+            .build());
   }
 
   /**
@@ -374,10 +386,13 @@ public class GCEController extends Controller {
    */
   private void uploadFile(Path filePath) throws IOException {
     try {
-      byte md5hash[] = Base64.decodeBase64(
-          storage.objects().get("cloud-pubsub-loadtest", filePath.getFileName().toString())
-              .execute().getMd5Hash()
-      );
+      byte[] md5hash =
+          Base64.decodeBase64(
+              storage
+                  .objects()
+                  .get("cloud-pubsub-loadtest", filePath.getFileName().toString())
+                  .execute()
+                  .getMd5Hash());
       try (InputStream inputStream = Files.newInputStream(filePath, StandardOpenOption.READ)) {
         if (Arrays.equals(md5hash, DigestUtils.md5(inputStream))) {
           log.info("File " + filePath.getFileName() + " is current, reusing.");
