@@ -130,7 +130,6 @@ public class CloudPubSubSourceTask extends SourceTask {
     try {
       PullResponse response = subscriber.pull(request).get();
       List<SourceRecord> sourceRecords = new ArrayList<>();
-      log.trace("Received " + response.getReceivedMessagesList().size() + " messages");
       for (ReceivedMessage rm : response.getReceivedMessagesList()) {
         PubsubMessage message = rm.getMessage();
         String ackId = rm.getAckId();
@@ -141,10 +140,10 @@ public class CloudPubSubSourceTask extends SourceTask {
           rwLock.readLock().unlock();
           continue;
         }
+        rwLock.readLock().unlock();
         rwLock.writeLock().lock();
         ackIds.add(ackId);
         rwLock.writeLock().unlock();
-        rwLock.readLock().unlock();
         Map<String, String> messageAttributes = message.getAttributes();
         byte[] keyBytes = null;
         if (messageAttributes.get(kafkaMessageKeyAttribute) != null) {
