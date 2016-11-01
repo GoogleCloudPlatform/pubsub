@@ -38,6 +38,7 @@ import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.utils.Utils;
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
@@ -147,23 +148,36 @@ public class CloudPubSubSourceTask extends SourceTask {
         rwLock.writeLock().unlock();
         rwLock.readLock().unlock();
         Map<String, String> messageAttributes = message.getAttributes();
-        String key = null;
+        byte[] keyBytes = null;
         if (messageAttributes.get(kafkaMessageKeyAttribute) != null) {
-          key = messageAttributes.get(kafkaMessageKeyAttribute);
+          keyBytes = messageAttributes.get(kafkaMessageKeyAttribute).getBytes();
         }
-        ByteString value = message.getData();
-        // We don't need to check that the message data is a byte string because we know the
-        // data is coming from CPS so it must be of that type.
-        SourceRecord record =
-            new SourceRecord(
-                null,
-                null,
-                kafkaTopic,
-                selectPartition(key, value),
-                SchemaBuilder.string().build(),
-                key,
-                SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-                value);
+        byte[] valueBytes = message.getData().toByteArray();
+        SchemaAndValue key = null;
+        if (keyBytes != null) {
+          key = keyConverter.toConnectData(kafkaTopic, keyBytes);
+        }
+        SchemaAndValue value = valueConverter.toConnectData(kafkaTopic, valueBytes);
+        SourceRecord record;
+        if (key != null) {
+          record = new SourceRecord(
+              null,
+              null,
+              kafkaTopic,
+              selectPartition(key, value),
+              key.schema(),
+              key.value(),
+              value.schema(),
+              value.value());
+        } else {
+          record = new SourceRecord(
+              null,
+              null,
+              kafkaTopic,
+              selectPartition(key, value),
+              value.schema(),
+              value.value());
+        }
         sourceRecords.add(record);
       }
       return sourceRecords;
