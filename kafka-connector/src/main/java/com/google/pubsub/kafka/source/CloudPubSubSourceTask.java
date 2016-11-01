@@ -34,9 +34,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.utils.Utils;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
+import org.apache.kafka.connect.storage.Converter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +65,9 @@ public class CloudPubSubSourceTask extends SourceTask {
   // Keep track of all ack ids that have not been sent correctly acked yet.
   private Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
   private CloudPubSubSubscriber subscriber;
+  private Converter keyConverter;
+  private Converter valueConverter;
+  private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
   public CloudPubSubSourceTask() {}
 
@@ -95,7 +103,19 @@ public class CloudPubSubSourceTask extends SourceTask {
       // Only do this if we did not set through the constructor.
       subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);
     }
+    keyConverter = getConverterInstance(
+        validatedProps, CloudPubSubSourceConnector.KEY_CONVERTER_CLASS_CONFIG);
+    valueConverter = getConverterInstance(
+        validatedProps, CloudPubSubSourceConnector.VALUE_CONVERTER_CLASS_CONFIG);
     log.info("Started a CloudPubSubSourceTask.");
+  }
+  
+  public Converter getConverterInstance(Map<String, Object> props, String configKey) {
+    Class<?> c = (Class<?>) props.get(configKey);
+    Object o = Utils.newInstance(c);
+    if (!(o instanceof Converter))
+      throw new ConfigException(c.getName() + " is not an instance of Converter");
+    return (Converter) o;
   }
 
   @Override
@@ -117,10 +137,15 @@ public class CloudPubSubSourceTask extends SourceTask {
         String ackId = rm.getAckId();
         // If we are receiving this message a second (or more) times because the ack for it failed
         // then do not create a SourceRecord for this message.
+        rwLock.readLock().lock();
         if (ackIds.contains(ackId)) {
+          rwLock.readLock().unlock();
           continue;
         }
+        rwLock.writeLock().lock();
         ackIds.add(ackId);
+        rwLock.writeLock().unlock();
+        rwLock.readLock().unlock();
         Map<String, String> messageAttributes = message.getAttributes();
         String key = null;
         if (messageAttributes.get(kafkaMessageKeyAttribute) != null) {
