@@ -69,7 +69,7 @@ class CPSPublisherTask extends Task {
       pubSub.publish(topic, messages);
       stopwatch.stop();
       numberOfMessages.addAndGet(batchSize);
-      metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
+      metricsHandler.recordLatencyBatch(stopwatch.elapsed(TimeUnit.MILLISECONDS), batchSize);
     } catch (PubSubException e) {
       log.error("Publish request failed", e);
     }
