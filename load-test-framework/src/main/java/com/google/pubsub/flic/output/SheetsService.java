@@ -34,9 +34,6 @@ import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -49,6 +46,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Outputs load test results to Google Sheets.
@@ -80,10 +79,11 @@ public class SheetsService {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
           collect(Collectors.groupingBy(
               ClientParams::getClientType, Collectors.summingInt(t -> 1)));
-      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
-      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
       cpsPublisherCount += countMap.get(ClientType.CPS_GRPC_PUBLISHER);
       cpsSubscriberCount += countMap.get(ClientType.CPS_GRPC_SUBSCRIBER);
+      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER);
+      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER);
+      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER);
       kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
       kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
     });
@@ -133,8 +133,9 @@ public class SheetsService {
     results.forEach((type, stats) -> {
       List<Object> valueRow = new ArrayList<>(13);
       switch (type) {
-        case CPS_GCLOUD_PUBLISHER:
         case CPS_GRPC_PUBLISHER:
+        case CPS_GCLOUD_JAVA_PUBLISHER:
+        case CPS_GCLOUD_PYTHON_PUBLISHER:
           if (cpsPublisherCount == 0) { 
             return; 
           }
@@ -142,8 +143,8 @@ public class SheetsService {
           valueRow.add(0);
           cpsValues.add(0, valueRow);
           break;
-        case CPS_GCLOUD_SUBSCRIBER:
         case CPS_GRPC_SUBSCRIBER:
+        case CPS_GCLOUD_JAVA_SUBSCRIBER:
           if (cpsSubscriberCount == 0) { 
             return; 
           }
@@ -178,14 +179,13 @@ public class SheetsService {
         valueRow.add("N/A");
         valueRow.add(Client.numberOfMessages);
       }
-      valueRow.add(Client.cpsPublishBatchSize);
+      valueRow.add(Client.publishBatchSize);
       valueRow.add(Client.maxMessagesPerPull);
       valueRow.add(Client.requestRate);
       valueRow.add(Client.maxOutstandingRequests);
       valueRow.add(new DecimalFormat("#.##").format(
           (double) LongStream.of(
-              stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0
-              * (type.isCpsPublisher() ? Client.cpsPublishBatchSize : 1)));
+              stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));

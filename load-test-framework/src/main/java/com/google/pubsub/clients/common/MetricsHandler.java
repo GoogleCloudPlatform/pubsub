@@ -35,6 +35,16 @@ import com.google.api.services.monitoring.v3.model.TimeSeries;
 import com.google.api.services.monitoring.v3.model.TypedValue;
 import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.flic.common.LatencyDistribution;
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.text.SimpleDateFormat;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.List;
+import java.util.TimeZone;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -49,17 +59,6 @@ import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.TimeZone;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * A class that is used to record metrics related to the execution of the load tests, such metrics
@@ -181,6 +180,12 @@ public class MetricsHandler {
 
   public synchronized void recordLatency(long latencyMs) {
     distribution.recordLatency(latencyMs);
+  }
+
+  public synchronized void recordLatencyBatch(long latencyMs, int batch) {
+    for (int i = 0; i < batch; i++) {
+      distribution.recordLatency(latencyMs);
+    }
   }
 
   private void reportMetrics(LatencyDistribution distribution) {

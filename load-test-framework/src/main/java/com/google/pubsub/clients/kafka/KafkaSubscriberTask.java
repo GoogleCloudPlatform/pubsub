@@ -19,11 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import org.apache.kafka.clients.consumer.ConsumerRecords;
-import org.apache.kafka.clients.consumer.KafkaConsumer;
-
 import java.util.Collections;
 import java.util.Properties;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.KafkaConsumer;
 
 /**
  * Runs a task that consumes messages utilizing Kafka's implementation of the Consumer<K,V>
@@ -63,6 +62,5 @@ class KafkaSubscriberTask extends Task {
     numberOfMessages.addAndGet(records.count());
     long now = System.currentTimeMillis();
     records.forEach(record -> metricsHandler.recordLatency(now - record.timestamp()));
-    subscriber.commitAsync();
   }
 }

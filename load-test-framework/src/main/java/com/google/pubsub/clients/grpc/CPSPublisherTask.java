@@ -73,7 +73,7 @@ class CPSPublisherTask extends Task {
   public static void main(String[] args) throws Exception {
     LoadTestRunner.run(request ->
         new CPSPublisherTask(request.getProject(), request.getTopic(), request.getMessageSize(),
-            request.getPubsubOptions().getPublishBatchSize(), request.getMaxOutstandingRequests()));
+            request.getPublishBatchSize(), request.getMaxOutstandingRequests()));
   }
 
   private Channel getChannel() throws SSLException {

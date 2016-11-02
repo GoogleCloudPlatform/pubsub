@@ -30,12 +30,11 @@ import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Manages remote clients by starting, performing health checks, and collecting statistics
@@ -49,7 +48,7 @@ public class Client {
   public static int requestRate;
   public static Timestamp startTime;
   public static int loadtestLengthSeconds;
-  public static int cpsPublishBatchSize;
+  public static int publishBatchSize;
   public static int maxMessagesPerPull;
   public static int pollLength;
   public static String broker;
@@ -82,8 +81,9 @@ public class Client {
 
   static String getTopicSuffix(ClientType clientType) {
     switch (clientType) {
-      case CPS_GCLOUD_PUBLISHER:
-      case CPS_GCLOUD_SUBSCRIBER:
+      case CPS_GCLOUD_JAVA_PUBLISHER:
+      case CPS_GCLOUD_JAVA_SUBSCRIBER:
+      case CPS_GCLOUD_PYTHON_PUBLISHER:
         return "gcloud";
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
@@ -122,7 +122,8 @@ public class Client {
         .setMaxOutstandingRequests(maxOutstandingRequests)
         .setMessageSize(messageSize)
         .setRequestRate(requestRate)
-        .setStartTime(startTime);
+        .setStartTime(startTime)
+        .setPublishBatchSize(publishBatchSize);
     if (numberOfMessages > 0) {
       requestBuilder.setNumberOfMessages(numberOfMessages);
     } else {
@@ -130,16 +131,15 @@ public class Client {
           .setSeconds(loadtestLengthSeconds).build());
     }
     switch (clientType) {
-      case CPS_GCLOUD_PUBLISHER:
-        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
-            .setPublishBatchSize(cpsPublishBatchSize));
-        break;
-      case CPS_GCLOUD_SUBSCRIBER:
+      case CPS_GCLOUD_JAVA_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
             .setSubscription(subscription)
             .setMaxMessagesPerPull(maxMessagesPerPull));
         break;
       case KAFKA_PUBLISHER:
+        requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
+            .setBroker(broker));
+        break;
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)
@@ -219,10 +219,11 @@ public class Client {
             if (errors > 3) {
               clientStatus = ClientStatus.FAILED;
               doneFuture.setException(throwable);
-              log.error("Client failed " + errors + " health checks, something went wrong.");
+              log.error(clientType + " client failed " + errors + 
+                        " health checks, something went wrong.");
               return;
             }
-            log.warn("Unable to connect to client, probably a transient error.");
+            log.warn("Unable to connect to " + clientType + " client, probably a transient error.");
             stub = getStub();
             errors++;
           }
@@ -238,17 +239,19 @@ public class Client {
    * An enum representing the possible client types.
    */
   public enum ClientType {
-    CPS_GCLOUD_PUBLISHER,
-    CPS_GCLOUD_SUBSCRIBER,
     CPS_GRPC_PUBLISHER,
     CPS_GRPC_SUBSCRIBER,
+    CPS_GCLOUD_JAVA_PUBLISHER,
+    CPS_GCLOUD_JAVA_SUBSCRIBER,
+    CPS_GCLOUD_PYTHON_PUBLISHER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
-
+    
     public boolean isCpsPublisher() {
       switch (this) {
-        case CPS_GCLOUD_PUBLISHER:
         case CPS_GRPC_PUBLISHER:
+        case CPS_GCLOUD_JAVA_PUBLISHER:
+        case CPS_GCLOUD_PYTHON_PUBLISHER:
           return true;
         default:
           return false;
@@ -257,10 +260,11 @@ public class Client {
 
     public ClientType getSubscriberType() {
       switch (this) {
-        case CPS_GCLOUD_PUBLISHER:
-          return CPS_GCLOUD_SUBSCRIBER;
         case CPS_GRPC_PUBLISHER:
           return CPS_GRPC_SUBSCRIBER;
+        case CPS_GCLOUD_JAVA_PUBLISHER:
+        case CPS_GCLOUD_PYTHON_PUBLISHER:
+          return CPS_GCLOUD_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;
         default:
