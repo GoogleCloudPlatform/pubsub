@@ -156,13 +156,21 @@ class Driver {
   )
   private int numberOfMessages = 0;
   @Parameter(
+      names = {"--max_publish_latency_test"},
+      description = "In this test we will continuously run load tests with increasing request " +
+          "rates until we hit max_publish_latency_millis. You must only provide a single type of " +
+          "publisher to use this test. This uses the latency specified by " +
+          "max_publish_latency_percentile as the bound to check."
+  )
+  private boolean maxPublishLatencyTest = false;
+  @Parameter(
       names = {"--max_publish_latency_millis"},
       description = "This sets the maximum latency in milliseconds, in this test we will" +
           "continuously run load tests with increasing request rates until we hit the provided " +
           "latency. You must only provide a single type of publisher to use this test. This " +
           "uses the latency specified by max_publish_latency_percentile as the bound to check."
   )
-  private int maxPublishLatency = 0;
+  private int maxPublishLatencyMillis = 0;
   @Parameter(
       names = {"--max_publish_latency_percentile"},
       description = "This sets the percentile to use when determining the latency for the max " +
@@ -224,7 +232,7 @@ class Driver {
           "If using Kafka you must provide the network address of your broker using the"
               + "--broker flag.");
       // If max publish latency is set, exactly one publisher type must be specified.
-      if (maxPublishLatency > 0) {
+      if (maxPublishLatencyTest) {
         Preconditions.checkArgument(kafkaPublisherCount > 0 ^ cpsPublisherCount > 0,
             "If max_publish_latency is specified, there can only be one type of publisher.");
       }
@@ -315,7 +323,7 @@ class Driver {
         // Wait for the load test to finish.
         gceController.waitForClients();
         statsMap = gceController.getStatsForAllClientTypes();
-        if (maxPublishLatency > 0) {
+        if (maxPublishLatencyTest) {
           statsMap.forEach((type, stats) -> {
             if (type.isPublisher()) {
               publishLatency.set(LatencyDistribution
@@ -330,11 +338,11 @@ class Driver {
           SheetsService service = new SheetsService(dataStoreDirectory, gceController.getTypes());
           service.sendToSheets(spreadsheetId, statsMap);
         }
-      } while (publishLatency.get() < maxPublishLatency || maxSubscriberThroughputTest);
+      } while (publishLatency.get() < maxPublishLatencyMillis || maxSubscriberThroughputTest);
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
-      if (maxPublishLatency > 0) {
+      if (maxPublishLatencyTest) {
         // This calculates the request rate of the last successful run.
         log.info("Maximum Request Rate: " + Client.requestRate * 0.9 * 0.9);
       }
