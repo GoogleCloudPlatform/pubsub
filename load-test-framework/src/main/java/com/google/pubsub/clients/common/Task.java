@@ -16,6 +16,7 @@
 
 package com.google.pubsub.clients.common;
 
+import com.google.pubsub.clients.common.MetricsHandler;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 

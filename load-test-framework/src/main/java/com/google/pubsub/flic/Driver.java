@@ -256,7 +256,8 @@ class Driver {
       log.info("Average throughput: "
           + new DecimalFormat("#.##").format(
               (double) LongStream.of(
-                  stats.bucketValues).sum() / stats.runningSeconds * messageSize) + " MB/s");
+                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000) 
+          + " MB/s");
     });
   }
 
