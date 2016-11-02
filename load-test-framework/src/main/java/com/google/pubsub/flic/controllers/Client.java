@@ -134,6 +134,7 @@ public class Client {
     }
     switch (clientType) {
       case CPS_GCLOUD_SUBSCRIBER:
+      case CPS_GRPC_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
             .setSubscription(subscription)
             .setMaxMessagesPerPull(maxMessagesPerPull));
