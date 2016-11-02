@@ -82,6 +82,8 @@ public class SheetsService {
               ClientParams::getClientType, Collectors.summingInt(t -> 1)));
       cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
       cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
+      cpsPublisherCount += countMap.get(ClientType.CPS_GRPC_PUBLISHER);
+      cpsSubscriberCount += countMap.get(ClientType.CPS_GRPC_SUBSCRIBER);
       kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
       kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
     });
@@ -132,6 +134,7 @@ public class SheetsService {
       List<Object> valueRow = new ArrayList<>(13);
       switch (type) {
         case CPS_GCLOUD_PUBLISHER:
+        case CPS_GRPC_PUBLISHER:
           if (cpsPublisherCount == 0) { 
             return; 
           }
@@ -140,6 +143,7 @@ public class SheetsService {
           cpsValues.add(0, valueRow);
           break;
         case CPS_GCLOUD_SUBSCRIBER:
+        case CPS_GRPC_SUBSCRIBER:
           if (cpsSubscriberCount == 0) { 
             return; 
           }
