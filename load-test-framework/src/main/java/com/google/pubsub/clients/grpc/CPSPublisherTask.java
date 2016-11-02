@@ -107,6 +107,6 @@ class CPSPublisherTask extends Task {
     stub.publish(request);
     stopwatch.stop();
     numberOfMessages.addAndGet(batchSize);
-    metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
+    metricsHandler.recordLatencyBatch(stopwatch.elapsed(TimeUnit.MILLISECONDS), batchSize);
   }
 }

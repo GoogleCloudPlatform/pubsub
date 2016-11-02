@@ -196,14 +196,14 @@ class Driver {
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
           new ClientParams(ClientType.CPS_GRPC_PUBLISHER, null), cpsGrpcPublisherCount,
-          new ClientParams(ClientType.CPS_GCLOUD_JAVA_PUBLISHER, null), cpsPublisherCount,
+          new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null), cpsPublisherCount,
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));
       // Each type of client will have its own topic, so each topic will get
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
-        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER,
+        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER,
             "gcloud-subscription" + i), cpsSubscriberCount / cpsSubscriptionFanout);
         clientParamsMap.put(new ClientParams(ClientType.CPS_GRPC_SUBSCRIBER,
             "grpc-subscription" + i), cpsGrpcSubscriberCount / cpsSubscriptionFanout);
