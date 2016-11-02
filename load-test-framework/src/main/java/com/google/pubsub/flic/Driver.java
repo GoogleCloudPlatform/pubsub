@@ -40,6 +40,9 @@ import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.output.SheetsService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -50,8 +53,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Drives the execution of the framework through command line arguments.
@@ -155,13 +156,19 @@ class Driver {
   )
   private int numberOfMessages = 0;
   @Parameter(
-      names = {"--max_publish_latency_test"},
-      description = "This sets the maximum latency, in this test we will continuously run load " +
-          "tests with increasing request rates until we hit the provided latency. You must only " +
-          "provide a single type of publisher to use this test. This uses the 99% latency as the " +
-          "bound to check."
+      names = {"--max_publish_latency_millis"},
+      description = "This sets the maximum latency in milliseconds, in this test we will" +
+          "continuously run load tests with increasing request rates until we hit the provided " +
+          "latency. You must only provide a single type of publisher to use this test. This " +
+          "uses the latency specified by max_publish_latency_percentile as the bound to check."
   )
   private int maxPublishLatency = 0;
+  @Parameter(
+      names = {"--max_publish_latency_percentile"},
+      description = "This sets the percentile to use when determining the latency for the max " +
+          "publish latency test. Defaults to 99."
+  )
+  private int maxPublishLatencyPercentile = 99;
   @Parameter(
       names = {"--max_subscriber_throughput_test"},
       description = "This test will continuously run load tests with greater publish request " +
@@ -169,6 +176,12 @@ class Driver {
           "throughput per subscribing client."
   )
   private boolean maxSubscriberThroughputTest = false;
+  @Parameter(
+      names = {"--max_subscriber_throughput_test_backlog"},
+      description =
+          "This is the size of the backlog to allow during the max_subscriber_throughput_test. "
+  )
+  private int maxSubscriberThroughputTestBacklog = 100;
   @Parameter(
       names = {"--spreadsheet_id"},
       description = "The id of the spreadsheet to which results are output."
@@ -183,8 +196,8 @@ class Driver {
   private String dataStoreDirectory =
       System.getProperty("user.home") + "/.credentials/sheets.googleapis.com-loadtest-framework";
   @Parameter(
-    names = {"--resource_dir"},
-    description = "The directory to look for resources to upload, if different than the default."
+      names = {"--resource_dir"},
+      description = "The directory to look for resources to upload, if different than the default."
   )
   private String resourceDirectory = "src/main/resources/gce";
 
@@ -205,14 +218,16 @@ class Driver {
               || cpsSubscriberCount > 0
               || kafkaPublisherCount > 0
               || kafkaSubscriberCount > 0
-      );
+          , "You must set at least one type of client greater than 0.");
       Preconditions.checkArgument(
-          broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
+          broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0),
+          "If using Kafka you must provide the network address of your broker using the"
+              + "--broker flag.");
       // If max publish latency is set, exactly one publisher type must be specified.
-      Preconditions.checkArgument(
-          maxPublishLatency == 0 || ((kafkaPublisherCount == 0 || cpsPublisherCount == 0) &&
-              kafkaPublisherCount + cpsPublisherCount > 0)
-      );
+      if (maxPublishLatency > 0) {
+        Preconditions.checkArgument(kafkaPublisherCount > 0 ^ cpsPublisherCount > 0,
+            "If max_publish_latency is specified, there can only be one type of publisher.");
+      }
       GCEController.resourceDirectory = resourceDirectory;
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
@@ -290,7 +305,8 @@ class Driver {
               }
             }
           }
-          if (maxPoint != null && maxPoint.getValue().getInt64Value() > cpsMaxMessagesPerPull) {
+          if (maxPoint != null && maxPoint.getValue().getInt64Value() >
+              maxSubscriberThroughputTestBacklog) {
             log.info("We accumulated a backlog during this test, refer to the last run " +
                 "for the maximum throughput capable before accumulating backlog.");
             maxSubscriberThroughputTest = false;
@@ -303,7 +319,7 @@ class Driver {
           statsMap.forEach((type, stats) -> {
             if (type.isPublisher()) {
               publishLatency.set(LatencyDistribution
-                  .getNthPercentileUpperBound(stats.bucketValues, 99));
+                  .getNthPercentileUpperBound(stats.bucketValues, maxPublishLatencyPercentile));
             }
           });
         }

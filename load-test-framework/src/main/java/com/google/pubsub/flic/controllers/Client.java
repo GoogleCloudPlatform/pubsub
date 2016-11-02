@@ -30,11 +30,12 @@ import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Manages remote clients by starting, performing health checks, and collecting statistics
@@ -220,7 +221,7 @@ public class Client {
               clientStatus = ClientStatus.FAILED;
               doneFuture.setException(throwable);
               log.error(clientType + " client failed " + errors +
-                        " health checks, something went wrong.");
+                  " health checks, something went wrong.");
               return;
             }
             log.warn("Unable to connect to " + clientType + " client, probably a transient error.");

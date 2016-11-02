@@ -15,11 +15,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic.common;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-
 import org.junit.Before;
 import org.junit.Test;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests for {@link LatencyDistribution}.

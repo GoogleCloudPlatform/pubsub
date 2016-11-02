@@ -17,10 +17,11 @@
 package com.google.pubsub.flic.common;
 
 import com.google.common.base.Preconditions;
+import org.apache.commons.lang3.ArrayUtils;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.LongStream;
-import org.apache.commons.lang3.ArrayUtils;
 
 
 /**

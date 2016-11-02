@@ -29,6 +29,9 @@ import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
@@ -36,8 +39,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -131,8 +132,8 @@ public class LoadTestRunner {
             < (request.getStartTime().getSeconds() + request.getTestDuration().getSeconds()) * 1000;
       case NUMBER_OF_MESSAGES:
         return client.getNumberOfMessages() < request.getNumberOfMessages();
-       default:
-         return false;
+      default:
+        return false;
     }
   }
 
