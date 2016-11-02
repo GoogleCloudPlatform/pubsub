@@ -13,28 +13,22 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
+package com.google.pubsub.clients.adapter;
 
-package com.google.pubsub.clients.common;
-
-import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
+import com.google.pubsub.clients.common.LoadTestRunner;
+import com.google.pubsub.clients.common.MetricsHandler;
+import com.google.pubsub.flic.common.LoadtestProto;
 
 /**
- * Each task is responsible for implementing its action and for creating {@link LoadTestRunner}.
+ * Runs a task that subscribes on the worker.
  */
-public abstract class Task implements Runnable {
-  protected final MetricsHandler metricsHandler;
-  protected AtomicInteger numberOfMessages = new AtomicInteger(0);
+class SubscriberAdapterTask extends AdapterTask {
 
-  protected Task(String project, String type, MetricsHandler.MetricName metricName) {
-    this.metricsHandler = new MetricsHandler(project, type, metricName);
+  private SubscriberAdapterTask(LoadtestProto.StartRequest request) {
+    super(request, MetricsHandler.MetricName.END_TO_END_LATENCY);
   }
 
-  List<Long> getBucketValues() {
-    return metricsHandler.flushBucketValues();
-  }
-
-  int getNumberOfMessages() {
-    return numberOfMessages.get();
+  public static void main(String[] args) throws Exception {
+    LoadTestRunner.run(SubscriberAdapterTask::new);
   }
 }

@@ -20,13 +20,16 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.common.LatencyDistribution;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Each subclass of Controller is responsible for instantiating and cleaning up a given environment.
@@ -35,7 +38,7 @@ import java.util.stream.Collectors;
  * environment-agnostic part of this process.
  */
 public abstract class Controller {
-  final static Logger log = LoggerFactory.getLogger(Controller.class);
+  static final Logger log = LoggerFactory.getLogger(Controller.class);
   final List<Client> clients = new ArrayList<>();
   final ScheduledExecutorService executor;
 
@@ -103,8 +106,8 @@ public abstract class Controller {
     Optional<Client> longestRunningClient = clientsOfType.stream()
         .max((a, b) -> Long.compare(a.getRunningSeconds(), b.getRunningSeconds()));
     stats.runningSeconds =
-        longestRunningClient.isPresent() ? longestRunningClient.get().getRunningSeconds() :
-            System.currentTimeMillis() / 1000 - Client.startTime.getSeconds();
+        longestRunningClient.isPresent() ? longestRunningClient.get().getRunningSeconds()
+            : System.currentTimeMillis() / 1000 - Client.startTime.getSeconds();
     clientsOfType.stream().map(Client::getBucketValues).forEach(bucketValues -> {
       for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
         stats.bucketValues[i] += bucketValues[i];
@@ -165,6 +168,9 @@ public abstract class Controller {
     }
   }
 
+  /**
+   * The statistics that are exported by each load test client.
+   */
   public class LoadtestStats {
     public long runningSeconds;
     public long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];

@@ -13,6 +13,7 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 package com.google.pubsub.flic;
 
 import com.beust.jcommander.IParameterValidator;
@@ -38,9 +39,7 @@ import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
+import com.google.pubsub.flic.output.SheetsService;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -50,14 +49,15 @@ import java.util.TimeZone;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.LogManager;
 import java.util.stream.LongStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Drives the execution of the framework through command line arguments.
  */
 class Driver {
-  private final static Logger log = LoggerFactory.getLogger(Driver.class);
+  private static final Logger log = LoggerFactory.getLogger(Driver.class);
   @Parameter(
       names = {"--help"},
       help = true
@@ -104,11 +104,11 @@ class Driver {
   )
   private String project = "";
   @Parameter(
-      names = {"--cps_publish_batch_size"},
-      description = "Number of messages to batch per Cloud Pub/Sub publish request.",
+      names = {"--publish_batch_size"},
+      description = "Number of messages to batch per publish request.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int cpsPublishBatchSize = 10;
+  private int publishBatchSize = 10;
   @Parameter(
       names = {"--cps_max_messages_per_pull"},
       description = "Number of messages to return in each pull request.",
@@ -149,9 +149,9 @@ class Driver {
   private int burnInDurationSeconds = 20;
   @Parameter(
       names = {"--number_of_messages"},
-      description = "The total number of messages to publish in the test. Enabling this will " +
-          "override --loadtest_length_seconds. Enabling this flag will also enable the check for " +
-          "message loss. If set less than 1, this flag is ignored."
+      description = "The total number of messages to publish in the test. Enabling this will "
+          + "override --loadtest_length_seconds. Enabling this flag will also enable the check for "
+          + "message loss. If set less than 1, this flag is ignored."
   )
   private int numberOfMessages = 0;
   @Parameter(
@@ -169,11 +169,26 @@ class Driver {
           "throughput per subscribing client."
   )
   private boolean maxSubscriberThroughputTest = false;
-
+  @Parameter(
+      names = {"--spreadsheet_id"},
+      description = "The id of the spreadsheet to which results are output."
+  )
+  private String spreadsheetId = "";
+  @Parameter(
+      names = {"--data_store_dir"},
+      description = "The directory to store credentials for sheets output verification. Note: "
+          + "sheets output is only turned on when spreadsheet_id is set to a non-empty value, so "
+          + "data will only be stored to this directory if the spreadsheet_id flag is activated."
+  )
+  private String dataStoreDirectory =
+      System.getProperty("user.home") + "/.credentials/sheets.googleapis.com-loadtest-framework";
+  @Parameter(
+    names = {"--resource_dir"},
+    description = "The directory to look for resources to upload, if different than the default."
+  )
+  private String resourceDirectory = "src/main/resources/gce";
 
   public static void main(String[] args) {
-    // Turns off all java.util.logging.
-    LogManager.getLogManager().reset();
     Driver driver = new Driver();
     JCommander jCommander = new JCommander(driver, args);
     if (driver.help) {
@@ -186,10 +201,10 @@ class Driver {
   private void run() {
     try {
       Preconditions.checkArgument(
-          cpsPublisherCount > 0 ||
-              cpsSubscriberCount > 0 ||
-              kafkaPublisherCount > 0 ||
-              kafkaSubscriberCount > 0
+          cpsPublisherCount > 0
+              || cpsSubscriberCount > 0
+              || kafkaPublisherCount > 0
+              || kafkaSubscriberCount > 0
       );
       Preconditions.checkArgument(
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
@@ -198,22 +213,23 @@ class Driver {
           maxPublishLatency == 0 || ((kafkaPublisherCount == 0 || cpsPublisherCount == 0) &&
               kafkaPublisherCount + cpsPublisherCount > 0)
       );
+      GCEController.resourceDirectory = resourceDirectory;
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
-          new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null), cpsPublisherCount,
+          new ClientParams(ClientType.CPS_GCLOUD_JAVA_PUBLISHER, null), cpsPublisherCount,
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));
       // Each type of client will have its own topic, so each topic will get
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
-        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER,
+        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER,
             "gcloud-subscription" + i), cpsSubscriberCount / cpsSubscriptionFanout);
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1;
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
-      Client.cpsPublishBatchSize = cpsPublishBatchSize;
+      Client.publishBatchSize = publishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
       Client.pollLength = kafkaPollLength;
       Client.broker = broker;
@@ -293,6 +309,11 @@ class Driver {
         }
         Client.requestRate *= 1.1;
         printStats(statsMap);
+        if (spreadsheetId.length() > 0) {
+          // Output results to common Google sheet
+          SheetsService service = new SheetsService(dataStoreDirectory, gceController.getTypes());
+          service.sendToSheets(spreadsheetId, statsMap);
+        }
       } while (publishLatency.get() < maxPublishLatency || maxSubscriberThroughputTest);
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
@@ -316,11 +337,11 @@ class Driver {
       log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
       log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
       // CPS Publishers report latency per batch message.
-      log.info("Average throughput: " +
-          new DecimalFormat("#.##").format(
+      log.info("Average throughput: "
+          + new DecimalFormat("#.##").format(
               (double) LongStream.of(
-                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0
-                  * (type.isCpsPublisher() ? cpsPublishBatchSize : 1)) + " MB/s");
+                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0)
+          + " MB/s");
     });
   }
 
@@ -332,7 +353,9 @@ class Driver {
     public void validate(String name, String value) throws ParameterException {
       try {
         int n = Integer.parseInt(value);
-        if (n > 0) return;
+        if (n > 0) {
+          return;
+        }
         throw new NumberFormatException();
       } catch (NumberFormatException e) {
         throw new ParameterException(
