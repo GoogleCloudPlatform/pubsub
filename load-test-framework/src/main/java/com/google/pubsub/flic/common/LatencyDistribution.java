@@ -70,7 +70,7 @@ public class LatencyDistribution {
   public LatencyDistribution() {
   }
 
-  public static String getNthPercentile(long[] bucketValues, double percentile) {
+  private static int getNthPercentileIndex(long[] bucketValues, double percentile) {
     Preconditions.checkArgument(percentile > 0.0);
     Preconditions.checkArgument(percentile < 100.0);
     long total = LongStream.of(bucketValues).sum();
@@ -80,28 +80,28 @@ public class LatencyDistribution {
     long count = (long) (total * percentile / 100.0);
     for (int i = LATENCY_BUCKETS.length - 1; i > 0; i--) {
       total -= bucketValues[i];
-      if (total <= count) {
-        return LATENCY_BUCKETS[i - 1] + " - " + LATENCY_BUCKETS[i];
+      if (total < count) {
+        return i;
       }
     }
-    return "N/A";
+    return -1;
+  }
+  
+  
+  public static String getNthPercentile(long[] bucketValues, double percentile) {
+    int index = getNthPercentileIndex(bucketValues, percentile);
+    if (index < 0) {
+      return "N/A";
+    }
+    return Double.toString(LATENCY_BUCKETS[i - 1]) + " - " + Double.toString(LATENCY_BUCKETS[i]);
   }
   
   public static String getNthPercentileMidpoint(long[] bucketValues, double percentile) {
-    Preconditions.checkArgument(percentile > 0.0);
-    Preconditions.checkArgument(percentile < 100.0);
-    long total = LongStream.of(bucketValues).sum();
-    if (total == 0) {
+    int index = getNthPercentileIndex(bucketValues, percentile);
+    if (index < 0) {
       return "N/A";
     }
-    long count = (long) (total * percentile / 100.0);
-    for (int i = LATENCY_BUCKETS.length - 1; i > 0; i--) {
-      total -= bucketValues[i];
-      if (total <= count) {
-        return Double.toString((LATENCY_BUCKETS[i - 1] + LATENCY_BUCKETS[i]) / 2);
-      }
-    }
-    return "N/A";
+    return Double.toString((LATENCY_BUCKETS[i - 1] + LATENCY_BUCKETS[i]) / 2);
   }
 
   public synchronized void reset() {
