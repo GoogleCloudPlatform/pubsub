@@ -52,7 +52,7 @@ public class LoadTestRunner {
   private static AtomicBoolean finished = new AtomicBoolean(true);
   private static SettableFuture<Void> finishedFuture = SettableFuture.create();
 
-  private LoadTestRunner(StartRequest request) throws Exception {
+  private static void runTest(StartRequest request) {
     log.info("Request received, starting up server.");
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(request.getMaxOutstandingRequests() + 10));
@@ -63,7 +63,11 @@ public class LoadTestRunner {
 
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
     if (toSleep > 0) {
-      Thread.sleep(toSleep);
+      try {
+        Thread.sleep(toSleep);
+      } catch (InterruptedException e) {
+        log.error("Interrupted sleeping, starting test now." );
+      }
     }
 
     stopwatch.start();
@@ -89,7 +93,7 @@ public class LoadTestRunner {
             finishedFuture = SettableFuture.create();
             stopwatch.reset();
             client = function.apply(request);
-            Executors.newSingleThreadExecutor().submit(() -> new LoadTestRunner(request));
+            Executors.newSingleThreadExecutor().submit(() -> LoadTestRunner.runTest(request));
             responseObserver.onNext(StartResponse.getDefaultInstance());
             responseObserver.onCompleted();
           }

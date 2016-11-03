@@ -187,7 +187,8 @@ class Driver {
   @Parameter(
       names = {"--max_subscriber_throughput_test_backlog"},
       description =
-          "This is the size of the backlog to allow during the max_subscriber_throughput_test. "
+          "This is the size of the backlog, in messages, to allow during the " +
+              "max_subscriber_throughput_test. "
   )
   private int maxSubscriberThroughputTestBacklog = 100;
   @Parameter(
@@ -231,7 +232,7 @@ class Driver {
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0),
           "If using Kafka you must provide the network address of your broker using the"
               + "--broker flag.");
-      // If max publish latency is set, exactly one publisher type must be specified.
+
       if (maxPublishLatencyTest) {
         Preconditions.checkArgument(kafkaPublisherCount > 0 ^ cpsPublisherCount > 0,
             "If max_publish_latency is specified, there can only be one type of publisher.");
@@ -275,9 +276,7 @@ class Driver {
       }, 5, 5, TimeUnit.SECONDS);
       Map<ClientType, Controller.LoadtestStats> statsMap;
       AtomicDouble publishLatency = new AtomicDouble(0);
-      // This should be a number_of_messages test so that we know when the publisher is done.
-      // If the publisher has finished, check pubsub.googleapis.com/subscription/num_undelivered_messages.
-      // If greater than some threshold, like 1 pull, we fail and return the previous one.
+
       final HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
       final JsonFactory jsonFactory = new JacksonFactory();
       final GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
@@ -287,6 +286,8 @@ class Driver {
       final SimpleDateFormat dateFormatter;
       dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
       dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+      int highestRequestRate = 0;
+      long backlogSize = 0;
       do {
         Client.startTime = Timestamp.newBuilder()
             .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
@@ -303,21 +304,22 @@ class Driver {
                   .setIntervalEndTime(dateFormatter.format(new Date()))
                   .execute();
           // Get most recent point.
-          Point maxPoint = null;
+          Point mostRecentPoint = null;
           for (TimeSeries timeSeries : response.getTimeSeries()) {
             for (Point point : timeSeries.getPoints()) {
-              if (maxPoint == null ||
+              if (mostRecentPoint == null ||
                   dateFormatter.parse(point.getInterval().getStartTime()).after(
-                      dateFormatter.parse(maxPoint.getInterval().getStartTime()))) {
-                maxPoint = point;
+                      dateFormatter.parse(mostRecentPoint.getInterval().getStartTime()))) {
+                mostRecentPoint = point;
               }
             }
           }
-          if (maxPoint != null && maxPoint.getValue().getInt64Value() >
-              maxSubscriberThroughputTestBacklog) {
+          if (mostRecentPoint != null) {
+            backlogSize = mostRecentPoint.getValue().getInt64Value();
+          }
+          if (backlogSize > maxSubscriberThroughputTestBacklog) {
             log.info("We accumulated a backlog during this test, refer to the last run " +
-                "for the maximum throughput capable before accumulating backlog.");
-            maxSubscriberThroughputTest = false;
+                "for the maximum throughput attained before accumulating backlog." );
           }
         }
         // Wait for the load test to finish.
@@ -331,6 +333,9 @@ class Driver {
             }
           });
         }
+        if (publishLatency.get() < maxPublishLatencyMillis) {
+          highestRequestRate = Client.requestRate;
+        }
         Client.requestRate *= 1.1;
         printStats(statsMap);
         if (spreadsheetId.length() > 0) {
@@ -338,13 +343,14 @@ class Driver {
           SheetsService service = new SheetsService(dataStoreDirectory, gceController.getTypes());
           service.sendToSheets(spreadsheetId, statsMap);
         }
-      } while (publishLatency.get() < maxPublishLatencyMillis || maxSubscriberThroughputTest);
+      } while ((maxPublishLatencyTest && publishLatency.get() < maxPublishLatencyMillis)
+          || (maxSubscriberThroughputTest && backlogSize < maxSubscriberThroughputTestBacklog));
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
       if (maxPublishLatencyTest) {
         // This calculates the request rate of the last successful run.
-        log.info("Maximum Request Rate: " + Client.requestRate * 0.9 * 0.9);
+        log.info("Maximum Request Rate: " + highestRequestRate);
       }
       gceController.shutdown(null);
       System.exit(0);
