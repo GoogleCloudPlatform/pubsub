@@ -16,8 +16,18 @@ service Loadtest {
   rpc Check(CheckRequest) returns (CheckResponse);
 }
 
+service LoadtestWorker {
+  // Starts a worker
+  rpc Start (StartRequest) returns (StartResponse);
+
+  // Executes a command on the worker, returning the latencies of the operations. Since some
+  // commands consist of multiple operations (i.e. pulls contain many received messages with
+  // different end to end latencies) a single command can have multiple latencies returned.
+  rpc Execute (ExecuteRequest) returns (ExecuteResponse);
+}
+
 message StartRequest {
-  // The GCP project. This must be set even for Kafka, as we use it to export metrics to Stackdriver.
+  // The GCP project. This must be set even for Kafka, as we use it to export metrics.
   string project = 1;
 
   // The Pub/Sub or Kafka topic name.
@@ -83,4 +93,12 @@ message CheckResponse {
 
   // True if the load test has finished running.
   bool is_finished = 3;
+}
+
+message ExecuteRequest {
+}
+
+message ExecuteResponse {
+  // Latencies of the completed operations
+  repeated int64 latencies = 1;
 }

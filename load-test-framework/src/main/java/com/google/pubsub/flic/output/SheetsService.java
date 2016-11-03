@@ -79,8 +79,9 @@ public class SheetsService {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
           collect(Collectors.groupingBy(
               ClientParams::getClientType, Collectors.summingInt(t -> 1)));
-      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
-      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
+      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER);
+      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER);
+      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER);
       kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
       kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
     });
@@ -130,7 +131,8 @@ public class SheetsService {
     results.forEach((type, stats) -> {
       List<Object> valueRow = new ArrayList<>(13);
       switch (type) {
-        case CPS_GCLOUD_PUBLISHER:
+        case CPS_GCLOUD_JAVA_PUBLISHER:
+        case CPS_GCLOUD_PYTHON_PUBLISHER:
           if (cpsPublisherCount == 0) { 
             return; 
           }
@@ -138,7 +140,7 @@ public class SheetsService {
           valueRow.add(0);
           cpsValues.add(0, valueRow);
           break;
-        case CPS_GCLOUD_SUBSCRIBER:
+        case CPS_GCLOUD_JAVA_SUBSCRIBER:
           if (cpsSubscriberCount == 0) { 
             return; 
           }
@@ -178,11 +180,11 @@ public class SheetsService {
       valueRow.add(Client.requestRate);
       valueRow.add(Client.maxOutstandingRequests);
       valueRow.add(new DecimalFormat("#.##").format(
-          (LongStream.of(
-              stats.bucketValues).sum() * Client.messageSize) / (stats.runningSeconds * 1000000)));
-      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 95.0));
-      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.0));
-      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9));
+          (double) LongStream.of(
+              stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
+      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
+      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
+      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
     });
     List<List<List<Object>>> out = new ArrayList<>();
     out.add(cpsValues);
