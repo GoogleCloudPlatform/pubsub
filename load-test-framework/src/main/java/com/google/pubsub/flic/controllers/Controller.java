@@ -88,9 +88,6 @@ public abstract class Controller {
     LoadtestStats stats = new LoadtestStats();
     List<Client> clientsOfType = clients.stream()
         .filter(c -> c.getClientType() == type).collect(Collectors.toList());
-    if (clientsOfType.size() == 0) {
-      return null;
-    }
     Optional<Client> longestRunningClient = clientsOfType.stream()
         .max((a, b) -> Long.compare(a.getRunningSeconds(), b.getRunningSeconds()));
     stats.runningSeconds =
@@ -117,11 +114,7 @@ public abstract class Controller {
       resultFutures.add(resultFuture);
       executor.submit(() -> {
         try {
-          LoadtestStats stats = getStatsForClientType(type);
-          if (stats == null) {
-            return;
-          }
-          results.put(type, stats);
+          results.put(type, getStatsForClientType(type));
           resultFuture.set(null);
         } catch (Throwable t) {
           resultFuture.setException(t);
