@@ -287,7 +287,7 @@ class Driver {
       dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
       dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
       int highestRequestRate = 0;
-      long latestBacklogSize = 0;
+      long backlogSize = 0;
       do {
         Client.startTime = Timestamp.newBuilder()
             .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
@@ -304,20 +304,20 @@ class Driver {
                   .setIntervalEndTime(dateFormatter.format(new Date()))
                   .execute();
           // Get most recent point.
-          Point mostRecentPoint = null;
+          Point latestBacklogSize = null;
           for (TimeSeries timeSeries : response.getTimeSeries()) {
             for (Point point : timeSeries.getPoints()) {
-              if (mostRecentPoint == null ||
+              if (latestBacklogSize == null ||
                   dateFormatter.parse(point.getInterval().getStartTime()).after(
-                      dateFormatter.parse(mostRecentPoint.getInterval().getStartTime()))) {
-                mostRecentPoint = point;
+                      dateFormatter.parse(latestBacklogSize.getInterval().getStartTime()))) {
+                latestBacklogSize = point;
               }
             }
           }
-          if (mostRecentPoint != null) {
-            latestBacklogSize = mostRecentPoint.getValue().getInt64Value();
+          if (latestBacklogSize != null) {
+            backlogSize = latestBacklogSize.getValue().getInt64Value();
           }
-          if (latestBacklogSize > maxSubscriberThroughputTestBacklog) {
+          if (backlogSize > maxSubscriberThroughputTestBacklog) {
             log.info("We accumulated a backlog during this test, refer to the last run " +
                 "for the maximum throughput attained before accumulating backlog." );
           }
@@ -344,7 +344,7 @@ class Driver {
           service.sendToSheets(spreadsheetId, statsMap);
         }
       } while ((maxPublishLatencyTest && publishLatency.get() < maxPublishLatencyMillis)
-          || (maxSubscriberThroughputTest && latestBacklogSize < maxSubscriberThroughputTestBacklog));
+          || (maxSubscriberThroughputTest && backlogSize < maxSubscriberThroughputTestBacklog));
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
