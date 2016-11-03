@@ -55,6 +55,23 @@ public class LatencyDistributionTest {
   }
 
   @Test
+  public void testBatchRecord() {
+    long[] latencies = {2, 7, 31, 67, 137};
+    LatencyDistribution control = new LatencyDistribution();
+    for (long lat : latencies) {
+      int n = 29;
+      distribution.recordLatencyBatch(lat, n);
+      for (int i = 0; i < n; i++) {
+        control.recordLatency(lat);
+      }
+    }
+    assertEquals(distribution.getMean(), control.getMean(), EPSILON);
+    assertEquals(distribution.getCount(), control.getCount(), EPSILON);
+    assertEquals(distribution.getSumOfSquareDeviations(),
+        control.getSumOfSquareDeviations(), EPSILON);
+  }
+
+  @Test
   public void testMany() {
     for (int i = 0; i < 10; i++) {
       distribution.recordLatency((long) Math.pow(2, i));

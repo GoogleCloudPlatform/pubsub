@@ -81,23 +81,31 @@ public class LatencyDistribution {
     long count = (long) (total * percentile / 100.0);
     for (int i = LATENCY_BUCKETS.length - 1; i > 0; i--) {
       total -= bucketValues[i];
-      if (total <= count) {
+      if (total < count) {
         return i;
       }
     }
-    return 0;
+    return -1;
   }
 
   public static double getNthPercentileUpperBound(long[] bucketValues, double percentile) {
-    return LATENCY_BUCKETS[getNthPercentileIndex(bucketValues, percentile)];
+    return LATENCY_BUCKETS[Math.max(0, getNthPercentileIndex(bucketValues, percentile))];
   }
 
   public static String getNthPercentile(long[] bucketValues, double percentile) {
     int index = getNthPercentileIndex(bucketValues, percentile);
-    if (index == 0) {
+    if (index < 0) {
       return "N/A";
     }
-    return LATENCY_BUCKETS[index - 1] + " - " + LATENCY_BUCKETS[index];
+    return Double.toString(LATENCY_BUCKETS[index - 1]) + " - " + Double.toString(LATENCY_BUCKETS[index]);
+  }
+
+  public static String getNthPercentileMidpoint(long[] bucketValues, double percentile) {
+    int index = getNthPercentileIndex(bucketValues, percentile);
+    if (index < 0) {
+      return "N/A";
+    }
+    return Double.toString((LATENCY_BUCKETS[index - 1] + LATENCY_BUCKETS[index]) / 2);
   }
 
   public synchronized void reset() {
@@ -157,6 +165,28 @@ public class LatencyDistribution {
     }
     synchronized (this) {
       bucketValues[LATENCY_BUCKETS.length - 1]++;
+    }
+  }
+
+  public void recordLatencyBatch(long latencyMs, int batchSize) {
+    synchronized (this) {
+      double dev = latencyMs - mean;
+      mean = (mean * count + latencyMs * batchSize) / (count + batchSize);
+      count += batchSize;
+      sumOfSquaredDeviation += dev * (latencyMs - mean) * batchSize;
+    }
+
+    for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
+      double bucket = LATENCY_BUCKETS[i];
+      if (latencyMs < bucket) {
+        synchronized (this) {
+          bucketValues[i] += batchSize;
+        }
+        return;
+      }
+    }
+    synchronized (this) {
+      bucketValues[LATENCY_BUCKETS.length - 1] += batchSize;
     }
   }
 }

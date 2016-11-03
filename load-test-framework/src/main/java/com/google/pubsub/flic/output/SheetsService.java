@@ -37,11 +37,7 @@ import com.google.pubsub.flic.controllers.Controller;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -110,7 +106,7 @@ public class SheetsService {
 
   /* Publishes stats information to Google Sheets document. Format for sheet assumes the following
    * column order: Publisher #; Subscriber #; Message size (B); Test length (s); # messages;
-   * Publish batch size; Subscribe pull size; Request rate; Max outstanding requests; 
+   * Publish batch size; Subscribe pull size; Request rate; Max outstanding requests;
    * Throughput (MB/s); 50% (ms); 90% (ms); 99% (ms)
    */
   public void sendToSheets(String sheetId, Map<ClientType, Controller.LoadtestStats> results) {
@@ -183,9 +179,9 @@ public class SheetsService {
       valueRow.add(new DecimalFormat("#.##").format(
           (double) LongStream.of(
               stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
+      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
     });
     List<List<List<Object>>> out = new ArrayList<>();
     out.add(cpsValues);
