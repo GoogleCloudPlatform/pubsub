@@ -165,16 +165,14 @@ class Driver {
   private boolean maxPublishLatencyTest = false;
   @Parameter(
       names = {"--max_publish_latency_millis"},
-      description = "This sets the maximum latency in milliseconds, in this test we will" +
-          "continuously run load tests with increasing request rates until we hit the provided " +
-          "latency. You must only provide a single type of publisher to use this test. This " +
-          "uses the latency specified by max_publish_latency_percentile as the bound to check."
+      description = "his is the maximum latency in milliseconds allowed before terminating the " +
+          "max_publish_latency_test."
   )
   private int maxPublishLatencyMillis = 0;
   @Parameter(
       names = {"--max_publish_latency_percentile"},
-      description = "This sets the percentile to use when determining the latency for the max " +
-          "publish latency test. Defaults to 99."
+      description = "This sets the percentile to use when determining the latency for the " +
+          "max_publish_latency_test. Defaults to 99."
   )
   private int maxPublishLatencyPercentile = 99;
   @Parameter(
