@@ -287,7 +287,7 @@ class Driver {
       dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
       dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
       int highestRequestRate = 0;
-      long backlogSize = 0;
+      long latestBacklogSize = 0;
       do {
         Client.startTime = Timestamp.newBuilder()
             .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
@@ -315,9 +315,9 @@ class Driver {
             }
           }
           if (mostRecentPoint != null) {
-            backlogSize = mostRecentPoint.getValue().getInt64Value();
+            latestBacklogSize = mostRecentPoint.getValue().getInt64Value();
           }
-          if (backlogSize > maxSubscriberThroughputTestBacklog) {
+          if (latestBacklogSize > maxSubscriberThroughputTestBacklog) {
             log.info("We accumulated a backlog during this test, refer to the last run " +
                 "for the maximum throughput attained before accumulating backlog." );
           }
@@ -344,7 +344,7 @@ class Driver {
           service.sendToSheets(spreadsheetId, statsMap);
         }
       } while ((maxPublishLatencyTest && publishLatency.get() < maxPublishLatencyMillis)
-          || (maxSubscriberThroughputTest && backlogSize < maxSubscriberThroughputTestBacklog));
+          || (maxSubscriberThroughputTest && latestBacklogSize < maxSubscriberThroughputTestBacklog));
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
