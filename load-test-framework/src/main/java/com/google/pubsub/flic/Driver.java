@@ -121,7 +121,7 @@ class Driver {
   private String broker;
   @Parameter(
       names = {"--request_rate"},
-      description = "The rate at which each client will make requests."
+      description = "The rate at which each client will make requests (batches per second)."
   )
   private int requestRate = 10;
   @Parameter(
@@ -159,6 +159,11 @@ class Driver {
     description = "The directory to look for resources to upload, if different than the default."
   )
   private String resourceDirectory = "src/main/resources/gce";
+  @Parameter(
+      names = {"--zone"},
+      description = "The GCE zone in which to create client instances."
+    )
+    private String zone = "us-central1-a";
 
   public static void main(String[] args) {
     Driver driver = new Driver();
@@ -207,7 +212,7 @@ class Driver {
       Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
       Client.numberOfMessages = numberOfMessages;
       GCEController gceController = GCEController.newGCEController(
-          project, ImmutableMap.of("us-central1-a", clientParamsMap),
+          project, ImmutableMap.of(zone, clientParamsMap),
           Executors.newScheduledThreadPool(500));
       gceController.startClients();
 
@@ -227,7 +232,7 @@ class Driver {
       }
       Map<ClientType, Controller.LoadtestStats> results = gceController.getStatsForAllClientTypes();
       printStats(results);
-      
+
       if (spreadsheetId.length() > 0) {
         // Output results to common Google sheet
         SheetsService service = new SheetsService(dataStoreDirectory, gceController.getTypes());

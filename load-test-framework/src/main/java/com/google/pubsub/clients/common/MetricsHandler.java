@@ -182,10 +182,8 @@ public class MetricsHandler {
     distribution.recordLatency(latencyMs);
   }
 
-  public synchronized void recordLatencyBatch(long latencyMs, int batch) {
-    for (int i = 0; i < batch; i++) {
-      distribution.recordLatency(latencyMs);
-    }
+  public synchronized void recordLatencyBatch(long latencyMs, int batchSize) {
+    distribution.recordLatencyBatch(latencyMs, batchSize);
   }
 
   private void reportMetrics(LatencyDistribution distribution) {

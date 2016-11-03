@@ -61,7 +61,7 @@ public class SheetsService {
   private int kafkaPublisherCount = 0;
   private int kafkaSubscriberCount = 0;
   private String dataStoreDirectory;
-  
+
   public SheetsService(String dataStoreDirectory, Map<String, Map<ClientParams, Integer>> types) {
     this.dataStoreDirectory = dataStoreDirectory;
     Sheets tmp;
@@ -73,7 +73,7 @@ public class SheetsService {
     fillClientCounts(types);
     service = tmp;
   }
-  
+
   private void fillClientCounts(Map<String, Map<ClientParams, Integer>> types) {
     types.values().forEach(paramsMap -> {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
@@ -86,13 +86,13 @@ public class SheetsService {
       kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
     });
   }
-  
+
   private Sheets authorize() throws Exception {
     InputStream in = new FileInputStream(new File(System.getenv("GOOGLE_OATH2_CREDENTIALS")));
     JsonFactory factory = new JacksonFactory();
     GoogleClientSecrets clientSecrets =
         GoogleClientSecrets.load(factory, new InputStreamReader(in));
-    HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport(); 
+    HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
     FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(new File(dataStoreDirectory));
     List<String> scopes = Collections.singletonList(SheetsScopes.SPREADSHEETS);
     GoogleAuthorizationCodeFlow flow =
@@ -106,59 +106,59 @@ public class SheetsService {
     return new Sheets.Builder(transport, factory, credential)
         .setApplicationName(APPLICATION_NAME).build();
   }
-  
+
   /* Publishes stats information to Google Sheets document. Format for sheet assumes the following
    * column order: Publisher #; Subscriber #; Message size (B); Test length (s); # messages;
-   * Publish batch size; Subscribe pull size; Request rate; Max outstanding requests; 
+   * Publish batch size; Subscribe pull size; Request rate; Max outstanding requests;
    * Throughput (MB/s); 50% (ms); 90% (ms); 99% (ms)
    */
   public void sendToSheets(String sheetId, Map<ClientType, Controller.LoadtestStats> results) {
     List<List<List<Object>>> values = getValuesList(results);
     try {
-      service.spreadsheets().values().append(sheetId, "CPS", 
+      service.spreadsheets().values().append(sheetId, "CPS",
           new ValueRange().setValues(values.get(0))).setValueInputOption("USER_ENTERED").execute();
-      service.spreadsheets().values().append(sheetId, "Kafka", 
+      service.spreadsheets().values().append(sheetId, "Kafka",
           new ValueRange().setValues(values.get(1))).setValueInputOption("USER_ENTERED").execute();
     } catch (IOException e) {
       log.error("Error publishing to spreadsheet: " + sheetId);
     }
   }
-  
+
   public List<List<List<Object>>> getValuesList(Map<ClientType, Controller.LoadtestStats> results) {
     List<List<Object>> cpsValues = new ArrayList<>(results.size());
     List<List<Object>> kafkaValues = new ArrayList<>(results.size());
-    
+
     results.forEach((type, stats) -> {
       List<Object> valueRow = new ArrayList<>(13);
       switch (type) {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
-          if (cpsPublisherCount == 0) { 
-            return; 
+          if (cpsPublisherCount == 0) {
+            return;
           }
           valueRow.add(cpsPublisherCount);
           valueRow.add(0);
           cpsValues.add(0, valueRow);
           break;
         case CPS_GCLOUD_JAVA_SUBSCRIBER:
-          if (cpsSubscriberCount == 0) { 
-            return; 
+          if (cpsSubscriberCount == 0) {
+            return;
           }
           valueRow.add(0);
           valueRow.add(cpsSubscriberCount);
           cpsValues.add(valueRow);
           break;
         case KAFKA_PUBLISHER:
-          if (kafkaPublisherCount == 0) { 
-            return; 
+          if (kafkaPublisherCount == 0) {
+            return;
           }
           valueRow.add(kafkaPublisherCount);
           valueRow.add(0);
           kafkaValues.add(0, valueRow);
           break;
         case KAFKA_SUBSCRIBER:
-          if (kafkaSubscriberCount == 0) { 
-            return; 
+          if (kafkaSubscriberCount == 0) {
+            return;
           }
           valueRow.add(0);
           valueRow.add(kafkaSubscriberCount);
@@ -182,9 +182,9 @@ public class SheetsService {
       valueRow.add(new DecimalFormat("#.##").format(
           (double) LongStream.of(
               stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
       valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
+      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
     });
     List<List<List<Object>>> out = new ArrayList<>();
     out.add(cpsValues);

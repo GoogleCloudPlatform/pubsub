@@ -86,6 +86,23 @@ public class LatencyDistribution {
     }
     return "N/A";
   }
+  
+  public static String getNthPercentileMidpoint(long[] bucketValues, double percentile) {
+    Preconditions.checkArgument(percentile > 0.0);
+    Preconditions.checkArgument(percentile < 100.0);
+    long total = LongStream.of(bucketValues).sum();
+    if (total == 0) {
+      return "N/A";
+    }
+    long count = (long) (total * percentile / 100.0);
+    for (int i = LATENCY_BUCKETS.length - 1; i > 0; i--) {
+      total -= bucketValues[i];
+      if (total <= count) {
+        return Double.toString((LATENCY_BUCKETS[i - 1] + LATENCY_BUCKETS[i]) / 2);
+      }
+    }
+    return "N/A";
+  }
 
   public synchronized void reset() {
     for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
@@ -144,6 +161,28 @@ public class LatencyDistribution {
     }
     synchronized (this) {
       bucketValues[LATENCY_BUCKETS.length - 1]++;
+    }
+  }
+
+  public void recordLatencyBatch(long latencyMs, int batchSize) {
+    synchronized (this) {
+      double dev = latencyMs - mean;
+      mean = (mean * count + latencyMs * batchSize) / (count + batchSize);
+      count+= batchSize;
+      sumOfSquaredDeviation += dev * (latencyMs - mean) * batchSize;
+    }
+
+    for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
+      double bucket = LATENCY_BUCKETS[i];
+      if (latencyMs < bucket) {
+        synchronized (this) {
+          bucketValues[i]+= batchSize;
+        }
+        return;
+      }
+    }
+    synchronized (this) {
+      bucketValues[LATENCY_BUCKETS.length - 1]+= batchSize;
     }
   }
 }
