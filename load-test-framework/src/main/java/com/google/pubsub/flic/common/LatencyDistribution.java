@@ -70,7 +70,7 @@ public class LatencyDistribution {
   public LatencyDistribution() {
   }
 
-  public static int getNthPercentileIndex(long[] bucketValues, double percentile) {
+  private static int getNthPercentileIndex(long[] bucketValues, double percentile) {
     Preconditions.checkArgument(percentile > 0.0);
     Preconditions.checkArgument(percentile < 100.0);
     long total = LongStream.of(bucketValues).sum();
