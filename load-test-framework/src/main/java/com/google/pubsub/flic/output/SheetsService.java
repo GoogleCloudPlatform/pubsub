@@ -34,11 +34,10 @@ import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.io.*;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -46,8 +45,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Outputs load test results to Google Sheets.
@@ -97,10 +94,10 @@ public class SheetsService {
     List<String> scopes = Collections.singletonList(SheetsScopes.SPREADSHEETS);
     GoogleAuthorizationCodeFlow flow =
         new GoogleAuthorizationCodeFlow.Builder(
-                transport, factory, clientSecrets, scopes)
-        .setAccessType("offline")
-        .setDataStoreFactory(dataStoreFactory)
-        .build();
+            transport, factory, clientSecrets, scopes)
+            .setAccessType("offline")
+            .setDataStoreFactory(dataStoreFactory)
+            .build();
     Credential credential = new AuthorizationCodeInstalledApp(
         flow, new LocalServerReceiver()).authorize("user");
     return new Sheets.Builder(transport, factory, credential)

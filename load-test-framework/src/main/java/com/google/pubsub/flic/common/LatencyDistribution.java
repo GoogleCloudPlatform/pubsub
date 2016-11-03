@@ -17,10 +17,11 @@
 package com.google.pubsub.flic.common;
 
 import com.google.common.base.Preconditions;
+import org.apache.commons.lang3.ArrayUtils;
+
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.LongStream;
-import org.apache.commons.lang3.ArrayUtils;
 
 
 /**
@@ -75,7 +76,7 @@ public class LatencyDistribution {
     Preconditions.checkArgument(percentile < 100.0);
     long total = LongStream.of(bucketValues).sum();
     if (total == 0) {
-      return "N/A";
+      return 0;
     }
     long count = (long) (total * percentile / 100.0);
     for (int i = LATENCY_BUCKETS.length - 1; i > 0; i--) {
@@ -86,22 +87,25 @@ public class LatencyDistribution {
     }
     return -1;
   }
-  
-  
+
+  public static double getNthPercentileUpperBound(long[] bucketValues, double percentile) {
+    return LATENCY_BUCKETS[Math.max(0, getNthPercentileIndex(bucketValues, percentile))];
+  }
+
   public static String getNthPercentile(long[] bucketValues, double percentile) {
     int index = getNthPercentileIndex(bucketValues, percentile);
     if (index < 0) {
       return "N/A";
     }
-    return Double.toString(LATENCY_BUCKETS[i - 1]) + " - " + Double.toString(LATENCY_BUCKETS[i]);
+    return Double.toString(LATENCY_BUCKETS[index - 1]) + " - " + Double.toString(LATENCY_BUCKETS[index]);
   }
-  
+
   public static String getNthPercentileMidpoint(long[] bucketValues, double percentile) {
     int index = getNthPercentileIndex(bucketValues, percentile);
     if (index < 0) {
       return "N/A";
     }
-    return Double.toString((LATENCY_BUCKETS[i - 1] + LATENCY_BUCKETS[i]) / 2);
+    return Double.toString((LATENCY_BUCKETS[index - 1] + LATENCY_BUCKETS[index]) / 2);
   }
 
   public synchronized void reset() {
@@ -125,7 +129,7 @@ public class LatencyDistribution {
     return mean;
   }
 
-  public long[] getBucketValues() {
+  long[] getBucketValues() {
     return bucketValues;
   }
 
@@ -168,7 +172,7 @@ public class LatencyDistribution {
     synchronized (this) {
       double dev = latencyMs - mean;
       mean = (mean * count + latencyMs * batchSize) / (count + batchSize);
-      count+= batchSize;
+      count += batchSize;
       sumOfSquaredDeviation += dev * (latencyMs - mean) * batchSize;
     }
 
@@ -176,13 +180,13 @@ public class LatencyDistribution {
       double bucket = LATENCY_BUCKETS[i];
       if (latencyMs < bucket) {
         synchronized (this) {
-          bucketValues[i]+= batchSize;
+          bucketValues[i] += batchSize;
         }
         return;
       }
     }
     synchronized (this) {
-      bucketValues[LATENCY_BUCKETS.length - 1]+= batchSize;
+      bucketValues[LATENCY_BUCKETS.length - 1] += batchSize;
     }
   }
 }

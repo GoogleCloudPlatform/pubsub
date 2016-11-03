@@ -21,12 +21,13 @@ import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
 import org.apache.kafka.clients.producer.Callback;
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Runs a task that publishes messages utilizing Kafka's implementation of the Producer<K,V>
@@ -40,8 +41,8 @@ class KafkaPublisherTask extends Task {
   private final int batchSize;
   private final KafkaProducer<String, String> publisher;
 
-  private KafkaPublisherTask(String broker, String project, String topic, int messageSize, 
-      int batchSize) {
+  private KafkaPublisherTask(String broker, String project, String topic, int messageSize,
+                             int batchSize) {
     super(project, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     this.topic = topic;
     this.payload = LoadTestRunner.createMessage(messageSize);
