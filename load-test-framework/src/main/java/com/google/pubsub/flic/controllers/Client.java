@@ -81,8 +81,9 @@ public class Client {
 
   static String getTopicSuffix(ClientType clientType) {
     switch (clientType) {
-      case CPS_GCLOUD_PUBLISHER:
-      case CPS_GCLOUD_SUBSCRIBER:
+      case CPS_GCLOUD_JAVA_PUBLISHER:
+      case CPS_GCLOUD_JAVA_SUBSCRIBER:
+      case CPS_GCLOUD_PYTHON_PUBLISHER:
         return "gcloud";
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
@@ -130,10 +131,7 @@ public class Client {
           .setSeconds(loadtestLengthSeconds).build());
     }
     switch (clientType) {
-      case CPS_GCLOUD_PUBLISHER:
-        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder());
-        break;
-      case CPS_GCLOUD_SUBSCRIBER:
+      case CPS_GCLOUD_JAVA_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
             .setSubscription(subscription)
             .setMaxMessagesPerPull(maxMessagesPerPull));
@@ -241,14 +239,16 @@ public class Client {
    * An enum representing the possible client types.
    */
   public enum ClientType {
-    CPS_GCLOUD_PUBLISHER,
-    CPS_GCLOUD_SUBSCRIBER,
+    CPS_GCLOUD_JAVA_PUBLISHER,
+    CPS_GCLOUD_JAVA_SUBSCRIBER,
+    CPS_GCLOUD_PYTHON_PUBLISHER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
     
     public boolean isCpsPublisher() {
       switch (this) {
-        case CPS_GCLOUD_PUBLISHER:
+        case CPS_GCLOUD_JAVA_PUBLISHER:
+        case CPS_GCLOUD_PYTHON_PUBLISHER:
           return true;
         default:
           return false;
@@ -257,8 +257,9 @@ public class Client {
 
     public ClientType getSubscriberType() {
       switch (this) {
-        case CPS_GCLOUD_PUBLISHER:
-          return CPS_GCLOUD_SUBSCRIBER;
+        case CPS_GCLOUD_JAVA_PUBLISHER:
+        case CPS_GCLOUD_PYTHON_PUBLISHER:
+          return CPS_GCLOUD_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;
         default:

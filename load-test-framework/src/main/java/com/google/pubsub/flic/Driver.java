@@ -92,7 +92,7 @@ class Driver {
   private String project = "";
   @Parameter(
       names = {"--publish_batch_size"},
-      description = "Number of messages to batch per Cloud Pub/Sub publish request.",
+      description = "Number of messages to batch per publish request.",
       validateWith = GreaterThanZeroValidator.class
   )
   private int publishBatchSize = 10;
@@ -164,7 +164,7 @@ class Driver {
       description = "The GCE zone in which to create client instances."
     )
     private String zone = "us-central1-a";
-    
+
   public static void main(String[] args) {
     Driver driver = new Driver();
     JCommander jCommander = new JCommander(driver, args);
@@ -188,14 +188,14 @@ class Driver {
       GCEController.resourceDirectory = resourceDirectory;
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
-          new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null), cpsPublisherCount,
+          new ClientParams(ClientType.CPS_GCLOUD_JAVA_PUBLISHER, null), cpsPublisherCount,
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));
       // Each type of client will have its own topic, so each topic will get
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
-        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_SUBSCRIBER,
+        clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER,
             "gcloud-subscription" + i), cpsSubscriberCount / cpsSubscriptionFanout);
       }
       Client.messageSize = messageSize;
@@ -232,7 +232,7 @@ class Driver {
       }
       Map<ClientType, Controller.LoadtestStats> results = gceController.getStatsForAllClientTypes();
       printStats(results);
-      
+
       if (spreadsheetId.length() > 0) {
         // Output results to common Google sheet
         SheetsService service = new SheetsService(dataStoreDirectory, gceController.getTypes());
@@ -256,7 +256,7 @@ class Driver {
       log.info("Average throughput: "
           + new DecimalFormat("#.##").format(
               (double) LongStream.of(
-                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000) 
+                  stats.bucketValues).sum() / stats.runningSeconds * messageSize / 1000000.0)
           + " MB/s");
     });
   }
