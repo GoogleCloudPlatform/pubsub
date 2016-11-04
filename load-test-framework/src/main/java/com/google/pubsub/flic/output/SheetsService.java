@@ -86,7 +86,7 @@ public class SheetsService {
       cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER);
       cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_SUBSCRIBER);
       kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
-      kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
+      kafkaSubscriberCount += countMap.get(ClientType.KAFKA_SUBSCRIBER);
     });
   }
   
