@@ -119,10 +119,27 @@ public class GCEController extends Controller {
               try {
                 pubsub.projects().subscriptions().delete("projects/" + projectName
                     + "/subscriptions/" + subscription).execute();
+              } catch (GoogleJsonResponseException e) {
+                if (e.getStatusCode() != NOT_FOUND) {
+                  pubsubFuture.setException(e);
+                  return;
+                }
+                log.info("Deleting subscription that doesn't exist, ok.");
+              } catch (Exception e) {
+                pubsubFuture.setException(e);
+                return;
+              }
+              try {
                 pubsub.projects().subscriptions().create("projects/" + projectName
                     + "/subscriptions/" + subscription, new Subscription()
-                      .setTopic("projects/" + projectName + "/topics/" + topic)
-                      .setAckDeadlineSeconds(10)).execute();
+                    .setTopic("projects/" + projectName + "/topics/" + topic)
+                    .setAckDeadlineSeconds(10)).execute();
+              } catch (GoogleJsonResponseException e) {
+                if (e.getStatusCode() != ALREADY_EXISTS) {
+                  pubsubFuture.setException(e);
+                  return;
+                }
+                log.info("Subscription already re-created, ignore.");
               } catch (IOException e) {
                 pubsubFuture.setException(e);
               }

@@ -68,5 +68,21 @@ public class SheetsServiceTest {
       stats.remove(type);
     }
   }
+
+  @Test
+  public void testZeroClientCounts() {
+    Map<String, Map<ClientParams, Integer>> types = new HashMap<>();
+    Map<ClientParams, Integer> paramsMap = new HashMap<>();
+    for (ClientType type : ClientType.values()) {
+      paramsMap.put(new ClientParams(type, ""), 0);
+    }
+    types.put("zone-test", paramsMap);
+    SheetsService service = new SheetsService(null, types);
+
+    assertEquals(
+        service.getCpsPublisherCount() + service.getCpsSubscriberCount(), 0);
+    assertEquals(
+        service.getKafkaPublisherCount() + service.getKafkaSubscriberCount(), 0);
+  }
 }
 

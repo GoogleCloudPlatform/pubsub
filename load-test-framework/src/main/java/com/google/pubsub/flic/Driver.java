@@ -194,6 +194,8 @@ class Driver {
               || cpsSubscriberCount > 0
               || kafkaPublisherCount > 0
               || kafkaSubscriberCount > 0
+              || cpsGrpcPublisherCount > 0
+              || cpsGrpcSubscriberCount > 0
       );
       Preconditions.checkArgument(
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
@@ -202,6 +204,7 @@ class Driver {
       clientParamsMap.putAll(ImmutableMap.of(
           new ClientParams(ClientType.CPS_GRPC_PUBLISHER, null), cpsGrpcPublisherCount,
           new ClientParams(ClientType.CPS_GCLOUD_PUBLISHER, null), cpsPublisherCount,
+          new ClientParams(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER, null), 0,
           new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
           new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
       ));

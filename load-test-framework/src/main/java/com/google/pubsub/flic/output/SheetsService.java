@@ -34,6 +34,7 @@ import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
+import com.google.pubsub.flic.controllers.Controller.LoadtestStats;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -78,7 +79,7 @@ public class SheetsService {
     types.values().forEach(paramsMap -> {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
           collect(Collectors.groupingBy(
-              ClientParams::getClientType, Collectors.summingInt(t -> 1)));
+              ClientParams::getClientType, Collectors.summingInt(ct -> paramsMap.get(ct))));
       cpsPublisherCount += countMap.get(ClientType.CPS_GRPC_PUBLISHER);
       cpsSubscriberCount += countMap.get(ClientType.CPS_GRPC_SUBSCRIBER);
       cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PUBLISHER);
@@ -129,71 +130,73 @@ public class SheetsService {
   public List<List<List<Object>>> getValuesList(Map<ClientType, Controller.LoadtestStats> results) {
     List<List<Object>> cpsValues = new ArrayList<>(results.size());
     List<List<Object>> kafkaValues = new ArrayList<>(results.size());
-    
-    results.forEach((type, stats) -> {
-      List<Object> valueRow = new ArrayList<>(13);
-      switch (type) {
-        case CPS_GRPC_PUBLISHER:
-        case CPS_GCLOUD_PUBLISHER:
-        case CPS_GCLOUD_PYTHON_PUBLISHER:
-          if (cpsPublisherCount == 0) { 
-            return; 
-          }
-          valueRow.add(cpsPublisherCount);
-          valueRow.add(0);
-          cpsValues.add(0, valueRow);
-          break;
-        case CPS_GRPC_SUBSCRIBER:
-        case CPS_GCLOUD_SUBSCRIBER:
-          if (cpsSubscriberCount == 0) { 
-            return; 
-          }
-          valueRow.add(0);
-          valueRow.add(cpsSubscriberCount);
-          cpsValues.add(valueRow);
-          break;
-        case KAFKA_PUBLISHER:
-          if (kafkaPublisherCount == 0) { 
-            return; 
-          }
-          valueRow.add(kafkaPublisherCount);
-          valueRow.add(0);
-          kafkaValues.add(0, valueRow);
-          break;
-        case KAFKA_SUBSCRIBER:
-          if (kafkaSubscriberCount == 0) { 
-            return; 
-          }
-          valueRow.add(0);
-          valueRow.add(kafkaSubscriberCount);
-          kafkaValues.add(valueRow);
-          break;
-        default:
-          throw new IllegalArgumentException("Type " + type + " in results map was not expected.");
-      }
-      valueRow.add(Client.messageSize);
-      if (Client.numberOfMessages <= 0) {
-        valueRow.add(Client.loadtestLengthSeconds);
-        valueRow.add("N/A");
-      } else {
-        valueRow.add("N/A");
-        valueRow.add(Client.numberOfMessages);
-      }
-      valueRow.add(Client.publishBatchSize);
-      valueRow.add(Client.maxMessagesPerPull);
-      valueRow.add(Client.requestRate);
-      valueRow.add(Client.maxOutstandingRequests);
-      valueRow.add(new DecimalFormat("#.##").format(
-          (double) LongStream.of(
-              stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
-    });
+    results.forEach((type, stats) -> addRowForType(cpsValues, kafkaValues, type, stats));
     List<List<List<Object>>> out = new ArrayList<>();
     out.add(cpsValues);
     out.add(kafkaValues);
     return out;
+  }
+
+  private void addRowForType(List<List<Object>> cpsValues, List<List<Object>> kafkaValues,
+                             Client.ClientType type, LoadtestStats stats) {
+    List<Object> valueRow = new ArrayList<>(13);
+    switch (type) {
+      case CPS_GRPC_PUBLISHER:
+      case CPS_GCLOUD_PUBLISHER:
+      case CPS_GCLOUD_PYTHON_PUBLISHER:
+        if (cpsPublisherCount == 0) {
+          return;
+        }
+        valueRow.add(cpsPublisherCount);
+        valueRow.add(0);
+        cpsValues.add(0, valueRow);
+        break;
+      case CPS_GRPC_SUBSCRIBER:
+      case CPS_GCLOUD_SUBSCRIBER:
+        if (cpsSubscriberCount == 0) {
+          return;
+        }
+        valueRow.add(0);
+        valueRow.add(cpsSubscriberCount);
+        cpsValues.add(valueRow);
+        break;
+      case KAFKA_PUBLISHER:
+        if (kafkaPublisherCount == 0) {
+          return;
+        }
+        valueRow.add(kafkaPublisherCount);
+        valueRow.add(0);
+        kafkaValues.add(0, valueRow);
+        break;
+      case KAFKA_SUBSCRIBER:
+        if (kafkaSubscriberCount == 0) {
+          return;
+        }
+        valueRow.add(0);
+        valueRow.add(kafkaSubscriberCount);
+        kafkaValues.add(valueRow);
+        break;
+      default:
+        throw new IllegalArgumentException("Type " + type + " in results map was not expected.");
+    }
+    valueRow.add(Client.messageSize);
+    if (Client.numberOfMessages <= 0) {
+      valueRow.add(Client.loadtestLengthSeconds);
+      valueRow.add("N/A");
+    } else {
+      valueRow.add("N/A");
+      valueRow.add(Client.numberOfMessages);
+    }
+    valueRow.add(Client.publishBatchSize);
+    valueRow.add(Client.maxMessagesPerPull);
+    valueRow.add(Client.requestRate);
+    valueRow.add(Client.maxOutstandingRequests);
+    valueRow.add(new DecimalFormat("#.##").format(
+        (double) LongStream.of(
+            stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
+    valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
+    valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
+    valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
   }
 
   /**
