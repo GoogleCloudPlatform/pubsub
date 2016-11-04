@@ -97,7 +97,7 @@ class Driver {
       description = "Duration of the load test, in seconds.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int loadtestLengthSeconds = 60;
+  private int loadtestLengthSeconds = 180;
   @Parameter(
       names = {"--project"},
       required = true,
@@ -147,7 +147,7 @@ class Driver {
       names = {"--burn_in_duration_seconds"},
       description = "The duration, in seconds, to run without recording statistics to allow tuning."
   )
-  private int burnInDurationSeconds = 20;
+  private int burnInDurationSeconds = 120;
   @Parameter(
       names = {"--number_of_messages"},
       description = "The total number of messages to publish in the test. Enabling this will "
