@@ -165,7 +165,7 @@ class Driver {
   private boolean maxPublishLatencyTest = false;
   @Parameter(
       names = {"--max_publish_latency_millis"},
-      description = "his is the maximum latency in milliseconds allowed before terminating the " +
+      description = "This is the maximum latency in milliseconds allowed before terminating the " +
           "max_publish_latency_test."
   )
   private int maxPublishLatencyMillis = 0;
