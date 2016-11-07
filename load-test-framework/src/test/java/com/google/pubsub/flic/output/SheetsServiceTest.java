@@ -39,6 +39,7 @@ public class SheetsServiceTest {
     Map<String, Map<ClientParams, Integer>> types = new HashMap<>();
     Map<ClientParams, Integer> paramsMap = new HashMap<>();
     for (ClientType type : ClientType.values()) {
+      paramsMap.put(new ClientParams(type, ""), 1);
     }
     types.put("zone-test", paramsMap);
     SheetsService service = new SheetsService(null, types);

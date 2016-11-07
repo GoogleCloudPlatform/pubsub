@@ -71,7 +71,7 @@ public class SheetsService {
       tmp = null;
     }
     types.values().forEach(paramsMap -> {
-      Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
+      countMap = paramsMap.keySet().stream().
           collect(Collectors.groupingBy(
               ClientParams::getClientType, Collectors.summingInt(ct -> paramsMap.get(ct))));
     });
