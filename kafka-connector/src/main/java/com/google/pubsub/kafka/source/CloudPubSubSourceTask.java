@@ -19,7 +19,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.source.CloudPubSubSourceConnector.PartitionScheme;
@@ -34,9 +33,14 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.kafka.connect.data.SchemaBuilder;
+import java.util.concurrent.locks.ReadWriteLock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.utils.Utils;
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
+import org.apache.kafka.connect.storage.Converter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -60,6 +64,9 @@ public class CloudPubSubSourceTask extends SourceTask {
   // Keep track of all ack ids that have not been sent correctly acked yet.
   private Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
   private CloudPubSubSubscriber subscriber;
+  private Converter keyConverter;
+  private Converter valueConverter;
+  private final ReadWriteLock rwLock = new ReentrantReadWriteLock();
 
   public CloudPubSubSourceTask() {}
 
@@ -95,7 +102,19 @@ public class CloudPubSubSourceTask extends SourceTask {
       // Only do this if we did not set through the constructor.
       subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);
     }
+    keyConverter = getConverterInstance(
+        validatedProps, CloudPubSubSourceConnector.KEY_CONVERTER_CLASS_CONFIG);
+    valueConverter = getConverterInstance(
+        validatedProps, CloudPubSubSourceConnector.VALUE_CONVERTER_CLASS_CONFIG);
     log.info("Started a CloudPubSubSourceTask.");
+  }
+  
+  public Converter getConverterInstance(Map<String, Object> props, String configKey) {
+    Class<?> c = (Class<?>) props.get(configKey);
+    Object o = Utils.newInstance(c);
+    if (!(o instanceof Converter))
+      throw new ConfigException(c.getName() + " is not an instance of Converter");
+    return (Converter) o;
   }
 
   @Override
@@ -111,34 +130,51 @@ public class CloudPubSubSourceTask extends SourceTask {
     try {
       PullResponse response = subscriber.pull(request).get();
       List<SourceRecord> sourceRecords = new ArrayList<>();
-      log.trace("Received " + response.getReceivedMessagesList().size() + " messages");
       for (ReceivedMessage rm : response.getReceivedMessagesList()) {
         PubsubMessage message = rm.getMessage();
         String ackId = rm.getAckId();
         // If we are receiving this message a second (or more) times because the ack for it failed
         // then do not create a SourceRecord for this message.
+        rwLock.readLock().lock();
         if (ackIds.contains(ackId)) {
+          rwLock.readLock().unlock();
           continue;
         }
+        rwLock.readLock().unlock();
+        rwLock.writeLock().lock();
         ackIds.add(ackId);
+        rwLock.writeLock().unlock();
         Map<String, String> messageAttributes = message.getAttributes();
-        String key = null;
+        byte[] keyBytes = null;
         if (messageAttributes.get(kafkaMessageKeyAttribute) != null) {
-          key = messageAttributes.get(kafkaMessageKeyAttribute);
+          keyBytes = messageAttributes.get(kafkaMessageKeyAttribute).getBytes();
         }
-        ByteString value = message.getData();
-        // We don't need to check that the message data is a byte string because we know the
-        // data is coming from CPS so it must be of that type.
-        SourceRecord record =
-            new SourceRecord(
-                null,
-                null,
-                kafkaTopic,
-                selectPartition(key, value),
-                SchemaBuilder.string().build(),
-                key,
-                SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-                value);
+        byte[] valueBytes = message.getData().toByteArray();
+        SchemaAndValue key = null;
+        if (keyBytes != null) {
+          key = keyConverter.toConnectData(kafkaTopic, keyBytes);
+        }
+        SchemaAndValue value = valueConverter.toConnectData(kafkaTopic, valueBytes);
+        SourceRecord record;
+        if (key != null) {
+          record = new SourceRecord(
+              null,
+              null,
+              kafkaTopic,
+              selectPartition(key, value),
+              key.schema(),
+              key.value(),
+              value.schema(),
+              value.value());
+        } else {
+          record = new SourceRecord(
+              null,
+              null,
+              kafkaTopic,
+              selectPartition(key, value),
+              value.schema(),
+              value.value());
+        }
         sourceRecords.add(record);
       }
       return sourceRecords;

@@ -16,6 +16,7 @@
 package com.google.pubsub.kafka.source;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.pubsub.kafka.common.ByteStringConverter;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.GetSubscriptionRequest;
 import com.google.pubsub.v1.SubscriberGrpc;
@@ -49,6 +50,10 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";
   public static final String CPS_SUBSCRIPTION_CONFIG = "cps.subscription";
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
+  public static final String KEY_CONVERTER_CLASS_CONFIG = "key.converter";
+  public static final Class<?> DEFAULT_KEY_CONVERTER = ByteStringConverter.class;
+  public static final String VALUE_CONVERTER_CLASS_CONFIG = "value.converter";
+  public static final Class<?> DEFAULT_VALUE_CONVERTER = ByteStringConverter.class;
   public static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
   public static final int DEFAULT_KAFKA_PARTITIONS = 1;
   public static final String DEFAULT_KAFKA_PARTITION_SCHEME = "round_robin";
@@ -65,6 +70,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       this.value = value;
     }
 
+    @Override
     public String toString() {
       return value;
     }
@@ -110,9 +116,16 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public void start(Map<String, String> props) {
     // Do a validation of configs here too so that we do not pass null objects to
     // verifySubscription().
-    config().parse(props);
     String cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
+    if (cpsProject == null) {
+      throw new ConfigException("No CPS Project specified in configuration file.");
+    }
     String cpsSubscription = props.get(CPS_SUBSCRIPTION_CONFIG);
+    if (cpsSubscription == null) {
+      throw new ConfigException("No CPS subscription specified in configuration file.");
+    }
+    cpsSubscription = String.format(
+        ConnectorUtils.CPS_SUBSCRIPTION_FORMAT, cpsProject, cpsSubscription);
     verifySubscription(cpsProject, cpsSubscription);
     this.props = props;
     log.info("Started the CloudPubSubSourceConnector");
@@ -179,7 +192,19 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             DEFAULT_KAFKA_PARTITION_SCHEME,
             new PartitionScheme.Validator(),
             Importance.MEDIUM,
-            "The scheme for assigning a message to a partition in Kafka.");
+            "The scheme for assigning a message to a partition in Kafka.")
+        .define(
+            KEY_CONVERTER_CLASS_CONFIG,
+            Type.CLASS,
+            DEFAULT_KEY_CONVERTER,
+            Importance.MEDIUM,
+            "The converter to use for the key.")
+        .define(
+            VALUE_CONVERTER_CLASS_CONFIG,
+            Type.CLASS,
+            DEFAULT_VALUE_CONVERTER,
+            Importance.MEDIUM,
+            "The converter to use for the value.");
   }
 
   /**
@@ -191,11 +216,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     try {
       SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
       GetSubscriptionRequest request =
-          GetSubscriptionRequest.newBuilder()
-              .setSubscription(
-                  String.format(
-                      ConnectorUtils.CPS_SUBSCRIPTION_FORMAT, cpsProject, cpsSubscription))
-              .build();
+          GetSubscriptionRequest.newBuilder().setSubscription(cpsSubscription).build();
       stub.getSubscription(request).get();
     } catch (Exception e) {
       throw new ConnectException(
