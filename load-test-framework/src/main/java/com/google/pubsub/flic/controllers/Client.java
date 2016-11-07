@@ -30,6 +30,7 @@ import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import java.rmi.UnexpectedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -287,6 +288,24 @@ public class Client {
           return KAFKA_SUBSCRIBER;
         default:
           return this;
+      }
+    }
+
+    public String getTypeString() throws IllegalAccessException {
+      switch (this) {
+        case CPS_GCLOUD_PUBLISHER:
+        case CPS_GCLOUD_SUBSCRIBER:
+          return "gcloud";
+        case CPS_GCLOUD_PYTHON_PUBLISHER:
+          return "python gcloud";
+        case CPS_GRPC_SUBSCRIBER:
+        case CPS_GRPC_PUBLISHER:
+          return "grpc";
+        case KAFKA_PUBLISHER:
+        case KAFKA_SUBSCRIBER:
+          return "Apache";
+        default:
+          throw new IllegalAccessException("No type specified for this client");
       }
     }
 

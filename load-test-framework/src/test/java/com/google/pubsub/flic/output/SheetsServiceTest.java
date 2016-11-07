@@ -16,6 +16,7 @@
 
 package com.google.pubsub.flic.output;
 
+import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
@@ -36,26 +37,16 @@ public class SheetsServiceTest {
   @Test
   public void testClientSwitch() {
     Map<String, Map<ClientParams, Integer>> types = new HashMap<>();
-    int expectedCpsCount = 0;
-    int expectedKafkaCount = 0;
     Map<ClientParams, Integer> paramsMap = new HashMap<>();
     for (ClientType type : ClientType.values()) {
-      paramsMap.put(new ClientParams(type, ""), 1);
-      if (type.toString().startsWith("cps")) {
-        expectedCpsCount++;
-      } else if (type.toString().startsWith("kafka")) {
-        expectedKafkaCount++;
-      } else {
-        fail("ClientType toString didn't start with cps or kafka");
-      }
     }
     types.put("zone-test", paramsMap);
     SheetsService service = new SheetsService(null, types);
 
-    assertEquals(
-        service.getCpsPublisherCount() + service.getCpsSubscriberCount(), expectedCpsCount);
-    assertEquals(
-        service.getKafkaPublisherCount() + service.getKafkaSubscriberCount(), expectedKafkaCount);
+    Map<Client.ClientType, Integer> countMap = service.getCountMap();
+    for (ClientType t : ClientType.values()) {
+      assertEquals(countMap.get(t).intValue(), 1);
+    }
 
     Map<ClientType, Controller.LoadtestStats> stats = new HashMap<>();
     for (ClientType type : ClientType.values()) {
@@ -80,10 +71,9 @@ public class SheetsServiceTest {
     types.put("zone-test", paramsMap);
     SheetsService service = new SheetsService(null, types);
 
-    assertEquals(
-        service.getCpsPublisherCount() + service.getCpsSubscriberCount(), 0);
-    assertEquals(
-        service.getKafkaPublisherCount() + service.getKafkaSubscriberCount(), 0);
+    Map<Client.ClientType, Integer> countMap = service.getCountMap();
+    for (ClientType t : ClientType.values()) {
+      assertEquals(countMap.get(t).intValue(), 0);
+    }
   }
 }
-
