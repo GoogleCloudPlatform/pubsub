@@ -85,7 +85,7 @@ public class Client {
       case CPS_GCLOUD_SUBSCRIBER:
         return "gcloud";
       case CPS_GCLOUD_PYTHON_PUBLISHER:
-        return "gcloud_python";
+        return "gcloud";
       case CPS_GRPC_PUBLISHER:
       case CPS_GRPC_SUBSCRIBER:
         return "grpc";

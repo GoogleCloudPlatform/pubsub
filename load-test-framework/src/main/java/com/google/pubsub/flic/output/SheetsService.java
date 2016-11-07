@@ -141,9 +141,10 @@ public class SheetsService {
                              Client.ClientType type, LoadtestStats stats) {
     List<Object> valueRow = new ArrayList<>(13);
     switch (type) {
-      case CPS_GRPC_PUBLISHER:
       case CPS_GCLOUD_PUBLISHER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
+      case CPS_GCLOUD_SUBSCRIBER:
+      case CPS_GRPC_PUBLISHER:
         if (cpsPublisherCount == 0) {
           return;
         }
@@ -152,7 +153,6 @@ public class SheetsService {
         cpsValues.add(0, valueRow);
         break;
       case CPS_GRPC_SUBSCRIBER:
-      case CPS_GCLOUD_SUBSCRIBER:
         if (cpsSubscriberCount == 0) {
           return;
         }
@@ -194,9 +194,9 @@ public class SheetsService {
     valueRow.add(new DecimalFormat("#.##").format(
         (double) LongStream.of(
             stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
-    valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
-    valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
-    valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
+    valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 50.0));
+    valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 95.0));
+    valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.0));
   }
 
   /**
