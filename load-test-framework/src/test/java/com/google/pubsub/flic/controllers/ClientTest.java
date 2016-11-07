@@ -16,13 +16,14 @@
 package com.google.pubsub.flic.controllers;
 
 import com.google.pubsub.flic.common.LatencyDistribution;
+import org.junit.Test;
+
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
-import org.junit.Test;
 
 
 /**

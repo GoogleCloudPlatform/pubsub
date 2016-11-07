@@ -15,10 +15,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic;
 
-import static org.junit.Assert.assertTrue;
-
 import com.beust.jcommander.ParameterException;
 import org.junit.Test;
+
+import static org.junit.Assert.assertTrue;
 
 /**
  * Tests for {@link Driver}.

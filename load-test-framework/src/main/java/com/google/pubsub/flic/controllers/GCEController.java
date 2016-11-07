@@ -46,6 +46,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.controllers.Client.ClientType;
+import org.apache.commons.codec.digest.DigestUtils;
+
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -59,18 +61,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
  */
 public class GCEController extends Controller {
-  public static String resourceDirectory = "src/main/resources/gce";
   private static final String MACHINE_TYPE = "n1-standard-4"; // quad core machines
   private static final String SOURCE_FAMILY =
       "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
   private static final int ALREADY_EXISTS = 409;
   private static final int NOT_FOUND = 404;
+  public static String resourceDirectory = "src/main/resources/gce";
   private final Storage storage;
   private final Compute compute;
   private final String projectName;

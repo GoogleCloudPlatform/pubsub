@@ -21,30 +21,9 @@ import com.google.api.client.http.HttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.monitoring.v3.Monitoring;
-import com.google.api.services.monitoring.v3.model.BucketOptions;
-import com.google.api.services.monitoring.v3.model.CreateTimeSeriesRequest;
-import com.google.api.services.monitoring.v3.model.Distribution;
-import com.google.api.services.monitoring.v3.model.Explicit;
-import com.google.api.services.monitoring.v3.model.LabelDescriptor;
-import com.google.api.services.monitoring.v3.model.Metric;
-import com.google.api.services.monitoring.v3.model.MetricDescriptor;
-import com.google.api.services.monitoring.v3.model.MonitoredResource;
-import com.google.api.services.monitoring.v3.model.Point;
-import com.google.api.services.monitoring.v3.model.TimeInterval;
-import com.google.api.services.monitoring.v3.model.TimeSeries;
-import com.google.api.services.monitoring.v3.model.TypedValue;
+import com.google.api.services.monitoring.v3.model.*;
 import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.flic.common.LatencyDistribution;
-import java.io.IOException;
-import java.security.GeneralSecurityException;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Date;
-import java.util.List;
-import java.util.TimeZone;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.http.HttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -59,6 +38,13 @@ import org.apache.http.params.HttpConnectionParams;
 import org.apache.http.util.EntityUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.IOException;
+import java.security.GeneralSecurityException;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * A class that is used to record metrics related to the execution of the load tests, such metrics

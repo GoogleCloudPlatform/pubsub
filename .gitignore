@@ -8,3 +8,4 @@ data
 *.iml
 *.out
 .metadata
+load-test-framework/exp_test.sh
