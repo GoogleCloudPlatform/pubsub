@@ -292,7 +292,7 @@ class Driver {
       long backlogSize = 0;
       do {
         Client.startTime = Timestamp.newBuilder()
-          .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
+            .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
         Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
         Date startDate = new Date();
         startDate.setTime(Client.startTime.getSeconds() * 1000);
