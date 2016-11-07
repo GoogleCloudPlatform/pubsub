@@ -262,9 +262,6 @@ class Driver {
       Client.broker = broker;
       Client.requestRate = requestRate;
       Client.maxOutstandingRequests = maxOutstandingRequests;
-      Client.startTime = Timestamp.newBuilder()
-          .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
-      Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
       Client.numberOfMessages = numberOfMessages;
       GCEController gceController = GCEController.newGCEController(
           project, ImmutableMap.of(zone, clientParamsMap),
@@ -294,6 +291,9 @@ class Driver {
       int highestRequestRate = 0;
       long backlogSize = 0;
       do {
+        Client.startTime = Timestamp.newBuilder()
+          .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
+        Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
         Date startDate = new Date();
         startDate.setTime(Client.startTime.getSeconds() * 1000);
         gceController.startClients();
