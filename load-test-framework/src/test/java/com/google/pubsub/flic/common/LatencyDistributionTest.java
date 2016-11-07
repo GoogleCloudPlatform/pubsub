@@ -15,11 +15,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic.common;
 
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-
 import org.junit.Before;
 import org.junit.Test;
+
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Tests for {@link LatencyDistribution}.
@@ -53,7 +53,7 @@ public class LatencyDistributionTest {
     expected[2]++;
     assertArrayEquals(distribution.getBucketValues(), expected);
   }
-  
+
   @Test
   public void testBatchRecord() {
     long[] latencies = {2, 7, 31, 67, 137};
@@ -67,7 +67,7 @@ public class LatencyDistributionTest {
     }
     assertEquals(distribution.getMean(), control.getMean(), EPSILON);
     assertEquals(distribution.getCount(), control.getCount(), EPSILON);
-    assertEquals(distribution.getSumOfSquareDeviations(), 
+    assertEquals(distribution.getSumOfSquareDeviations(),
         control.getSumOfSquareDeviations(), EPSILON);
   }
 

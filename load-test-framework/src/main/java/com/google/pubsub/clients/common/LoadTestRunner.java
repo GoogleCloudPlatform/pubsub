@@ -29,6 +29,9 @@ import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
@@ -36,8 +39,6 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
@@ -48,21 +49,51 @@ public class LoadTestRunner {
   private static final Stopwatch stopwatch = Stopwatch.createUnstarted();
   private static Server server;
   private static Task client;
-  private static AtomicBoolean finished = new AtomicBoolean(false);
+  private static AtomicBoolean finished = new AtomicBoolean(true);
   private static SettableFuture<Void> finishedFuture = SettableFuture.create();
 
-  public static void run(Function<StartRequest, Task> loadFunction) throws Exception {
-    SettableFuture<StartRequest> requestFuture = SettableFuture.create();
+  private static void runTest(StartRequest request) {
+    log.info("Request received, starting up server.");
+    ListeningExecutorService executor = MoreExecutors.listeningDecorator(
+        Executors.newFixedThreadPool(request.getMaxOutstandingRequests() + 10));
+
+    final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
+    final Semaphore outstandingTestLimiter =
+        new Semaphore(request.getMaxOutstandingRequests(), false);
+
+    final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
+    if (toSleep > 0) {
+      try {
+        Thread.sleep(toSleep);
+      } catch (InterruptedException e) {
+        log.error("Interrupted sleeping, starting test now." );
+      }
+    }
+
+    stopwatch.start();
+    while (shouldContinue(request)) {
+      outstandingTestLimiter.acquireUninterruptibly();
+      rateLimiter.acquire();
+      executor.submit(client).addListener(outstandingTestLimiter::release, executor);
+    }
+    stopwatch.stop();
+    executor.shutdownNow();
+    finished.set(true);
+    log.info("Load test complete.");
+  }
+
+  public static void run(Function<StartRequest, Task> function) throws Exception {
     server = ServerBuilder.forPort(5000)
         .addService(new LoadtestGrpc.LoadtestImplBase() {
           @Override
           public void start(StartRequest request, StreamObserver<StartResponse> responseObserver) {
-            if (requestFuture.isDone()) {
-              responseObserver.onError(
-                  new Exception("Start should only be called once, ignoring this request."));
-              return;
+            if (!finished.compareAndSet(true, false)) {
+              responseObserver.onError(new Exception("A load test is already running!"));
             }
-            requestFuture.set(request);
+            finishedFuture = SettableFuture.create();
+            stopwatch.reset();
+            client = function.apply(request);
+            Executors.newSingleThreadExecutor().submit(() -> LoadTestRunner.runTest(request));
             responseObserver.onNext(StartResponse.getDefaultInstance());
             responseObserver.onCompleted();
           }
@@ -94,33 +125,8 @@ public class LoadTestRunner {
         }
       }
     });
-
-    StartRequest request = requestFuture.get();
-    log.info("Request received, starting up server.");
-    ListeningExecutorService executor = MoreExecutors.listeningDecorator(
-        Executors.newFixedThreadPool(request.getMaxOutstandingRequests() + 10));
-
-    final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
-    final Semaphore outstandingTestLimiter =
-        new Semaphore(request.getMaxOutstandingRequests(), false);
-    client = loadFunction.apply(request);
-
-    final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
-    if (toSleep > 0) {
-      Thread.sleep(toSleep);
-    }
-
-    stopwatch.start();
-    while (shouldContinue(request)) {
-      outstandingTestLimiter.acquireUninterruptibly();
-      rateLimiter.acquire();
-      executor.submit(client).addListener(outstandingTestLimiter::release, executor);
-    }
-    stopwatch.stop();
-    executor.shutdownNow();
-    finished.set(true);
-    finishedFuture.get();
-    log.info("Load test complete, shutting down.");
+    // Deadlock forever, since we do not want the server to stop.
+    Thread.currentThread().join();
   }
 
   private static boolean shouldContinue(StartRequest request) {
@@ -130,8 +136,8 @@ public class LoadTestRunner {
             < (request.getStartTime().getSeconds() + request.getTestDuration().getSeconds()) * 1000;
       case NUMBER_OF_MESSAGES:
         return client.getNumberOfMessages() < request.getNumberOfMessages();
-       default:
-         return false;
+      default:
+        return false;
     }
   }
 

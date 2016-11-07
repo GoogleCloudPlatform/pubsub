@@ -20,8 +20,18 @@ import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.ParameterException;
+import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
+import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
+import com.google.api.client.http.HttpTransport;
+import com.google.api.client.json.JsonFactory;
+import com.google.api.client.json.jackson2.JacksonFactory;
+import com.google.api.services.monitoring.v3.Monitoring;
+import com.google.api.services.monitoring.v3.model.ListTimeSeriesResponse;
+import com.google.api.services.monitoring.v3.model.Point;
+import com.google.api.services.monitoring.v3.model.TimeSeries;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.AtomicDouble;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.controllers.Client;
@@ -30,15 +40,19 @@ import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.output.SheetsService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.text.DecimalFormat;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.LongStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Drives the execution of the framework through command line arguments.
@@ -83,7 +97,7 @@ class Driver {
       description = "Duration of the load test, in seconds.",
       validateWith = GreaterThanZeroValidator.class
   )
-  private int loadtestLengthSeconds = 60;
+  private int loadtestLengthSeconds = 180;
   @Parameter(
       names = {"--project"},
       required = true,
@@ -133,7 +147,7 @@ class Driver {
       names = {"--burn_in_duration_seconds"},
       description = "The duration, in seconds, to run without recording statistics to allow tuning."
   )
-  private int burnInDurationSeconds = 20;
+  private int burnInDurationSeconds = 120;
   @Parameter(
       names = {"--number_of_messages"},
       description = "The total number of messages to publish in the test. Enabling this will "
@@ -141,6 +155,40 @@ class Driver {
           + "message loss. If set less than 1, this flag is ignored."
   )
   private int numberOfMessages = 0;
+  @Parameter(
+      names = {"--max_publish_latency_test"},
+      description = "In this test we will continuously run load tests with increasing request " +
+          "rates until we hit max_publish_latency_millis. You must only provide a single type of " +
+          "publisher to use this test. This uses the latency specified by " +
+          "max_publish_latency_percentile as the bound to check."
+  )
+  private boolean maxPublishLatencyTest = false;
+  @Parameter(
+      names = {"--max_publish_latency_millis"},
+      description = "This is the maximum latency in milliseconds allowed before terminating the " +
+          "max_publish_latency_test."
+  )
+  private int maxPublishLatencyMillis = 0;
+  @Parameter(
+      names = {"--max_publish_latency_percentile"},
+      description = "This sets the percentile to use when determining the latency for the " +
+          "max_publish_latency_test. Defaults to 99."
+  )
+  private int maxPublishLatencyPercentile = 99;
+  @Parameter(
+      names = {"--max_subscriber_throughput_test"},
+      description = "This test will continuously run load tests with greater publish request " +
+          "rate until the subscriber can no longer keep up, and will let you know the maximum " +
+          "throughput per subscribing client."
+  )
+  private boolean maxSubscriberThroughputTest = false;
+  @Parameter(
+      names = {"--max_subscriber_throughput_test_backlog"},
+      description =
+          "This is the size of the backlog, in messages, to allow during the " +
+              "max_subscriber_throughput_test. "
+  )
+  private int maxSubscriberThroughputTestBacklog = 100;
   @Parameter(
       names = {"--spreadsheet_id"},
       description = "The id of the spreadsheet to which results are output."
@@ -155,16 +203,16 @@ class Driver {
   private String dataStoreDirectory =
       System.getProperty("user.home") + "/.credentials/sheets.googleapis.com-loadtest-framework";
   @Parameter(
-    names = {"--resource_dir"},
-    description = "The directory to look for resources to upload, if different than the default."
+      names = {"--resource_dir"},
+      description = "The directory to look for resources to upload, if different than the default."
   )
   private String resourceDirectory = "src/main/resources/gce";
   @Parameter(
       names = {"--zone"},
       description = "The GCE zone in which to create client instances."
-    )
-    private String zone = "us-central1-a";
-    
+  )
+  private String zone = "us-central1-a";
+
   public static void main(String[] args) {
     Driver driver = new Driver();
     JCommander jCommander = new JCommander(driver, args);
@@ -182,9 +230,16 @@ class Driver {
               || cpsSubscriberCount > 0
               || kafkaPublisherCount > 0
               || kafkaSubscriberCount > 0
-      );
+          , "You must set at least one type of client greater than 0.");
       Preconditions.checkArgument(
-          broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0));
+          broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0),
+          "If using Kafka you must provide the network address of your broker using the"
+              + "--broker flag.");
+
+      if (maxPublishLatencyTest) {
+        Preconditions.checkArgument(kafkaPublisherCount > 0 ^ cpsPublisherCount > 0,
+            "If max_publish_latency is specified, there can only be one type of publisher.");
+      }
       GCEController.resourceDirectory = resourceDirectory;
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       clientParamsMap.putAll(ImmutableMap.of(
@@ -200,8 +255,6 @@ class Driver {
       }
       Client.messageSize = messageSize;
       Client.requestRate = 1;
-      Client.startTime = Timestamp.newBuilder()
-          .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.publishBatchSize = publishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
@@ -214,7 +267,6 @@ class Driver {
       GCEController gceController = GCEController.newGCEController(
           project, ImmutableMap.of(zone, clientParamsMap),
           Executors.newScheduledThreadPool(500));
-      gceController.startClients();
 
       // Start a thread to poll and output results.
       ScheduledExecutorService pollingExecutor = Executors.newSingleThreadScheduledExecutor();
@@ -225,18 +277,83 @@ class Driver {
           log.info("===============================================");
         }
       }, 5, 5, TimeUnit.SECONDS);
-      // Wait for the load test to finish.
-      gceController.waitForClients();
+      Map<ClientType, Controller.LoadtestStats> statsMap;
+      AtomicDouble publishLatency = new AtomicDouble(0);
+
+      final HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+      final JsonFactory jsonFactory = new JacksonFactory();
+      final GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
+      final Monitoring monitoring = new Monitoring.Builder(transport, jsonFactory, credential)
+          .setApplicationName("Cloud Pub/Sub Loadtest Framework")
+          .build();
+      final SimpleDateFormat dateFormatter;
+      dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+      dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
+      int highestRequestRate = 0;
+      long backlogSize = 0;
+      do {
+        Client.startTime = Timestamp.newBuilder()
+            .setSeconds(System.currentTimeMillis() / 1000 + 90).build();
+        Date startDate = new Date();
+        startDate.setTime(Client.startTime.getSeconds() * 1000);
+        gceController.startClients();
+        if (maxSubscriberThroughputTest) {
+          gceController.waitForPublisherClients();
+          ListTimeSeriesResponse response =
+              monitoring.projects().timeSeries().list("projects/" + project)
+                  .setFilter(
+                      "metric.type = \"pubsub.googleapis.com/subscription/num_undelivered_messages\"")
+                  .setIntervalStartTime(dateFormatter.format(startDate))
+                  .setIntervalEndTime(dateFormatter.format(new Date()))
+                  .execute();
+          // Get most recent point.
+          Point latestBacklogSize = null;
+          for (TimeSeries timeSeries : response.getTimeSeries()) {
+            for (Point point : timeSeries.getPoints()) {
+              if (latestBacklogSize == null ||
+                  dateFormatter.parse(point.getInterval().getStartTime()).after(
+                      dateFormatter.parse(latestBacklogSize.getInterval().getStartTime()))) {
+                latestBacklogSize = point;
+              }
+            }
+          }
+          if (latestBacklogSize != null) {
+            backlogSize = latestBacklogSize.getValue().getInt64Value();
+          }
+          if (backlogSize > maxSubscriberThroughputTestBacklog) {
+            log.info("We accumulated a backlog during this test, refer to the last run " +
+                "for the maximum throughput attained before accumulating backlog." );
+          }
+        }
+        // Wait for the load test to finish.
+        gceController.waitForClients();
+        statsMap = gceController.getStatsForAllClientTypes();
+        if (maxPublishLatencyTest) {
+          statsMap.forEach((type, stats) -> {
+            if (type.isPublisher()) {
+              publishLatency.set(LatencyDistribution
+                  .getNthPercentileUpperBound(stats.bucketValues, maxPublishLatencyPercentile));
+            }
+          });
+        }
+        if (publishLatency.get() < maxPublishLatencyMillis) {
+          highestRequestRate = Client.requestRate;
+        }
+        Client.requestRate *= 1.1;
+        printStats(statsMap);
+        if (spreadsheetId.length() > 0) {
+          // Output results to common Google sheet
+          SheetsService service = new SheetsService(dataStoreDirectory, gceController.getTypes());
+          service.sendToSheets(spreadsheetId, statsMap);
+        }
+      } while ((maxPublishLatencyTest && publishLatency.get() < maxPublishLatencyMillis)
+          || (maxSubscriberThroughputTest && backlogSize < maxSubscriberThroughputTestBacklog));
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
-      Map<ClientType, Controller.LoadtestStats> results = gceController.getStatsForAllClientTypes();
-      printStats(results);
-      
-      if (spreadsheetId.length() > 0) {
-        // Output results to common Google sheet
-        SheetsService service = new SheetsService(dataStoreDirectory, gceController.getTypes());
-        service.sendToSheets(spreadsheetId, results);
+      if (maxPublishLatencyTest) {
+        // This calculates the request rate of the last successful run.
+        log.info("Maximum Request Rate: " + highestRequestRate);
       }
       gceController.shutdown(null);
       System.exit(0);
