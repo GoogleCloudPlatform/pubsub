@@ -34,16 +34,23 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
+import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.Before;
 import org.junit.Test;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /** Tests for {@link CloudPubSubSourceTask}. */
 public class CloudPubSubSourceTaskTest {
+  private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceTaskTest.class);
 
   private static final String CPS_PROJECT = "the";
   private static final String CPS_MAX_BATCH_SIZE = "1000";
@@ -53,6 +60,7 @@ public class CloudPubSubSourceTaskTest {
   private static final String KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE = "jumped";
   private static final String KAFKA_PARTITIONS = "3";
   private static final ByteString CPS_MESSAGE = ByteString.copyFromUtf8("over");
+  private static final ByteBuffer KAFKA_VALUE = CPS_MESSAGE.asReadOnlyByteBuffer();
   private static final String ACK_ID1 = "ackID1";
   private static final String ACK_ID2 = "ackID2";
   private static final String ACK_ID3 = "ackID3";
@@ -156,10 +164,10 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             0,
-            SchemaBuilder.string().build(),
+            Schema.STRING_SCHEMA,
             null,
-            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            CPS_MESSAGE);
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
     assertEquals(expected, result.get(0));
   }
 
@@ -184,10 +192,50 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             0,
-            SchemaBuilder.string().build(),
+            Schema.STRING_SCHEMA,
             KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
-            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            CPS_MESSAGE);
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
+    assertEquals(expected, result.get(0));
+  }
+
+  /**
+   * Tests when the message retrieved from Cloud Pub/Sub have several attributes, including
+   * one that matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
+   */
+  @Test
+  public void testPollWithMultipleAttributes() throws Exception {
+    task.start(props);
+    Map<String, String> attributes = new HashMap<>();
+    attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
+    attributes.put("attribute1", "attribute_value1");
+    attributes.put("attribute2", "attribute_value2");
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes);
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    assertEquals(1, result.size());
+    Schema expectedSchema =
+        SchemaBuilder.struct()
+            .field(ConnectorUtils.CPS_MESSAGE_KAFKA_STRUCT_ATTRIBUTE, Schema.BYTES_SCHEMA)
+            .field("attribute1", Schema.STRING_SCHEMA)
+            .field("attribute2", Schema.STRING_SCHEMA)
+            .build();
+    Struct expectedValue = new Struct(expectedSchema)
+                               .put(ConnectorUtils.CPS_MESSAGE_KAFKA_STRUCT_ATTRIBUTE, KAFKA_VALUE)
+                               .put("attribute1", "attribute_value1")
+                               .put("attribute2", "attribute_value2");
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            0,
+            Schema.STRING_SCHEMA,
+            KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
+            expectedSchema,
+            expectedValue);
     assertEquals(expected, result.get(0));
   }
 
@@ -220,22 +268,23 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE.hashCode() % Integer.parseInt(KAFKA_PARTITIONS),
-            SchemaBuilder.string().build(),
+            Schema.STRING_SCHEMA,
             KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
-            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            CPS_MESSAGE);
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
     SourceRecord expectedForMessageWithoutKey =
         new SourceRecord(
             null,
             null,
             KAFKA_TOPIC,
             0,
-            SchemaBuilder.string().build(),
+            Schema.STRING_SCHEMA,
             null,
-            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            CPS_MESSAGE);
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
+
     assertEquals(expectedForMessageWithKey, result.get(0));
-    assertEquals(expectedForMessageWithoutKey, result.get(1));
+    assertEquals(expectedForMessageWithoutKey.value(), result.get(1).value());
   }
 
   /** Tests that the correct partition is assigned when the partition scheme is "hash_value". */
@@ -256,11 +305,11 @@ public class CloudPubSubSourceTaskTest {
             null,
             null,
             KAFKA_TOPIC,
-            CPS_MESSAGE.hashCode() % Integer.parseInt(KAFKA_PARTITIONS),
-            SchemaBuilder.string().build(),
+            KAFKA_VALUE.hashCode() % Integer.parseInt(KAFKA_PARTITIONS),
+            Schema.STRING_SCHEMA,
             null,
-            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            CPS_MESSAGE);
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
     assertEquals(expected, result.get(0));
   }
 
@@ -293,40 +342,40 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             0,
-            SchemaBuilder.string().build(),
+            Schema.STRING_SCHEMA,
             null,
-            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            CPS_MESSAGE);
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
     SourceRecord expected2 =
         new SourceRecord(
             null,
             null,
             KAFKA_TOPIC,
             1,
-            SchemaBuilder.string().build(),
+            Schema.STRING_SCHEMA,
             null,
-            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            CPS_MESSAGE);
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
     SourceRecord expected3 =
         new SourceRecord(
             null,
             null,
             KAFKA_TOPIC,
             2,
-            SchemaBuilder.string().build(),
+            Schema.STRING_SCHEMA,
             null,
-            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            CPS_MESSAGE);
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
     SourceRecord expected4 =
         new SourceRecord(
             null,
             null,
             KAFKA_TOPIC,
             0,
-            SchemaBuilder.string().build(),
+            Schema.STRING_SCHEMA,
             null,
-            SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
-            CPS_MESSAGE);
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
     assertEquals(expected1, result.get(0));
     assertEquals(expected2, result.get(1));
     assertEquals(expected3, result.get(2));
