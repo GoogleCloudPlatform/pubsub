@@ -131,14 +131,12 @@ public class CloudPubSubSourceTask extends SourceTask {
         ByteBuffer messageBytes = messageData.asReadOnlyByteBuffer();
 
         boolean hasAttributes =
-            messageAttributes.size() > 1 ||
-            (messageAttributes.size() > 0 &&
-             !messageAttributes.containsKey(kafkaMessageKeyAttribute));
+            messageAttributes.size() > 1 || (messageAttributes.size() > 0 && key == null);
 
         SourceRecord record = null;
         if (hasAttributes) {
           SchemaBuilder valueSchemaBuilder = SchemaBuilder.struct().field(
-              ConnectorUtils.CPS_MESSAGE_KAFKA_STRUCT_ATTRIBUTE,
+              ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE,
               Schema.BYTES_SCHEMA);
 
           for (Map.Entry<String, String> attribute :
@@ -152,11 +150,11 @@ public class CloudPubSubSourceTask extends SourceTask {
           Schema valueSchema = valueSchemaBuilder.build();
           Struct value =
               new Struct(valueSchema)
-                  .put(ConnectorUtils.CPS_MESSAGE_KAFKA_STRUCT_ATTRIBUTE,
+                  .put(ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE,
                        messageBytes);
           for (Field field : valueSchema.fields()) {
             if (!field.name().equals(
-                    ConnectorUtils.CPS_MESSAGE_KAFKA_STRUCT_ATTRIBUTE)) {
+                    ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE)) {
               value.put(field.name(), messageAttributes.get(field.name()));
             }
           }
