@@ -167,7 +167,7 @@ public class Client {
 
       @Override
       public void onError(Throwable throwable) {
-        if (connectionErrors > 10) {
+        if (connectionErrors > 15) {
           log.error("Client failed to start " + connectionErrors + " times, shutting down.");
           clientStatus = ClientStatus.FAILED;
           startFuture.setException(throwable);
@@ -176,7 +176,7 @@ public class Client {
         }
         connectionErrors++;
         try {
-          Thread.sleep(5000);
+          Thread.sleep(7500);
         } catch (InterruptedException e) {
           log.info("Interrupted during back off, retrying.");
         }

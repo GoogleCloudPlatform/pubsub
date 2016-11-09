@@ -153,15 +153,15 @@ public class SheetsService {
       valueRow.add("N/A");
       valueRow.add(Client.numberOfMessages);
     }
+    valueRow.add(Client.burnInTimeMillis / 1000);
     valueRow.add(Client.publishBatchSize);
     valueRow.add(Client.maxMessagesPerPull);
+    valueRow.add(Client.pollLength);
     valueRow.add(Client.maxOutstandingRequests);
-    valueRow.add(Client.requestRate);
-    double throughput = LongStream.of(
-        stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0;
-    valueRow.add(new DecimalFormat("#.##").format(
-        throughput / (Client.messageSize * Client.publishBatchSize))); // QPS stat
-    valueRow.add(new DecimalFormat("#.##").format(throughput));
+    valueRow.add(Client.requestRate * count);
+    double messagesPerSec = LongStream.of(stats.bucketValues).sum() / (double) stats.runningSeconds;
+    valueRow.add(new DecimalFormat("#.##").format(messagesPerSec / Client.publishBatchSize));
+    valueRow.add(new DecimalFormat("#.##").format(messagesPerSec * Client.messageSize / 1000000.0));
     valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 50.0));
     valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.0));
     valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9));
