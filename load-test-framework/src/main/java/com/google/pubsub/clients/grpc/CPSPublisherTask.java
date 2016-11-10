@@ -97,13 +97,13 @@ class CPSPublisherTask extends Task {
     PublisherGrpc.PublisherBlockingStub stub = getStub();
     PublishRequest.Builder requestBuilder = PublishRequest.newBuilder().setTopic(topic);
     String sendTime = String.valueOf(System.currentTimeMillis());
+    Stopwatch stopwatch = Stopwatch.createStarted();
     for (int i = 0; i < batchSize; i++) {
       requestBuilder.addMessages(PubsubMessage.newBuilder()
           .setData(payload)
           .putAttributes("sendTime", sendTime));
     }
     PublishRequest request = requestBuilder.build();
-    Stopwatch stopwatch = Stopwatch.createStarted();
     stub.publish(request);
     stopwatch.stop();
     numberOfMessages.addAndGet(batchSize);

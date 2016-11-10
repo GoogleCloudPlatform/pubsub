@@ -153,11 +153,11 @@ public class SheetsService {
       valueRow.add("N/A");
       valueRow.add(Client.numberOfMessages);
     }
-    valueRow.add(Client.burnInTimeMillis / 1000);
     valueRow.add(Client.publishBatchSize);
     valueRow.add(Client.maxMessagesPerPull);
     valueRow.add(Client.pollLength);
     valueRow.add(Client.maxOutstandingRequests);
+    valueRow.add(Client.requestRate);
     valueRow.add(Client.requestRate * count);
     double messagesPerSec = LongStream.of(stats.bucketValues).sum() / (double) stats.runningSeconds;
     valueRow.add(new DecimalFormat("#.##").format(messagesPerSec / Client.publishBatchSize));
