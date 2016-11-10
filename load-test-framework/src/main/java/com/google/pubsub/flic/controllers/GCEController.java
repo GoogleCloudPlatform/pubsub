@@ -46,8 +46,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.controllers.Client.ClientType;
-import org.apache.commons.codec.digest.DigestUtils;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -61,6 +59,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
@@ -232,9 +231,7 @@ public class GCEController extends Controller {
     }
   }
 
-  /**
-   * Returns a GCEController using default application credentials.
-   */
+  /** Returns a GCEController using default application credentials. */
   public static GCEController newGCEController(
       String projectName,
       Map<String, Map<ClientParams, Integer>> types,
@@ -246,20 +243,20 @@ public class GCEController extends Controller {
       if (credential.createScopedRequired()) {
         credential =
             credential.createScoped(
-                Collections.singletonList("https://www.googleapis.com/auth/cloud-platform" ));
+                Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
       }
       return new GCEController(
           projectName,
           types,
           executor,
           new Storage.Builder(transport, jsonFactory, credential)
-              .setApplicationName("Cloud Pub/Sub Loadtest Framework" )
+              .setApplicationName("Cloud Pub/Sub Loadtest Framework")
               .build(),
           new Compute.Builder(transport, jsonFactory, credential)
-              .setApplicationName("Cloud Pub/Sub Loadtest Framework" )
+              .setApplicationName("Cloud Pub/Sub Loadtest Framework")
               .build(),
           new Pubsub.Builder(transport, jsonFactory, credential)
-              .setApplicationName("Cloud Pub/Sub Loadtest Framework" )
+              .setApplicationName("Cloud Pub/Sub Loadtest Framework")
               .build());
     } catch (Throwable t) {
       return null;
@@ -298,7 +295,7 @@ public class GCEController extends Controller {
   private void createStorageBucket() throws IOException {
     try {
       storage.buckets().insert(projectName, new Bucket()
-          .setName(projectName + "-cloud-pubsub-loadtest" )).execute();
+          .setName(projectName + "-cloud-pubsub-loadtest")).execute();
     } catch (GoogleJsonResponseException e) {
       if (e.getStatusCode() != ALREADY_EXISTS) {
         throw e;
@@ -411,7 +408,7 @@ public class GCEController extends Controller {
           return;
         }
       }
-      log.info("File " + filePath.getFileName() + " is out of date, uploading new version." );
+      log.info("File " + filePath.getFileName() + " is out of date, uploading new version.");
       storage
           .objects()
           .delete(projectName + "-cloud-pubsub-loadtest", filePath.getFileName().toString())
@@ -481,7 +478,7 @@ public class GCEController extends Controller {
                 .setAccessConfigs(Collections.singletonList(new AccessConfig()))))
             .setMetadata(new Metadata()
                 .setItems(Collections.singletonList(new Metadata.Items()
-                    .setKey("startup-script-url" )
+                    .setKey("startup-script-url")
                     .setValue("https://storage.googleapis.com/"
                         + projectName
                         + "-cloud-pubsub-loadtest/"

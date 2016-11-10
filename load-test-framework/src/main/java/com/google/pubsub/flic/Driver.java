@@ -41,9 +41,6 @@ import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
 import com.google.pubsub.flic.output.SheetsService;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -56,196 +53,196 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 import java.util.stream.LongStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-/**
- * Drives the execution of the framework through command line arguments.
- */
-@Parameters(separators = "=" )
+/** Drives the execution of the framework through command line arguments. */
+@Parameters(separators = "=")
 public class Driver {
   private static final Logger log = LoggerFactory.getLogger(Driver.class);
 
   @Parameter(
-      names = {"--help"},
-      help = true
+    names = {"--help"},
+    help = true
   )
   public boolean help = false;
 
   @Parameter(
-      names = {"--cps_publisher_count"},
-      description = "Number of CPS publishers to start."
+    names = {"--cps_publisher_count"},
+    description = "Number of CPS publishers to start."
   )
   private int cpsPublisherCount = 1;
 
   @Parameter(
-      names = {"--cps_subscriber_count"},
-      description =
-          "Number of CPS subscribers to start. If this is not divisible by cps_subscription_fanout"
-              + ", we will round down to the closest multiple of cps_subscription_fanout."
+    names = {"--cps_subscriber_count"},
+    description =
+        "Number of CPS subscribers to start. If this is not divisible by cps_subscription_fanout"
+            + ", we will round down to the closest multiple of cps_subscription_fanout."
   )
   private int cpsSubscriberCount = 0;
 
   @Parameter(
-      names = {"--kafka_publisher_count"},
-      description = "Number of Kafka publishers to start."
+    names = {"--kafka_publisher_count"},
+    description = "Number of Kafka publishers to start."
   )
   private int kafkaPublisherCount = 0;
 
   @Parameter(
-      names = {"--kafka_subscriber_count"},
-      description = "Number of Kafka subscribers to start."
+    names = {"--kafka_subscriber_count"},
+    description = "Number of Kafka subscribers to start."
   )
   private int kafkaSubscriberCount = 0;
 
   @Parameter(
-      names = {"--message_size", "-m"},
-      description = "Message size in bytes (only when publishing messages).",
-      validateWith = GreaterThanZeroValidator.class
+    names = {"--message_size", "-m"},
+    description = "Message size in bytes (only when publishing messages).",
+    validateWith = GreaterThanZeroValidator.class
   )
   private int messageSize = 100000;
 
   @Parameter(
-      names = {"--loadtest_seconds"},
-      description = "Duration of the load test, in seconds.",
-      validateWith = GreaterThanZeroValidator.class
+    names = {"--loadtest_seconds"},
+    description = "Duration of the load test, in seconds.",
+    validateWith = GreaterThanZeroValidator.class
   )
   private int loadtestLengthSeconds = 180;
 
   @Parameter(
-      names = {"--project"},
-      required = true,
-      description = "Google Cloud Platform project name."
+    names = {"--project"},
+    required = true,
+    description = "Google Cloud Platform project name."
   )
   private String project = "";
 
   @Parameter(
-      names = {"--publish_batch_size"},
-      description = "Number of messages to batch per publish request.",
-      validateWith = GreaterThanZeroValidator.class
+    names = {"--publish_batch_size"},
+    description = "Number of messages to batch per publish request.",
+    validateWith = GreaterThanZeroValidator.class
   )
   private int publishBatchSize = 10;
 
   @Parameter(
-      names = {"--cps_max_messages_per_pull"},
-      description = "Number of messages to return in each pull request.",
-      validateWith = GreaterThanZeroValidator.class
+    names = {"--cps_max_messages_per_pull"},
+    description = "Number of messages to return in each pull request.",
+    validateWith = GreaterThanZeroValidator.class
   )
   private int cpsMaxMessagesPerPull = 10;
 
   @Parameter(
-      names = {"--kafka_poll_length"},
-      description = "Length of time, in milliseconds, to poll when subscribing with Kafka.",
-      validateWith = GreaterThanZeroValidator.class
+    names = {"--kafka_poll_length"},
+    description = "Length of time, in milliseconds, to poll when subscribing with Kafka.",
+    validateWith = GreaterThanZeroValidator.class
   )
   private int kafkaPollLength = 100;
 
   @Parameter(
-      names = {"--cps_subscription_fanout"},
-      description = "Number of subscriptions to create for each topic. Must be at least 1.",
-      validateWith = GreaterThanZeroValidator.class
+    names = {"--cps_subscription_fanout"},
+    description = "Number of subscriptions to create for each topic. Must be at least 1.",
+    validateWith = GreaterThanZeroValidator.class
   )
   private int cpsSubscriptionFanout = 1;
 
   @Parameter(
-      names = {"--broker"},
-      description = "The network address of the Kafka broker."
+    names = {"--broker"},
+    description = "The network address of the Kafka broker."
   )
   private String broker;
 
   @Parameter(
-      names = {"--request_rate"},
-      description = "The rate at which each client will make requests (batches per second)."
+    names = {"--request_rate"},
+    description = "The rate at which each client will make requests (batches per second)."
   )
   private int requestRate = 10;
 
   @Parameter(
-      names = {"--max_outstanding_requests"},
-      description = "The maximum number of outstanding requests each client will allow."
+    names = {"--max_outstanding_requests"},
+    description = "The maximum number of outstanding requests each client will allow."
   )
   private int maxOutstandingRequests = 20;
 
   @Parameter(
-      names = {"--burn_in_duration_seconds"},
-      description = "The duration, in seconds, to run without recording statistics to allow tuning."
+    names = {"--burn_in_duration_seconds"},
+    description = "The duration, in seconds, to run without recording statistics to allow tuning."
   )
   private int burnInDurationSeconds = 120;
 
   @Parameter(
-      names = {"--number_of_messages"},
-      description =
-          "The total number of messages to publish in the test. Enabling this will "
-              + "override --loadtest_length_seconds. Enabling this flag will also enable the check for "
-              + "message loss. If set less than 1, this flag is ignored."
+    names = {"--number_of_messages"},
+    description =
+        "The total number of messages to publish in the test. Enabling this will "
+            + "override --loadtest_length_seconds. Enabling this flag will also enable the check for "
+            + "message loss. If set less than 1, this flag is ignored."
   )
   private int numberOfMessages = 0;
 
   @Parameter(
-      names = {"--max_publish_latency_test"},
-      description =
-          "In this test we will continuously run load tests with increasing request "
-              + "rates until we hit max_publish_latency_millis. You must only provide a single type of "
-              + "publisher to use this test. This uses the latency specified by "
-              + "max_publish_latency_percentile as the bound to check."
+    names = {"--max_publish_latency_test"},
+    description =
+        "In this test we will continuously run load tests with increasing request "
+            + "rates until we hit max_publish_latency_millis. You must only provide a single type of "
+            + "publisher to use this test. This uses the latency specified by "
+            + "max_publish_latency_percentile as the bound to check."
   )
   private boolean maxPublishLatencyTest = false;
 
   @Parameter(
-      names = {"--max_publish_latency_millis"},
-      description =
-          "This is the maximum latency in milliseconds allowed before terminating the "
-              + "max_publish_latency_test."
+    names = {"--max_publish_latency_millis"},
+    description =
+        "This is the maximum latency in milliseconds allowed before terminating the "
+            + "max_publish_latency_test."
   )
   private int maxPublishLatencyMillis = 0;
 
   @Parameter(
-      names = {"--max_publish_latency_percentile"},
-      description =
-          "This sets the percentile to use when determining the latency for the "
-              + "max_publish_latency_test. Defaults to 99."
+    names = {"--max_publish_latency_percentile"},
+    description =
+        "This sets the percentile to use when determining the latency for the "
+            + "max_publish_latency_test. Defaults to 99."
   )
   private int maxPublishLatencyPercentile = 99;
 
   @Parameter(
-      names = {"--max_subscriber_throughput_test"},
-      description =
-          "This test will continuously run load tests with greater publish request "
-              + "rate until the subscriber can no longer keep up, and will let you know the maximum "
-              + "throughput per subscribing client."
+    names = {"--max_subscriber_throughput_test"},
+    description =
+        "This test will continuously run load tests with greater publish request "
+            + "rate until the subscriber can no longer keep up, and will let you know the maximum "
+            + "throughput per subscribing client."
   )
   private boolean maxSubscriberThroughputTest = false;
 
   @Parameter(
-      names = {"--max_subscriber_throughput_test_backlog"},
-      description =
-          "This is the size of the backlog, in messages, to allow during the "
-              + "max_subscriber_throughput_test. "
+    names = {"--max_subscriber_throughput_test_backlog"},
+    description =
+        "This is the size of the backlog, in messages, to allow during the "
+            + "max_subscriber_throughput_test. "
   )
   private int maxSubscriberThroughputTestBacklog = 100;
 
   @Parameter(
-      names = {"--spreadsheet_id"},
-      description = "The id of the spreadsheet to which results are output."
+    names = {"--spreadsheet_id"},
+    description = "The id of the spreadsheet to which results are output."
   )
   private String spreadsheetId = "";
 
   @Parameter(
-      names = {"--data_store_dir"},
-      description =
-          "The directory to store credentials for sheets output verification. Note: "
-              + "sheets output is only turned on when spreadsheet_id is set to a non-empty value, so "
-              + "data will only be stored to this directory if the spreadsheet_id flag is activated."
+    names = {"--data_store_dir"},
+    description =
+        "The directory to store credentials for sheets output verification. Note: "
+            + "sheets output is only turned on when spreadsheet_id is set to a non-empty value, so "
+            + "data will only be stored to this directory if the spreadsheet_id flag is activated."
   )
   private String dataStoreDirectory =
       System.getProperty("user.home") + "/.credentials/sheets.googleapis.com-loadtest-framework";
 
   @Parameter(
-      names = {"--resource_dir"},
-      description = "The directory to look for resources to upload, if different than the default."
+    names = {"--resource_dir"},
+    description = "The directory to look for resources to upload, if different than the default."
   )
   private String resourceDirectory = "src/main/resources/gce";
 
   @Parameter(
-      names = {"--zone"},
-      description = "The GCE zone in which to create client instances."
+    names = {"--zone"},
+    description = "The GCE zone in which to create client instances."
   )
   private String zone = "us-central1-a";
 
@@ -271,7 +268,7 @@ public class Driver {
               || cpsSubscriberCount > 0
               || kafkaPublisherCount > 0
               || kafkaSubscriberCount > 0,
-          "You must set at least one type of client greater than 0." );
+          "You must set at least one type of client greater than 0.");
       Preconditions.checkArgument(
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0),
           "If using Kafka you must provide the network address of your broker using the"
@@ -313,9 +310,9 @@ public class Driver {
       pollingExecutor.scheduleWithFixedDelay(
           () -> {
             synchronized (pollingExecutor) {
-              log.info("===============================================" );
+              log.info("===============================================");
               printStats(controller.getStatsForAllClientTypes());
-              log.info("===============================================" );
+              log.info("===============================================");
             }
           },
           5,
@@ -329,10 +326,10 @@ public class Driver {
       final GoogleCredential credential =
           GoogleCredential.getApplicationDefault(transport, jsonFactory)
               .createScoped(
-                  Collections.singletonList("https://www.googleapis.com/auth/cloud-platform" ));
+                  Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
       final Monitoring monitoring =
           new Monitoring.Builder(transport, jsonFactory, credential)
-              .setApplicationName("Cloud Pub/Sub Loadtest Framework" )
+              .setApplicationName("Cloud Pub/Sub Loadtest Framework")
               .build();
       final SimpleDateFormat dateFormatter;
       dateFormatter = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
@@ -364,8 +361,8 @@ public class Driver {
             for (Point point : timeSeries.getPoints()) {
               if (latestBacklogSize == null
                   || dateFormatter
-                  .parse(point.getInterval().getStartTime())
-                  .after(dateFormatter.parse(latestBacklogSize.getInterval().getStartTime()))) {
+                      .parse(point.getInterval().getStartTime())
+                      .after(dateFormatter.parse(latestBacklogSize.getInterval().getStartTime()))) {
                 latestBacklogSize = point;
               }
             }
@@ -376,7 +373,7 @@ public class Driver {
           if (backlogSize > maxSubscriberThroughputTestBacklog) {
             log.info(
                 "We accumulated a backlog during this test, refer to the last run "
-                    + "for the maximum throughput attained before accumulating backlog." );
+                    + "for the maximum throughput attained before accumulating backlog.");
           }
         }
         // Wait for the load test to finish.
@@ -422,26 +419,24 @@ public class Driver {
   private void printStats(Map<ClientType, Controller.LoadtestStats> results) {
     results.forEach(
         (type, stats) -> {
-          log.info("Results for " + type + ":" );
+          log.info("Results for " + type + ":");
           log.info("50%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
           log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
           log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
           // CPS Publishers report latency per batch message.
           log.info(
               "Average throughput: "
-                  + new DecimalFormat("#.##" )
-                  .format(
-                      (double) LongStream.of(stats.bucketValues).sum()
-                          / stats.runningSeconds
-                          * messageSize
-                          / 1000000.0)
-                  + " MB/s" );
+                  + new DecimalFormat("#.##")
+                      .format(
+                          (double) LongStream.of(stats.bucketValues).sum()
+                              / stats.runningSeconds
+                              * messageSize
+                              / 1000000.0)
+                  + " MB/s");
         });
   }
 
-  /**
-   * A validator that makes sure the parameter is an integer that is greater than 0.
-   */
+  /** A validator that makes sure the parameter is an integer that is greater than 0. */
   public static class GreaterThanZeroValidator implements IParameterValidator {
     @Override
     public void validate(String name, String value) throws ParameterException {

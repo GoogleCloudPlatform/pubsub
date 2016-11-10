@@ -64,11 +64,11 @@ public class AdapterTask extends Task {
   /**
    * Contains the command line options for {@link AdapterTask}.
    */
-  @Parameters(separators = "=" )
+  @Parameters(separators = "=")
   public static class Options {
     @Parameter(
-        names = {"--worker_port"},
-        description = "The port that the LoadtestWorker process server is listening on."
+      names = {"--worker_port"},
+      description = "The port that the LoadtestWorker process server is listening on."
     )
     int workerPort = 6000;
   }

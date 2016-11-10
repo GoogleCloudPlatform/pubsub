@@ -32,9 +32,6 @@ import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
@@ -42,6 +39,8 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Starts a server to get the start request, then starts the load client.
@@ -49,10 +48,22 @@ import java.util.function.Function;
 public class LoadTestRunner {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
   private static final Stopwatch stopwatch = Stopwatch.createUnstarted();
-  private static final AtomicBoolean finished = new AtomicBoolean(true);
   private static Server server;
   private static Task client;
+  private static final AtomicBoolean finished = new AtomicBoolean(true);
   private static SettableFuture<Void> finishedFuture = SettableFuture.create();
+
+  /**
+   * Command line options for the {@link LoadTestRunner}.
+   */
+  @Parameters(separators = "=")
+  public static class Options {
+    @Parameter(
+      names = {"--port"},
+      description = "The port to listen on."
+    )
+    public int port = 5000;
+  }
 
   private static void runTest(StartRequest request) {
     log.info("Request received, starting up server.");
@@ -89,6 +100,7 @@ public class LoadTestRunner {
     run(options, function, null);
   }
 
+
   public static void run(
       Options options,
       Function<StartRequest, Task> function,
@@ -106,7 +118,7 @@ public class LoadTestRunner {
                   public void start(
                       StartRequest request, StreamObserver<StartResponse> responseObserver) {
                     if (!finished.compareAndSet(true, false)) {
-                      responseObserver.onError(new Exception("A load test is already running!" ));
+                      responseObserver.onError(new Exception("A load test is already running!"));
                     }
                     finishedFuture = SettableFuture.create();
                     stopwatch.reset();
@@ -137,7 +149,7 @@ public class LoadTestRunner {
                 })
             .build()
             .start();
-    log.info("Started server, listening on port " + options.port + "." );
+    log.info("Started server, listening on port " + options.port + ".");
     Runtime.getRuntime().addShutdownHook(new Thread() {
       @Override
       public void run() {
@@ -170,17 +182,5 @@ public class LoadTestRunner {
     byte[] payloadArray = new byte[msgSize];
     Arrays.fill(payloadArray, (byte) 'A');
     return new String(payloadArray, Charset.forName("UTF-8"));
-  }
-
-  /**
-   * Command line options for the {@link LoadTestRunner}.
-   */
-  @Parameters(separators = "=" )
-  public static class Options {
-    @Parameter(
-        names = {"--port"},
-        description = "The port to listen on."
-    )
-    public int port = 5000;
   }
 }

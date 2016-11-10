@@ -30,13 +30,12 @@ import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Manages remote clients by starting, performing health checks, and collecting statistics
@@ -87,7 +86,7 @@ public class Client {
       @Nullable String subscription,
       ScheduledExecutorService executorService,
       @Nullable Supplier<LoadtestGrpc.LoadtestStub> stubFactory) {
-    this.clientType = clientType;
+        this.clientType = clientType;
     this.networkAddress = networkAddress;
     this.clientStatus = ClientStatus.NONE;
     this.project = project;
@@ -180,7 +179,7 @@ public class Client {
 
           @Override
           public void onNext(StartResponse response) {
-            log.info("Successfully started client [" + networkAddress + "]" );
+            log.info("Successfully started client [" + networkAddress + "]");
             clientStatus = ClientStatus.RUNNING;
             startFuture.set(null);
           }
@@ -188,7 +187,7 @@ public class Client {
           @Override
           public void onError(Throwable throwable) {
             if (connectionErrors > 10) {
-              log.error("Client failed to start " + connectionErrors + " times, shutting down." );
+              log.error("Client failed to start " + connectionErrors + " times, shutting down.");
               clientStatus = ClientStatus.FAILED;
               startFuture.setException(throwable);
               doneFuture.setException(throwable);
@@ -198,16 +197,15 @@ public class Client {
             try {
               Thread.sleep(5000);
             } catch (InterruptedException e) {
-              log.info("Interrupted during back off, retrying." );
+              log.info("Interrupted during back off, retrying.");
             }
-            log.debug("Going to retry client connection, likely due to start up time." );
+            log.debug("Going to retry client connection, likely due to start up time.");
             stub = getStub();
             stub.start(request, this);
           }
 
           @Override
-          public void onCompleted() {
-          }
+          public void onCompleted() {}
         });
     try {
       startFuture.get();
