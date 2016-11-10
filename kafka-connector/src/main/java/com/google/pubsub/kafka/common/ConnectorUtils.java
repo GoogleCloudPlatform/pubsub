@@ -43,7 +43,6 @@ public class ConnectorUtils {
   public static final String CPS_MESSAGE_KEY_ATTRIBUTE = "key";
   public static final String CPS_MESSAGE_PARTITION_ATTRIBUTE = "kafka_partition";
   public static final String CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
-  public static final String KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE = "message";
 
   /** Return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's. */
   public static Channel getChannel() throws IOException {
