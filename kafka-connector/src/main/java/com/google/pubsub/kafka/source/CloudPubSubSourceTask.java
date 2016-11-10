@@ -28,17 +28,13 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import org.apache.kafka.connect.data.Field;
-import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
-import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
@@ -126,60 +122,23 @@ public class CloudPubSubSourceTask extends SourceTask {
         }
         ackIds.add(ackId);
         Map<String, String> messageAttributes = message.getAttributes();
-        String key = messageAttributes.get(kafkaMessageKeyAttribute);
-        ByteString messageData = message.getData();
-        ByteBuffer messageBytes = messageData.asReadOnlyByteBuffer();
-
-        boolean hasAttributes =
-            messageAttributes.size() > 1 || (messageAttributes.size() > 0 && key == null);
-
-        SourceRecord record = null;
-        if (hasAttributes) {
-          SchemaBuilder valueSchemaBuilder = SchemaBuilder.struct().field(
-              ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE,
-              Schema.BYTES_SCHEMA);
-
-          for (Map.Entry<String, String> attribute :
-               messageAttributes.entrySet()) {
-            if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
-              valueSchemaBuilder.field(attribute.getKey(),
-                                       Schema.STRING_SCHEMA);
-            }
-          }
-
-          Schema valueSchema = valueSchemaBuilder.build();
-          Struct value =
-              new Struct(valueSchema)
-                  .put(ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE,
-                       messageBytes);
-          for (Field field : valueSchema.fields()) {
-            if (!field.name().equals(
-                    ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE)) {
-              value.put(field.name(), messageAttributes.get(field.name()));
-            }
-          }
-          record =
+        String key = null;
+        if (messageAttributes.get(kafkaMessageKeyAttribute) != null) {
+          key = messageAttributes.get(kafkaMessageKeyAttribute);
+        }
+        ByteString value = message.getData();
+        // We don't need to check that the message data is a byte string because we know the
+        // data is coming from CPS so it must be of that type.
+        SourceRecord record =
             new SourceRecord(
                 null,
                 null,
                 kafkaTopic,
                 selectPartition(key, value),
-                Schema.STRING_SCHEMA,
+                SchemaBuilder.string().build(),
                 key,
-                valueSchema,
+                SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build(),
                 value);
-        } else {
-          record =
-            new SourceRecord(
-                null,
-                null,
-                kafkaTopic,
-                selectPartition(key, messageBytes),
-                Schema.STRING_SCHEMA,
-                key,
-                Schema.BYTES_SCHEMA,
-                messageBytes);
-        }
         sourceRecords.add(record);
       }
       return sourceRecords;
