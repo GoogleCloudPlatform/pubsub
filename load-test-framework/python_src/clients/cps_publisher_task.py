@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import sys
 import time
 
 import grpc
@@ -49,9 +50,13 @@ class LoadtestWorkerServicer(loadtest_pb2.LoadtestWorkerServicer):
 
 
 if __name__ == "__main__":
+    port = 6000
+    for arg in sys.argv:
+        if arg.startswith("--worker_port="):
+            port = arg.split("=")[1]
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=50))
     loadtest_pb2.add_LoadtestWorkerServicer_to_server(LoadtestWorkerServicer(), server)
-    server.add_insecure_port('localhost:6000')
+    server.add_insecure_port('localhost:' + port)
     server.start()
     while True:
         time.sleep(3600)

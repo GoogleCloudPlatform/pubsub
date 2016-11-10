@@ -94,15 +94,15 @@ public class LatencyDistribution {
 
   public static String getNthPercentile(long[] bucketValues, double percentile) {
     int index = getNthPercentileIndex(bucketValues, percentile);
-    if (index < 0) {
+    if (index < 1) {
       return "N/A";
     }
-    return Double.toString(LATENCY_BUCKETS[index - 1]) + " - " + Double.toString(LATENCY_BUCKETS[index]);
+    return LATENCY_BUCKETS[index - 1] + " - " + LATENCY_BUCKETS[index];
   }
 
   public static String getNthPercentileMidpoint(long[] bucketValues, double percentile) {
     int index = getNthPercentileIndex(bucketValues, percentile);
-    if (index < 0) {
+    if (index < 1) {
       return "N/A";
     }
     return Double.toString((LATENCY_BUCKETS[index - 1] + LATENCY_BUCKETS[index]) / 2);

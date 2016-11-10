@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.kafka;
 
+import com.beust.jcommander.JCommander;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
@@ -59,7 +60,9 @@ class KafkaPublisherTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.Options options = new LoadTestRunner.Options();
+    new JCommander(options, args);
+    LoadTestRunner.run(options, request ->
         new KafkaPublisherTask(request.getKafkaOptions().getBroker(), request.getProject(),
             request.getTopic(), request.getMessageSize(), request.getPublishBatchSize()));
   }

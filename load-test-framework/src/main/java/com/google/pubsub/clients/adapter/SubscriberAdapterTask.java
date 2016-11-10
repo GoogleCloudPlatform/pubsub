@@ -15,20 +15,26 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.adapter;
 
+import com.beust.jcommander.JCommander;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.flic.common.LoadtestProto;
 
 /**
- * Runs a task that subscribes on the worker.
+ * A Task that proxies subscriber commands to a LoadtestWorker process on localhost.
  */
 class SubscriberAdapterTask extends AdapterTask {
 
-  private SubscriberAdapterTask(LoadtestProto.StartRequest request) {
-    super(request, MetricsHandler.MetricName.END_TO_END_LATENCY);
+  private SubscriberAdapterTask(LoadtestProto.StartRequest request, AdapterTask.Options options) {
+    super(request, MetricsHandler.MetricName.END_TO_END_LATENCY, options);
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(SubscriberAdapterTask::new);
+    LoadTestRunner.Options loadtestOptions = new LoadTestRunner.Options();
+    AdapterTask.Options adapterOptions = new AdapterTask.Options();
+    new JCommander(loadtestOptions, args);
+    new JCommander(adapterOptions, args);
+    LoadTestRunner.run(
+        loadtestOptions, (request) -> new SubscriberAdapterTask(request, adapterOptions));
   }
 }

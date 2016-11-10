@@ -39,9 +39,10 @@ import java.util.stream.Collectors;
  * environment-agnostic part of this process.
  */
 public abstract class Controller {
-  static final Logger log = LoggerFactory.getLogger(Controller.class);
-  final List<Client> clients = new ArrayList<>();
-  final ScheduledExecutorService executor;
+  protected static final Logger log = LoggerFactory.getLogger(Controller.class);
+  public static String resourceDirectory = "src/main/resources/gce";
+  protected final List<Client> clients = new ArrayList<>();
+  protected final ScheduledExecutorService executor;
 
   /**
    * Creates the given environments and starts the virtual machines. When this function returns,
@@ -52,7 +53,7 @@ public abstract class Controller {
    *
    * @param executor the executor that will be used to schedule all environment initialization tasks
    */
-  Controller(ScheduledExecutorService executor) {
+  public Controller(ScheduledExecutorService executor) {
     this.executor = executor;
   }
 
@@ -63,7 +64,12 @@ public abstract class Controller {
    *
    * @param t the error that caused the shutdown, or null if shutting down successfully
    */
-  protected abstract void shutdown(Throwable t);
+  public abstract void shutdown(Throwable t);
+
+  /**
+   * @return the types map
+   */
+  public abstract Map<String, Map<ClientParams, Integer>> getTypes();
 
   /**
    * Waits for clients to complete the load test.
@@ -172,7 +178,7 @@ public abstract class Controller {
   /**
    * The statistics that are exported by each load test client.
    */
-  public class LoadtestStats {
+  public static class LoadtestStats {
     public long runningSeconds;
     public long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
   }

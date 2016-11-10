@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.kafka;
 
+import com.beust.jcommander.JCommander;
 import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
@@ -52,7 +53,9 @@ class KafkaSubscriberTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.Options options = new LoadTestRunner.Options();
+    new JCommander(options, args);
+    LoadTestRunner.run(options, request ->
         new KafkaSubscriberTask(request.getKafkaOptions().getBroker(), request.getProject(),
             request.getTopic(), request.getRequestRate()));
   }

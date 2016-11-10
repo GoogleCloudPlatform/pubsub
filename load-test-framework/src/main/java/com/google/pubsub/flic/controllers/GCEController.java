@@ -120,13 +120,17 @@ public class GCEController extends Controller {
             try {
               pubsub.projects().subscriptions().delete("projects/" + projectName
                   + "/subscriptions/" + subscription).execute();
+            } catch (IOException e) {
+              log.debug("Error deleting subscription, assuming it has not yet been created.", e);
+            }
+            try {
               pubsub.projects().subscriptions().create("projects/" + projectName
                   + "/subscriptions/" + subscription, new Subscription()
                   .setTopic("projects/" + projectName + "/topics/" + topic)
                   .setAckDeadlineSeconds(10)).execute();
             } catch (IOException e) {
-                pubsubFuture.setException(e);
-              }
+              pubsubFuture.setException(e);
+            }
           });
           pubsubFuture.set(null);
         });
@@ -234,25 +238,32 @@ public class GCEController extends Controller {
   public static GCEController newGCEController(
       String projectName,
       Map<String, Map<ClientParams, Integer>> types,
-      ScheduledExecutorService executor) throws Throwable {
-    HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
-    JsonFactory jsonFactory = new JacksonFactory();
-    GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
-    if (credential.createScopedRequired()) {
-      credential =
-          credential.createScoped(
-              Collections.singletonList("https://www.googleapis.com/auth/cloud-platform"));
+      ScheduledExecutorService executor) {
+    try {
+      HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+      JsonFactory jsonFactory = new JacksonFactory();
+      GoogleCredential credential = GoogleCredential.getApplicationDefault(transport, jsonFactory);
+      if (credential.createScopedRequired()) {
+        credential =
+            credential.createScoped(
+                Collections.singletonList("https://www.googleapis.com/auth/cloud-platform" ));
+      }
+      return new GCEController(
+          projectName,
+          types,
+          executor,
+          new Storage.Builder(transport, jsonFactory, credential)
+              .setApplicationName("Cloud Pub/Sub Loadtest Framework" )
+              .build(),
+          new Compute.Builder(transport, jsonFactory, credential)
+              .setApplicationName("Cloud Pub/Sub Loadtest Framework" )
+              .build(),
+          new Pubsub.Builder(transport, jsonFactory, credential)
+              .setApplicationName("Cloud Pub/Sub Loadtest Framework" )
+              .build());
+    } catch (Throwable t) {
+      return null;
     }
-    return new GCEController(projectName, types, executor,
-        new Storage.Builder(transport, jsonFactory, credential)
-            .setApplicationName("Cloud Pub/Sub Loadtest Framework")
-            .build(),
-        new Compute.Builder(transport, jsonFactory, credential)
-            .setApplicationName("Cloud Pub/Sub Loadtest Framework")
-            .build(),
-        new Pubsub.Builder(transport, jsonFactory, credential)
-            .setApplicationName("Cloud Pub/Sub Loadtest Framework")
-            .build());
   }
 
   /**
@@ -287,7 +298,7 @@ public class GCEController extends Controller {
   private void createStorageBucket() throws IOException {
     try {
       storage.buckets().insert(projectName, new Bucket()
-          .setName("cloud-pubsub-loadtest")).execute();
+          .setName(projectName + "-cloud-pubsub-loadtest" )).execute();
     } catch (GoogleJsonResponseException e) {
       if (e.getStatusCode() != ALREADY_EXISTS) {
         throw e;
@@ -391,7 +402,7 @@ public class GCEController extends Controller {
           Base64.decodeBase64(
               storage
                   .objects()
-                  .get("cloud-pubsub-loadtest", filePath.getFileName().toString())
+                  .get(projectName + "-cloud-pubsub-loadtest", filePath.getFileName().toString())
                   .execute()
                   .getMd5Hash());
       try (InputStream inputStream = Files.newInputStream(filePath, StandardOpenOption.READ)) {
@@ -400,16 +411,18 @@ public class GCEController extends Controller {
           return;
         }
       }
-      log.info("File " + filePath.getFileName() + " is out of date, uploading new version.");
-      storage.objects()
-          .delete("cloud-pubsub-loadtest", filePath.getFileName().toString()).execute();
+      log.info("File " + filePath.getFileName() + " is out of date, uploading new version." );
+      storage
+          .objects()
+          .delete(projectName + "-cloud-pubsub-loadtest", filePath.getFileName().toString())
+          .execute();
     } catch (GoogleJsonResponseException e) {
       if (e.getStatusCode() != NOT_FOUND) {
         throw e;
       }
     }
     try (InputStream inputStream = Files.newInputStream(filePath, StandardOpenOption.READ)) {
-      storage.objects().insert("cloud-pubsub-loadtest", null,
+      storage.objects().insert(projectName + "-cloud-pubsub-loadtest", null,
           new InputStreamContent("application/octet-stream", inputStream))
           .setName(filePath.getFileName().toString()).execute();
       log.info("File " + filePath.getFileName() + " created.");
@@ -468,16 +481,17 @@ public class GCEController extends Controller {
                 .setAccessConfigs(Collections.singletonList(new AccessConfig()))))
             .setMetadata(new Metadata()
                 .setItems(Collections.singletonList(new Metadata.Items()
-                    .setKey("startup-script-url")
-                    .setValue("https://storage.googleapis.com/cloud-pubsub-loadtest/" + type
+                    .setKey("startup-script-url" )
+                    .setValue("https://storage.googleapis.com/"
+                        + projectName
+                        + "-cloud-pubsub-loadtest/"
+                        + type
                         + "_startup_script.sh"))))
             .setServiceAccounts(Collections.singletonList(new ServiceAccount().setScopes(
                 Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")))));
   }
 
-  /**
-   * @return the types map
-   */
+  @Override
   public Map<String, Map<ClientParams, Integer>> getTypes() {
     return types;
   }
