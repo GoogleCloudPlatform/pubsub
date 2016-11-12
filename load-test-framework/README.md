@@ -22,7 +22,7 @@ These instructions assume you are using [Maven](https://maven.apache.org/).
 
 2. Copy the jar into the GCE resource directory:
 
-    `cp target/driver.jar target/gce/`
+    `cp target/driver.jar src/main/resources/gce/`
 
 The resulting jar is at target/driver.jar.
 
