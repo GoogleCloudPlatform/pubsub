@@ -82,7 +82,7 @@ public class Driver {
           "Number of CPS subscribers to start. If this is not divisible by cps_subscription_fanout"
               + ", we will round down to the closest multiple of cps_subscription_fanout."
   )
-  private int cpsSubscriberCount = 0;
+  private int cpsSubscriberCount = 1;
 
   @Parameter(
       names = {"--kafka_publisher_count"},
