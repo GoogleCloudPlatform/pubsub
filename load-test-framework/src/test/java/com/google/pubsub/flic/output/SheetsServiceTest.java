@@ -16,17 +16,16 @@
 
 package com.google.pubsub.flic.output;
 
-import com.google.pubsub.flic.controllers.Client.ClientType;
-import com.google.pubsub.flic.controllers.ClientParams;
-import com.google.pubsub.flic.controllers.Controller;
-import org.junit.Test;
-
-import java.util.HashMap;
-import java.util.Map;
-
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
+
+import com.google.pubsub.flic.controllers.Client.ClientType;
+import com.google.pubsub.flic.controllers.ClientParams;
+import com.google.pubsub.flic.controllers.Controller;
+import java.util.HashMap;
+import java.util.Map;
+import org.junit.Test;
 
 /**
  * Tests for {@link SheetsService}.

@@ -20,9 +20,7 @@ import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.flic.common.LoadtestProto;
 
-/**
- * A Task that proxies subscriber commands to a LoadtestWorker process on localhost.
- */
+/** A Task that proxies subscriber commands to a LoadtestWorker process on localhost. */
 class SubscriberAdapterTask extends AdapterTask {
 
   private SubscriberAdapterTask(LoadtestProto.StartRequest request, AdapterTask.Options options) {
