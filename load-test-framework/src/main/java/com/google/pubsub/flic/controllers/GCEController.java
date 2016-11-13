@@ -480,13 +480,17 @@ public class GCEController extends Controller {
                 .setNetwork("global/networks/default")
                 .setAccessConfigs(Collections.singletonList(new AccessConfig()))))
             .setMetadata(new Metadata()
-                .setItems(Collections.singletonList(new Metadata.Items()
-                    .setKey("startup-script-url" )
-                    .setValue("https://storage.googleapis.com/"
-                        + projectName
-                        + "-cloud-pubsub-loadtest/"
-                        + type
-                        + "_startup_script.sh"))))
+                .setItems(ImmutableList.of(
+                    new Metadata.Items()
+                        .setKey("startup-script-url" )
+                        .setValue("https://storage.googleapis.com/"
+                            + projectName
+                            + "-cloud-pubsub-loadtest/"
+                            + type
+                            + "_startup_script.sh"),
+                    new Metadata.Items()
+                        .setKey("bucket")
+                        .setValue(projectName + "-cloud-pubsub-loadtest"))))
             .setServiceAccounts(Collections.singletonList(new ServiceAccount().setScopes(
                 Collections.singletonList("https://www.googleapis.com/auth/cloud-platform")))));
   }
