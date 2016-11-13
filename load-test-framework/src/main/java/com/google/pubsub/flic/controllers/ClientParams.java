@@ -44,8 +44,16 @@ public class ClientParams {
       return false;
     }
     ClientParams other = (ClientParams) obj;
-    return subscription.equals(other.subscription)
-        && clientType.equals(other.getClientType());
+    if (!clientType.equals(other.getClientType())) {
+      return false;
+    }
+    if (subscription == null && other.subscription == null) {
+      return true;
+    }
+    if (subscription == null || other.subscription == null) {
+      return false;
+    }
+    return subscription.equals(other.subscription);
   }
 
   @Override
