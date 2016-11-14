@@ -479,7 +479,7 @@ public class GCEController extends Controller {
             .setMetadata(new Metadata()
                 .setItems(ImmutableList.of(
                     new Metadata.Items()
-                        .setKey("startup-script-url" )
+                        .setKey("startup-script-url")
                         .setValue("https://storage.googleapis.com/"
                             + projectName
                             + "-cloud-pubsub-loadtest/"
