@@ -22,6 +22,7 @@ import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PubsubMessage;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -110,23 +111,10 @@ public class CloudPubSubSinkTask extends SinkTask {
     log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
     PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
-      if (record.valueSchema().type() != Schema.Type.BYTES
-          || !record.valueSchema().name().equals(ConnectorUtils.SCHEMA_NAME)) {
-        throw new DataException("Unexpected record of type " + record.valueSchema());
-      }
-      log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
-      ByteString value = (ByteString) record.value();
-      attributes.put(
-          ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
-      attributes.put(ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE, record.topic());
+      ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
       // Get the total number of bytes in this message.
-      int messageSize =
-          value.size()
-              + CPS_MESSAGE_PARTITION_ATTRIBUTE_SIZE
-              + record.kafkaPartition().toString().length()
-              + CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE
-              + record.topic().length(); // Assumes the topic name is in ASCII.
+      int messageSize = value.size(); // Assumes the topic name is in ASCII.
       if (record.key() != null) {
         attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, record.key().toString());
         // Maximum number of bytes to encode a character in the key string will be 2 bytes.
@@ -164,6 +152,51 @@ public class CloudPubSubSinkTask extends SinkTask {
       }
     }
   }
+
+  private ByteString handleValue(Schema schema, Object value,  Map<String, String> attributes) {
+    Schema.Type t = schema.type();
+    switch (t) {
+      case INT8:
+        byte b = (Byte) value;
+        byte[] arr = {b};
+        return ByteString.copyFrom(arr);
+      case INT16:
+        ByteBuffer shortBuf = ByteBuffer.allocate(2);
+        shortBuf.putShort((Short) value);
+        return ByteString.copyFrom(shortBuf);
+      case INT32:
+        ByteBuffer intBuf = ByteBuffer.allocate(4);
+        intBuf.putInt((Integer) value);
+        return ByteString.copyFrom(intBuf);
+      case INT64:
+        ByteBuffer longBuf = ByteBuffer.allocate(8);
+        longBuf.putLong((Long) value);
+        return ByteString.copyFrom(longBuf);
+      case FLOAT32:
+        ByteBuffer floatBuf = ByteBuffer.allocate(4);
+        floatBuf.putFloat((Float) value);
+        return ByteString.copyFrom(floatBuf);
+      case FLOAT64:
+        ByteBuffer doubleBuf = ByteBuffer.allocate(8);
+        doubleBuf.putDouble((Double) value);
+        return ByteString.copyFrom(doubleBuf);
+      case BOOLEAN:
+        byte bool = (byte)((Boolean) value?1:0);
+        byte[] boolArr = {bool};
+        return ByteString.copyFrom(boolArr);
+      case STRING:
+      case BYTES:
+        return (ByteString) value;
+      case ARRAY:
+        break;
+      case MAP:
+        break;
+      case STRUCT:
+        break;
+    }
+    return null;
+  }
+
 
   @Override
   public void flush(Map<TopicPartition, OffsetAndMetadata> partitionOffsets) {

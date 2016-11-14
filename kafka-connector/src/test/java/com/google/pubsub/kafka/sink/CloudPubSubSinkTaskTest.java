@@ -39,6 +39,7 @@ import java.util.Map;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Schema.Type;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
@@ -52,7 +53,7 @@ public class CloudPubSubSinkTaskTest {
   private static final String CPS_TOPIC = "the";
   private static final String CPS_PROJECT = "quick";
   private static final String CPS_MIN_BATCH_SIZE1 = "2";
-  private static final String CPS_MIN_BATCH_SIZE2 = "3";
+  private static final String CPS_MIN_BATCH_SIZE2 = "8";
   private static final String KAFKA_TOPIC = "brown";
   private static final ByteString KAFKA_MESSAGE1 = ByteString.copyFromUtf8("fox");
   private static final ByteString KAFKA_MESSAGE2 = ByteString.copyFromUtf8("jumped");
@@ -76,25 +77,33 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /** Tests that an exception is thrown when the schema of the value is not BYTES. */
-  @Test(expected = DataException.class)
-  public void testPutWhenValueSchemaIsNotByteString() {
+  @Test
+  public void testPutPrimitives() {
     task.start(props);
-    Schema wrongSchema = SchemaBuilder.type(Schema.Type.BOOLEAN).build();
-    SinkRecord record = new SinkRecord(null, -1, null, null, wrongSchema, null, -1);
+    Schema int8 = SchemaBuilder.type(Type.INT8).build();
+    Schema int16 = SchemaBuilder.type(Type.INT16).build();
+    Schema int32 = SchemaBuilder.type(Type.INT32).build();
+    Schema int64 = SchemaBuilder.type(Type.INT64).build();
+    Schema float32 = SchemaBuilder.type(Type.FLOAT32).build();
+    Schema float64 = SchemaBuilder.type(Type.FLOAT64).build();
+    Schema bool = SchemaBuilder.type(Type.BOOLEAN).build();
+    SinkRecord record8 = new SinkRecord(null, -1, null, null, int8, (byte) 5, -1);
+    SinkRecord record16 = new SinkRecord(null, -1, null, null, int16, (short) 5, -1);
+    SinkRecord record32 = new SinkRecord(null, -1, null, null, int32, (int) 5, -1);
+    SinkRecord record64 = new SinkRecord(null, -1, null, null, int64, (long) 5, -1);
+    SinkRecord recordFloat32 = new SinkRecord(null, -1, null, null, float32, (float) 8, -1);
+    SinkRecord recordFloat64 = new SinkRecord(null, -1, null, null, float64, (double) 8, -1);
+    SinkRecord recordBool = new SinkRecord(null, -1, null, null, bool, true, -1);
     List<SinkRecord> list = new ArrayList<>();
-    list.add(record);
+    list.add(record8);
+    list.add(record16);
+    list.add(record32);
+    list.add(record64);
+    list.add(recordFloat32);
+    list.add(recordFloat64);
+    list.add(recordBool);
     task.put(list);
-  }
-
-  /** Tests that an exception is thrown when the schema name of the value is not ByteString. */
-  @Test(expected = DataException.class)
-  public void testPutWhenValueSchemaNameIsNotByteString() {
-    task.start(props);
-    Schema wrongSchema = SchemaBuilder.type(Schema.Type.BYTES).name("").build();
-    SinkRecord record = new SinkRecord(null, -1, null, null, wrongSchema, null, -1);
-    List<SinkRecord> list = new ArrayList<>();
-    list.add(record);
-    task.put(list);
+    verify(publisher, never()).publish(any(PublishRequest.class));
   }
 
   /**
