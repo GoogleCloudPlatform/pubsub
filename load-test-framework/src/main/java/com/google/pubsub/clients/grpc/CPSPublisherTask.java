@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.grpc;
 
+import com.beust.jcommander.JCommander;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
@@ -71,7 +72,9 @@ class CPSPublisherTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.Options options = new LoadTestRunner.Options();
+    new JCommander(options, args);
+    LoadTestRunner.run(options, request ->
         new CPSPublisherTask(request.getProject(), request.getTopic(), request.getMessageSize(),
             request.getPublishBatchSize(), request.getMaxOutstandingRequests()));
   }

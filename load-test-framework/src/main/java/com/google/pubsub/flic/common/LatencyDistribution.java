@@ -17,11 +17,10 @@
 package com.google.pubsub.flic.common;
 
 import com.google.common.base.Preconditions;
-import org.apache.commons.lang3.ArrayUtils;
-
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.LongStream;
+import org.apache.commons.lang3.ArrayUtils;
 
 
 /**
@@ -94,17 +93,17 @@ public class LatencyDistribution {
 
   public static String getNthPercentile(long[] bucketValues, double percentile) {
     int index = getNthPercentileIndex(bucketValues, percentile);
-    if (index < 0) {
+    if (index < 1) {
       return "N/A";
     } else if (index == 0) {
       return "0.0 - " + Double.toString(LATENCY_BUCKETS[0]);
     }
-    return Double.toString(LATENCY_BUCKETS[index - 1]) + " - " + Double.toString(LATENCY_BUCKETS[index]);
+    return LATENCY_BUCKETS[index - 1] + " - " + LATENCY_BUCKETS[index];
   }
 
   public static String getNthPercentileMidpoint(long[] bucketValues, double percentile) {
     int index = getNthPercentileIndex(bucketValues, percentile);
-    if (index < 0) {
+    if (index < 1) {
       return "N/A";
     } else if (index == 0) {
       return Double.toString(LATENCY_BUCKETS[0] / 2);

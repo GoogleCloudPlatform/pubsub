@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.gcloud;
 
+import com.beust.jcommander.JCommander;
 import com.google.cloud.pubsub.Message;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubException;
@@ -24,12 +25,11 @@ import com.google.common.base.Stopwatch;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -53,7 +53,9 @@ class CPSPublisherTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.Options options = new LoadTestRunner.Options();
+    new JCommander(options, args);
+    LoadTestRunner.run(options, request ->
         new CPSPublisherTask(request.getProject(), request.getTopic(),
             request.getMessageSize(), request.getPublishBatchSize()));
   }

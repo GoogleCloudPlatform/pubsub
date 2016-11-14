@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.grpc;
 
+import com.beust.jcommander.JCommander;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.collect.ImmutableList;
 import com.google.pubsub.clients.common.LoadTestRunner;
@@ -70,7 +71,9 @@ class CPSSubscriberTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.Options options = new LoadTestRunner.Options();
+    new JCommander(options, args);
+    LoadTestRunner.run(options, request ->
         new CPSSubscriberTask(request.getProject(), request.getPubsubOptions().getSubscription(),
             request.getPubsubOptions().getMaxMessagesPerPull(),
             request.getMaxOutstandingRequests()));

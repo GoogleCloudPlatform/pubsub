@@ -20,8 +20,8 @@ package com.google.pubsub.flic.controllers;
  * Keeps track of the parameters that define a client.
  */
 public class ClientParams {
-  final String subscription;
-  private final Client.ClientType clientType;
+  public final String subscription;
+  public final Client.ClientType clientType;
 
   public ClientParams(Client.ClientType clientType, String subscription) {
     this.clientType = clientType;
@@ -34,4 +34,35 @@ public class ClientParams {
   public Client.ClientType getClientType() {
     return clientType;
   }
+
+  @Override
+  public boolean equals(Object obj) {
+    if (obj == this) {
+      return true;
+    }
+    if (obj == null || obj.getClass() != this.getClass()) {
+      return false;
+    }
+    ClientParams other = (ClientParams) obj;
+    if (!clientType.equals(other.getClientType())) {
+      return false;
+    }
+    if (subscription == null && other.subscription == null) {
+      return true;
+    }
+    if (subscription == null || other.subscription == null) {
+      return false;
+    }
+    return subscription.equals(other.subscription);
+  }
+
+  @Override
+  public int hashCode() {
+    final int prime = 31;
+    int result = 1;
+    result = prime * result + ((subscription == null) ? 0 : subscription.hashCode());
+    result = prime * result + ((clientType == null) ? 0 : clientType.hashCode());
+    return result;
+  }
+
 }

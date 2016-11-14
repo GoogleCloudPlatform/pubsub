@@ -13,8 +13,11 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 package com.google.pubsub.clients.common;
 
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -29,9 +32,6 @@ import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.nio.charset.Charset;
 import java.util.Arrays;
 import java.util.concurrent.Executors;
@@ -39,18 +39,31 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Starts a server to get the start request, then starts the client runner.
+ * Starts a server to get the start request, then starts the load client.
  */
 public class LoadTestRunner {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
   private static final Stopwatch stopwatch = Stopwatch.createUnstarted();
   private static Server server;
   private static Task client;
-  private static AtomicBoolean finished = new AtomicBoolean(true);
+  private static final AtomicBoolean finished = new AtomicBoolean(true);
   private static SettableFuture<Void> finishedFuture = SettableFuture.create();
+
+  /**
+   * Command line options for the {@link LoadTestRunner}.
+   */
+  @Parameters(separators = "=")
+  public static class Options {
+    @Parameter(
+      names = {"--port"},
+      description = "The port to listen on."
+    )
+    public int port = 5000;
+  }
 
   private static void runTest(StartRequest request) {
     log.info("Request received, starting up server.");
@@ -82,40 +95,61 @@ public class LoadTestRunner {
     log.info("Load test complete.");
   }
 
-  public static void run(Function<StartRequest, Task> function) throws Exception {
-    server = ServerBuilder.forPort(5000)
-        .addService(new LoadtestGrpc.LoadtestImplBase() {
-          @Override
-          public void start(StartRequest request, StreamObserver<StartResponse> responseObserver) {
-            if (!finished.compareAndSet(true, false)) {
-              responseObserver.onError(new Exception("A load test is already running!"));
-            }
-            finishedFuture = SettableFuture.create();
-            stopwatch.reset();
-            client = function.apply(request);
-            Executors.newSingleThreadExecutor().submit(() -> LoadTestRunner.runTest(request));
-            responseObserver.onNext(StartResponse.getDefaultInstance());
-            responseObserver.onCompleted();
-          }
+  public static void run(Options options, Function<StartRequest, Task> function)
+      throws Exception {
+    run(options, function, null);
+  }
 
-          @Override
-          public void check(CheckRequest request, StreamObserver<CheckResponse> responseObserver) {
-            boolean finishedValue = finished.get();
-            responseObserver.onNext(CheckResponse.newBuilder()
-                .addAllBucketValues(client.getBucketValues())
-                .setRunningDuration(Duration.newBuilder()
-                    .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
-                .setIsFinished(finishedValue)
-                .build());
-            responseObserver.onCompleted();
-            if (finishedValue) {
-              finishedFuture.set(null);
-            }
-          }
-        })
-        .build()
-        .start();
-    log.info("Started server, listening on port 5000.");
+
+  public static void run(
+      Options options,
+      Function<StartRequest, Task> function,
+      ServerBuilder<?> serverBuilder)
+      throws Exception {
+    if (serverBuilder == null) {
+      serverBuilder = ServerBuilder.forPort(options.port);
+    }
+
+    server =
+        serverBuilder
+            .addService(
+                new LoadtestGrpc.LoadtestImplBase() {
+                  @Override
+                  public void start(
+                      StartRequest request, StreamObserver<StartResponse> responseObserver) {
+                    if (!finished.compareAndSet(true, false)) {
+                      responseObserver.onError(new Exception("A load test is already running!"));
+                    }
+                    finishedFuture = SettableFuture.create();
+                    stopwatch.reset();
+                    client = function.apply(request);
+                    Executors.newSingleThreadExecutor()
+                        .submit(() -> LoadTestRunner.runTest(request));
+                    responseObserver.onNext(StartResponse.getDefaultInstance());
+                    responseObserver.onCompleted();
+                  }
+
+                  @Override
+                  public void check(
+                      CheckRequest request, StreamObserver<CheckResponse> responseObserver) {
+                    boolean finishedValue = finished.get();
+                    responseObserver.onNext(
+                        CheckResponse.newBuilder()
+                            .addAllBucketValues(client.getBucketValues())
+                            .setRunningDuration(
+                                Duration.newBuilder()
+                                    .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
+                            .setIsFinished(finishedValue)
+                            .build());
+                    responseObserver.onCompleted();
+                    if (finishedValue) {
+                      finishedFuture.set(null);
+                    }
+                  }
+                })
+            .build()
+            .start();
+    log.info("Started server, listening on port " + options.port + ".");
     Runtime.getRuntime().addShutdownHook(new Thread() {
       @Override
       public void run() {

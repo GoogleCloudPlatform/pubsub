@@ -20,9 +20,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.common.LatencyDistribution;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -31,6 +28,8 @@ import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Each subclass of Controller is responsible for instantiating and cleaning up a given environment.
@@ -39,9 +38,10 @@ import java.util.stream.Collectors;
  * environment-agnostic part of this process.
  */
 public abstract class Controller {
-  static final Logger log = LoggerFactory.getLogger(Controller.class);
-  final List<Client> clients = new ArrayList<>();
-  final ScheduledExecutorService executor;
+  protected static final Logger log = LoggerFactory.getLogger(Controller.class);
+  public static String resourceDirectory = "src/main/resources/gce";
+  protected final List<Client> clients = new ArrayList<>();
+  protected final ScheduledExecutorService executor;
 
   /**
    * Creates the given environments and starts the virtual machines. When this function returns,
@@ -52,7 +52,7 @@ public abstract class Controller {
    *
    * @param executor the executor that will be used to schedule all environment initialization tasks
    */
-  Controller(ScheduledExecutorService executor) {
+  public Controller(ScheduledExecutorService executor) {
     this.executor = executor;
   }
 
@@ -63,7 +63,12 @@ public abstract class Controller {
    *
    * @param t the error that caused the shutdown, or null if shutting down successfully
    */
-  protected abstract void shutdown(Throwable t);
+  public abstract void shutdown(Throwable t);
+
+  /**
+   * @return the types map
+   */
+  public abstract Map<String, Map<ClientParams, Integer>> getTypes();
 
   /**
    * Waits for clients to complete the load test.
@@ -169,10 +174,8 @@ public abstract class Controller {
     }
   }
 
-  /**
-   * The statistics that are exported by each load test client.
-   */
-  public class LoadtestStats {
+  /** The statistics that are exported by each load test client. */
+  public static class LoadtestStats {
     public long runningSeconds;
     public long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
   }

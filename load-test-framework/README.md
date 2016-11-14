@@ -22,7 +22,7 @@ These instructions assume you are using [Maven](https://maven.apache.org/).
 
 2. Copy the jar into the GCE resource directory:
 
-    `cp target/driver.jar target/gce/`
+    `cp target/driver.jar src/main/resources/gce/`
 
 The resulting jar is at target/driver.jar.
 
@@ -89,3 +89,29 @@ slightly, the record of how it responds, its latency and throughput, are equival
     following.
 
     `java -jar target/driver.jar --help`
+
+### Common Tests
+
+#### Minimum Latency on a single instance
+
+```bash
+--request_rate=1 --message_size=1
+```
+
+#### Maximum Throughput on a single instance
+
+```bash
+-—message_size=10000 —-batch_size=10 --request_rate=1000000
+```
+
+#### Maximum QPS on a single instance
+
+```bash
+—-message_size=1 --request_rate=1000000
+```
+
+#### Maximum Service Throughput for N instances under 200 ms Publish to Ack Latency
+
+```bash
+—-cps_publisher_count=N —-cps_subscriber_count=N*3 --max_publish_latency_test=true --max_publish_latency_millis=200 --request_rate=100
+```
