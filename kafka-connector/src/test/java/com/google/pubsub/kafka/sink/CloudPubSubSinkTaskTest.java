@@ -53,7 +53,7 @@ public class CloudPubSubSinkTaskTest {
   private static final String CPS_TOPIC = "the";
   private static final String CPS_PROJECT = "quick";
   private static final String CPS_MIN_BATCH_SIZE1 = "2";
-  private static final String CPS_MIN_BATCH_SIZE2 = "8";
+  private static final String CPS_MIN_BATCH_SIZE2 = "9";
   private static final String KAFKA_TOPIC = "brown";
   private static final ByteString KAFKA_MESSAGE1 = ByteString.copyFromUtf8("fox");
   private static final ByteString KAFKA_MESSAGE2 = ByteString.copyFromUtf8("jumped");
@@ -87,6 +87,7 @@ public class CloudPubSubSinkTaskTest {
     Schema float32 = SchemaBuilder.type(Type.FLOAT32).build();
     Schema float64 = SchemaBuilder.type(Type.FLOAT64).build();
     Schema bool = SchemaBuilder.type(Type.BOOLEAN).build();
+    Schema str = SchemaBuilder.type(Type.STRING).build();
     SinkRecord record8 = new SinkRecord(null, -1, null, null, int8, (byte) 5, -1);
     SinkRecord record16 = new SinkRecord(null, -1, null, null, int16, (short) 5, -1);
     SinkRecord record32 = new SinkRecord(null, -1, null, null, int32, (int) 5, -1);
@@ -94,6 +95,7 @@ public class CloudPubSubSinkTaskTest {
     SinkRecord recordFloat32 = new SinkRecord(null, -1, null, null, float32, (float) 8, -1);
     SinkRecord recordFloat64 = new SinkRecord(null, -1, null, null, float64, (double) 8, -1);
     SinkRecord recordBool = new SinkRecord(null, -1, null, null, bool, true, -1);
+    SinkRecord recordString = new SinkRecord(null, -1, null, null, str, "Test put.", -1);
     List<SinkRecord> list = new ArrayList<>();
     list.add(record8);
     list.add(record16);
@@ -226,8 +228,6 @@ public class CloudPubSubSinkTaskTest {
     List<PubsubMessage> messages = new ArrayList<>();
     Map<String, String> attributes = new HashMap<>();
     attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
-    attributes.put(ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE, KAFKA_TOPIC);
-    attributes.put(ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE, String.valueOf(0));
     messages.add(
         PubsubMessage.newBuilder().putAllAttributes(attributes).setData(KAFKA_MESSAGE1).build());
     messages.add(

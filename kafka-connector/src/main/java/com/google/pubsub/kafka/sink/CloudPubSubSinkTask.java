@@ -185,6 +185,8 @@ public class CloudPubSubSinkTask extends SinkTask {
         byte[] boolArr = {bool};
         return ByteString.copyFrom(boolArr);
       case STRING:
+        String str = (String) value;
+        return ByteString.copyFromUtf8(str);
       case BYTES:
         return (ByteString) value;
       case ARRAY:
