@@ -30,7 +30,10 @@ import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Schema.Type;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
@@ -49,10 +52,6 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final int CPS_MAX_MESSAGES_PER_REQUEST = 1000;
   private static final int CPS_MESSAGE_KEY_ATTRIBUTE_SIZE =
       ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE.length();
-  private static final int CPS_MESSAGE_PARTITION_ATTRIBUTE_SIZE =
-      ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE.length();
-  private static final int CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE =
-      ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE.length();
 
   // Maps a topic to another map which contains the outstanding futures per partition
   private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
@@ -189,11 +188,19 @@ public class CloudPubSubSinkTask extends SinkTask {
         return ByteString.copyFromUtf8(str);
       case BYTES:
         return (ByteString) value;
+      case STRUCT:
+        Struct struct = (Struct) value;
+        List<Field> fields = schema.fields();
+        for (Field f : fields) {
+          if (f.schema().type() != Type.STRING) {
+            throw new DataException("Field types in a struct must be type String");
+          }
+          String val = (String) struct.get(f);
+          attributes.put(f.name(), val);
+        }
       case ARRAY:
         break;
       case MAP:
-        break;
-      case STRUCT:
         break;
     }
     return null;

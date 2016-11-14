@@ -41,6 +41,7 @@ import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Schema.Type;
 import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Before;
@@ -57,6 +58,8 @@ public class CloudPubSubSinkTaskTest {
   private static final String KAFKA_TOPIC = "brown";
   private static final ByteString KAFKA_MESSAGE1 = ByteString.copyFromUtf8("fox");
   private static final ByteString KAFKA_MESSAGE2 = ByteString.copyFromUtf8("jumped");
+  private static final String STRUCT_FIELD1 = "Roll";
+  private static final String STRUCT_FIELD2 = "War";
   private static final String KAFKA_MESSAGE_KEY = "over";
   private static final Schema STRING_SCHEMA = SchemaBuilder.string().build();
   private static final Schema BYTE_STRING_SCHEMA =
@@ -80,22 +83,22 @@ public class CloudPubSubSinkTaskTest {
   @Test
   public void testPutPrimitives() {
     task.start(props);
-    Schema int8 = SchemaBuilder.type(Type.INT8).build();
-    Schema int16 = SchemaBuilder.type(Type.INT16).build();
-    Schema int32 = SchemaBuilder.type(Type.INT32).build();
-    Schema int64 = SchemaBuilder.type(Type.INT64).build();
-    Schema float32 = SchemaBuilder.type(Type.FLOAT32).build();
-    Schema float64 = SchemaBuilder.type(Type.FLOAT64).build();
-    Schema bool = SchemaBuilder.type(Type.BOOLEAN).build();
-    Schema str = SchemaBuilder.type(Type.STRING).build();
-    SinkRecord record8 = new SinkRecord(null, -1, null, null, int8, (byte) 5, -1);
-    SinkRecord record16 = new SinkRecord(null, -1, null, null, int16, (short) 5, -1);
-    SinkRecord record32 = new SinkRecord(null, -1, null, null, int32, (int) 5, -1);
-    SinkRecord record64 = new SinkRecord(null, -1, null, null, int64, (long) 5, -1);
-    SinkRecord recordFloat32 = new SinkRecord(null, -1, null, null, float32, (float) 8, -1);
-    SinkRecord recordFloat64 = new SinkRecord(null, -1, null, null, float64, (double) 8, -1);
-    SinkRecord recordBool = new SinkRecord(null, -1, null, null, bool, true, -1);
-    SinkRecord recordString = new SinkRecord(null, -1, null, null, str, "Test put.", -1);
+    SinkRecord record8 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.int8(), (byte) 5, -1);
+    SinkRecord record16 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.int16(), (short) 5, -1);
+    SinkRecord record32 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.int32(), (int) 5, -1);
+    SinkRecord record64 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.int64(), (long) 5, -1);
+    SinkRecord recordFloat32 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.float32(), (float) 8, -1);
+    SinkRecord recordFloat64 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.float64(), (double) 8, -1);
+    SinkRecord recordBool =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.bool(), true, -1);
+    SinkRecord recordString =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.string(), "Test put.", -1);
     List<SinkRecord> list = new ArrayList<>();
     list.add(record8);
     list.add(record16);
@@ -104,9 +107,23 @@ public class CloudPubSubSinkTaskTest {
     list.add(recordFloat32);
     list.add(recordFloat64);
     list.add(recordBool);
+    list.add(recordString);
     task.put(list);
-    verify(publisher, never()).publish(any(PublishRequest.class));
   }
+
+//  @Test
+//  public void testStructSchema() {
+//    task.start(props);
+//    Schema schema = SchemaBuilder.struct().field(STRUCT_FIELD1, SchemaBuilder.string())
+//        .field(STRUCT_FIELD2, SchemaBuilder.string()).build();
+//    Struct val = new Struct(schema);
+//    val.put(STRUCT_FIELD1, "tide");
+//    val.put(STRUCT_FIELD2, "eagle");
+//    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
+//    List<SinkRecord> list = new ArrayList<>();
+//    list.add(record);
+//    task.put(list);
+//  }
 
   /**
    * Tests that if there are not enough messages buffered, publisher.publish() is not invoked.
