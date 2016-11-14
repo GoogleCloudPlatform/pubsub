@@ -30,7 +30,6 @@ import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import java.rmi.UnexpectedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -83,8 +82,8 @@ public class Client {
 
   static String getTopicSuffix(ClientType clientType) {
     switch (clientType) {
-      case CPS_GCLOUD_PUBLISHER:
-      case CPS_GCLOUD_SUBSCRIBER:
+      case CPS_GCLOUD_JAVA_PUBLISHER:
+      case CPS_GCLOUD_JAVA_SUBSCRIBER:
         return "gcloud";
       case CPS_GCLOUD_PYTHON_PUBLISHER:
         return "gcloud";
@@ -137,7 +136,7 @@ public class Client {
           .setSeconds(loadtestLengthSeconds).build());
     }
     switch (clientType) {
-      case CPS_GCLOUD_SUBSCRIBER:
+      case CPS_GCLOUD_JAVA_SUBSCRIBER:
       case CPS_GRPC_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
             .setSubscription(subscription)
@@ -248,8 +247,8 @@ public class Client {
   public enum ClientType {
     CPS_GRPC_PUBLISHER,
     CPS_GRPC_SUBSCRIBER,
-    CPS_GCLOUD_PUBLISHER,
-    CPS_GCLOUD_SUBSCRIBER,
+    CPS_GCLOUD_JAVA_PUBLISHER,
+    CPS_GCLOUD_JAVA_SUBSCRIBER,
     CPS_GCLOUD_PYTHON_PUBLISHER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
@@ -257,7 +256,7 @@ public class Client {
     public boolean isCpsPublisher() {
       switch (this) {
         case CPS_GRPC_PUBLISHER:
-        case CPS_GCLOUD_PUBLISHER:
+        case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
           return true;
         default:
@@ -267,7 +266,7 @@ public class Client {
 
     public boolean isPublisher() {
       switch (this) {
-        case CPS_GCLOUD_PUBLISHER:
+        case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case KAFKA_PUBLISHER:
         case CPS_GRPC_PUBLISHER:
@@ -281,9 +280,9 @@ public class Client {
       switch (this) {
         case CPS_GRPC_PUBLISHER:
           return CPS_GRPC_SUBSCRIBER;
-        case CPS_GCLOUD_PUBLISHER:
+        case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
-          return CPS_GCLOUD_SUBSCRIBER;
+          return CPS_GCLOUD_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;
         default:
@@ -293,8 +292,8 @@ public class Client {
 
     public String getTypeString() throws IllegalAccessException {
       switch (this) {
-        case CPS_GCLOUD_PUBLISHER:
-        case CPS_GCLOUD_SUBSCRIBER:
+        case CPS_GCLOUD_JAVA_PUBLISHER:
+        case CPS_GCLOUD_JAVA_SUBSCRIBER:
           return "gcloud";
         case CPS_GCLOUD_PYTHON_PUBLISHER:
           return "python gcloud";
