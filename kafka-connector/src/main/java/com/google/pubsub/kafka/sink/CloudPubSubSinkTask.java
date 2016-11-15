@@ -38,6 +38,7 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
+import org.mockito.internal.matchers.Null;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -201,7 +202,7 @@ public class CloudPubSubSinkTask extends SinkTask {
             try {
               msgBody = handleValue(bodySchema, struct.get(f), null);
             } catch (NullPointerException e) { // Caused by accessing null attributes value
-              throw new DataException("Message body field in a struct must be a primitive type.");
+              throw new DataException("Struct message body does not support Map or Struct types.");
             }
           } else {
             if (f.schema().type() != Type.STRING) {
@@ -237,7 +238,15 @@ public class CloudPubSubSinkTask extends SinkTask {
           return ByteString.EMPTY;
         }
       case ARRAY:
-        break;
+        ByteString out = ByteString.EMPTY;
+        Object[] objArr = (Object[]) value;
+        for (Object o : objArr) {
+          try {
+            out = out.concat(handleValue(schema.valueSchema(), o, null));
+          } catch (NullPointerException e) {
+            throw new DataException("Array type does not support Map or Struct types.");
+          }
+        }
     }
     return ByteString.EMPTY;
   }
