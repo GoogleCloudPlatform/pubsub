@@ -1,10 +1,12 @@
 <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://maven.apache.org/POM/4.0.0"
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
   <groupId>com.google.pubsub.client</groupId>
   <artifactId>cloud-pubsub-client-samples</artifactId>
   <packaging>jar</packaging>
   <version>0.9-ALPHA</version>
+
   <name>Google Cloud Pub/Sub Client Code Samples</name>
   <description>
     Code samples for the High performance Cloud Pub/Sub client library.
@@ -15,6 +17,22 @@
     relaxed in the near future. Please contact cloud-pubsub@google.com with any
     questions in the meantime.
   </description>
+  <url>https://cloud.google.com/pubsub</url>
+
+  <licenses>
+    <license>
+      <name>Apache License, Version 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <organization>Google Inc.</organization>
+      <organizationUrl>http://www.google.com</organizationUrl>
+    </developer>
+  </developers>
 
   <dependencies>
     <dependency>
