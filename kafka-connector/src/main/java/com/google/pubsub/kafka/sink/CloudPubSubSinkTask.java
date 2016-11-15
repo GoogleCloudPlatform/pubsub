@@ -28,6 +28,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Field;
@@ -215,12 +216,30 @@ public class CloudPubSubSinkTask extends SinkTask {
         } else {
           return ByteString.EMPTY;
         }
+      case MAP:
+        if (schema.keySchema().type() != Schema.Type.STRING ||
+            schema.valueSchema().type() != Schema.Type.STRING) {
+          throw new DataException("Key and value schemas in map must be of type String");
+        }
+        Map<String, String> map = (Map<String, String>) value;
+        Set<String> keys = map.keySet();
+        ByteString mapBody = null;
+        for (String key : keys) {
+          if (key.equals(messageBodyName)) {
+            mapBody = ByteString.copyFromUtf8(map.get(key));
+          } else {
+            attributes.put(key, map.get(key));
+          }
+        }
+        if (mapBody != null) {
+          return mapBody;
+        } else {
+          return ByteString.EMPTY;
+        }
       case ARRAY:
         break;
-      case MAP:
-        break;
     }
-    return null;
+    return ByteString.EMPTY;
   }
 
 
