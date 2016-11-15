@@ -60,6 +60,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages =
       new HashMap<>();
   private String cpsTopic;
+  private String messageBodyName;
   private int maxBufferSize;
   private CloudPubSubPublisher publisher;
 
@@ -98,6 +99,7 @@ public class CloudPubSubSinkTask extends SinkTask {
             validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             validatedProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     maxBufferSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG);
+    messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     if (publisher == null) {
       // Only do this if we did not use the constructor.
       publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
@@ -191,12 +193,27 @@ public class CloudPubSubSinkTask extends SinkTask {
       case STRUCT:
         Struct struct = (Struct) value;
         List<Field> fields = schema.fields();
+        ByteString msgBody = null;
         for (Field f : fields) {
-          if (f.schema().type() != Type.STRING) {
-            throw new DataException("Field types in a struct must be type String");
+          if (f.name().equals(messageBodyName)) {
+            Schema bodySchema = f.schema();
+            try {
+              msgBody = handleValue(bodySchema, struct.get(f), null);
+            } catch (NullPointerException e) { // Caused by accessing null attributes value
+              throw new DataException("Message body field in a struct must be a primitive type.");
+            }
+          } else {
+            if (f.schema().type() != Type.STRING) {
+              throw new DataException("Non-message body field types in a struct must be String");
+            }
+            String val = (String) struct.get(f);
+            attributes.put(f.name(), val);
           }
-          String val = (String) struct.get(f);
-          attributes.put(f.name(), val);
+        }
+        if (msgBody != null) {
+          return msgBody;
+        } else {
+          return ByteString.EMPTY;
         }
       case ARRAY:
         break;

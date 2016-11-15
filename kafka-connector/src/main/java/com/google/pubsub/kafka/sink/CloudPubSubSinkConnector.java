@@ -39,7 +39,8 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   public static final String MAX_BUFFER_SIZE_CONFIG = "maxBufferSize";
   public static final int DEFAULT_MAX_BUFFER_SIZE = 100;
-
+  public static final String CPS_MESSAGE_BODY_NAME = "messageBodyName";
+  public static final String DEFAULT_MESSAGE_BODY_NAME = "cps_message_body";
   private Map<String, String> props;
 
   @Override
@@ -88,8 +89,14 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             DEFAULT_MAX_BUFFER_SIZE,
             ConfigDef.Range.between(1, Integer.MAX_VALUE),
             Importance.MEDIUM,
-            "The maximum number of messages that can be received for the messages on a topic"
-                + "partition before publishing them to Cloud Pub/Sub.");
+            "The maximum number of messages that can be received for the messages on a topic "
+                + "partition before publishing them to Cloud Pub/Sub.")
+        .define(CPS_MESSAGE_BODY_NAME,
+            Type.STRING,
+            DEFAULT_MESSAGE_BODY_NAME,
+            Importance.MEDIUM,
+            "When using a struct or map value schema, this field or key name indicates that the "
+                + "corresponding value will go into the Pub/Sub message body.");
   }
 
   @Override

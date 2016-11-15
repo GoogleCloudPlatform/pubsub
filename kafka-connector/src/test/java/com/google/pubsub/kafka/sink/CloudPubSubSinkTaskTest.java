@@ -111,19 +111,19 @@ public class CloudPubSubSinkTaskTest {
     task.put(list);
   }
 
-//  @Test
-//  public void testStructSchema() {
-//    task.start(props);
-//    Schema schema = SchemaBuilder.struct().field(STRUCT_FIELD1, SchemaBuilder.string())
-//        .field(STRUCT_FIELD2, SchemaBuilder.string()).build();
-//    Struct val = new Struct(schema);
-//    val.put(STRUCT_FIELD1, "tide");
-//    val.put(STRUCT_FIELD2, "eagle");
-//    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
-//    List<SinkRecord> list = new ArrayList<>();
-//    list.add(record);
-//    task.put(list);
-//  }
+  @Test
+  public void testStructSchema() {
+    task.start(props);
+    Schema schema = SchemaBuilder.struct().field(STRUCT_FIELD1, SchemaBuilder.string())
+        .field(STRUCT_FIELD2, SchemaBuilder.string()).build();
+    Struct val = new Struct(schema);
+    val.put(STRUCT_FIELD1, "tide");
+    val.put(STRUCT_FIELD2, "eagle");
+    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    List<SinkRecord> list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
+  }
 
   /**
    * Tests that if there are not enough messages buffered, publisher.publish() is not invoked.
