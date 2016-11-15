@@ -39,7 +39,6 @@ import java.util.Map;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
-import org.apache.kafka.connect.data.Schema.Type;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
@@ -58,8 +57,8 @@ public class CloudPubSubSinkTaskTest {
   private static final String KAFKA_TOPIC = "brown";
   private static final ByteString KAFKA_MESSAGE1 = ByteString.copyFromUtf8("fox");
   private static final ByteString KAFKA_MESSAGE2 = ByteString.copyFromUtf8("jumped");
-  private static final String STRUCT_FIELD1 = "Roll";
-  private static final String STRUCT_FIELD2 = "War";
+  private static final String FIELD_STRING1 = "Roll";
+  private static final String FIELD_STRING2 = "War";
   private static final String KAFKA_MESSAGE_KEY = "over";
   private static final Schema STRING_SCHEMA = SchemaBuilder.string().build();
   private static final Schema BYTE_STRING_SCHEMA =
@@ -114,15 +113,57 @@ public class CloudPubSubSinkTaskTest {
   @Test
   public void testStructSchema() {
     task.start(props);
-    Schema schema = SchemaBuilder.struct().field(STRUCT_FIELD1, SchemaBuilder.string())
-        .field(STRUCT_FIELD2, SchemaBuilder.string()).build();
+    Schema schema = SchemaBuilder.struct().field(FIELD_STRING1, SchemaBuilder.string())
+        .field(FIELD_STRING2, SchemaBuilder.string()).build();
     Struct val = new Struct(schema);
-    val.put(STRUCT_FIELD1, "tide");
-    val.put(STRUCT_FIELD2, "eagle");
+    val.put(FIELD_STRING1, "tide");
+    val.put(FIELD_STRING2, "eagle");
     SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
     List<SinkRecord> list = new ArrayList<>();
     list.add(record);
     task.put(list);
+    schema = SchemaBuilder.struct().field(FIELD_STRING1, SchemaBuilder.struct()).build();
+    record = new SinkRecord(null, -1, null, null, schema, new Struct(schema), -1);
+    list.add(record);
+    try {
+      task.put(list);
+    } catch (DataException e) { } // Expected, pass.
+  }
+
+  @Test
+  public void testMapSchema() {
+    task.start(props);
+    Schema schema = SchemaBuilder.map(SchemaBuilder.string(), SchemaBuilder.string()).build();
+    Map<String, String> val = new HashMap<>();
+    val.put(FIELD_STRING1, "tide");
+    val.put(FIELD_STRING2, "eagle");
+    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    List<SinkRecord> list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
+    schema = SchemaBuilder.map(SchemaBuilder.string(), SchemaBuilder.bytes()).build();
+    record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    list.add(record);
+    try {
+      task.put(list);
+    } catch (DataException e) { } // Expected, pass.
+  }
+
+  @Test
+  public void testArraySchema() {
+    task.start(props);
+    Schema schema = SchemaBuilder.array(SchemaBuilder.string()).build();
+    String[] val = {"Roll", "tide"};
+    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    List<SinkRecord> list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
+    schema = SchemaBuilder.array(SchemaBuilder.struct()).build();
+    record = new SinkRecord(null, -1, null, null, schema, null, -1);
+    list.add(record);
+    try {
+      task.put(list);
+    } catch (DataException e) { } // Expected, pass.
   }
 
   /**

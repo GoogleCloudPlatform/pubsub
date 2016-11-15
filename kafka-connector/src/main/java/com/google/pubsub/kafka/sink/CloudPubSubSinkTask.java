@@ -238,14 +238,14 @@ public class CloudPubSubSinkTask extends SinkTask {
           return ByteString.EMPTY;
         }
       case ARRAY:
+        Schema.Type arrType = schema.valueSchema().type();
+        if (arrType == Type.MAP || arrType == Type.STRUCT) {
+          throw new DataException("Array type does not support Map or Struct types.");
+        }
         ByteString out = ByteString.EMPTY;
         Object[] objArr = (Object[]) value;
         for (Object o : objArr) {
-          try {
-            out = out.concat(handleValue(schema.valueSchema(), o, null));
-          } catch (NullPointerException e) {
-            throw new DataException("Array type does not support Map or Struct types.");
-          }
+          out = out.concat(handleValue(schema.valueSchema(), o, null));
         }
     }
     return ByteString.EMPTY;
