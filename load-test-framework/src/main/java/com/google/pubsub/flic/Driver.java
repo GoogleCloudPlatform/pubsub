@@ -309,13 +309,12 @@ public class Driver {
             "grpc-subscription" + i), cpsGrpcSubscriberCount / cpsSubscriptionFanout);
       }
       Client.messageSize = messageSize;
-      Client.requestRate = 1;
+      Client.requestRate = requestRate;
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.publishBatchSize = publishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
       Client.pollLength = kafkaPollLength;
       Client.broker = broker;
-      Client.requestRate = requestRate;
       Client.maxOutstandingRequests = maxOutstandingRequests;
       Client.numberOfMessages = numberOfMessages;
       Controller controller = controllerFunction.apply(project, clientParamsMap);
