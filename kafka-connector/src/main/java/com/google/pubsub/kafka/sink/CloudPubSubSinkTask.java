@@ -120,8 +120,9 @@ public class CloudPubSubSinkTask extends SinkTask {
       int messageSize = value.size(); // Assumes the topic name is in ASCII.
       if (record.key() != null) {
         attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, record.key().toString());
-        // Maximum number of bytes to encode a character in the key string will be 2 bytes.
-        messageSize += CPS_MESSAGE_KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
+      }
+      for (String key : attributes.keySet()) {
+        messageSize+= key.getBytes().length + attributes.get(key).getBytes().length;
       }
       PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
       // Get a map containing all the unpublished messages per partition for this topic.
