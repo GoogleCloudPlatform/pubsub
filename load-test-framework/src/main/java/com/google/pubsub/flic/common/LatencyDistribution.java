@@ -156,19 +156,7 @@ public class LatencyDistribution {
       mean += dev / count;
       sumOfSquaredDeviation += dev * (latencyMs - mean);
     }
-
-    for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
-      double bucket = LATENCY_BUCKETS[i];
-      if (latencyMs < bucket) {
-        synchronized (this) {
-          bucketValues[i]++;
-        }
-        return;
-      }
-    }
-    synchronized (this) {
-      bucketValues[LATENCY_BUCKETS.length - 1]++;
-    }
+    binarySearchBuckets(latencyMs, 1);
   }
 
   public void recordLatencyBatch(long latencyMs, int batchSize) {
@@ -178,18 +166,33 @@ public class LatencyDistribution {
       count += batchSize;
       sumOfSquaredDeviation += dev * (latencyMs - mean) * batchSize;
     }
+    binarySearchBuckets(latencyMs, batchSize);
+  }
 
-    for (int i = 0; i < LATENCY_BUCKETS.length; i++) {
-      double bucket = LATENCY_BUCKETS[i];
-      if (latencyMs < bucket) {
-        synchronized (this) {
-          bucketValues[i] += batchSize;
-        }
-        return;
+  private void binarySearchBuckets(long latencyMs, int batchSize) {
+    int l = 0;
+    int r = LATENCY_BUCKETS.length - 1;
+    int i;
+    while (true) {
+      i = (l + r) / 2;
+      if (i <= 0) {
+        break;
+      } else if (i == LATENCY_BUCKETS.length - 1) {
+        break;
       }
+      if (latencyMs < LATENCY_BUCKETS[i]) {
+        if (latencyMs >= LATENCY_BUCKETS[i - 1]) {
+          break;
+        }
+        r = i - 2; // -2 because that index will check the bucket to its right
+        continue;
+      } else if (latencyMs < LATENCY_BUCKETS[++i]) { // check bucket on either side
+        break;
+      }
+      l = i + 1;
     }
     synchronized (this) {
-      bucketValues[LATENCY_BUCKETS.length - 1] += batchSize;
+      bucketValues[i]+= batchSize;
     }
   }
 }
