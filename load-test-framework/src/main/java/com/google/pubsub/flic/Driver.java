@@ -329,8 +329,8 @@ public class Driver {
               log.info("===============================================");
             }
           },
-          5,
-          5,
+          burnInDurationSeconds,
+          Math.min(30, loadtestLengthSeconds / 10),
           TimeUnit.SECONDS);
       Map<ClientType, Controller.LoadtestStats> statsMap;
       AtomicDouble publishLatency = new AtomicDouble(0);
