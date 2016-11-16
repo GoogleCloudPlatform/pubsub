@@ -15,6 +15,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.adapter;
 
+import com.beust.jcommander.Parameter;
+import com.beust.jcommander.Parameters;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.flic.common.LoadtestProto;
@@ -25,16 +27,20 @@ import org.slf4j.LoggerFactory;
 
 
 /**
- * Runs a task that executes command on the adapter server.
+ * A Task that proxies commands to a LoadtestWorker process on localhost.
  */
-class AdapterTask extends Task {
+public class AdapterTask extends Task {
   private static final Logger log = LoggerFactory.getLogger(AdapterTask.class);
   private LoadtestWorkerGrpc.LoadtestWorkerBlockingStub stub;
 
-  AdapterTask(LoadtestProto.StartRequest request, MetricsHandler.MetricName metricName) {
+  public AdapterTask(
+      LoadtestProto.StartRequest request, MetricsHandler.MetricName metricName, Options options) {
     super(request.getProject(), "adapter", metricName);
-    stub = LoadtestWorkerGrpc.newBlockingStub(
-        ManagedChannelBuilder.forAddress("localhost", 6000).usePlaintext(true).build());
+    stub =
+        LoadtestWorkerGrpc.newBlockingStub(
+            ManagedChannelBuilder.forAddress("localhost", options.workerPort)
+                .usePlaintext(true)
+                .build());
     try {
       stub.start(request);
     } catch (Throwable t) {
@@ -53,5 +59,17 @@ class AdapterTask extends Task {
     } catch (Throwable t) {
       log.error("Error running command on adapter task.", t);
     }
+  }
+
+  /**
+   * Contains the command line options for {@link AdapterTask}.
+   */
+  @Parameters(separators = "=")
+  public static class Options {
+    @Parameter(
+      names = {"--worker_port"},
+      description = "The port that the LoadtestWorker process server is listening on."
+    )
+    int workerPort = 6000;
   }
 }
