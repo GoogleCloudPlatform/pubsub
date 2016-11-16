@@ -35,17 +35,20 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.LatencyDistribution;
+import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
 import com.google.pubsub.flic.controllers.GCEController;
+import com.google.pubsub.flic.controllers.MessageTracker;
 import com.google.pubsub.flic.output.SheetsService;
 import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.Executors;
@@ -342,7 +345,9 @@ public class Driver {
         Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
         Date startDate = new Date();
         startDate.setTime(Client.startTime.getSeconds() * 1000);
-        controller.startClients();
+        MessageTracker messageTracker =
+            new MessageTracker(numberOfMessages, cpsPublisherCount);
+        controller.startClients(messageTracker);
         if (maxSubscriberThroughputTest) {
           controller.waitForPublisherClients();
           ListTimeSeriesResponse response =
@@ -394,6 +399,15 @@ public class Driver {
         }
         Client.requestRate = (int) (Client.requestRate * 1.1);
         printStats(statsMap);
+        List<MessageIdentifier> missing = messageTracker.getMissing();
+        if (!missing.isEmpty()) {
+          log.error("Some published messages were not received!");
+          for (MessageIdentifier identifier : missing) {
+            log.error(
+                String.format(
+                    "%d:%d", identifier.getPublisherClientId(), identifier.getSequenceNumber()));
+          }
+        }
         if (spreadsheetId.length() > 0) {
           // Output results to common Google sheet
           SheetsService service = new SheetsService(dataStoreDirectory, controller.getTypes());

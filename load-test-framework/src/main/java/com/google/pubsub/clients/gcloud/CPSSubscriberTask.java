@@ -62,11 +62,13 @@ class CPSSubscriberTask extends Task {
       pubSub.pull(subscription, batchSize).forEachRemaining((response) -> {
         ackIds.add(response.ackId());
         metricsHandler.recordLatency(now - Long.parseLong(response.attributes().get("sendTime")));
+        addMessageIdentifier(
+            Integer.parseInt(response.attributes().get("clientId")),
+            Integer.parseInt(response.attributes().get("sequenceNumber")));
       });
       if (ackIds.isEmpty()) {
         return;
       }
-      numberOfMessages.addAndGet(ackIds.size());
       pubSub.ack(subscription, ackIds);
     } catch (PubSubException e) {
       log.error("Error pulling or acknowledging messages.", e);
