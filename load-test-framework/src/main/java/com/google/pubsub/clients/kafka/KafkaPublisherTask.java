@@ -21,11 +21,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.producer.Callback;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.concurrent.ExecutionException;
@@ -41,6 +45,7 @@ class KafkaPublisherTask extends Task {
   private final String payload;
   private final int batchSize;
   private final KafkaProducer<String, String> publisher;
+  private final ExecutorService callbackPool;
 
   private KafkaPublisherTask(String broker, String project, String topic, int messageSize, 
       int batchSize) {
@@ -54,9 +59,10 @@ class KafkaPublisherTask extends Task {
         put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer").
         put("acks", "all").
         put("bootstrap.servers", broker).
-        put("batch.size", Integer.MAX_VALUE).
-        put("linger.ms", Long.MAX_VALUE).build());
+        put("batch.size", batchSize * messageSize). // Kafka takes batch size in bytes
+        put("linger.ms", 100).build());
     this.publisher = new KafkaProducer<>(props);
+    callbackPool = Executors.newCachedThreadPool();
   }
 
   public static void main(String[] args) throws Exception {
@@ -69,15 +75,44 @@ class KafkaPublisherTask extends Task {
 
   @Override
   public void run() {
-    Stopwatch stopwatch = Stopwatch.createUnstarted();
-    stopwatch.start();
+    AtomicInteger callbackCount = new AtomicInteger(batchSize);
+    Callback callback = (metadata, exception) -> {
+      callbackPool.submit(new MetricsTask(metadata, exception, callbackCount));
+    };
     for (int i = 0; i < batchSize; i++) {
       publisher.send(
-          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload));
+          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload), callback);
     }
-    publisher.flush();
-    stopwatch.stop();
-    numberOfMessages.addAndGet(batchSize);
-    metricsHandler.recordLatencyBatch(stopwatch.elapsed(TimeUnit.MILLISECONDS), batchSize);
+    try {
+      callbackCount.wait(); // wait until all callbacks for batch are received, notify in callback
+    } catch (InterruptedException e) {
+      log.error(e.getMessage(), e);
+    }
+  }
+
+  private class MetricsTask implements Runnable {
+    private RecordMetadata metadata;
+    private Exception exception;
+    private AtomicInteger callbackCount;
+
+    public MetricsTask(RecordMetadata metadata, Exception exception, AtomicInteger callbackCount) {
+      this.metadata = metadata;
+      this.exception = exception;
+      this.callbackCount = callbackCount;
+    }
+
+    @Override
+    public void run() {
+      if (exception != null) {
+        log.error(exception.getMessage(), exception);
+        errorCount.incrementAndGet();
+        return;
+      }
+      numberOfMessages.incrementAndGet();
+      metricsHandler.recordLatency(System.currentTimeMillis() - metadata.timestamp());
+      if (callbackCount.decrementAndGet() == 0) {
+        callbackCount.notify(); // wakes up parent run() thread for this batch
+      }
+    }
   }
 }
