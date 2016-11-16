@@ -2,10 +2,10 @@
   xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.google.pubsub.client</groupId>
+  <groupId>com.google.pubsub</groupId>
   <artifactId>cloud-pubsub-client-samples</artifactId>
   <packaging>jar</packaging>
-  <version>0.9-ALPHA</version>
+  <version>0.1-EXPERIMENTAL</version>
 
   <name>Google Cloud Pub/Sub Client Code Samples</name>
   <description>
@@ -36,7 +36,7 @@
 
   <dependencies>
     <dependency>
-      <groupId>com.google.pubsub.client</groupId>
+      <groupId>com.google.pubsub</groupId>
       <artifactId>cloud-pubsub-client</artifactId>
       <version>0.9-ALPHA</version>
     </dependency>
