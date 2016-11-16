@@ -50,12 +50,12 @@ class KafkaPublisherTask extends Task {
     this.batchSize = batchSize;
     Properties props = new Properties();
     props.putAll(new ImmutableMap.Builder<>().
-        put("max.block.ms", "30000").
         put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer").
         put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer").
         put("acks", "all").
         put("bootstrap.servers", broker).
-        put("batch.size", Integer.toString(batchSize)).build());
+        put("batch.size", Integer.MAX_VALUE).
+        put("linger.ms", Long.MAX_VALUE).build());
     this.publisher = new KafkaProducer<>(props);
   }
 
@@ -70,20 +70,14 @@ class KafkaPublisherTask extends Task {
   @Override
   public void run() {
     Stopwatch stopwatch = Stopwatch.createUnstarted();
-    Callback callback = (metadata, exception) -> {
-      if (exception != null) {
-        log.error(exception.getMessage(), exception);
-        return;
-      }
-      numberOfMessages.incrementAndGet();
-      metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
-    };
     stopwatch.start();
     for (int i = 0; i < batchSize; i++) {
       publisher.send(
-          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload), callback);
+          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload));
     }
     publisher.flush();
     stopwatch.stop();
+    numberOfMessages.addAndGet(batchSize);
+    metricsHandler.recordLatencyBatch(stopwatch.elapsed(TimeUnit.MILLISECONDS), batchSize);
   }
 }
