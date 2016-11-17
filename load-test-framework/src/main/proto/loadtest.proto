@@ -84,6 +84,14 @@ message KafkaOptions {
 message CheckRequest {
 }
 
+message MessageIdentifier {
+  // The unique id of the client that published the message.
+  int64 publisher_client_id = 1;
+
+  // Sequence number of the published message with the given publish_client_id.
+  int32 sequence_number = 2;
+}
+
 message CheckResponse {
   // Histogram of latencies, each one a delta from the previous CheckResponse sent.
   repeated int64 bucket_values = 1;
@@ -93,6 +101,9 @@ message CheckResponse {
 
   // True if the load test has finished running.
   bool is_finished = 3;
+
+  // MessageIdentifiers of all received messages since the last Check
+  repeated MessageIdentifier received_messages = 4;
 }
 
 message ExecuteRequest {
@@ -101,4 +112,7 @@ message ExecuteRequest {
 message ExecuteResponse {
   // Latencies of the completed operations
   repeated int64 latencies = 1;
+
+  // MessageIdentifiers of all received messages since the last Execute
+  repeated MessageIdentifier received_messages = 2;
 }

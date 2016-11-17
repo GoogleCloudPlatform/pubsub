@@ -17,6 +17,7 @@
 package com.google.cloud.pubsub;
 
 import com.google.auth.Credentials;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
@@ -29,15 +30,15 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PublisherGrpc;
-import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PubsubMessage;
 import io.grpc.Channel;
-import io.grpc.ClientInterceptors;
 import io.grpc.Status;
-import io.grpc.auth.ClientAuthInterceptor;
+import io.grpc.auth.MoreCallCredentials;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import java.io.IOException;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -46,11 +47,8 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
 import javax.net.ssl.SSLException;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
@@ -84,10 +82,7 @@ final class PublisherImpl implements Publisher {
 
   private final FlowController flowController;
   private final Channel channel;
-  private final Optional<Credentials> userCredentials;
-  private final ReadWriteLock[] stubLocks;
-  private final PublisherGrpc.PublisherFutureStub[] publisherStubs;
-  private final AtomicLong publisherStubsIndex;
+  private final PublisherGrpc.PublisherFutureStub publisherStub;
   private final Duration requestTimeout;
 
   private final ScheduledExecutorService executor;
@@ -143,40 +138,33 @@ final class PublisherImpl implements Publisher {
                     .setDaemon(true)
                     .setNameFormat("cloud-pubsub-publisher-thread-%d")
                     .build());
-    userCredentials = builder.userCredentials;
-    int numCores = Runtime.getRuntime().availableProcessors();
-    stubLocks = new ReentrantReadWriteLock[numCores];
     try {
       channel =
           builder.channel.isPresent()
               ? builder.channel.get()
-              : ClientInterceptors.intercept(
-                  NettyChannelBuilder.forAddress(PUBSUB_API_ADDRESS, 443)
-                      .negotiationType(NegotiationType.TLS)
-                      .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
-                      .executor(executor)
-                      .build(),
-                  new ClientAuthInterceptor(userCredentials.get(), executor));
+              : NettyChannelBuilder.forAddress(PUBSUB_API_ADDRESS, 443)
+                  .negotiationType(NegotiationType.TLS)
+                  .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
+                  .executor(executor)
+                  .build();
     } catch (SSLException e) {
       throw new RuntimeException("Failed to initialize gRPC stub.", e);
     }
-    publisherStubs = new PublisherGrpc.PublisherFutureStub[numCores];
-    for (int i = 0; i < numCores; i++) {
-      stubLocks[i] = new ReentrantReadWriteLock();
-      newStub(i);
+    Credentials credentials;
+    try {
+      credentials =
+          builder.userCredentials.isPresent()
+              ? builder.userCredentials.get()
+              : GoogleCredentials.getApplicationDefault()
+                  .createScoped(Collections.singletonList(PUBSUB_API_SCOPE));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to get application default credentials.", e);
     }
-    publisherStubsIndex = new AtomicLong(0);
+    publisherStub =
+        PublisherGrpc.newFutureStub(channel)
+            .withCallCredentials(MoreCallCredentials.from(credentials));
     shutdown = new AtomicBoolean(false);
     messagesWaiter = new MessagesWaiter();
-  }
-
-  private void newStub(int index) {
-    stubLocks[index].writeLock().lock();
-    try {
-      publisherStubs[index] = PublisherGrpc.newFutureStub(channel);
-    } finally {
-      stubLocks[index].writeLock().unlock();
-    }
   }
 
   @Override
@@ -349,18 +337,10 @@ final class PublisherImpl implements Publisher {
     for (OutstandingPublish outstandingPublish : outstandingBatch.outstandingPublishes) {
       publishRequest.addMessages(outstandingPublish.message);
     }
-    PublisherFutureStub stubWithDeadline;
-    int stubIndex = (int) (publisherStubsIndex.getAndIncrement() % (long) publisherStubs.length);
-    stubLocks[stubIndex].readLock().lock();
-    try {
-      stubWithDeadline =
-          publisherStubs[stubIndex].withDeadlineAfter(
-              requestTimeout.getMillis(), TimeUnit.MILLISECONDS);
-    } finally {
-      stubLocks[stubIndex].readLock().unlock();
-    }
     Futures.addCallback(
-        stubWithDeadline.publish(publishRequest.build()),
+        publisherStub
+            .withDeadlineAfter(requestTimeout.getMillis(), TimeUnit.MILLISECONDS)
+            .publish(publishRequest.build()),
         new FutureCallback<PublishResponse>() {
 
           @Override

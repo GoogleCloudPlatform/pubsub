@@ -54,8 +54,9 @@ public class AdapterTask extends Task {
     try {
       LoadtestProto.ExecuteResponse response =
           stub.execute(LoadtestProto.ExecuteRequest.getDefaultInstance());
-      numberOfMessages.addAndGet(response.getLatenciesCount());
+      addNumberOfMessages(response.getLatenciesCount());
       response.getLatenciesList().forEach(metricsHandler::recordLatency);
+      addAllMessageIdentifiers(response.getReceivedMessagesList());
     } catch (Throwable t) {
       log.error("Error running command on adapter task.", t);
     }

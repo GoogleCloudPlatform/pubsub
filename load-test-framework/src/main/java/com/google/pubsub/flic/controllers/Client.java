@@ -69,6 +69,7 @@ public class Client {
   private long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
   private long runningSeconds = 0;
   private SettableFuture<Void> doneFuture = SettableFuture.create();
+  private MessageTracker messageTracker;
 
   Client(
       ClientType clientType,
@@ -133,7 +134,8 @@ public class Client {
     return bucketValues;
   }
 
-  void start() throws Throwable {
+  void start(MessageTracker messageTracker) throws Throwable {
+    this.messageTracker = messageTracker;
     // Send a gRPC call to start the server
     log.info("Connecting to " + networkAddress + ":" + PORT);
     StartRequest.Builder requestBuilder = StartRequest.newBuilder()
@@ -237,6 +239,7 @@ public class Client {
               }
               runningSeconds = checkResponse.getRunningDuration().getSeconds();
             }
+            messageTracker.addAllMessageIdentifiers(checkResponse.getReceivedMessagesList());
           }
 
           @Override

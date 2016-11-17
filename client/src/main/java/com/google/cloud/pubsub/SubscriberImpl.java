@@ -17,15 +17,16 @@
 package com.google.cloud.pubsub;
 
 import com.google.auth.Credentials;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.base.Optional;
 import com.google.common.util.concurrent.AbstractService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.grpc.Channel;
-import io.grpc.ClientInterceptors;
-import io.grpc.auth.ClientAuthInterceptor;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import java.io.IOException;
+import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -70,37 +71,42 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
                     .build());
     subscribers = new SubscriberConnection[numCores];
 
-    Channel channel =
-        builder.channel.isPresent()
-            ? builder.channel.get()
-            : getDefaultChannel(builder.credentials.get());
+    Channel channel;
+    try {
+      channel =
+          builder.channel.isPresent()
+              ? builder.channel.get()
+              : NettyChannelBuilder.forAddress(PUBSUB_API_ADDRESS, 443)
+                  .maxMessageSize(MAX_INBOUND_MESSAGE_SIZE)
+                  .flowControlWindow(5000000) // 2.5 MB
+                  .negotiationType(NegotiationType.TLS)
+                  .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
+                  .executor(executor)
+                  .build();
+    } catch (SSLException e) {
+      throw new RuntimeException("Failed to initialize gRPC channel.", e);
+    }
 
+    Credentials credentials;
+    try {
+      credentials =
+          builder.credentials.isPresent()
+              ? builder.credentials.get()
+              : GoogleCredentials.getApplicationDefault()
+                  .createScoped(Collections.singletonList(PUBSUB_API_SCOPE));
+    } catch (IOException e) {
+      throw new RuntimeException("Failed to get application default credentials.", e);
+    }
     for (int i = 0; i < subscribers.length; i++) {
       subscribers[i] =
           new SubscriberConnection(
               subscription,
+              credentials,
               builder.receiver,
               ackExpirationPadding,
               channel,
               flowController,
               executor);
-    }
-  }
-
-  /** Creates a default gRPC channel, used in case the user does not provide one. */
-  private Channel getDefaultChannel(Credentials credentials) {
-    try {
-      return ClientInterceptors.intercept(
-          NettyChannelBuilder.forAddress(PUBSUB_API_ADDRESS, 443)
-              .maxMessageSize(MAX_INBOUND_MESSAGE_SIZE)
-              .flowControlWindow(5000000) // 2.5 MB
-              .negotiationType(NegotiationType.TLS)
-              .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
-              .executor(executor)
-              .build(),
-          new ClientAuthInterceptor(credentials, executor));
-    } catch (SSLException e) {
-      throw new RuntimeException("Failed to initialize gRPC channel.", e);
     }
   }
 

@@ -39,14 +39,15 @@ import org.joda.time.Duration;
  * <li>Retries: such as the maximum duration of retries for a failing batch of messages.
  * </ul>
  *
+ * <p>If no credentials are provided, the {@link Publisher} will use application default
+ * credentials through {@link GoogleCredentials#getApplicationDefault}.
+ *
  * <p>For example, a {@link Publisher} can be constructed and used to publish a list of messages as
  * follows:
  *
  * <pre>
- *  GoogleCredentials credentials = ... setup your credentials ...
- *
  *  Publisher publisher =
- *       Publisher.Builder.newBuilder(MY_TOPIC, credentials)
+ *       Publisher.Builder.newBuilder(MY_TOPIC)
  *           .setMaxBatchDuration(new Duration(10 * 1000))
  *           .build();
  *  List<ListenableFuture<String>> results = new ArrayList<>();
@@ -74,6 +75,7 @@ import org.joda.time.Duration;
  */
 public interface Publisher {
   static final String PUBSUB_API_ADDRESS = "pubsub.googleapis.com";
+  static final String PUBSUB_API_SCOPE = "https://www.googleapis.com/auth/pubsub";
 
   // API limits.
   static final int MAX_BATCH_MESSAGES = 1000;
@@ -169,43 +171,26 @@ public interface Publisher {
     Duration requestTimeout;
 
     // Channels and credentials
-    final Optional<Credentials> userCredentials;
-    final Optional<Channel> channel;
+    Optional<Credentials> userCredentials;
+    Optional<Channel> channel;
 
     Optional<ScheduledExecutorService> executor;
 
     /**
-     * Constructs a new {@link Builder} using the given credentials.
+     * Constructs a new {@link Builder} using the given topic.
      */
-    public static Builder newBuilder(String topic, Credentials userCredentials) {
-      return new Builder(topic, userCredentials);
+    public static Builder newBuilder(String topic) {
+      return new Builder(topic);
     }
 
-    /**
-     * Constructs a new {@link Builder} using the given {@link Channel}.
-     *
-     * <p>The given channel must have already setup the proper API scopes and credentials to call
-     * the Pub/Sub API.
-     */
-    public static Builder newBuilder(String topic, Channel channel) {
-      return new Builder(topic, channel);
-    }
-
-    Builder(String topic, Credentials userCredentials) {
+    Builder(String topic) {
       this.topic = Preconditions.checkNotNull(topic);
-      channel = Optional.absent();
-      this.userCredentials = Optional.of(Preconditions.checkNotNull(userCredentials));
-      setDefaults();
-    }
-
-    Builder(String topic, Channel channel) {
-      this.topic = Preconditions.checkNotNull(topic);
-      this.channel = Optional.of(Preconditions.checkNotNull(channel));
-      userCredentials = Optional.absent();
       setDefaults();
     }
 
     private void setDefaults() {
+      userCredentials = Optional.absent();
+      channel = Optional.absent();
       maxOutstandingMessages = Optional.absent();
       maxOutstandingBytes = Optional.absent();
       maxBatchMessages = DEFAULT_MAX_BATCH_MESSAGES;
@@ -215,6 +200,26 @@ public interface Publisher {
       sendBatchDeadline = MIN_SEND_BATCH_DURATION;
       failOnFlowControlLimits = false;
       executor = Optional.absent();
+    }
+
+    /**
+     * Credentials to authenticate with.
+     *
+     * <p>Must be properly scoped for accessing Cloud Pub/Sub APIs.
+     */
+    public Builder setCredentials(Credentials userCredentials) {
+      this.userCredentials = Optional.of(Preconditions.checkNotNull(userCredentials));
+      return this;
+    }
+
+    /**
+     * Channel to use.
+     *
+     * <p>Must point at Cloud Pub/Sub endpoint.
+     */
+    public Builder setChannel(Channel channel) {
+      this.channel = Optional.of(Preconditions.checkNotNull(channel));
+      return this;
     }
 
     // Batching options

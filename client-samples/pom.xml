@@ -38,7 +38,7 @@
     <dependency>
       <groupId>com.google.pubsub</groupId>
       <artifactId>cloud-pubsub-client</artifactId>
-      <version>0.9-ALPHA</version>
+      <version>0.1-EXPERIMENTAL</version>
     </dependency>
   </dependencies>
 
