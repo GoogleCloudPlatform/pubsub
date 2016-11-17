@@ -437,16 +437,19 @@ public class Driver {
           log.info("50%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
           log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
           log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
-          // CPS Publishers report latency per batch message.
+          long total = LongStream.of(stats.bucketValues).sum();
           log.info(
               "Average throughput: "
                   + new DecimalFormat("#.##")
                       .format(
-                          (double) LongStream.of(stats.bucketValues).sum()
+                          (double) total
                               / stats.runningSeconds
                               * messageSize
                               / 1000000.0)
                   + " MB/s");
+          if (stats.wasteMillis > 0) {
+            log.info("Wasted millis per batch: " + stats.wasteMillis / (total / publishBatchSize));
+          }
         });
   }
 

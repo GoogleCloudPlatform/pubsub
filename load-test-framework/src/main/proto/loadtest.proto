@@ -93,6 +93,8 @@ message CheckResponse {
 
   // True if the load test has finished running.
   bool is_finished = 3;
+
+  int64 wasted_millis = 4;
 }
 
 message ExecuteRequest {

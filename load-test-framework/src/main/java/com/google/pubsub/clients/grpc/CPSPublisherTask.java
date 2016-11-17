@@ -100,6 +100,8 @@ class CPSPublisherTask extends Task {
     PublisherGrpc.PublisherBlockingStub stub = getStub();
     PublishRequest.Builder requestBuilder = PublishRequest.newBuilder().setTopic(topic);
     String sendTime = String.valueOf(System.currentTimeMillis());
+    // This will aggregate the time from one publish run ending to the start of the next one
+    wasteTime.stop();
     Stopwatch stopwatch = Stopwatch.createStarted();
     for (int i = 0; i < batchSize; i++) {
       requestBuilder.addMessages(PubsubMessage.newBuilder()
@@ -109,6 +111,7 @@ class CPSPublisherTask extends Task {
     PublishRequest request = requestBuilder.build();
     stub.publish(request);
     stopwatch.stop();
+    wasteTime.start();
     numberOfMessages.addAndGet(batchSize);
     metricsHandler.recordLatencyBatch(stopwatch.elapsed(TimeUnit.MILLISECONDS), batchSize);
   }

@@ -68,6 +68,7 @@ public class Client {
   private int errors = 0;
   private long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
   private long runningSeconds = 0;
+  private long wastedMillis = 0;
   private SettableFuture<Void> doneFuture = SettableFuture.create();
 
   Client(
@@ -136,6 +137,8 @@ public class Client {
   long[] getBucketValues() {
     return bucketValues;
   }
+
+  long getWastedMillis() { return wastedMillis; }
 
   void start() throws Throwable {
     // Send a gRPC call to start the server
@@ -241,6 +244,7 @@ public class Client {
                 bucketValues[i] += checkResponse.getBucketValues(i);
               }
               runningSeconds = checkResponse.getRunningDuration().getSeconds();
+              wastedMillis = checkResponse.getWastedMillis();
             }
           }
 

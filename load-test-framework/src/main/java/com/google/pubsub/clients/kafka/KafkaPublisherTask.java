@@ -79,15 +79,19 @@ class KafkaPublisherTask extends Task {
     Callback callback = (metadata, exception) -> {
       callbackPool.submit(new MetricsTask(metadata, exception, callbackCount));
     };
+    // This will aggregate the time from one publish run ending to the start of the next one
+    wasteTime.stop();
+    long startTime = System.currentTimeMillis();
     for (int i = 0; i < batchSize; i++) {
       publisher.send(
-          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload), callback);
+          new ProducerRecord<>(topic, null, startTime, null, payload), callback);
     }
     try {
       callbackCount.wait(); // wait until all callbacks for batch are received, notify in callback
     } catch (InterruptedException e) {
       log.error(e.getMessage(), e);
     }
+    wasteTime.start();
   }
 
   private class MetricsTask implements Runnable {

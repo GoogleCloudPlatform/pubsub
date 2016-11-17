@@ -140,6 +140,7 @@ public class LoadTestRunner {
                                 Duration.newBuilder()
                                     .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
                             .setIsFinished(finishedValue)
+                            .setWastedMillis(client.getWasteElapsed())
                             .build());
                     responseObserver.onCompleted();
                     if (finishedValue) {
