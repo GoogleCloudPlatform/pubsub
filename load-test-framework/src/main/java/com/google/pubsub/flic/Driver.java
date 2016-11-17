@@ -171,7 +171,7 @@ public class Driver {
     names = {"--max_outstanding_requests"},
     description = "The maximum number of outstanding requests each client will allow."
   )
-  private int maxOutstandingRequests = 20;
+  private int maxOutstandingRequests = 32;
 
   @Parameter(
     names = {"--burn_in_duration_seconds"},
