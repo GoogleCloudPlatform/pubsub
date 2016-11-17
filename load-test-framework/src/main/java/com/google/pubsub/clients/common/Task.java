@@ -17,18 +17,23 @@
 package com.google.pubsub.clients.common;
 
 import com.google.common.base.Stopwatch;
+import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Each task is responsible for implementing its action and for creating {@link LoadTestRunner}.
  */
 public abstract class Task implements Runnable {
   protected final MetricsHandler metricsHandler;
-  protected final AtomicInteger numberOfMessages = new AtomicInteger(0);
+  protected final AtomicInteger numMessages = new AtomicInteger(0);
   protected final AtomicInteger errorCount = new AtomicInteger(0);
   protected final Stopwatch wasteTime = Stopwatch.createUnstarted();
+  private final List<MessageIdentifier> identifiers = new ArrayList<>();
+  private final AtomicLong lastUpdateMillis = new AtomicLong(System.currentTimeMillis());
 
   protected Task(String project, String type, MetricsHandler.MetricName metricName) {
     this.metricsHandler = new MetricsHandler(project, type, metricName);
@@ -38,8 +43,41 @@ public abstract class Task implements Runnable {
     return metricsHandler.flushBucketValues();
   }
 
-  int getNumberOfMessages() {
-    return numberOfMessages.get();
+  protected void addNumberOfMessages(int toAdd) {
+    numMessages.getAndAdd(toAdd);
+    lastUpdateMillis.set(System.currentTimeMillis());
+  }
+
+  protected int getNumberOfMessages() {
+    return numMessages.get();
+  }
+
+  protected int getAndIncrementNumberOfMessages() {
+    return numMessages.getAndIncrement();
+  }
+
+  long getLastUpdateMillis() {
+    return lastUpdateMillis.get();
+  }
+
+  protected synchronized void addMessageIdentifier(int clientId, int sequenceNumber) {
+    identifiers.add(MessageIdentifier.newBuilder()
+        .setPublisherClientId(clientId)
+        .setSequenceNumber(sequenceNumber)
+        .build());
+    lastUpdateMillis.set(System.currentTimeMillis());
+  }
+
+  protected synchronized void addAllMessageIdentifiers(List<MessageIdentifier> identifiers) {
+    this.identifiers.addAll(identifiers);
+    lastUpdateMillis.set(System.currentTimeMillis());
+  }
+
+  synchronized List<MessageIdentifier> getMessageIdentifiers() {
+    List<MessageIdentifier> returnedMessageIdentifiers = new ArrayList<>();
+    returnedMessageIdentifiers.addAll(identifiers);
+    identifiers.clear();
+    return returnedMessageIdentifiers;
   }
 
   long getWasteElapsed() { return wasteTime.elapsed(TimeUnit.MILLISECONDS); }

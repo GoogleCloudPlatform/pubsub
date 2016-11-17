@@ -165,11 +165,11 @@ public abstract class Controller {
    * Sends a LoadtestFramework.Start RPC to all clients to commence the load test. When this
    * function returns it is guaranteed that all clients have started.
    */
-  public void startClients() {
+  public void startClients(MessageTracker messageTracker) {
     SettableFuture<Void> startFuture = SettableFuture.create();
     clients.forEach((client) -> executor.execute(() -> {
       try {
-        client.start();
+        client.start(messageTracker);
         startFuture.set(null);
       } catch (Throwable t) {
         startFuture.setException(t);

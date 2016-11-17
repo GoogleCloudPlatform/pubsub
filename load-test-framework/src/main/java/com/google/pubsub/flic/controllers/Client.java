@@ -70,6 +70,7 @@ public class Client {
   private long runningSeconds = 0;
   private long wastedMillis = 0;
   private SettableFuture<Void> doneFuture = SettableFuture.create();
+  private MessageTracker messageTracker;
 
   Client(
       ClientType clientType,
@@ -140,7 +141,8 @@ public class Client {
 
   long getWastedMillis() { return wastedMillis; }
 
-  void start() throws Throwable {
+  void start(MessageTracker messageTracker) throws Throwable {
+    this.messageTracker = messageTracker;
     // Send a gRPC call to start the server
     log.info("Connecting to " + networkAddress + ":" + PORT);
     StartRequest.Builder requestBuilder = StartRequest.newBuilder()
@@ -246,6 +248,7 @@ public class Client {
               runningSeconds = checkResponse.getRunningDuration().getSeconds();
               wastedMillis = checkResponse.getWastedMillis();
             }
+            messageTracker.addAllMessageIdentifiers(checkResponse.getReceivedMessagesList());
           }
 
           @Override

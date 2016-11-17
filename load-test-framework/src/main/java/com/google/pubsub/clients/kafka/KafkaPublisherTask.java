@@ -120,7 +120,7 @@ class KafkaPublisherTask extends Task {
         errorCount.incrementAndGet();
         return;
       }
-      numberOfMessages.incrementAndGet();
+      addNumberOfMessages(1);
       metricsHandler.recordLatency(callbackTime - metadata.timestamp());
       if (callbackCount.decrementAndGet() == 0) {
         callbackCount.notify(); // wakes up parent run() thread for this batch

@@ -116,7 +116,7 @@ class CPSPublisherTask extends Task {
     try {
       wasteTime.start();
     } catch (IllegalStateException e) { } // Watch already running, fine.
-    numberOfMessages.addAndGet(batchSize);
+    addNumberOfMessages(batchSize);
     metricsHandler.recordLatencyBatch(stopwatch.elapsed(TimeUnit.MILLISECONDS), batchSize);
   }
 }

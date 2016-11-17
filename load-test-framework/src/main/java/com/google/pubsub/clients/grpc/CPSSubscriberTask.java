@@ -111,7 +111,7 @@ class CPSSubscriberTask extends Task {
         metricsHandler.recordLatency(now - Long.parseLong(recvMsg.getMessage()
             .getAttributesMap().get("sendTime")));
       }
-      numberOfMessages.addAndGet(ackIds.size());
+      addNumberOfMessages(ackIds.size());
       stub.acknowledge(
           AcknowledgeRequest.newBuilder()
               .setSubscription(subscription)

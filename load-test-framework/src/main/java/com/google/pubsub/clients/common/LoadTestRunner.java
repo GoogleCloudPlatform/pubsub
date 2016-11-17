@@ -43,13 +43,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Starts a server to get the start request, then starts the load client.
+ * Starts a server to get the start request, then starts the load task.
  */
 public class LoadTestRunner {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
   private static final Stopwatch stopwatch = Stopwatch.createUnstarted();
   private static Server server;
-  private static Task client;
+  private static Task task;
   private static final AtomicBoolean finished = new AtomicBoolean(true);
   private static SettableFuture<Void> finishedFuture = SettableFuture.create();
 
@@ -87,7 +87,7 @@ public class LoadTestRunner {
     while (shouldContinue(request)) {
       outstandingTestLimiter.acquireUninterruptibly();
       rateLimiter.acquire();
-      executor.submit(client).addListener(outstandingTestLimiter::release, executor);
+      executor.submit(task).addListener(outstandingTestLimiter::release, executor);
     }
     stopwatch.stop();
     executor.shutdownNow();
@@ -99,7 +99,6 @@ public class LoadTestRunner {
       throws Exception {
     run(options, function, null);
   }
-
 
   public static void run(
       Options options,
@@ -122,7 +121,7 @@ public class LoadTestRunner {
                     }
                     finishedFuture = SettableFuture.create();
                     stopwatch.reset();
-                    client = function.apply(request);
+                    task = function.apply(request);
                     Executors.newSingleThreadExecutor()
                         .submit(() -> LoadTestRunner.runTest(request));
                     responseObserver.onNext(StartResponse.getDefaultInstance());
@@ -135,12 +134,13 @@ public class LoadTestRunner {
                     boolean finishedValue = finished.get();
                     responseObserver.onNext(
                         CheckResponse.newBuilder()
-                            .addAllBucketValues(client.getBucketValues())
+                            .addAllBucketValues(task.getBucketValues())
                             .setRunningDuration(
                                 Duration.newBuilder()
                                     .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
                             .setIsFinished(finishedValue)
-                            .setWastedMillis(client.getWasteElapsed())
+                            .setWastedMillis(task.getWasteElapsed())
+                            .addAllReceivedMessages(task.getMessageIdentifiers())
                             .build());
                     responseObserver.onCompleted();
                     if (finishedValue) {
@@ -165,12 +165,16 @@ public class LoadTestRunner {
   }
 
   private static boolean shouldContinue(StartRequest request) {
+    // If we have been idle for a minute, we should stop.
+    if (System.currentTimeMillis() - task.getLastUpdateMillis() > 60 * 1000) {
+      return false;
+    }
     switch (request.getStopConditionsCase()) {
       case TEST_DURATION:
         return System.currentTimeMillis()
             < (request.getStartTime().getSeconds() + request.getTestDuration().getSeconds()) * 1000;
       case NUMBER_OF_MESSAGES:
-        return client.getNumberOfMessages() < request.getNumberOfMessages();
+        return task.getNumberOfMessages() < request.getNumberOfMessages();
       default:
         return false;
     }

@@ -62,7 +62,7 @@ class KafkaSubscriberTask extends Task {
   @Override
   public void run() {
     ConsumerRecords<String, String> records = subscriber.poll(pollLength);
-    numberOfMessages.addAndGet(records.count());
+    addNumberOfMessages(records.count());
     long now = System.currentTimeMillis();
     records.forEach(record -> metricsHandler.recordLatency(now - record.timestamp()));
   }
