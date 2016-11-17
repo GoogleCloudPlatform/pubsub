@@ -16,9 +16,7 @@
 
 package com.google.cloud.pubsub;
 
-import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.pubsub.Subscriber.MessageReceiver;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Service.Listener;
@@ -37,10 +35,10 @@ public class SubscriberSamples {
   }
 
   @SuppressWarnings("unchecked")
-  public void simpleSubscriber(GoogleCredentials creds) throws Exception {
+  public void simpleSubscriber() throws Exception {
     final SampleMessageReceiver messageReceiver = new SampleMessageReceiver();
     Subscriber subscriber =
-        Subscriber.Builder.newBuilder(subscription, creds, messageReceiver).build();
+        Subscriber.Builder.newBuilder(subscription, messageReceiver).build();
 
     printMessagesReceivedCount(messageReceiver);
 
@@ -87,11 +85,7 @@ public class SubscriberSamples {
       return;
     }
 
-    GoogleCredentials creds =
-        GoogleCredentials.getApplicationDefault()
-            .createScoped(ImmutableList.of("https://www.googleapis.com/auth/cloud-platform"));
-
     SubscriberSamples samples = new SubscriberSamples(args[0]);
-    samples.simpleSubscriber(creds);
+    samples.simpleSubscriber();
   }
 }

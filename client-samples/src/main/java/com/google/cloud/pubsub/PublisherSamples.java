@@ -16,8 +16,6 @@
 
 package com.google.cloud.pubsub;
 
-import com.google.auth.oauth2.GoogleCredentials;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
@@ -39,9 +37,9 @@ public class PublisherSamples {
   }
 
   @SuppressWarnings("unchecked")
-  public void simplePublisher(GoogleCredentials creds) throws Exception {
+  public void simplePublisher() throws Exception {
     Publisher publisher =
-        Publisher.Builder.newBuilder(topic, creds)
+        Publisher.Builder.newBuilder(topic)
             .setMaxBatchDuration(new Duration(500))
             .setMaxBatchBytes(1 * 1000 * 1000)
             .setRequestTimeout(Duration.standardSeconds(60))
@@ -66,9 +64,9 @@ public class PublisherSamples {
     publisher.shutdown();
   }
 
-  public void customBatchingPublisher(GoogleCredentials creds) throws Exception {
+  public void customBatchingPublisher() throws Exception {
     Publisher publisher =
-        Publisher.Builder.newBuilder(topic, creds)
+        Publisher.Builder.newBuilder(topic)
             .setMaxBatchMessages(10)
             .build();
 
@@ -84,9 +82,9 @@ public class PublisherSamples {
     publisher.shutdown();
   }
 
-  private void flowControlledPublisher(GoogleCredentials creds) throws Exception {
+  private void flowControlledPublisher() throws Exception {
     Publisher publisher =
-        Publisher.Builder.newBuilder(topic, creds)
+        Publisher.Builder.newBuilder(topic)
             .setMaxOutstandingBytes(10 * 1000 * 1000) // 10 MB
             .build();
 
@@ -139,13 +137,9 @@ public class PublisherSamples {
       return;
     }
 
-    GoogleCredentials creds =
-        GoogleCredentials.getApplicationDefault()
-            .createScoped(ImmutableList.of("https://www.googleapis.com/auth/cloud-platform"));
-
     PublisherSamples samples = new PublisherSamples(args[0]);
-    samples.simplePublisher(creds);
-    samples.customBatchingPublisher(creds);
-    samples.flowControlledPublisher(creds);
+    samples.simplePublisher();
+    samples.customBatchingPublisher();
+    samples.flowControlledPublisher();
   }
 }

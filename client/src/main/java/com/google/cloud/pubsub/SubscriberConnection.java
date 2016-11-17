@@ -16,6 +16,7 @@
 
 package com.google.cloud.pubsub;
 
+import com.google.auth.Credentials;
 import com.google.cloud.pubsub.Subscriber.MessageReceiver;
 import com.google.cloud.pubsub.Subscriber.MessageReceiver.AckReply;
 import com.google.common.collect.Lists;
@@ -34,6 +35,7 @@ import com.google.pubsub.v1.SubscriberGrpc;
 import io.grpc.CallOptions;
 import io.grpc.Channel;
 import io.grpc.Status;
+import io.grpc.auth.MoreCallCredentials;
 import io.grpc.stub.ClientCallStreamObserver;
 import io.grpc.stub.ClientCalls;
 import io.grpc.stub.ClientResponseObserver;
@@ -92,6 +94,7 @@ final class SubscriberConnection extends AbstractService {
   private final Set<String> pendingNacks;
 
   private final Channel channel;
+  private final Credentials credentials;
 
   private ClientCallStreamObserver<StreamingPullRequest> requestObserver;
 
@@ -106,12 +109,14 @@ final class SubscriberConnection extends AbstractService {
 
   public SubscriberConnection(
       String subscription,
+      Credentials credentials,
       MessageReceiver receiver,
       Duration ackExpirationPadding,
       Channel channel,
       FlowController flowController,
       ScheduledExecutorService executor) {
     this.executor = executor;
+    this.credentials = credentials;
     this.ackExpirationPadding = ackExpirationPadding;
     streamAckDeadlineSeconds =
         Math.max(
@@ -325,8 +330,10 @@ final class SubscriberConnection extends AbstractService {
     final ClientCallStreamObserver<StreamingPullRequest> requestObserver =
         (ClientCallStreamObserver<StreamingPullRequest>)
             (ClientCalls.asyncBidiStreamingCall(
-                channel.newCall(SubscriberGrpc.METHOD_STREAMING_PULL, CallOptions.DEFAULT),
-                responseObserver));
+                channel.newCall(
+                    SubscriberGrpc.METHOD_STREAMING_PULL,
+                    CallOptions.DEFAULT.withCallCredentials(MoreCallCredentials.from(credentials))),
+                    responseObserver));
     logger.debug(
         "Initializing stream to subscription {} with deadline {}",
         subscription,

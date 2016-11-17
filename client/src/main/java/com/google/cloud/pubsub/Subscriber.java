@@ -20,7 +20,6 @@ import com.google.auth.Credentials;
 import com.google.cloud.pubsub.Subscriber.MessageReceiver.AckReply;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.base.Supplier;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Service;
 import com.google.pubsub.v1.PubsubMessage;
@@ -51,15 +50,12 @@ import org.joda.time.Duration;
  *       in memory before the receiver either ack or nack them.
  * </ul>
  *
- * <p>It also provides transparent management of the streaming channel. So in the event of a channel
- * error, the {@link Subscriber} will automatically recycle the channel and attempt to resume the
- * streaming of messages.
+ * <p>If no credentials are provided, the {@link Publisher} will use application default
+ * credentials through {@link GoogleCredentials#getApplicationDefault}.
  *
  * <p>For example, a {@link Subscriber} can be constructed and used to receive messages as follows:
  *
  * <pre>
- *  GoogleCredentials credentials = ... setup your credentials ...
- *
  *  MessageReceiver receiver =
  *      message -> {
  *        // ... process message ...
@@ -67,7 +63,7 @@ import org.joda.time.Duration;
  *      });
  *
  *  Subscriber subscriber =
- *      Subscriber.Builder.newBuilder(MY_SUBSCRIPTION, credentials, receiver)
+ *      Subscriber.Builder.newBuilder(MY_SUBSCRIPTION, receiver)
  *          .setMaxBatchAcks(100)
  *          .build();
  *
@@ -89,6 +85,7 @@ import org.joda.time.Duration;
  */
 public interface Subscriber extends Service {
   static final String PUBSUB_API_ADDRESS = "pubsub.googleapis.com";
+  static final String PUBSUB_API_SCOPE = "https://www.googleapis.com/auth/pubsub";
 
   /** Retrieves a snapshot of the current subscriber statistics. */
   SubscriberStats getStats();
@@ -155,58 +152,52 @@ public interface Subscriber extends Service {
     Optional<Channel> channel;
 
     /**
-     * Constructs a new {@link Builder} using the given credentials.
+     * Constructs a new {@link Builder}.
      *
      * <p>Once {@link #build()} is called a gRPC stub will be created for use of the {@link
      * Publisher}.
      *
      * @param subscription Cloud Pub/Sub subscription to bind the subscriber to
-     * @param credentials credentials to use to authenticate the requests
      * @param receiver an implementation of {@link MessageReceiver} used to process the received
      *     messages
      */
-    public static Builder newBuilder(
-        String subscription, Credentials credentials, MessageReceiver receiver) {
-      return new Builder(subscription, credentials, receiver);
+    public static Builder newBuilder(String subscription, MessageReceiver receiver) {
+      return new Builder(subscription, receiver);
     }
 
-    /**
-     * Constructs a new {@link Builder} using the given channel {@link Supplier}.
-     *
-     * <p>The given channel must have already setup the proper API scopes and credentials
-     * to call the Pub/Sub API.
-     *
-     * @param subscription Cloud Pub/Sub subscription to bind the subscriber to
-     * @param channel gRPC channel
-     * @param receiver an implementation of {@link MessageReceiver} used to process the received
-     *     messages
-     */
-    public static Builder newBuilder(
-        String subscription, Channel channel, MessageReceiver receiver) {
-      return new Builder(subscription, channel, receiver);
-    }
-
-    Builder(String subscription, Credentials credentials, MessageReceiver receiver) {
+    Builder(String subscription, MessageReceiver receiver) {
       setDefaults();
       this.subscription = subscription;
-      this.credentials = Optional.of(credentials);
-      this.channel = Optional.absent();
-      this.receiver = receiver;
-    }
-
-    Builder(String subscription, Channel channel, MessageReceiver receiver) {
-      setDefaults();
-      this.subscription = subscription;
-      this.credentials = Optional.absent();
-      this.channel = Optional.of(channel);
       this.receiver = receiver;
     }
 
     private void setDefaults() {
+      credentials = Optional.absent();
+      channel = Optional.absent();
       ackExpirationPadding = DEFAULT_ACK_EXPIRATION_PADDING;
       maxOutstandingBytes = Optional.absent();
       maxOutstandingMessages = Optional.absent();
       executor = Optional.absent();
+    }
+
+    /**
+     * Credentials to authenticate with.
+     *
+     * <p>Must be properly scoped for accessing Cloud Pub/Sub APIs.
+     */
+    public Builder setCredentials(Credentials credentials) {
+      this.credentials = Optional.of(Preconditions.checkNotNull(credentials));
+      return this;
+    }
+
+    /**
+     * Channel to use.
+     *
+     * <p>Must point at Cloud Pub/Sub endpoint.
+     */
+    public Builder setChannel(Channel channel) {
+      this.channel = Optional.of(Preconditions.checkNotNull(channel));
+      return this;
     }
 
     /**
