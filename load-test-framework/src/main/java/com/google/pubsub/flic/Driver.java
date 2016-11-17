@@ -403,16 +403,16 @@ public class Driver {
                 }
               });
         }
-        if (publishLatency.get() < maxPublishLatencyMillis) {
-          highestRequestRate = Client.requestRate;
-        }
-        Client.requestRate = (int) (Client.requestRate * 1.1);
-        printStats(statsMap);
         if (spreadsheetId.length() > 0) {
           // Output results to common Google sheet
           SheetsService service = new SheetsService(dataStoreDirectory, controller.getTypes());
           service.sendToSheets(spreadsheetId, statsMap);
         }
+        if (publishLatency.get() < maxPublishLatencyMillis) {
+          highestRequestRate = Client.requestRate;
+        }
+        Client.requestRate = (int) (Client.requestRate * 1.1);
+        printStats(statsMap);
       } while ((maxPublishLatencyTest && publishLatency.get() < maxPublishLatencyMillis)
           || (maxSubscriberThroughputTest && backlogSize < maxSubscriberThroughputTestBacklog));
       synchronized (pollingExecutor) {
