@@ -77,7 +77,8 @@ class KafkaPublisherTask extends Task {
   public void run() {
     AtomicInteger callbackCount = new AtomicInteger(batchSize);
     Callback callback = (metadata, exception) -> {
-      callbackPool.submit(new MetricsTask(metadata, exception, callbackCount));
+      callbackPool.submit(
+          new MetricsTask(metadata, exception, callbackCount, System.currentTimeMillis()));
     };
     // This will aggregate the time from one publish run ending to the start of the next one
     try {
@@ -102,11 +103,14 @@ class KafkaPublisherTask extends Task {
     private RecordMetadata metadata;
     private Exception exception;
     private AtomicInteger callbackCount;
+    private long callbackTime;
 
-    public MetricsTask(RecordMetadata metadata, Exception exception, AtomicInteger callbackCount) {
+    public MetricsTask(RecordMetadata metadata, Exception exception, AtomicInteger callbackCount,
+        long callbackTime) {
       this.metadata = metadata;
       this.exception = exception;
       this.callbackCount = callbackCount;
+      this.callbackTime = callbackTime;
     }
 
     @Override
@@ -117,7 +121,7 @@ class KafkaPublisherTask extends Task {
         return;
       }
       numberOfMessages.incrementAndGet();
-      metricsHandler.recordLatency(System.currentTimeMillis() - metadata.timestamp());
+      metricsHandler.recordLatency(callbackTime - metadata.timestamp());
       if (callbackCount.decrementAndGet() == 0) {
         callbackCount.notify(); // wakes up parent run() thread for this batch
       }
