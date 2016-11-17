@@ -101,7 +101,9 @@ class CPSPublisherTask extends Task {
     PublishRequest.Builder requestBuilder = PublishRequest.newBuilder().setTopic(topic);
     String sendTime = String.valueOf(System.currentTimeMillis());
     // This will aggregate the time from one publish run ending to the start of the next one
-    wasteTime.stop();
+    try {
+      wasteTime.stop();
+    } catch (IllegalStateException e) { } // Watch already stopped, fine.
     Stopwatch stopwatch = Stopwatch.createStarted();
     for (int i = 0; i < batchSize; i++) {
       requestBuilder.addMessages(PubsubMessage.newBuilder()
@@ -111,7 +113,9 @@ class CPSPublisherTask extends Task {
     PublishRequest request = requestBuilder.build();
     stub.publish(request);
     stopwatch.stop();
-    wasteTime.start();
+    try {
+      wasteTime.start();
+    } catch (IllegalStateException e) { } // Watch already running, fine.
     numberOfMessages.addAndGet(batchSize);
     metricsHandler.recordLatencyBatch(stopwatch.elapsed(TimeUnit.MILLISECONDS), batchSize);
   }

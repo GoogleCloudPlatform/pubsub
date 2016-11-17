@@ -157,12 +157,14 @@ public class SheetsService {
     valueRow.add(Client.maxOutstandingRequests);
     valueRow.add(Client.requestRate);
     valueRow.add(Client.requestRate * count);
-    double messagesPerSec = LongStream.of(stats.bucketValues).sum() / (double) stats.runningSeconds;
+    long totalSent = LongStream.of(stats.bucketValues).sum();
+    double messagesPerSec = (double) totalSent / (double) stats.runningSeconds;
     valueRow.add(new DecimalFormat("#.##").format(messagesPerSec / Client.publishBatchSize));
     valueRow.add(new DecimalFormat("#.##").format(messagesPerSec * Client.messageSize / 1000000.0));
     valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 50.0));
     valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.0));
     valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9));
+    valueRow.add(stats.wasteMillis / (totalSent / Client.publishBatchSize));
     if (type.toString().startsWith("cps")) {
       cpsValues.add(valueRow);
     } else if (type.toString().startsWith("kafka")) {
