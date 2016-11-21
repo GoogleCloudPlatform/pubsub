@@ -22,6 +22,7 @@ import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
@@ -31,9 +32,10 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
  */
 class KafkaSubscriberTask extends Task {
   private final long pollLength;
-  private final KafkaConsumer<String, String> subscriber;
+  private final ConcurrentLinkedQueue<KafkaConsumer<String, String>> queue;
 
-  private KafkaSubscriberTask(String broker, String project, String topic, long pollLength) {
+  private KafkaSubscriberTask(String broker, String project, String topic, long pollLength,
+      int subscriberCount) {
     super(project, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);
     this.pollLength = pollLength;
 
@@ -47,8 +49,12 @@ class KafkaSubscriberTask extends Task {
         "session.timeout.ms", "30000"
     ));
     props.put("bootstrap.servers", broker);
-    subscriber = new KafkaConsumer<>(props);
-    subscriber.subscribe(Collections.singletonList(topic));
+    queue = new ConcurrentLinkedQueue<>();
+    for (int i = 0; i < subscriberCount; i++) {
+      KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(props);
+      consumer.subscribe(Collections.singletonList(topic));
+      queue.add(consumer);
+    }
   }
 
   public static void main(String[] args) throws Exception {
@@ -56,14 +62,26 @@ class KafkaSubscriberTask extends Task {
     new JCommander(options, args);
     LoadTestRunner.run(options, request ->
         new KafkaSubscriberTask(request.getKafkaOptions().getBroker(), request.getProject(),
-            request.getTopic(), request.getRequestRate()));
+            request.getTopic(), request.getRequestRate(), request.getMaxOutstandingRequests()));
   }
 
   @Override
   public void run() {
-    ConsumerRecords<String, String> records = subscriber.poll(pollLength);
+    KafkaConsumer<String, String> consumer = queue.poll();
+    while (consumer == null) { // Shouldn't ever happen, included just in case
+      try {
+        Thread.sleep(5);
+      } catch (InterruptedException e) { }
+      consumer = queue.poll();
+    }
+    ConsumerRecords<String, String> records = consumer.poll(pollLength);
     addNumberOfMessages(records.count());
-    long now = System.currentTimeMillis();
-    records.forEach(record -> metricsHandler.recordLatency(now - record.timestamp()));
+    records.forEach(record ->
+        metricsHandler.recordLatency(System.currentTimeMillis() - record.timestamp()));
+    queue.add(consumer);
+  }
+
+  private int getConsumerIndex() {
+    return 0;
   }
 }
