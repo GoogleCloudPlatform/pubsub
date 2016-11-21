@@ -2,7 +2,7 @@
 
 This load test framework, known as Flic (Framework of load & integration for
 Cloud Pub/Sub), for Cloud Pub/Sub is a tool targeted for developers and
-companies who wish to benchmark Cloud Pub/Sub and Kafka.
+companies who wish to benchmark Google Cloud Pub/Sub and Apache Kafka.
 
 The goal of this framework is twofold:
 
