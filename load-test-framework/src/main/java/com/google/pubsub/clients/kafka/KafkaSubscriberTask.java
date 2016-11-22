@@ -48,9 +48,10 @@ class KafkaSubscriberTask extends Task {
         .put("max.partition.fetch.bytes", pullSize)
         .put("fetch.wait.max.ms", maxFetchMs)
         .put("enable.auto.commit", "true")
-        .put("session.timeout.ms", "30000").build()
+        .put("session.timeout.ms", "30000")
+        .put("auto.offset.reset", "latest")
+        .put("bootstrap.servers", broker).build()
     );
-    props.put("bootstrap.servers", broker);
     queue = new ConcurrentLinkedQueue<>();
     for (int i = 0; i < consumerCount; i++) {
       KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(props);
