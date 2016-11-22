@@ -70,7 +70,12 @@ public class LoadTestRunner {
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(request.getMaxOutstandingRequests() + 10));
 
-    final RateLimiter rateLimiter = RateLimiter.create(request.getRequestRate());
+    final RateLimiter rateLimiter;
+    if (request.getSubscription() == null) { // Only limit publisher to avoid subscriber backup
+      rateLimiter = RateLimiter.create(request.getRequestRate());
+    }  else {
+      rateLimiter = RateLimiter.create(Double.MAX_VALUE);
+    }
     final Semaphore outstandingTestLimiter =
         new Semaphore(request.getMaxOutstandingRequests(), false);
 
