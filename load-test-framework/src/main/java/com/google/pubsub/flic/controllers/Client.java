@@ -25,7 +25,6 @@ import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.common.LoadtestGrpc;
 import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
-import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.ManagedChannelBuilder;
@@ -52,6 +51,7 @@ public class Client {
   public static int publishBatchSize;
   public static int maxMessagesPerPull;
   public static int pollLength;
+  public static int maxFetchMs;
   public static String broker;
   public static int maxOutstandingRequests;
   public static long burnInTimeMillis;
@@ -152,7 +152,9 @@ public class Client {
         .setMessageSize(messageSize)
         .setRequestRate(requestRate)
         .setStartTime(startTime)
-        .setPublishBatchSize(publishBatchSize);
+        .setPublishBatchSize(publishBatchSize)
+        .setSubscription(subscription)
+        .setMaxMessagesPerPull(maxMessagesPerPull);
     if (numberOfMessages > 0) {
       requestBuilder.setNumberOfMessages(numberOfMessages);
     } else {
@@ -160,12 +162,6 @@ public class Client {
           .setSeconds(loadtestLengthSeconds).build());
     }
     switch (clientType) {
-      case CPS_GCLOUD_JAVA_SUBSCRIBER:
-      case CPS_GRPC_SUBSCRIBER:
-        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
-            .setSubscription(subscription)
-            .setMaxMessagesPerPull(maxMessagesPerPull));
-        break;
       case KAFKA_PUBLISHER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker));
@@ -173,7 +169,8 @@ public class Client {
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)
-            .setPollLength(pollLength));
+            .setPollLength(pollLength)
+            .setMaxFetchMs(maxFetchMs));
         break;
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:

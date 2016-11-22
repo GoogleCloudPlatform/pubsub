@@ -34,23 +34,25 @@ class KafkaSubscriberTask extends Task {
   private final long pollLength;
   private final ConcurrentLinkedQueue<KafkaConsumer<String, String>> queue;
 
-  private KafkaSubscriberTask(String broker, String project, String topic, long pollLength,
-      int subscriberCount) {
+  private KafkaSubscriberTask(String broker, String project, String topic, String consumerGroup,
+      long pollLength, int consumerCount, int pullSize, int maxFetchMs) {
     super(project, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);
     this.pollLength = pollLength;
 
     // Create subscriber
     Properties props = new Properties();
-    props.putAll(ImmutableMap.of(
-        "key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
-        "value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
-        "group.id", "SUBSCRIBER_ID",
-        "enable.auto.commit", "true",
-        "session.timeout.ms", "30000"
-    ));
+    props.putAll(new ImmutableMap.Builder<>()
+        .put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+        .put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+        .put("group.id", consumerGroup)
+        .put("max.partition.fetch.bytes", pullSize)
+        .put("fetch.wait.max.ms", maxFetchMs)
+        .put("enable.auto.commit", "true")
+        .put("session.timeout.ms", "30000").build()
+    );
     props.put("bootstrap.servers", broker);
     queue = new ConcurrentLinkedQueue<>();
-    for (int i = 0; i < subscriberCount; i++) {
+    for (int i = 0; i < consumerCount; i++) {
       KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(props);
       consumer.subscribe(Collections.singletonList(topic));
       queue.add(consumer);
@@ -62,7 +64,10 @@ class KafkaSubscriberTask extends Task {
     new JCommander(options, args);
     LoadTestRunner.run(options, request ->
         new KafkaSubscriberTask(request.getKafkaOptions().getBroker(), request.getProject(),
-            request.getTopic(), request.getRequestRate(), request.getMaxOutstandingRequests()));
+            request.getTopic(), request.getSubscription(),
+            request.getKafkaOptions().getPollLength(), request.getMaxOutstandingRequests(),
+            request.getMessageSize() * request.getMaxMessagesPerPull(),
+            request.getKafkaOptions().getMaxFetchMs()));
   }
 
   @Override

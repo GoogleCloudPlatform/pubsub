@@ -149,11 +149,12 @@ public class Driver {
   private int kafkaPollLength = 100;
 
   @Parameter(
-    names = {"--cps_subscription_fanout"},
-    description = "Number of subscriptions to create for each topic. Must be at least 1.",
+    names = {"--subscription_fanout"},
+    description = "Number of subscriptions (or consumer groups for Kafka) to create for each topic."
+        + " Must be at least 1.",
     validateWith = GreaterThanZeroValidator.class
   )
-  private int cpsSubscriptionFanout = 1;
+  private int subscriptionFanout = 1;
 
   @Parameter(
     names = {"--broker"},
@@ -259,6 +260,12 @@ public class Driver {
   )
   private String zone = "us-central1-a";
 
+  @Parameter(
+      names = {"--max_fetch_ms"},
+      description = "The maximum time the Kafka consumer's pull call blocks before returning."
+  )
+  private int maxFetchMs = 100;
+
   public static void main(String[] args) {
     Driver driver = new Driver();
     JCommander jCommander = new JCommander(driver, args);
@@ -305,11 +312,13 @@ public class Driver {
       ));
       // Each type of client will have its own topic, so each topic will get
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
-      for (int i = 0; i < cpsSubscriptionFanout; ++i) {
+      for (int i = 0; i < subscriptionFanout; ++i) {
         clientParamsMap.put(new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER,
-            "gcloud-subscription" + i), cpsSubscriberCount / cpsSubscriptionFanout);
+            "gcloud-subscription" + i), cpsSubscriberCount / subscriptionFanout);
         clientParamsMap.put(new ClientParams(ClientType.CPS_GRPC_SUBSCRIBER,
-            "grpc-subscription" + i), cpsGrpcSubscriberCount / cpsSubscriptionFanout);
+            "grpc-subscription" + i), cpsGrpcSubscriberCount / subscriptionFanout);
+        clientParamsMap.put(new ClientParams(ClientType.KAFKA_SUBSCRIBER,
+            "consumer-group" + i), kafkaSubscriberCount / subscriptionFanout);
       }
       Client.messageSize = messageSize;
       Client.requestRate = requestRate;
@@ -317,6 +326,7 @@ public class Driver {
       Client.publishBatchSize = publishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
       Client.pollLength = kafkaPollLength;
+      Client.maxFetchMs = maxFetchMs;
       Client.broker = broker;
       Client.maxOutstandingRequests = maxOutstandingRequests;
       Client.numberOfMessages = numberOfMessages;

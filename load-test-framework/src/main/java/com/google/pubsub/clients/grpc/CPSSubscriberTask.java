@@ -74,9 +74,8 @@ class CPSSubscriberTask extends Task {
     LoadTestRunner.Options options = new LoadTestRunner.Options();
     new JCommander(options, args);
     LoadTestRunner.run(options, request ->
-        new CPSSubscriberTask(request.getProject(), request.getPubsubOptions().getSubscription(),
-            request.getPubsubOptions().getMaxMessagesPerPull(),
-            request.getMaxOutstandingRequests()));
+        new CPSSubscriberTask(request.getProject(), request.getSubscription(),
+            request.getMaxMessagesPerPull(), request.getMaxOutstandingRequests()));
   }
 
   private Channel getChannel() throws SSLException {

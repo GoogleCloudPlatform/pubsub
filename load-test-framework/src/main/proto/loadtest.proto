@@ -53,24 +53,19 @@ message StartRequest {
     int32 number_of_messages = 8;
   }
 
-  oneof options {
-    PubsubOptions pubsub_options = 9;
-    KafkaOptions kafka_options = 10;
-  }
+  KafkaOptions kafka_options = 9;
 
   // The number of user messages of size message_size to batch together in each publish
-  int32 publish_batch_size = 11;
+  int32 publish_batch_size = 10;
+
+  // The Cloud Pub/Sub subscription name or Kafka Consumer Group
+  string subscription = 11;
+
+  // The maximum number of messages to pull which each request.
+  int32 max_messages_per_pull = 12;
 }
 
 message StartResponse {
-}
-
-message PubsubOptions {
-  // The Cloud Pub/Sub subscription name
-  string subscription = 1;
-
-  // The maximum number of messages to pull which each request.
-  int32 max_messages_per_pull = 2;
 }
 
 message KafkaOptions {
@@ -79,6 +74,8 @@ message KafkaOptions {
 
   // The length of time to poll for.
   int32 poll_length = 2;
+
+  int32 max_fetch_ms = 3;
 }
 
 message CheckRequest {
