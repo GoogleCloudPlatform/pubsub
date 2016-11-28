@@ -114,6 +114,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
     PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
+      log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
       ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
       // Get the total number of bytes in this message.
@@ -192,7 +193,15 @@ public class CloudPubSubSinkTask extends SinkTask {
         String str = (String) value;
         return ByteString.copyFromUtf8(str);
       case BYTES:
-        return (ByteString) value;
+        if (value instanceof ByteString) {
+          return (ByteString) value;
+        } else if (value instanceof byte[]) {
+          return ByteString.copyFrom((byte[]) value);
+        } else if (value instanceof ByteBuffer) {
+          return ByteString.copyFrom((ByteBuffer) value);
+        } else {
+          throw new DataException("Unexpected value class with BYTES schema type.");
+        }
       case STRUCT:
         Struct struct = (Struct) value;
         List<Field> fields = schema.fields();
@@ -206,10 +215,7 @@ public class CloudPubSubSinkTask extends SinkTask {
               throw new DataException("Struct message body does not support Map or Struct types.");
             }
           } else {
-            if (f.schema().type() != Type.STRING) {
-              throw new DataException("Non-message body field types in a struct must be String");
-            }
-            String val = (String) struct.get(f);
+            String val = struct.get(f).toString();
             attributes.put(f.name(), val);
           }
         }
@@ -219,18 +225,14 @@ public class CloudPubSubSinkTask extends SinkTask {
           return ByteString.EMPTY;
         }
       case MAP:
-        if (schema.keySchema().type() != Schema.Type.STRING ||
-            schema.valueSchema().type() != Schema.Type.STRING) {
-          throw new DataException("Key and value schemas in map must be of type String");
-        }
-        Map<String, String> map = (Map<String, String>) value;
-        Set<String> keys = map.keySet();
+        Map<Object, Object> map = (Map<Object, Object>) value;
+        Set<Object> keys = map.keySet();
         ByteString mapBody = null;
-        for (String key : keys) {
+        for (Object key : keys) {
           if (key.equals(messageBodyName)) {
-            mapBody = ByteString.copyFromUtf8(map.get(key));
+            mapBody = ByteString.copyFromUtf8(map.get(key).toString());
           } else {
-            attributes.put(key, map.get(key));
+            attributes.put(key.toString(), map.get(key).toString());
           }
         }
         if (mapBody != null) {
@@ -248,6 +250,7 @@ public class CloudPubSubSinkTask extends SinkTask {
         for (Object o : objArr) {
           out = out.concat(handleValue(schema.valueSchema(), o, null));
         }
+        return out;
     }
     return ByteString.EMPTY;
   }
