@@ -204,19 +204,18 @@ public class CloudPubSubSinkTask extends SinkTask {
         }
       case STRUCT:
         Struct struct = (Struct) value;
-        List<Field> fields = schema.fields();
         ByteString msgBody = null;
-        for (Field f : fields) {
+        for (Field f : schema.fields()) {
+          Object val = struct.get(f);
+          if (val == null) {
+            throw new DataException("Struct message body does not support Map or Struct types.");
+          }
           if (f.name().equals(messageBodyName)) {
             Schema bodySchema = f.schema();
-            try {
-              msgBody = handleValue(bodySchema, struct.get(f), null);
-            } catch (NullPointerException e) { // Caused by accessing null attributes value
-              throw new DataException("Struct message body does not support Map or Struct types.");
-            }
+            msgBody = handleValue(bodySchema, val, null);
           } else {
-            String val = struct.get(f).toString();
-            attributes.put(f.name(), val);
+            f.name();
+            attributes.put(f.name(), val.toString());
           }
         }
         if (msgBody != null) {
