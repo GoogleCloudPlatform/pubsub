@@ -22,17 +22,23 @@ import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PubsubMessage;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Schema.Type;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
+import org.mockito.internal.matchers.Null;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -48,10 +54,6 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final int CPS_MAX_MESSAGES_PER_REQUEST = 1000;
   private static final int CPS_MESSAGE_KEY_ATTRIBUTE_SIZE =
       ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE.length();
-  private static final int CPS_MESSAGE_PARTITION_ATTRIBUTE_SIZE =
-      ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE.length();
-  private static final int CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE =
-      ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE.length();
 
   // Maps a topic to another map which contains the outstanding futures per partition
   private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
@@ -60,6 +62,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages =
       new HashMap<>();
   private String cpsTopic;
+  private String messageBodyName;
   private int maxBufferSize;
   private CloudPubSubPublisher publisher;
 
@@ -98,6 +101,7 @@ public class CloudPubSubSinkTask extends SinkTask {
             validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG),
             validatedProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     maxBufferSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG);
+    messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     if (publisher == null) {
       // Only do this if we did not use the constructor.
       publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
@@ -110,27 +114,16 @@ public class CloudPubSubSinkTask extends SinkTask {
     log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
     PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
-      if (record.valueSchema().type() != Schema.Type.BYTES
-          || !record.valueSchema().name().equals(ConnectorUtils.SCHEMA_NAME)) {
-        throw new DataException("Unexpected record of type " + record.valueSchema());
-      }
       log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
-      ByteString value = (ByteString) record.value();
-      attributes.put(
-          ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
-      attributes.put(ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE, record.topic());
+      ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
       // Get the total number of bytes in this message.
-      int messageSize =
-          value.size()
-              + CPS_MESSAGE_PARTITION_ATTRIBUTE_SIZE
-              + record.kafkaPartition().toString().length()
-              + CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE_SIZE
-              + record.topic().length(); // Assumes the topic name is in ASCII.
+      int messageSize = value.size(); // Assumes the topic name is in ASCII.
       if (record.key() != null) {
         attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, record.key().toString());
-        // Maximum number of bytes to encode a character in the key string will be 2 bytes.
-        messageSize += CPS_MESSAGE_KEY_ATTRIBUTE_SIZE + (2 * record.key().toString().length());
+      }
+      for (String key : attributes.keySet()) {
+        messageSize+= key.getBytes().length + attributes.get(key).getBytes().length;
       }
       PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
       // Get a map containing all the unpublished messages per partition for this topic.
@@ -164,6 +157,103 @@ public class CloudPubSubSinkTask extends SinkTask {
       }
     }
   }
+
+  private ByteString handleValue(Schema schema, Object value,  Map<String, String> attributes) {
+    Schema.Type t = schema.type();
+    switch (t) {
+      case INT8:
+        byte b = (Byte) value;
+        byte[] arr = {b};
+        return ByteString.copyFrom(arr);
+      case INT16:
+        ByteBuffer shortBuf = ByteBuffer.allocate(2);
+        shortBuf.putShort((Short) value);
+        return ByteString.copyFrom(shortBuf);
+      case INT32:
+        ByteBuffer intBuf = ByteBuffer.allocate(4);
+        intBuf.putInt((Integer) value);
+        return ByteString.copyFrom(intBuf);
+      case INT64:
+        ByteBuffer longBuf = ByteBuffer.allocate(8);
+        longBuf.putLong((Long) value);
+        return ByteString.copyFrom(longBuf);
+      case FLOAT32:
+        ByteBuffer floatBuf = ByteBuffer.allocate(4);
+        floatBuf.putFloat((Float) value);
+        return ByteString.copyFrom(floatBuf);
+      case FLOAT64:
+        ByteBuffer doubleBuf = ByteBuffer.allocate(8);
+        doubleBuf.putDouble((Double) value);
+        return ByteString.copyFrom(doubleBuf);
+      case BOOLEAN:
+        byte bool = (byte)((Boolean) value?1:0);
+        byte[] boolArr = {bool};
+        return ByteString.copyFrom(boolArr);
+      case STRING:
+        String str = (String) value;
+        return ByteString.copyFromUtf8(str);
+      case BYTES:
+        if (value instanceof ByteString) {
+          return (ByteString) value;
+        } else if (value instanceof byte[]) {
+          return ByteString.copyFrom((byte[]) value);
+        } else if (value instanceof ByteBuffer) {
+          return ByteString.copyFrom((ByteBuffer) value);
+        } else {
+          throw new DataException("Unexpected value class with BYTES schema type.");
+        }
+      case STRUCT:
+        Struct struct = (Struct) value;
+        ByteString msgBody = null;
+        for (Field f : schema.fields()) {
+          Object val = struct.get(f);
+          if (val == null) {
+            throw new DataException("Struct message body does not support Map or Struct types.");
+          }
+          if (f.name().equals(messageBodyName)) {
+            Schema bodySchema = f.schema();
+            msgBody = handleValue(bodySchema, val, null);
+          } else {
+            f.name();
+            attributes.put(f.name(), val.toString());
+          }
+        }
+        if (msgBody != null) {
+          return msgBody;
+        } else {
+          return ByteString.EMPTY;
+        }
+      case MAP:
+        Map<Object, Object> map = (Map<Object, Object>) value;
+        Set<Object> keys = map.keySet();
+        ByteString mapBody = null;
+        for (Object key : keys) {
+          if (key.equals(messageBodyName)) {
+            mapBody = ByteString.copyFromUtf8(map.get(key).toString());
+          } else {
+            attributes.put(key.toString(), map.get(key).toString());
+          }
+        }
+        if (mapBody != null) {
+          return mapBody;
+        } else {
+          return ByteString.EMPTY;
+        }
+      case ARRAY:
+        Schema.Type arrType = schema.valueSchema().type();
+        if (arrType == Type.MAP || arrType == Type.STRUCT) {
+          throw new DataException("Array type does not support Map or Struct types.");
+        }
+        ByteString out = ByteString.EMPTY;
+        Object[] objArr = (Object[]) value;
+        for (Object o : objArr) {
+          out = out.concat(handleValue(schema.valueSchema(), o, null));
+        }
+        return out;
+    }
+    return ByteString.EMPTY;
+  }
+
 
   @Override
   public void flush(Map<TopicPartition, OffsetAndMetadata> partitionOffsets) {

@@ -40,6 +40,7 @@ import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.junit.Before;
@@ -52,10 +53,12 @@ public class CloudPubSubSinkTaskTest {
   private static final String CPS_TOPIC = "the";
   private static final String CPS_PROJECT = "quick";
   private static final String CPS_MIN_BATCH_SIZE1 = "2";
-  private static final String CPS_MIN_BATCH_SIZE2 = "3";
+  private static final String CPS_MIN_BATCH_SIZE2 = "9";
   private static final String KAFKA_TOPIC = "brown";
   private static final ByteString KAFKA_MESSAGE1 = ByteString.copyFromUtf8("fox");
   private static final ByteString KAFKA_MESSAGE2 = ByteString.copyFromUtf8("jumped");
+  private static final String FIELD_STRING1 = "Roll";
+  private static final String FIELD_STRING2 = "War";
   private static final String KAFKA_MESSAGE_KEY = "over";
   private static final Schema STRING_SCHEMA = SchemaBuilder.string().build();
   private static final Schema BYTE_STRING_SCHEMA =
@@ -76,25 +79,91 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /** Tests that an exception is thrown when the schema of the value is not BYTES. */
-  @Test(expected = DataException.class)
-  public void testPutWhenValueSchemaIsNotByteString() {
+  @Test
+  public void testPutPrimitives() {
     task.start(props);
-    Schema wrongSchema = SchemaBuilder.type(Schema.Type.BOOLEAN).build();
-    SinkRecord record = new SinkRecord(null, -1, null, null, wrongSchema, null, -1);
+    SinkRecord record8 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.int8(), (byte) 5, -1);
+    SinkRecord record16 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.int16(), (short) 5, -1);
+    SinkRecord record32 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.int32(), (int) 5, -1);
+    SinkRecord record64 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.int64(), (long) 5, -1);
+    SinkRecord recordFloat32 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.float32(), (float) 8, -1);
+    SinkRecord recordFloat64 =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.float64(), (double) 8, -1);
+    SinkRecord recordBool =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.bool(), true, -1);
+    SinkRecord recordString =
+        new SinkRecord(null, -1, null, null, SchemaBuilder.string(), "Test put.", -1);
     List<SinkRecord> list = new ArrayList<>();
-    list.add(record);
+    list.add(record8);
+    list.add(record16);
+    list.add(record32);
+    list.add(record64);
+    list.add(recordFloat32);
+    list.add(recordFloat64);
+    list.add(recordBool);
+    list.add(recordString);
     task.put(list);
   }
 
-  /** Tests that an exception is thrown when the schema name of the value is not ByteString. */
-  @Test(expected = DataException.class)
-  public void testPutWhenValueSchemaNameIsNotByteString() {
+  @Test
+  public void testStructSchema() {
     task.start(props);
-    Schema wrongSchema = SchemaBuilder.type(Schema.Type.BYTES).name("").build();
-    SinkRecord record = new SinkRecord(null, -1, null, null, wrongSchema, null, -1);
+    Schema schema = SchemaBuilder.struct().field(FIELD_STRING1, SchemaBuilder.string())
+        .field(FIELD_STRING2, SchemaBuilder.string()).build();
+    Struct val = new Struct(schema);
+    val.put(FIELD_STRING1, "tide");
+    val.put(FIELD_STRING2, "eagle");
+    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
     List<SinkRecord> list = new ArrayList<>();
     list.add(record);
     task.put(list);
+    schema = SchemaBuilder.struct().field(FIELD_STRING1, SchemaBuilder.struct()).build();
+    record = new SinkRecord(null, -1, null, null, schema, new Struct(schema), -1);
+    list.add(record);
+    try {
+      task.put(list);
+    } catch (DataException e) { } // Expected, pass.
+  }
+
+  @Test
+  public void testMapSchema() {
+    task.start(props);
+    Schema schema = SchemaBuilder.map(SchemaBuilder.string(), SchemaBuilder.string()).build();
+    Map<String, String> val = new HashMap<>();
+    val.put(FIELD_STRING1, "tide");
+    val.put(FIELD_STRING2, "eagle");
+    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    List<SinkRecord> list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
+    schema = SchemaBuilder.map(SchemaBuilder.string(), SchemaBuilder.bytes()).build();
+    record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    list.add(record);
+    try {
+      task.put(list);
+    } catch (DataException e) { } // Expected, pass.
+  }
+
+  @Test
+  public void testArraySchema() {
+    task.start(props);
+    Schema schema = SchemaBuilder.array(SchemaBuilder.string()).build();
+    String[] val = {"Roll", "tide"};
+    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    List<SinkRecord> list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
+    schema = SchemaBuilder.array(SchemaBuilder.struct()).build();
+    record = new SinkRecord(null, -1, null, null, schema, null, -1);
+    list.add(record);
+    try {
+      task.put(list);
+    } catch (DataException e) { } // Expected, pass.
   }
 
   /**
@@ -217,8 +286,6 @@ public class CloudPubSubSinkTaskTest {
     List<PubsubMessage> messages = new ArrayList<>();
     Map<String, String> attributes = new HashMap<>();
     attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
-    attributes.put(ConnectorUtils.CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE, KAFKA_TOPIC);
-    attributes.put(ConnectorUtils.CPS_MESSAGE_PARTITION_ATTRIBUTE, String.valueOf(0));
     messages.add(
         PubsubMessage.newBuilder().putAllAttributes(attributes).setData(KAFKA_MESSAGE1).build());
     messages.add(
