@@ -80,10 +80,6 @@ class KafkaPublisherTask extends Task {
       callbackPool.submit(
           new MetricsTask(metadata, exception, callbackCount, System.currentTimeMillis()));
     };
-    // This will aggregate the time from one publish run ending to the start of the next one
-    try {
-      wasteTime.stop();
-    } catch (IllegalStateException e) { } // Watch already stopped, fine.
     long startTime = System.currentTimeMillis();
     for (int i = 0; i < batchSize; i++) {
       publisher.send(
@@ -94,9 +90,6 @@ class KafkaPublisherTask extends Task {
     } catch (InterruptedException e) {
       log.error(e.getMessage(), e);
     }
-    try {
-      wasteTime.start();
-    } catch (IllegalStateException e) { } // Watch already running, fine.
   }
 
   private class MetricsTask implements Runnable {

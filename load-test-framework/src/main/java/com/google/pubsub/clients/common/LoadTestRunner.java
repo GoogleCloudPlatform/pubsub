@@ -144,7 +144,6 @@ public class LoadTestRunner {
                                 Duration.newBuilder()
                                     .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
                             .setIsFinished(finishedValue)
-                            .setWastedMillis(task.getWasteElapsed())
                             .addAllReceivedMessages(task.getMessageIdentifiers())
                             .build());
                     responseObserver.onCompleted();

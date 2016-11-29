@@ -31,7 +31,6 @@ public abstract class Task implements Runnable {
   protected final MetricsHandler metricsHandler;
   protected final AtomicInteger numMessages = new AtomicInteger(0);
   protected final AtomicInteger errorCount = new AtomicInteger(0);
-  protected final Stopwatch wasteTime = Stopwatch.createUnstarted();
   private final List<MessageIdentifier> identifiers = new ArrayList<>();
   private final AtomicLong lastUpdateMillis = new AtomicLong(System.currentTimeMillis());
 
@@ -79,6 +78,4 @@ public abstract class Task implements Runnable {
     identifiers.clear();
     return returnedMessageIdentifiers;
   }
-
-  long getWasteElapsed() { return wasteTime.elapsed(TimeUnit.MILLISECONDS); }
 }

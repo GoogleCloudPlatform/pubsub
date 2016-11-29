@@ -470,11 +470,7 @@ public class Driver {
                               / stats.runningSeconds
                               * messageSize
                               / 1000000.0)
-                  + " MB/s");
-          if (stats.wasteMillis > 0) {
-            log.info("Wasted millis per batch: " + stats.wasteMillis / (total / publishBatchSize));
-          }
-        });
+                  + " MB/s");});
   }
 
   /** A validator that makes sure the parameter is an integer that is greater than 0. */

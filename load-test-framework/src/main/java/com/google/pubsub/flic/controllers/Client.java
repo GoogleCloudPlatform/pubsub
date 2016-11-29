@@ -68,7 +68,6 @@ public class Client {
   private int errors = 0;
   private long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
   private long runningSeconds = 0;
-  private long wastedMillis = 0;
   private SettableFuture<Void> doneFuture = SettableFuture.create();
   private MessageTracker messageTracker;
 
@@ -139,8 +138,6 @@ public class Client {
     return bucketValues;
   }
 
-  long getWastedMillis() { return wastedMillis; }
-
   void start(MessageTracker messageTracker) throws Throwable {
     this.messageTracker = messageTracker;
     // Send a gRPC call to start the server
@@ -153,13 +150,15 @@ public class Client {
         .setRequestRate(requestRate)
         .setStartTime(startTime)
         .setPublishBatchSize(publishBatchSize)
-        .setSubscription(subscription)
         .setMaxMessagesPerPull(maxMessagesPerPull);
     if (numberOfMessages > 0) {
       requestBuilder.setNumberOfMessages(numberOfMessages);
     } else {
       requestBuilder.setTestDuration(Duration.newBuilder()
           .setSeconds(loadtestLengthSeconds).build());
+    }
+    if (subscription != null) {
+      requestBuilder.setSubscription(subscription);
     }
     switch (clientType) {
       case KAFKA_PUBLISHER:
@@ -243,7 +242,6 @@ public class Client {
                 bucketValues[i] += checkResponse.getBucketValues(i);
               }
               runningSeconds = checkResponse.getRunningDuration().getSeconds();
-              wastedMillis = checkResponse.getWastedMillis();
             }
             messageTracker.addAllMessageIdentifiers(checkResponse.getReceivedMessagesList());
           }

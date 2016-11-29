@@ -50,8 +50,7 @@ class KafkaSubscriberTask extends Task {
         .put("enable.auto.commit", "true")
         .put("session.timeout.ms", "30000")
         .put("auto.offset.reset", "latest")
-        .put("bootstrap.servers", broker).build()
-    );
+        .put("bootstrap.servers", broker).build());
     queue = new ConcurrentLinkedQueue<>();
     for (int i = 0; i < consumerCount; i++) {
       KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(props);

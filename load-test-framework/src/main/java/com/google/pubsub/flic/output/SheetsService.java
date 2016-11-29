@@ -164,7 +164,6 @@ public class SheetsService {
     valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 50.0));
     valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.0));
     valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9));
-    valueRow.add(stats.wasteMillis / (totalSent / Client.publishBatchSize));
     if (type.toString().startsWith("cps")) {
       cpsValues.add(valueRow);
     } else if (type.toString().startsWith("kafka")) {

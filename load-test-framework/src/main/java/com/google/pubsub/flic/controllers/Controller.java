@@ -124,7 +124,6 @@ public abstract class Controller {
       for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
         stats.bucketValues[i] += bucketValues[i];
       }
-      stats.wasteMillis = client.getWastedMillis();
     });
     return stats;
   }
@@ -188,7 +187,6 @@ public abstract class Controller {
   public static class LoadtestStats {
     public long runningSeconds;
     public long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
-    public long wasteMillis;
   }
 }
 
