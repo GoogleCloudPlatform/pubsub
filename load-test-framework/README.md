@@ -2,7 +2,7 @@
 
 This load test framework, known as Flic (Framework of load & integration for
 Cloud Pub/Sub), for Cloud Pub/Sub is a tool targeted for developers and
-companies who wish to benchmark Cloud Pub/Sub and Kafka.
+companies who wish to benchmark Google Cloud Pub/Sub and Apache Kafka.
 
 The goal of this framework is twofold:
 
@@ -22,7 +22,7 @@ These instructions assume you are using [Maven](https://maven.apache.org/).
 
 2. Copy the jar into the GCE resource directory:
 
-    `cp target/driver.jar target/gce/`
+    `cp target/driver.jar src/main/resources/gce/`
 
 The resulting jar is at target/driver.jar.
 
@@ -89,3 +89,42 @@ slightly, the record of how it responds, its latency and throughput, are equival
     following.
 
     `java -jar target/driver.jar --help`
+
+### Common Tests
+
+#### Minimum Latency on a single instance
+
+```bash
+--request_rate=1 --message_size=1
+```
+
+#### Maximum Throughput on a single instance
+
+```bash
+-—message_size=10000 —-batch_size=10 --request_rate=1000000
+```
+
+#### Maximum QPS on a single instance
+
+```bash
+—-message_size=1 --request_rate=1000000
+```
+
+#### Maximum Service Throughput for N instances under 200 ms Publish to Ack Latency
+
+```bash
+—-cps_publisher_count=N —-cps_subscriber_count=N*3 --max_publish_latency_test=true --max_publish_latency_millis=200 --request_rate=100
+```
+
+### Testing your own Client Libraries
+
+#### Java 
+To add your own client libraries, you can create a new package in com.google.pubsub.clients and add your implementations of `com.google.pubsub.clients.common.Task`. You can see examples in the other packages. The important piece is that you need to override the run function that executes a single publish or pull, and records the latencies of that operation.
+
+Then, you need to add your client to the enum in com.google.pubsub.flic.Client.ClientType, and create a new command line flag to set the count of this type of task. If creating a publisher and subscriber you should set a new topic name so that your publisher will publish to a new topic that your subscriber will subscribe from. Otherwise you can reuse a topic so that you can test your task against the publisher or subscriber that shares that topic.  You should also add yourself to the com.google.pubsub.flic.output.SheetsService code so that statistics from your client will be sent to Google Sheets with other tests.
+
+Then, you need to create a startup script for your machine. This can be copied from src/main/resources/gce/ where you'll find many. Most just install Java and then run `driver.jar` setting the main class using the `-cp` flag.
+
+#### Other languages
+
+You must write a server that implements Adapter and response to Start and Execute commands. Start will give you the parameters for the load test, and you should respond to Execute with the latencies it took to complete the operation. You can see an example in python_src. Your server should listen on port 6000. Then you just need to create a startup script, modify the enums as described above, and place the binary in src/main/resources/gce so that it will be uploaded to Google Cloud Storage which you can pull from in your startup script in order to execute your binary. You can see an example of such a startup script in src/main/resources/gce/cps-gcloud-python-publisher_startup_script.sh. You must start your server before executing the jar.

@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.gcloud;
 
+import com.beust.jcommander.JCommander;
 import com.google.cloud.pubsub.Message;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubException;
@@ -24,12 +25,12 @@ import com.google.common.base.Stopwatch;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 /**
@@ -41,6 +42,7 @@ class CPSPublisherTask extends Task {
   private final PubSub pubSub;
   private final String payload;
   private final int batchSize;
+  private final Integer id;
 
   private CPSPublisherTask(String project, String topic, int messageSize, int batchSize) {
     super(project, "gcloud", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
@@ -50,10 +52,13 @@ class CPSPublisherTask extends Task {
     this.topic = Preconditions.checkNotNull(topic);
     this.payload = LoadTestRunner.createMessage(messageSize);
     this.batchSize = batchSize;
+    this.id = (new Random()).nextInt();
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.Options options = new LoadTestRunner.Options();
+    new JCommander(options, args);
+    LoadTestRunner.run(options, request ->
         new CPSPublisherTask(request.getProject(), request.getTopic(),
             request.getMessageSize(), request.getPublishBatchSize()));
   }
@@ -64,12 +69,16 @@ class CPSPublisherTask extends Task {
       List<Message> messages = new ArrayList<>(batchSize);
       String sendTime = String.valueOf(System.currentTimeMillis());
       for (int i = 0; i < batchSize; i++) {
-        messages.add(Message.builder(payload).addAttribute("sendTime", sendTime).build());
+        messages.add(
+            Message.builder(payload)
+                .addAttribute("sendTime", sendTime)
+                .addAttribute("clientId", id.toString())
+                .addAttribute("sequenceNumber", Integer.toString(getAndIncrementNumberOfMessages()))
+                .build());
       }
       Stopwatch stopwatch = Stopwatch.createStarted();
       pubSub.publish(topic, messages);
       stopwatch.stop();
-      numberOfMessages.addAndGet(batchSize);
       metricsHandler.recordLatencyBatch(stopwatch.elapsed(TimeUnit.MILLISECONDS), batchSize);
     } catch (PubSubException e) {
       log.error("Publish request failed", e);

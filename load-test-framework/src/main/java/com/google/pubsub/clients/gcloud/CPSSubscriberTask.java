@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.gcloud;
 
+import com.beust.jcommander.JCommander;
 import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubException;
 import com.google.cloud.pubsub.PubSubOptions;
@@ -22,11 +23,10 @@ import com.google.common.base.Preconditions;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Runs a task that consumes messages from a Cloud Pub/Sub subscription.
@@ -47,7 +47,9 @@ class CPSSubscriberTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.Options options = new LoadTestRunner.Options();
+    new JCommander(options, args);
+    LoadTestRunner.run(options, request ->
         new CPSSubscriberTask(request.getProject(), request.getPubsubOptions().getSubscription(),
             request.getPubsubOptions().getMaxMessagesPerPull()));
   }
@@ -60,11 +62,13 @@ class CPSSubscriberTask extends Task {
       pubSub.pull(subscription, batchSize).forEachRemaining((response) -> {
         ackIds.add(response.ackId());
         metricsHandler.recordLatency(now - Long.parseLong(response.attributes().get("sendTime")));
+        addMessageIdentifier(
+            Integer.parseInt(response.attributes().get("clientId")),
+            Integer.parseInt(response.attributes().get("sequenceNumber")));
       });
       if (ackIds.isEmpty()) {
         return;
       }
-      numberOfMessages.addAndGet(ackIds.size());
       pubSub.ack(subscription, ackIds);
     } catch (PubSubException e) {
       log.error("Error pulling or acknowledging messages.", e);

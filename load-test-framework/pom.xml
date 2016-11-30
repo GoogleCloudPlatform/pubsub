@@ -120,21 +120,21 @@
       <artifactId>google-cloud-pubsub</artifactId>
       <version>0.4.0</version>
     </dependency>
-      <dependency>
-          <groupId>com.google.apis</groupId>
-          <artifactId>google-api-services-sheets</artifactId>
-          <version>v4-rev32-1.22.0</version>
-      </dependency>
-      <dependency>
-          <groupId>com.google.oauth-client</groupId>
-          <artifactId>google-oauth-client-java6</artifactId>
-          <version>1.11.0-beta</version>
-      </dependency>
-      <dependency>
-          <groupId>com.google.oauth-client</groupId>
-          <artifactId>google-oauth-client-jetty</artifactId>
-          <version>1.22.0</version>
-      </dependency>
+    <dependency>
+       <groupId>com.google.apis</groupId>
+       <artifactId>google-api-services-sheets</artifactId>
+       <version>v4-rev32-1.22.0</version>
+     </dependency>
+     <dependency>
+       <groupId>com.google.oauth-client</groupId>
+       <artifactId>google-oauth-client-java6</artifactId>
+       <version>1.11.0-beta</version>
+     </dependency>
+     <dependency>
+       <groupId>com.google.oauth-client</groupId>
+       <artifactId>google-oauth-client-jetty</artifactId>
+       <version>1.22.0</version>
+     </dependency>
   </dependencies>
    <build>
    <extensions>

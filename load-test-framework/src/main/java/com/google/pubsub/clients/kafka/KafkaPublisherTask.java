@@ -15,19 +15,19 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.kafka;
 
+import com.beust.jcommander.JCommander;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
 import org.apache.kafka.clients.producer.Callback;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Runs a task that publishes messages utilizing Kafka's implementation of the Producer<K,V>
@@ -41,8 +41,8 @@ class KafkaPublisherTask extends Task {
   private final int batchSize;
   private final KafkaProducer<String, String> publisher;
 
-  private KafkaPublisherTask(String broker, String project, String topic, int messageSize,
-                             int batchSize) {
+  private KafkaPublisherTask(String broker, String project, String topic, int messageSize, 
+      int batchSize) {
     super(project, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     this.topic = topic;
     this.payload = LoadTestRunner.createMessage(messageSize);
@@ -59,7 +59,9 @@ class KafkaPublisherTask extends Task {
   }
 
   public static void main(String[] args) throws Exception {
-    LoadTestRunner.run(request ->
+    LoadTestRunner.Options options = new LoadTestRunner.Options();
+    new JCommander(options, args);
+    LoadTestRunner.run(options, request ->
         new KafkaPublisherTask(request.getKafkaOptions().getBroker(), request.getProject(),
             request.getTopic(), request.getMessageSize(), request.getPublishBatchSize()));
   }
@@ -72,7 +74,7 @@ class KafkaPublisherTask extends Task {
         log.error(exception.getMessage(), exception);
         return;
       }
-      numberOfMessages.incrementAndGet();
+      addNumberOfMessages(1);
       metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
     };
     stopwatch.start();

@@ -30,19 +30,19 @@ import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.function.Supplier;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Manages remote clients by starting, performing health checks, and collecting statistics
  * on running clients.
  */
 public class Client {
-  static final String TOPIC_PREFIX = "cloud-pubsub-loadtest-";
+  public static final String TOPIC_PREFIX = "cloud-pubsub-loadtest-";
   private static final Logger log = LoggerFactory.getLogger(Client.class);
   private static final int PORT = 5000;
   public static int messageSize;
@@ -63,24 +63,41 @@ public class Client {
   private final String subscription;
   private final ScheduledExecutorService executorService;
   private ClientStatus clientStatus;
+  private Supplier<LoadtestGrpc.LoadtestStub> stubFactory;
   private LoadtestGrpc.LoadtestStub stub;
   private int errors = 0;
   private long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
   private long runningSeconds = 0;
   private SettableFuture<Void> doneFuture = SettableFuture.create();
+  private MessageTracker messageTracker;
 
-  Client(ClientType clientType, String networkAddress, String project,
-         @Nullable String subscription, ScheduledExecutorService executorService) {
-    this.clientType = clientType;
+  Client(
+      ClientType clientType,
+      String networkAddress,
+      String project,
+      @Nullable String subscription,
+      ScheduledExecutorService executorService) {
+    this(clientType, networkAddress, project, subscription, executorService, null);
+  }
+
+  public Client(
+      ClientType clientType,
+      String networkAddress,
+      String project,
+      @Nullable String subscription,
+      ScheduledExecutorService executorService,
+      @Nullable Supplier<LoadtestGrpc.LoadtestStub> stubFactory) {
+        this.clientType = clientType;
     this.networkAddress = networkAddress;
     this.clientStatus = ClientStatus.NONE;
     this.project = project;
     this.topic = TOPIC_PREFIX + getTopicSuffix(clientType);
     this.subscription = subscription;
     this.executorService = executorService;
+    this.stubFactory = stubFactory;
   }
 
-  static String getTopicSuffix(ClientType clientType) {
+  public static String getTopicSuffix(ClientType clientType) {
     switch (clientType) {
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
@@ -102,6 +119,9 @@ public class Client {
   }
 
   private LoadtestGrpc.LoadtestStub getStub() {
+    if (stubFactory != null) {
+      return stubFactory.get();
+    }
     return LoadtestGrpc.newStub(
         ManagedChannelBuilder.forAddress(networkAddress, PORT).usePlaintext(true).build());
   }
@@ -114,7 +134,8 @@ public class Client {
     return bucketValues;
   }
 
-  void start() throws Throwable {
+  void start(MessageTracker messageTracker) throws Throwable {
+    this.messageTracker = messageTracker;
     // Send a gRPC call to start the server
     log.info("Connecting to " + networkAddress + ":" + PORT);
     StartRequest.Builder requestBuilder = StartRequest.newBuilder()
@@ -146,43 +167,48 @@ public class Client {
             .setBroker(broker)
             .setPollLength(pollLength));
         break;
+      case CPS_GCLOUD_JAVA_PUBLISHER:
+      case CPS_GCLOUD_PYTHON_PUBLISHER:
+        break;
     }
     StartRequest request = requestBuilder.build();
     SettableFuture<Void> startFuture = SettableFuture.create();
     stub = getStub();
-    stub.start(request, new StreamObserver<StartResponse>() {
-      private int connectionErrors = 0;
-      @Override
-      public void onNext(StartResponse response) {
-        log.info("Successfully started client [" + networkAddress + "]");
-        clientStatus = ClientStatus.RUNNING;
-        startFuture.set(null);
-      }
+    stub.start(
+        request,
+        new StreamObserver<StartResponse>() {
+          private int connectionErrors = 0;
 
-      @Override
-      public void onError(Throwable throwable) {
-        if (connectionErrors > 10) {
-          log.error("Client failed to start " + connectionErrors + " times, shutting down.");
-          clientStatus = ClientStatus.FAILED;
-          startFuture.setException(throwable);
-          doneFuture.setException(throwable);
-          return;
-        }
-        connectionErrors++;
-        try {
-          Thread.sleep(5000);
-        } catch (InterruptedException e) {
-          log.info("Interrupted during back off, retrying.");
-        }
-        log.debug("Going to retry client connection, likely due to start up time.");
-        stub = getStub();
-        stub.start(request, this);
-      }
+          @Override
+          public void onNext(StartResponse response) {
+            log.info("Successfully started client [" + networkAddress + "]");
+            clientStatus = ClientStatus.RUNNING;
+            startFuture.set(null);
+          }
 
-      @Override
-      public void onCompleted() {
-      }
-    });
+          @Override
+          public void onError(Throwable throwable) {
+            if (connectionErrors > 10) {
+              log.error("Client failed to start " + connectionErrors + " times, shutting down.");
+              clientStatus = ClientStatus.FAILED;
+              startFuture.setException(throwable);
+              doneFuture.setException(throwable);
+              return;
+            }
+            connectionErrors++;
+            try {
+              Thread.sleep(5000);
+            } catch (InterruptedException e) {
+              log.info("Interrupted during back off, retrying.");
+            }
+            log.debug("Going to retry client connection, likely due to start up time.");
+            stub = getStub();
+            stub.start(request, this);
+          }
+
+          @Override
+          public void onCompleted() {}
+        });
     try {
       startFuture.get();
       executorService.scheduleAtFixedRate(this::checkClient, 20, 20, TimeUnit.SECONDS);
@@ -213,6 +239,7 @@ public class Client {
               }
               runningSeconds = checkResponse.getRunningDuration().getSeconds();
             }
+            messageTracker.addAllMessageIdentifiers(checkResponse.getReceivedMessagesList());
           }
 
           @Override

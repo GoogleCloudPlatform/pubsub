@@ -14,9 +14,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import grpc
+import random
+import sys
 import time
 
-import grpc
 from concurrent import futures
 from google.cloud import pubsub
 
@@ -30,6 +32,8 @@ class LoadtestWorkerServicer(loadtest_pb2.LoadtestWorkerServicer):
         self.message_size = None
         self.batch_size = None
         self.batch = None
+        self.num_msgs_published = 0
+        self.id = int(random.random() * sys.maxint)
 
     def Start(self, request, context):
         self.message_size = request.message_size
@@ -40,18 +44,26 @@ class LoadtestWorkerServicer(loadtest_pb2.LoadtestWorkerServicer):
     def Execute(self, request, context):
         start = time.clock()
         for i in range(0, self.batch_size):
-            self.batch.publish(("A" * self.message_size).encode(), sendTime=str(int(start * 1000)))
+            self.batch.publish(("A" * self.message_size).encode(),
+                               sendTime=str(int(start * 1000)),
+                               clientId=str(self.id),
+                               sequenceNumber=str(int(self.num_msgs_published + i)))
         self.batch.commit()
         end = time.clock()
+        self.num_msgs_published += self.batch_size
         response = loadtest_pb2.ExecuteResponse()
         response.latencies.extend([int((end - start) * 1000)] * self.batch_size)
         return response
 
 
 if __name__ == "__main__":
+    port = 6000
+    for arg in sys.argv:
+      if arg.startswith("--worker_port="):
+        port = arg.split("=")[1]
     server = grpc.server(futures.ThreadPoolExecutor(max_workers=50))
     loadtest_pb2.add_LoadtestWorkerServicer_to_server(LoadtestWorkerServicer(), server)
-    server.add_insecure_port('localhost:6000')
+    server.add_insecure_port('localhost:' + port)
     server.start()
     while True:
         time.sleep(3600)
