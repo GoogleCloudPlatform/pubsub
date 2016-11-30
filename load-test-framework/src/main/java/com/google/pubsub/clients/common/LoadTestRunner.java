@@ -95,6 +95,7 @@ public class LoadTestRunner {
       executor.submit(task).addListener(outstandingTestLimiter::release, executor);
     }
     stopwatch.stop();
+    outstandingTestLimiter.acquireUninterruptibly(request.getMaxOutstandingRequests());
     executor.shutdownNow();
     finished.set(true);
     log.info("Load test complete.");
