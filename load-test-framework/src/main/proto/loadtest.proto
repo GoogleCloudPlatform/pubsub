@@ -101,8 +101,6 @@ message CheckResponse {
 
   // MessageIdentifiers of all received messages since the last Check
   repeated MessageIdentifier received_messages = 4;
-
-  int64 wastedMillis = 5;
 }
 
 message ExecuteRequest {
