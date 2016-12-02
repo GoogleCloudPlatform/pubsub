@@ -19,8 +19,8 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
+import io.grpc.ManagedChannel;
 import io.grpc.auth.ClientAuthInterceptor;
-import io.grpc.internal.ManagedChannelImpl;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
 import java.io.IOException;
@@ -45,7 +45,7 @@ public class ConnectorUtils {
 
   /** Return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's. */
   public static Channel getChannel() throws IOException {
-    ManagedChannelImpl channelImpl =
+    ManagedChannel channelImpl =
         NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
     final ClientAuthInterceptor interceptor =
         new ClientAuthInterceptor(
