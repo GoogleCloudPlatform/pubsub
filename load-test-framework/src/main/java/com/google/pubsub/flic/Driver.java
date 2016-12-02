@@ -307,8 +307,7 @@ public class Driver {
           new ClientParams(ClientType.CPS_GRPC_PUBLISHER, null), cpsGrpcPublisherCount,
           new ClientParams(ClientType.CPS_GCLOUD_JAVA_PUBLISHER, null), cpsPublisherCount,
           new ClientParams(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER, null), 0,
-          new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount,
-          new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount
+          new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount
       ));
       // Each type of client will have its own topic, so each topic will get
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
@@ -429,6 +428,7 @@ public class Driver {
           }
         }
         if (spreadsheetId.length() > 0) {
+          log.info("Writing to Google sheet.");
           // Output results to common Google sheet
           SheetsService service = new SheetsService(dataStoreDirectory, controller.getTypes());
           service.sendToSheets(spreadsheetId, statsMap);

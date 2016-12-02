@@ -71,9 +71,11 @@ public class LoadTestRunner {
         Executors.newFixedThreadPool(request.getMaxOutstandingRequests() + 10));
 
     final RateLimiter rateLimiter;
-    if (request.getSubscription() == null) { // Only limit publisher to avoid subscriber backup
+    String sub = request.getSubscription();
+    if (sub == null || sub.length() == 0) { // Only limit publisher to avoid subscriber backup
       rateLimiter = RateLimiter.create(request.getRequestRate());
     }  else {
+      log.info(request.getSubscription() + " subscription found, so not applying rate limitation");
       rateLimiter = RateLimiter.create(Double.MAX_VALUE);
     }
     final Semaphore outstandingTestLimiter =

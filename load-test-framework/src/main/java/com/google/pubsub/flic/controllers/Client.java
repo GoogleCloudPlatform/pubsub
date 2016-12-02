@@ -157,7 +157,7 @@ public class Client {
       requestBuilder.setTestDuration(Duration.newBuilder()
           .setSeconds(loadtestLengthSeconds).build());
     }
-    if (subscription != null) {
+    if (!clientType.isPublisher()) { // Only send subscription when client is subscriber type
       requestBuilder.setSubscription(subscription);
     }
     switch (clientType) {
