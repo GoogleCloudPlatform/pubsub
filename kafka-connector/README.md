@@ -64,17 +64,10 @@ The resulting jar is at target/cps-kafka-connector.jar.
     Sample configuration files for the source and sink connectors are provided
     at configs/.
 
-3.  Create an appropriate configuration for your Kafka connect instance. The
-    only configuration item that must be set specially for the Cloud Pub/Sub
-    connector to work is the value converter:
-
-    `value.converter=com.google.pubsub.kafka.common.ByteStringConverter`
-
-If the messages you plan on publishing to Kafka also contain keys, then make
-sure that the key.converter is a class that will be able to work with the schema
-of your keys. More information on the configuration for Kafka connect can be
-found in the [Kafka Users Guide]
-(http://kafka.apache.org/documentation.html#connect_running).
+3.  Create an appropriate configuration for your Kafka connect instance. More
+    information on the configuration for Kafka connect can be found in the
+    [Kafka Users Guide]
+    (http://kafka.apache.org/documentation.html#connect_running).
 
 ### CloudPubSubConnector Configs
 

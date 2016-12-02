@@ -19,8 +19,8 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.protobuf.ByteString;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
+import io.grpc.ManagedChannel;
 import io.grpc.auth.ClientAuthInterceptor;
-import io.grpc.internal.ManagedChannelImpl;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
 import java.io.IOException;
@@ -41,13 +41,11 @@ public class ConnectorUtils {
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
   public static final String CPS_MESSAGE_KEY_ATTRIBUTE = "key";
-  public static final String CPS_MESSAGE_PARTITION_ATTRIBUTE = "kafka_partition";
-  public static final String CPS_MESSAGE_KAFKA_TOPIC_ATTRIBUTE = "kafka_topic";
   public static final String KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE = "message";
 
   /** Return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's. */
   public static Channel getChannel() throws IOException {
-    ManagedChannelImpl channelImpl =
+    ManagedChannel channelImpl =
         NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
     final ClientAuthInterceptor interceptor =
         new ClientAuthInterceptor(
