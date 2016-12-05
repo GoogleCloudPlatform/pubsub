@@ -46,6 +46,8 @@ class FlowController {
   }
 
   void reserve(int messages, int bytes) throws CloudPubsubFlowControlException {
+    Preconditions.checkArgument(messages > 0);
+    
     if (outstandingMessageCount != null) {
       if (!failOnLimits) {
         outstandingMessageCount.acquireUninterruptibly(messages);
@@ -67,6 +69,8 @@ class FlowController {
   }
 
   void release(int messages, int bytes) {
+    Preconditions.checkArgument(messages > 0);
+    
     if (outstandingMessageCount != null) {
       outstandingMessageCount.release(messages);
     }

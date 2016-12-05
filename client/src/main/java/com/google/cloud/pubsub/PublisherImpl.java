@@ -16,10 +16,8 @@
 
 package com.google.cloud.pubsub;
 
-import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.base.Optional;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.FutureCallback;
@@ -31,6 +29,7 @@ import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PubsubMessage;
+import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.Status;
 import io.grpc.auth.MoreCallCredentials;
@@ -47,6 +46,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import javax.net.ssl.SSLException;
@@ -56,7 +56,7 @@ import org.slf4j.LoggerFactory;
 
 /** Implementation of {@link Publisher}. */
 final class PublisherImpl implements Publisher {
-  private static final int DEFAULT_MIN_THREAD_POOL_SIZE = 10;
+  private static final int DEFAULT_MIN_THREAD_POOL_SIZE = 5;
   private static final double INITIAL_BACKOFF_MS = 5;
   private static final double BACKOFF_RANDOMNESS_FACTOR = 0.2;
 
@@ -68,7 +68,6 @@ final class PublisherImpl implements Publisher {
   private final int maxBatchBytes;
   private final Duration maxBatchDuration;
   private final boolean hasBatchingBytes;
-  private final boolean hasBatchingDuration;
 
   private final Optional<Integer> maxOutstandingMessages;
   private final Optional<Integer> maxOutstandingBytes;
@@ -81,8 +80,9 @@ final class PublisherImpl implements Publisher {
   private final AtomicBoolean activeAlarm;
 
   private final FlowController flowController;
-  private final Channel channel;
-  private final PublisherGrpc.PublisherFutureStub publisherStub;
+  private final Channel[] channels;
+  private final AtomicLong channelIndex;
+  private final CallCredentials credentials;
   private final Duration requestTimeout;
 
   private final ScheduledExecutorService executor;
@@ -98,7 +98,6 @@ final class PublisherImpl implements Publisher {
     maxBatchBytes = builder.maxBatchBytes;
     maxBatchDuration = builder.maxBatchDuration;
     hasBatchingBytes = maxBatchBytes > 0;
-    hasBatchingDuration = maxBatchDuration.getMillis() > 0;
 
     maxOutstandingMessages = builder.maxOutstandingMessages;
     maxOutstandingBytes = builder.maxOutstandingBytes;
@@ -108,61 +107,47 @@ final class PublisherImpl implements Publisher {
 
     sendBatchDeadline = builder.sendBatchDeadline;
 
-    // Check for sane combinations of flow control and batching options.
-    // If flow control is enforced per message and there is no duration trigger, make sure the
-    // the flow control max messages is greater than the batching option, if not the publisher may
-    // hang or never allow to send a single batch. And the same for byte flow control enforcement.
-    Preconditions.checkArgument(
-        hasBatchingDuration
-            || !isPerMessageEnforced()
-            || getMaxBatchMessages() <= getMaxOutstandingMessages().get(),
-        "If batching based on time is not enabled then your number of batch messages must be "
-            + "smaller then the number of flow control messages limit.");
-    Preconditions.checkArgument(
-        !isPerBytesEnforced() || getMaxBatchBytes() <= getMaxOutstandingBytes().get(),
-        "The number of batched bytes must be smaller to the limit of flow control bytes, if not "
-            + "you can run into a deadlock.");
-
     requestTimeout = builder.requestTimeout;
 
     messagesBatch = new LinkedList<>();
     messagesBatchLock = new ReentrantLock();
     activeAlarm = new AtomicBoolean(false);
-
+    int numCores = Math.max(1, Runtime.getRuntime().availableProcessors());
     executor =
         builder.executor.isPresent()
             ? builder.executor.get()
             : Executors.newScheduledThreadPool(
-                DEFAULT_MIN_THREAD_POOL_SIZE,
+                numCores * DEFAULT_MIN_THREAD_POOL_SIZE,
                 new ThreadFactoryBuilder()
                     .setDaemon(true)
                     .setNameFormat("cloud-pubsub-publisher-thread-%d")
                     .build());
+    channels = new Channel[numCores];
+    channelIndex = new AtomicLong(0);
     try {
-      channel =
-          builder.channel.isPresent()
-              ? builder.channel.get()
-              : NettyChannelBuilder.forAddress(PUBSUB_API_ADDRESS, 443)
-                  .negotiationType(NegotiationType.TLS)
-                  .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
-                  .executor(executor)
-                  .build();
+      for (int i = 0; i < numCores; i++) {
+        channels[i] =
+            builder.channelBuilder.isPresent()
+                ? builder.channelBuilder.get().build()
+                : NettyChannelBuilder.forAddress(PUBSUB_API_ADDRESS, 443)
+                    .negotiationType(NegotiationType.TLS)
+                    .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
+                    .executor(executor)
+                    .build();
+      }
     } catch (SSLException e) {
       throw new RuntimeException("Failed to initialize gRPC stub.", e);
     }
-    Credentials credentials;
     try {
       credentials =
-          builder.userCredentials.isPresent()
-              ? builder.userCredentials.get()
-              : GoogleCredentials.getApplicationDefault()
-                  .createScoped(Collections.singletonList(PUBSUB_API_SCOPE));
+          MoreCallCredentials.from(
+              builder.userCredentials.isPresent()
+                  ? builder.userCredentials.get()
+                  : GoogleCredentials.getApplicationDefault()
+                      .createScoped(Collections.singletonList(PUBSUB_API_SCOPE)));
     } catch (IOException e) {
       throw new RuntimeException("Failed to get application default credentials.", e);
     }
-    publisherStub =
-        PublisherGrpc.newFutureStub(channel)
-            .withCallCredentials(MoreCallCredentials.from(credentials));
     shutdown = new AtomicBoolean(false);
     messagesWaiter = new MessagesWaiter();
   }
@@ -219,8 +204,7 @@ final class PublisherImpl implements Publisher {
   }
 
   @Override
-  public ListenableFuture<String> publish(PubsubMessage message)
-      throws CloudPubsubFlowControlException {
+  public ListenableFuture<String> publish(PubsubMessage message) {
     if (shutdown.get()) {
       throw new IllegalStateException("Cannot publish on a shut-down publisher.");
     }
@@ -228,7 +212,11 @@ final class PublisherImpl implements Publisher {
     SettableFuture<String> publishResult = SettableFuture.create();
     int messageSize = message.getSerializedSize();
     OutstandingPublish outstandingPublish = new OutstandingPublish(publishResult, message);
-    flowController.reserve(1, messageSize);
+    try {
+      flowController.reserve(1, messageSize);
+    } catch (CloudPubsubFlowControlException e) {
+      return Futures.immediateFailedFuture(e);
+    }
     OutstandingBatch batchToSend = null;
     messagesBatchLock.lock();
     try {
@@ -260,7 +248,9 @@ final class PublisherImpl implements Publisher {
         setupDurationBasedPublishAlarm();
       } else if (currentAlarmFuture != null) {
         logger.debug("Cancelling alarm");
-        currentAlarmFuture.cancel(false);
+        if (activeAlarm.getAndSet(false)) {
+          currentAlarmFuture.cancel(false);
+        }
       }
     } finally {
       messagesBatchLock.unlock();
@@ -298,7 +288,7 @@ final class PublisherImpl implements Publisher {
   }
 
   private void setupDurationBasedPublishAlarm() {
-    if (hasBatchingDuration && !activeAlarm.getAndSet(true)) {
+    if (!activeAlarm.getAndSet(true)) {
       logger.debug("Setting up alarm for the next %d ms.", getMaxBatchDuration().getMillis());
       currentAlarmFuture =
           executor.schedule(
@@ -337,21 +327,24 @@ final class PublisherImpl implements Publisher {
     for (OutstandingPublish outstandingPublish : outstandingBatch.outstandingPublishes) {
       publishRequest.addMessages(outstandingPublish.message);
     }
+    int currentChannel = (int) (channelIndex.getAndIncrement() % channels.length);
     Futures.addCallback(
-        publisherStub
+        PublisherGrpc.newFutureStub(channels[currentChannel])
+            .withCallCredentials(credentials)
             .withDeadlineAfter(requestTimeout.getMillis(), TimeUnit.MILLISECONDS)
             .publish(publishRequest.build()),
         new FutureCallback<PublishResponse>() {
-
           @Override
           public void onSuccess(PublishResponse result) {
             try {
-              if (result.getMessageIdsCount() < outstandingBatch.size()) {
+              if (result.getMessageIdsCount() != outstandingBatch.size()) {
                 Throwable t =
                     new RuntimeException(
-                        "The publish result count %s does not match "
-                            + "the expected %s results. Please contact Cloud Pub/Sub support if "
-                            + "this frequently occurs");
+                        String.format(
+                            "The publish result count %s does not match "
+                                + "the expected %s results. Please contact Cloud Pub/Sub support "
+                                + "if this frequently occurs",
+                            result.getMessageIdsCount(), outstandingBatch.size()));
                 for (OutstandingPublish oustandingMessage : outstandingBatch.outstandingPublishes) {
                   oustandingMessage.publishResult.setException(t);
                 }
@@ -435,7 +428,9 @@ final class PublisherImpl implements Publisher {
       throw new IllegalStateException("Cannot shut down a publisher already shut-down.");
     }
     if (currentAlarmFuture != null) {
-      currentAlarmFuture.cancel(false);
+      if (activeAlarm.getAndSet(false)) {
+        currentAlarmFuture.cancel(false);
+      }
     }
     publishAllOustanding();
     messagesWaiter.waitNoMessages();

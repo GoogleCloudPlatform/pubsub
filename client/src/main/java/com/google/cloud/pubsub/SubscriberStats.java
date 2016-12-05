@@ -17,8 +17,8 @@
 package com.google.cloud.pubsub;
 
 import com.google.common.math.Stats;
-import java.time.LocalDateTime;
 import javax.annotation.concurrent.Immutable;
+import org.joda.time.LocalDateTime;
 
 /**
  * A snapshot of the subscriber statistics at the time they were requested from the {@link
