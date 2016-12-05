@@ -17,11 +17,12 @@
 package com.google.cloud.pubsub;
 
 import com.google.auth.Credentials;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.v1.PubsubMessage;
-import io.grpc.Channel;
+import io.grpc.ManagedChannelBuilder;
 import java.util.concurrent.ScheduledExecutorService;
 import org.joda.time.Duration;
 
@@ -104,7 +105,7 @@ public interface Publisher {
    * @param message the message to publish.
    * @return the message ID wrapped in a future.
    */
-  ListenableFuture<String> publish(PubsubMessage message) throws CloudPubsubFlowControlException;
+  ListenableFuture<String> publish(PubsubMessage message);
 
   /** Maximum amount of time to wait until scheduling the publishing of messages. */
   Duration getMaxBatchDuration();
@@ -124,7 +125,7 @@ public interface Publisher {
   /**
    * Maximum number of outstanding (i.e. pending to publish) bytes before limits are enforced.
    * See {@link #failOnFlowControlLimits()}.
-   */
+   */   
   Optional<Integer> getMaxOutstandingBytes();
   
   /**
@@ -172,7 +173,7 @@ public interface Publisher {
 
     // Channels and credentials
     Optional<Credentials> userCredentials;
-    Optional<Channel> channel;
+    Optional<ManagedChannelBuilder<? extends ManagedChannelBuilder<?>>> channelBuilder;
 
     Optional<ScheduledExecutorService> executor;
 
@@ -190,7 +191,7 @@ public interface Publisher {
 
     private void setDefaults() {
       userCredentials = Optional.absent();
-      channel = Optional.absent();
+      channelBuilder = Optional.absent();
       maxOutstandingMessages = Optional.absent();
       maxOutstandingBytes = Optional.absent();
       maxBatchMessages = DEFAULT_MAX_BATCH_MESSAGES;
@@ -213,12 +214,13 @@ public interface Publisher {
     }
 
     /**
-     * Channel to use.
+     * ManagedChannelBuilder to use to create Channels.
      *
      * <p>Must point at Cloud Pub/Sub endpoint.
      */
-    public Builder setChannel(Channel channel) {
-      this.channel = Optional.of(Preconditions.checkNotNull(channel));
+    public Builder setChannelBuilder(
+        ManagedChannelBuilder<? extends ManagedChannelBuilder<?>> channelBuilder) {
+      this.channelBuilder = Optional.of(Preconditions.checkNotNull(channelBuilder));
       return this;
     }
 

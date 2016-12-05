@@ -16,6 +16,9 @@
 
 package com.google.cloud.pubsub;
 
+import com.google.common.annotations.VisibleForTesting;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /**
  * A barrier kind of object that helps to keep track and synchronously wait on pending messages.
  */
@@ -34,10 +37,16 @@ class MessagesWaiter {
   }
 
   public synchronized void waitNoMessages() {
+    waitNoMessages(new AtomicBoolean());
+  }
+  
+  @VisibleForTesting
+  synchronized void waitNoMessages(AtomicBoolean waitReached) {
     boolean interrupted = false;
     try {
       while (pendingMessages > 0) {
         try {
+          waitReached.set(true);
           wait();
         } catch (InterruptedException e) {
           // Ignored, uninterruptibly.
@@ -49,5 +58,10 @@ class MessagesWaiter {
         Thread.currentThread().interrupt();
       }
     }
+  }
+  
+  @VisibleForTesting
+  public int pendingMessages() {
+    return pendingMessages;
   }
 }

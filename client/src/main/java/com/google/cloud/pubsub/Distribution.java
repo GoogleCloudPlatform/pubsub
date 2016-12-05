@@ -56,10 +56,10 @@ public class Distribution {
     if (total == 0) {
       return 0;
     }
-    long count = (long) (total * percentile / 100.0);
-    for (int i = bucketCounts.length - 1; i > 0; i--) {
-      total -= bucketCounts[i];
-      if (total <= count) {
+    long count = (long) Math.ceil(total * percentile / 100.0);
+    for (int i = 0; i < bucketCounts.length; i++) {
+      count -= bucketCounts[i];
+      if (count <= 0) {
         return i;
       }
     }
