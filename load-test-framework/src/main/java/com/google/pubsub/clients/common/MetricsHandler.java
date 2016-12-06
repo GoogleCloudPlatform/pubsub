@@ -182,11 +182,14 @@ public class MetricsHandler {
     distribution.recordLatency(latencyMs);
   }
 
-  public synchronized void recordLatencyBatch(long latencyMs, int batchSize) {
-    distribution.recordLatencyBatch(latencyMs, batchSize);
+  public synchronized void recordBatchLatency(long latencyMs, int batchSize) {
+    distribution.recordBatchLatency(latencyMs, batchSize);
   }
 
   private void reportMetrics(LatencyDistribution distribution) {
+    if (distribution.getCount() == 0) {
+      return;
+    }
     CreateTimeSeriesRequest request;
     synchronized (this) {
       String now = dateFormatter.format(new Date());

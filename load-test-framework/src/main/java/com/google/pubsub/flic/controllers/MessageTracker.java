@@ -17,15 +17,16 @@
 package com.google.pubsub.flic.controllers;
 
 import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /** Ensures that no message loss has occurred. */
 public class MessageTracker {
 
-  Map<Long, List<MessageIdentifier>> receivedMessages = new HashMap<>();
+  Map<Long, Set<MessageIdentifier>> receivedMessages = new HashMap<>();
+  Set<MessageIdentifier> duplicates = new HashSet<>();
   final int numMessagesPerPublisher;
   final int numPublishers;
 
@@ -34,15 +35,23 @@ public class MessageTracker {
     this.numPublishers = numPublishers;
   }
 
-  synchronized void addAllMessageIdentifiers(List<MessageIdentifier> identifiers) {
-    identifiers.forEach(identifier -> {
-      receivedMessages.putIfAbsent(identifier.getPublisherClientId(), new ArrayList());
-      receivedMessages.get(identifier.getPublisherClientId()).add(identifier);
-    });
+  synchronized void addAllMessageIdentifiers(Iterable<MessageIdentifier> identifiers) {
+    identifiers.forEach(
+        identifier -> {
+          receivedMessages.putIfAbsent(identifier.getPublisherClientId(),
+                                       new HashSet<MessageIdentifier>());
+          if (!receivedMessages.get(identifier.getPublisherClientId()).add(identifier)) {
+            duplicates.add(identifier);
+          }
+        });
   }
 
-  public synchronized List<MessageIdentifier> getMissing() {
-    List<MessageIdentifier> missing = new ArrayList<>();
+  synchronized Set<MessageIdentifier> getDuplicates() {
+    return duplicates;
+  }
+
+  public synchronized Iterable<MessageIdentifier> getMissing() {
+    Set<MessageIdentifier> missing = new HashSet<>();
     receivedMessages.forEach(
         (id, receivedForPublisher) -> {
           for (int i = 0; i < numMessagesPerPublisher; i++) {

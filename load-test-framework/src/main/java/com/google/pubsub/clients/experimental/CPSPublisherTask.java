@@ -13,50 +13,52 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
-package com.google.pubsub.clients.gcloud;
+
+package com.google.pubsub.clients.experimental;
 
 import com.beust.jcommander.JCommander;
-import com.google.cloud.pubsub.Message;
-import com.google.cloud.pubsub.PubSub;
-import com.google.cloud.pubsub.PubSubException;
-import com.google.cloud.pubsub.PubSubOptions;
-import com.google.common.base.Preconditions;
+import com.google.cloud.pubsub.Publisher;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.protobuf.ByteString;
+import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.clients.common.Task.RunResult;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+import com.google.pubsub.v1.PubsubMessage;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-
-/**
- * Runs a task that publishes messages to a Cloud Pub/Sub topic.
- */
+/** Runs a task that publishes messages to a Cloud Pub/Sub topic. */
 class CPSPublisherTask extends Task {
   private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
-  private final String topic;
-  private final PubSub pubSub;
-  private final String payload;
+  private Publisher publisher;
   private final int batchSize;
+  private final ByteString payload;
   private final Integer id;
   private final AtomicInteger sequenceNumber = new AtomicInteger(0);
 
   private CPSPublisherTask(StartRequest request) {
-    super(request, "gcloud", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
-    this.pubSub = PubSubOptions.builder()
-        .projectId(request.getProject())
-        .build().service();
-    this.topic = Preconditions.checkNotNull(request.getTopic());
-    this.payload = LoadTestRunner.createMessage(request.getMessageSize());
+    super(request, "experimental", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     this.batchSize = request.getPublishBatchSize();
     this.id = (new Random()).nextInt();
+    this.publisher =
+        Publisher.Builder.newBuilder(
+                "projects/" + request.getProject() + "/topics/" + request.getTopic())
+            .setMaxBatchDuration(
+                Duration.millis(Durations.toMillis(request.getPublishBatchDuration())))
+            .setMaxBatchBytes(9500000)
+            .setMaxBatchMessages(950)
+            .setMaxOutstandingBytes(1000000000) // 1 GB
+            .build();
+    this.payload = ByteString.copyFromUtf8(LoadTestRunner.createMessage(request.getMessageSize()));
   }
 
   public static void main(String[] args) throws Exception {
@@ -68,21 +70,29 @@ class CPSPublisherTask extends Task {
   @Override
   public ListenableFuture<RunResult> doRun() {
     try {
-      List<Message> messages = new ArrayList<>(batchSize);
+      List<ListenableFuture<String>> results = new ArrayList<>();
       String sendTime = String.valueOf(System.currentTimeMillis());
       for (int i = 0; i < batchSize; i++) {
-        messages.add(
-            Message.builder(payload)
-                .addAttribute("sendTime", sendTime)
-                .addAttribute("clientId", id.toString())
-                .addAttribute("sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement()))
-                .build());
+        results.add(
+            publisher.publish(
+                PubsubMessage.newBuilder()
+                    .setData(payload)
+                    .putAttributes("sendTime", sendTime)
+                    .putAttributes("clientId", id.toString())
+                    .putAttributes(
+                        "sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement()))
+                    .build()));
       }
-      pubSub.publish(topic, messages);
-      return Futures.immediateFuture(RunResult.fromBatchSize(batchSize));
-    } catch (PubSubException e) {
-      log.error("Publish request failed", e);
-      return Futures.immediateFailedFuture(e);
+      return Futures.transform(
+          Futures.allAsList(results), response -> RunResult.fromBatchSize(batchSize));
+    } catch (Throwable t) {
+      log.error("Flow control error.", t);
+      return Futures.immediateFailedFuture(t);
     }
+  }
+
+  @Override
+  protected void shutdown() {
+    publisher.shutdown();
   }
 }

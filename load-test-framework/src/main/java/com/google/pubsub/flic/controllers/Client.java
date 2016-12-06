@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Duration;
 import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Durations;
 import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.common.LoadtestGrpc;
 import com.google.pubsub.flic.common.LoadtestProto;
@@ -28,7 +29,7 @@ import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
 import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
-import io.grpc.ManagedChannelBuilder;
+import io.grpc.netty.NettyChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -48,13 +49,14 @@ public class Client {
   public static int messageSize;
   public static int requestRate;
   public static Timestamp startTime;
-  public static int loadtestLengthSeconds;
+  public static Duration loadtestDuration;
   public static int publishBatchSize;
+  public static Duration publishBatchDuration;
   public static int maxMessagesPerPull;
-  public static int pollLength;
+  public static Duration pollDuration;
   public static String broker;
   public static int maxOutstandingRequests;
-  public static long burnInTimeMillis;
+  public static Duration burnInDuration;
   public static int numberOfMessages = 0;
   private final ClientType clientType;
   private final String networkAddress;
@@ -67,7 +69,7 @@ public class Client {
   private LoadtestGrpc.LoadtestStub stub;
   private int errors = 0;
   private long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
-  private long runningSeconds = 0;
+  private Duration runningDuration = Durations.fromMillis(0);
   private SettableFuture<Void> doneFuture = SettableFuture.create();
   private MessageTracker messageTracker;
 
@@ -99,10 +101,15 @@ public class Client {
 
   public static String getTopicSuffix(ClientType clientType) {
     switch (clientType) {
+      case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
+      case CPS_EXPERIMENTAL_JAVA_SUBSCRIBER:
+        return "experimental";
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
         return "gcloud";
+      case CPS_VTK_JAVA_PUBLISHER:
+        return "vtk";
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
         return "kafka";
@@ -123,11 +130,14 @@ public class Client {
       return stubFactory.get();
     }
     return LoadtestGrpc.newStub(
-        ManagedChannelBuilder.forAddress(networkAddress, PORT).usePlaintext(true).build());
+        NettyChannelBuilder.forAddress(networkAddress, PORT)
+            .usePlaintext(true)
+            .maxMessageSize(100000000)
+            .build());
   }
 
   long getRunningSeconds() {
-    return runningSeconds;
+    return runningDuration.getSeconds();
   }
 
   long[] getBucketValues() {
@@ -138,21 +148,27 @@ public class Client {
     this.messageTracker = messageTracker;
     // Send a gRPC call to start the server
     log.info("Connecting to " + networkAddress + ":" + PORT);
-    StartRequest.Builder requestBuilder = StartRequest.newBuilder()
-        .setProject(project)
-        .setTopic(topic)
-        .setMaxOutstandingRequests(maxOutstandingRequests)
-        .setMessageSize(messageSize)
-        .setRequestRate(requestRate)
-        .setStartTime(startTime)
-        .setPublishBatchSize(publishBatchSize);
+    StartRequest.Builder requestBuilder =
+        StartRequest.newBuilder()
+            .setProject(project)
+            .setTopic(topic)
+            .setMaxOutstandingRequests(maxOutstandingRequests)
+            .setMessageSize(messageSize)
+            .setRequestRate(requestRate)
+            .setStartTime(startTime)
+            .setPublishBatchSize(publishBatchSize)
+            .setPublishBatchDuration(publishBatchDuration)
+            .setBurnInDuration(burnInDuration);
     if (numberOfMessages > 0) {
       requestBuilder.setNumberOfMessages(numberOfMessages);
     } else {
-      requestBuilder.setTestDuration(Duration.newBuilder()
-          .setSeconds(loadtestLengthSeconds).build());
+      requestBuilder.setTestDuration(loadtestDuration);
     }
     switch (clientType) {
+      case CPS_EXPERIMENTAL_JAVA_SUBSCRIBER:
+        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
+            .setSubscription(subscription));
+        break;
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
             .setSubscription(subscription)
@@ -165,10 +181,12 @@ public class Client {
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)
-            .setPollLength(pollLength));
+            .setPollDuration(pollDuration));
         break;
+      case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
+      case CPS_VTK_JAVA_PUBLISHER:
         break;
     }
     StartRequest request = requestBuilder.build();
@@ -197,7 +215,7 @@ public class Client {
             }
             connectionErrors++;
             try {
-              Thread.sleep(5000);
+              Thread.sleep(10000);
             } catch (InterruptedException e) {
               log.info("Interrupted during back off, retrying.");
             }
@@ -221,7 +239,10 @@ public class Client {
     if (clientStatus != ClientStatus.RUNNING) {
       return;
     }
-    stub.check(LoadtestProto.CheckRequest.getDefaultInstance(),
+    stub.check(
+        LoadtestProto.CheckRequest.newBuilder()
+            .addAllDuplicates(messageTracker.getDuplicates())
+            .build(),
         new StreamObserver<LoadtestProto.CheckResponse>() {
           @Override
           public void onNext(LoadtestProto.CheckResponse checkResponse) {
@@ -230,16 +251,13 @@ public class Client {
               clientStatus = ClientStatus.STOPPED;
               doneFuture.set(null);
             }
-            if (System.currentTimeMillis() < burnInTimeMillis) {
-              return;
-            }
+            messageTracker.addAllMessageIdentifiers(checkResponse.getReceivedMessagesList());
             synchronized (this) {
               for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
                 bucketValues[i] += checkResponse.getBucketValues(i);
               }
-              runningSeconds = checkResponse.getRunningDuration().getSeconds();
+              runningDuration = checkResponse.getRunningDuration();
             }
-            messageTracker.addAllMessageIdentifiers(checkResponse.getReceivedMessagesList());
           }
 
           @Override
@@ -247,8 +265,8 @@ public class Client {
             if (errors > 3) {
               clientStatus = ClientStatus.FAILED;
               doneFuture.setException(throwable);
-              log.error(clientType + " client failed " + errors +
-                  " health checks, something went wrong.");
+              log.error(clientType + " client failed " + errors
+                      + " health checks, something went wrong.");
               return;
             }
             log.warn("Unable to connect to " + clientType + " client, probably a transient error.");
@@ -267,16 +285,21 @@ public class Client {
    * An enum representing the possible client types.
    */
   public enum ClientType {
+    CPS_EXPERIMENTAL_JAVA_PUBLISHER,
+    CPS_EXPERIMENTAL_JAVA_SUBSCRIBER,
     CPS_GCLOUD_JAVA_PUBLISHER,
     CPS_GCLOUD_JAVA_SUBSCRIBER,
     CPS_GCLOUD_PYTHON_PUBLISHER,
+    CPS_VTK_JAVA_PUBLISHER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
 
     public boolean isCpsPublisher() {
       switch (this) {
+        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
+        case CPS_VTK_JAVA_PUBLISHER:
           return true;
         default:
           return false;
@@ -285,8 +308,10 @@ public class Client {
 
     public boolean isPublisher() {
       switch (this) {
+        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
+        case CPS_VTK_JAVA_PUBLISHER:
         case KAFKA_PUBLISHER:
           return true;
         default:
@@ -296,8 +321,11 @@ public class Client {
 
     public ClientType getSubscriberType() {
       switch (this) {
+        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
+          return CPS_EXPERIMENTAL_JAVA_SUBSCRIBER;
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
+        case CPS_VTK_JAVA_PUBLISHER:
           return CPS_GCLOUD_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;
