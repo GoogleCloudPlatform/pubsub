@@ -65,26 +65,28 @@ import org.apache.commons.codec.digest.DigestUtils;
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
  */
 public class GCEController extends Controller {
-  private static final String MACHINE_TYPE = "n1-standard-4"; // quad core machines
+  private static final String MACHINE_TYPE = "n1-standard-"; // standard machine prefix
   private static final String SOURCE_FAMILY =
       "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
   private static final int ALREADY_EXISTS = 409;
   private static final int NOT_FOUND = 404;
-  public static String resourceDirectory = "src/main/resources/gce";
+  public static String resourceDirectory = "target/classes/gce";
   private final Storage storage;
   private final Compute compute;
   private final String projectName;
+  private final int cores;
   private final Map<String, Map<ClientParams, Integer>> types;
 
   /**
    * Instantiates the load test on Google Compute Engine.
    */
   private GCEController(String projectName, Map<String, Map<ClientParams, Integer>> types,
-                        ScheduledExecutorService executor, Storage storage,
+                        int cores, ScheduledExecutorService executor, Storage storage,
                         Compute compute, Pubsub pubsub) throws Throwable {
     super(executor);
     this.projectName = projectName;
     this.types = types;
+    this.cores = cores;
     this.storage = storage;
     this.compute = compute;
 
@@ -235,6 +237,7 @@ public class GCEController extends Controller {
   public static GCEController newGCEController(
       String projectName,
       Map<String, Map<ClientParams, Integer>> types,
+      int cores,
       ScheduledExecutorService executor) {
     try {
       HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
@@ -248,6 +251,7 @@ public class GCEController extends Controller {
       return new GCEController(
           projectName,
           types,
+          cores,
           executor,
           new Storage.Builder(transport, jsonFactory, credential)
               .setApplicationName("Cloud Pub/Sub Loadtest Framework")
@@ -278,8 +282,8 @@ public class GCEController extends Controller {
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
           try {
             compute.instanceGroupManagers()
-                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-"
-                    + param.getClientType(), 0)
+                .resize(projectName, zone, "cps-loadtest-"
+                    + param.getClientType() + "-" + cores, 0)
                 .execute();
           } catch (IOException e) {
             log.error("Unable to resize Instance Group for " + param.getClientType() + ", please "
@@ -344,9 +348,9 @@ public class GCEController extends Controller {
     while (true) {
       try {
         compute.instanceGroupManagers().insert(projectName, zone,
-            (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
+            (new InstanceGroupManager()).setName("cps-loadtest-" + type + "-" + cores)
                 .setInstanceTemplate("projects/" + projectName
-                    + "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
+                    + "/global/instanceTemplates/cps-loadtest-" + type + "-" + cores)
                 .setTargetSize(0))
             .execute();
         return;
@@ -375,9 +379,9 @@ public class GCEController extends Controller {
       try {
         // We first resize to 0 to delete any left running from an improperly cleaned up prior run.
         compute.instanceGroupManagers().resize(projectName, zone,
-            "cloud-pubsub-loadtest-framework-" + type, 0).execute();
+            "cps-loadtest-" + type + "-" + cores, 0).execute();
         compute.instanceGroupManagers().resize(projectName, zone,
-            "cloud-pubsub-loadtest-framework-" + type, n).execute();
+            "cps-loadtest-" + type + "-" + cores, n).execute();
         return;
       } catch (GoogleJsonResponseException e) {
         if (errors > 10) {
@@ -434,8 +438,8 @@ public class GCEController extends Controller {
     InstanceGroupManagersListManagedInstancesResponse response;
     do {
       response = compute.instanceGroupManagers().
-          listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-"
-              + params.getClientType()).execute();
+          listManagedInstances(projectName, zone, "cps-loadtest-"
+              + params.getClientType() + "-" + cores).execute();
 
       // If we are not instantiating any instances of this type, just return.
       if (response.getManagedInstances() == null) {
@@ -465,9 +469,9 @@ public class GCEController extends Controller {
    */
   private InstanceTemplate defaultInstanceTemplate(String type) {
     return new InstanceTemplate()
-        .setName("cloud-pubsub-loadtest-instance-" + type)
+        .setName("cps-loadtest-" + type + "-" + cores)
         .setProperties(new InstanceProperties()
-            .setMachineType(MACHINE_TYPE)
+            .setMachineType(MACHINE_TYPE + cores)
             .setDisks(Collections.singletonList(new AttachedDisk()
                 .setBoot(true)
                 .setAutoDelete(true)

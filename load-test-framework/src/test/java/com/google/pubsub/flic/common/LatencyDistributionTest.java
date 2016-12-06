@@ -60,7 +60,7 @@ public class LatencyDistributionTest {
     LatencyDistribution control = new LatencyDistribution();
     for (long lat : latencies) {
       int n = 29;
-      distribution.recordLatencyBatch(lat, n);
+      distribution.recordBatchLatency(lat, n);
       for (int i = 0; i < n; i++) {
         control.recordLatency(lat);
       }

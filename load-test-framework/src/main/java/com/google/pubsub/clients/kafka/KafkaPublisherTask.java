@@ -13,17 +13,21 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 package com.google.pubsub.clients.kafka;
 
 import com.beust.jcommander.JCommander;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import org.apache.kafka.clients.producer.Callback;
+import com.google.pubsub.clients.common.Task.RunResult;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
@@ -41,48 +45,51 @@ class KafkaPublisherTask extends Task {
   private final int batchSize;
   private final KafkaProducer<String, String> publisher;
 
-  private KafkaPublisherTask(String broker, String project, String topic, int messageSize, 
-      int batchSize) {
-    super(project, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
-    this.topic = topic;
-    this.payload = LoadTestRunner.createMessage(messageSize);
-    this.batchSize = batchSize;
+  private KafkaPublisherTask(StartRequest request) {
+    super(request, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
+    this.topic = request.getTopic();
+    this.payload = LoadTestRunner.createMessage(request.getMessageSize());
+    this.batchSize = request.getPublishBatchSize();
     Properties props = new Properties();
-    props.putAll(new ImmutableMap.Builder<>().
-        put("max.block.ms", "30000").
-        put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer").
-        put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer").
-        put("acks", "all").
-        put("bootstrap.servers", broker).
-        put("batch.size", Integer.toString(batchSize)).build());
+    props.putAll(new ImmutableMap.Builder<>()
+        .put("max.block.ms", "30000")
+        .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+        .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+        .put("acks", "all")
+        .put("bootstrap.servers", request.getKafkaOptions().getBroker())
+        .put("buffer.memory", Integer.toString(1000 * 1000 * 1000)) // 1 GB
+        // 10M, high enough to allow for duration to control batching
+        .put("batch.size", Integer.toString(10 * 1000 * 1000))
+        .put("linger.ms", Long.toString(Durations.toMillis(request.getPublishBatchDuration())))
+        .build()
+    );
     this.publisher = new KafkaProducer<>(props);
   }
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options options = new LoadTestRunner.Options();
     new JCommander(options, args);
-    LoadTestRunner.run(options, request ->
-        new KafkaPublisherTask(request.getKafkaOptions().getBroker(), request.getProject(),
-            request.getTopic(), request.getMessageSize(), request.getPublishBatchSize()));
+    LoadTestRunner.run(options, KafkaPublisherTask::new);
   }
 
   @Override
-  public void run() {
-    Stopwatch stopwatch = Stopwatch.createUnstarted();
-    Callback callback = (metadata, exception) -> {
-      if (exception != null) {
-        log.error(exception.getMessage(), exception);
-        return;
-      }
-      addNumberOfMessages(1);
-      metricsHandler.recordLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS));
-    };
-    stopwatch.start();
+  public ListenableFuture<RunResult> doRun() {
+    SettableFuture<RunResult> result = SettableFuture.create();
+    AtomicInteger messagesToSend = new AtomicInteger(batchSize);
+    AtomicInteger messagesSentSuccess = new AtomicInteger(batchSize);
     for (int i = 0; i < batchSize; i++) {
       publisher.send(
-          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload), callback);
+          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload),
+          (metadata, exception) -> {
+            if (exception != null) {
+              messagesSentSuccess.decrementAndGet();
+              log.error(exception.getMessage(), exception);
+            }
+            if (messagesToSend.decrementAndGet() == 0) {
+              result.set(RunResult.fromBatchSize(messagesSentSuccess.get()));
+            }
+          });
     }
-    publisher.flush();
-    stopwatch.stop();
+    return result;
   }
 }
