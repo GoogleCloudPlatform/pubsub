@@ -168,16 +168,19 @@ public class GCEController extends Controller {
       });
       List<SettableFuture<Void>> createGroupFutures = new ArrayList<>();
       types.forEach((zone, paramsMap) -> paramsMap.forEach((param, n) -> {
-        SettableFuture<Void> createGroupFuture = SettableFuture.create();
-        createGroupFutures.add(createGroupFuture);
-        executor.execute(() -> {
-          try {
-            createManagedInstanceGroup(zone, param.getClientType());
-            createGroupFuture.set(null);
-          } catch (Exception e) {
-            createGroupFuture.setException(e);
-          }
-        });
+        for (int i = 0; i < n / 40 + 1; i++) {
+          SettableFuture<Void> createGroupFuture = SettableFuture.create();
+          createGroupFutures.add(createGroupFuture);
+          final int num = i; // Create instance group manager for every 40 clients
+          executor.execute(() -> {
+            try {
+              createManagedInstanceGroup(zone, param.getClientType(), num);
+              createGroupFuture.set(null);
+            } catch (Exception e) {
+              createGroupFuture.setException(e);
+            }
+          });
+        }
       }));
 
       // Wait for files and instance groups to be created.
@@ -192,16 +195,25 @@ public class GCEController extends Controller {
       log.info("Starting instances.");
       List<SettableFuture<Void>> resizingFutures = new ArrayList<>();
       types.forEach((zone, paramsMap) -> paramsMap.forEach((type, n) -> {
-        SettableFuture<Void> resizingFuture = SettableFuture.create();
-        resizingFutures.add(resizingFuture);
-        executor.execute(() -> {
-          try {
-            startInstances(zone, type.getClientType(), n);
-            resizingFuture.set(null);
-          } catch (Exception e) {
-            resizingFuture.setException(e);
+        for (int i = 0; i < n / 40 + 1; i++) {
+          SettableFuture<Void> resizingFuture = SettableFuture.create();
+          resizingFutures.add(resizingFuture);
+          final int instanceCount; // 40 instances each + n % 40 to capture remaining
+          if (i == 0) {
+            instanceCount = n % 40;
+          } else {
+            instanceCount = 40;
           }
-        });
+          final int num = i;
+          executor.execute(() -> {
+            try {
+              startInstances(zone, type.getClientType(), instanceCount, num);
+              resizingFuture.set(null);
+            } catch (Exception e) {
+              resizingFuture.setException(e);
+            }
+          });
+        }
       }));
       Futures.allAsList(resizingFutures).get();
 
@@ -341,7 +353,7 @@ public class GCEController extends Controller {
   /**
    * Creates the instance template and managed instance group for the given zone and type.
    */
-  private void createManagedInstanceGroup(String zone, ClientType type) throws Exception {
+  private void createManagedInstanceGroup(String zone, ClientType type, int num) throws Exception {
     // Create the Instance Template
     try {
       compute.instanceTemplates().insert(projectName,
@@ -357,7 +369,8 @@ public class GCEController extends Controller {
     while (true) {
       try {
         compute.instanceGroupManagers().insert(projectName, zone,
-            (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
+            (new InstanceGroupManager())
+                .setName("cloud-pubsub-loadtest-framework-" + type + "-" + num)
                 .setInstanceTemplate("projects/" + projectName
                     + "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
                 .setTargetSize(0))
@@ -382,15 +395,15 @@ public class GCEController extends Controller {
    * Re-sizes the instance groups to zero and then to the given size in order to ensure previous
    * runs do not interfere in case they were not cleaned up properly.
    */
-  private void startInstances(String zone, ClientType type, Integer n) throws Exception {
+  private void startInstances(String zone, ClientType type, Integer n, int num) throws Exception {
     int errors = 0;
     while (true) {
       try {
         // We first resize to 0 to delete any left running from an improperly cleaned up prior run.
         compute.instanceGroupManagers().resize(projectName, zone,
-            "cloud-pubsub-loadtest-framework-" + type, 0).execute();
+            "cloud-pubsub-loadtest-framework-" + type + "-" + num, 0).execute();
         compute.instanceGroupManagers().resize(projectName, zone,
-            "cloud-pubsub-loadtest-framework-" + type, n).execute();
+            "cloud-pubsub-loadtest-framework-" + type + "-" + num, n).execute();
         return;
       } catch (GoogleJsonResponseException e) {
         if (errors > 10) {
