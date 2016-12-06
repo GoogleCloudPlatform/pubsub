@@ -5,7 +5,7 @@
   <groupId>com.google.pubsub</groupId>
   <artifactId>cloud-pubsub-client-samples</artifactId>
   <packaging>jar</packaging>
-  <version>0.1-EXPERIMENTAL</version>
+  <version>0.2-EXPERIMENTAL</version>
 
   <name>Google Cloud Pub/Sub Client Code Samples</name>
   <description>
