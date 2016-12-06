@@ -223,25 +223,28 @@ public class GCEController extends Controller {
       for (String zone : types.keySet()) {
         Map<ClientParams, Integer> paramsMap = types.get(zone);
         for (ClientParams type : paramsMap.keySet()) {
-          SettableFuture<Void> startFuture = SettableFuture.create();
-          startFutures.add(startFuture);
-          executor.execute(() -> {
-            int numErrors = 0;
-            while (true) {
-              try {
-                addInstanceGroupInfo(zone, type);
-                startFuture.set(null);
-                return;
-              } catch (IOException e) {
-                numErrors++;
-                if (numErrors > 3) {
-                  startFuture.setException(new Exception("Failed to get instance information."));
+          for (int i = 0; i < paramsMap.get(type) / 40 + 1; i++) {
+            SettableFuture<Void> startFuture = SettableFuture.create();
+            startFutures.add(startFuture);
+            final int num = i;
+            executor.execute(() -> {
+              int numErrors = 0;
+              while (true) {
+                try {
+                  addInstanceGroupInfo(zone, type, num);
+                  startFuture.set(null);
                   return;
+                } catch (IOException e) {
+                  numErrors++;
+                  if (numErrors > 3) {
+                    startFuture.setException(new Exception("Failed to get instance information."));
+                    return;
+                  }
+                  log.error("Transient error getting status for instance group, continuing", e);
                 }
-                log.error("Transient error getting status for instance group, continuing", e);
               }
-            }
-          });
+            });
+          }
         }
       }
 
@@ -301,14 +304,16 @@ public class GCEController extends Controller {
     }
     // Attempt to cleanly close all running instances.
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
-          try {
-            compute.instanceGroupManagers()
-                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-"
-                    + param.getClientType(), 0)
-                .execute();
-          } catch (IOException e) {
-            log.error("Unable to resize Instance Group for " + param.getClientType() + ", please "
-                + "manually ensure you do not have any running instances to avoid being billed.");
+          for (int i = 0; i < count / 40 + 1; i++) {
+            try {
+              compute.instanceGroupManagers()
+                  .resize(projectName, zone, "cloud-pubsub-loadtest-framework-"
+                      + param.getClientType() + "-" + i, 0)
+                  .execute();
+            } catch (IOException e) {
+              log.error("Unable to resize Instance Group for " + param.getClientType() + ", please "
+                  + "manually ensure you do not have any running instances to avoid being billed.");
+            }
           }
         })
     );
@@ -456,12 +461,12 @@ public class GCEController extends Controller {
    * For the given zone and client type, we add the instances created to the clients array, for the
    * base controller.
    */
-  private void addInstanceGroupInfo(String zone, ClientParams params) throws IOException {
+  private void addInstanceGroupInfo(String zone, ClientParams params, int num) throws IOException {
     InstanceGroupManagersListManagedInstancesResponse response;
     do {
       response = compute.instanceGroupManagers().
           listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-"
-              + params.getClientType()).execute();
+              + params.getClientType() + "-" + num).execute();
 
       // If we are not instantiating any instances of this type, just return.
       if (response.getManagedInstances() == null) {
