@@ -96,6 +96,9 @@ bodies of Kafka messages. For this reason, we recommend using primitive data
 types where possible to prevent deserializing and reserializing the same message
 body.
 
+Additionally, a Pubsub message size cannot exceed 10MB, so please check
+your broker's message.max.bytes configuration to prevent possible errors.
+
 The sink connector handles the conversion in the following way:
 
 *   For all primitive data types (integers, floats, bytes, and strings), the
