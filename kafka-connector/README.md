@@ -80,8 +80,7 @@ Connector supports the following configs:
 
 | Config | Value Range | Default | Description |
 |---------------|-------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| cps.topic | String | REQUIRED (No default) | The topic in Cloud Pub/Sub to
-publish to, e.g. "foo" for topic "/projects/bar/topics/foo". |
+| cps.topic | String | REQUIRED (No default) | The topic in Cloud Pub/Sub to publish to, e.g. "foo" for topic "/projects/bar/topics/foo". |
 | cps.project | String | REQUIRED (No default) | The project in Cloud Pub/Sub containing the topic, e.g. "bar" from above. |
 | maxBufferSize | Integer | 100 | The maximum number of messages that can be received for the messages on a topic partition before publishing them to Cloud Pub/Sub. |
 
