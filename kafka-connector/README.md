@@ -69,7 +69,7 @@ Connector supports the following configs:
 | Config | Value Range | Default | Description |
 |------------------------|-----------------------------------|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | cps.subscription | String | REQUIRED (No default) | The name of the subscription to Cloud Pub/Sub, e.g. "sub" for topic "/projects/bar/subscriptions/sub". |
-| cps.project | String | REQUIRED (No default) | The project containing the topic from which to pull messages. |
+| cps.project | String | REQUIRED (No default) | The project containing the topic from which to pull messages, e.g. "bar" from above. |
 | kafka.topic | String | REQUIRED (No default) | The topic in Kafka which will receive messages that were pulled from Cloud Pub/Sub. |
 | cps.maxBatchSize | Integer | 100 | The minimum number of messages to batch per pull request to Cloud Pub/Sub. |
 | kafka.key.attribute | String | null | The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka. |
@@ -80,8 +80,9 @@ Connector supports the following configs:
 
 | Config | Value Range | Default | Description |
 |---------------|-------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| cps.topic | String | REQUIRED (No default) | The topic in Cloud Pub/Sub to publish to. |
-| cps.project | String | REQUIRED (No default) | The project in Cloud Pub/Sub containing the topic to publish to, e.g. "foo" for topic "/projects/bar/topics/foo". |
+| cps.topic | String | REQUIRED (No default) | The topic in Cloud Pub/Sub to
+publish to, e.g. "foo" for topic "/projects/bar/topics/foo". |
+| cps.project | String | REQUIRED (No default) | The project in Cloud Pub/Sub containing the topic, e.g. "bar" from above. |
 | maxBufferSize | Integer | 100 | The maximum number of messages that can be received for the messages on a topic partition before publishing them to Cloud Pub/Sub. |
 
 #### Schema Support and Data Model
