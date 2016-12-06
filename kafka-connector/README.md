@@ -7,16 +7,6 @@ The CloudPubSubConnector is a connector to be used with [Kafka Connect]
 both a sink connector (to copy messages from Kafka to Cloud Pub/Sub) and a
 source connector (to copy messages from Cloud Pub/Sub to Kafka).
 
-Since Cloud Pub/Sub has no notion of partition or key, the sink connector stores
-these as attributes on a message.
-
-### Limitations
-
-Cloud Pub/Sub does not allow any message to be larger than 10MB. Therefore, if
-your Kafka topic has messages that are larger than this, the connector cannot be
-used. Consider setting message.max.bytes on your broker to ensure that no
-messages will be larger than that limit.
-
 ### Building
 
 These instructions assume you are using [Maven](https://maven.apache.org/).
@@ -71,11 +61,8 @@ The resulting jar is at target/cps-kafka-connector.jar.
 
 ### CloudPubSubConnector Configs
 
-Cloud Pub/Sub topics and subscriptions are represented by their fully qualified
-path name. For example a topic "foo" that lives under the project "bar" will
-have a topic name of "projects/bar/topics/foo". When specifying configs for the
-connector, do not include the fully qualified path name that you see on Cloud
-Pub/Sub. Rather, just include the single-word name (i.e "foo" in this case).
+In addition to the configs supplied by the Kafka Connect API, the Pubsub
+Connector supports the following configs:
 
 #### Source Connector
 
@@ -89,10 +76,58 @@ Pub/Sub. Rather, just include the single-word name (i.e "foo" in this case).
 | kafka.partition.count | Integer | 1 | The number of Kafka partitions for the Kafka topic in which messages will be published to. |
 | kafka.partition.scheme | round_robin, hash_key, hash_value | round_robin | The scheme for assigning a message to a partition in Kafka. The scheme "round_robin" assigns partitions in a round robin fashion, while the schemes "hash_key" and "hash_value" find the partition by hashing the message key and message value respectively. |
 
-##### Sink Connector
+#### Sink Connector
 
 | Config | Value Range | Default | Description |
 |---------------|-------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
 | cps.topic | String | REQUIRED (No default) | The topic in Cloud Pub/Sub to publish to. |
 | cps.project | String | REQUIRED (No default) | The project in Cloud Pub/Sub containing the topic to publish to. |
 | maxBufferSize | Integer | 100 | The maximum number of messages that can be received for the messages on a topic partition before publishing them to Cloud Pub/Sub. |
+
+Note: For a topic, include the unique topic ending rather than the full name,
+e.g. for the Pubsub topic "/projects/bar/topics/foo", "foo" should be passed in.
+The same goes for subscription identifiers.
+
+#### Schema Support and Data Model
+
+A pubsub message has two main parts: the message body and attributes. The
+message body is a ByteString object that translates well to and from the byte[]
+bodies of Kafka messages. For this reason, we recommend using primitive data
+types where possible to prevent deserializing and reserializing the same message
+body.
+
+The sink connector handles the conversion in the following way:
+
+*   For all primitive data types (integers, floats, bytes, and strings), the
+    bytes are stored as the message body.
+*   For map and struct types, the values are stored in attributes. Pubsub only
+    supports string to string mapping in attributes. To make the connector as
+    versatile as possible, the toString() method will be called on whatever
+    object passed in as the key or value for a map and the value for a struct.
+    *   One additional feature is we allow a specification of a particular
+        field or key to be placed in the Pubsub message body. To do so, set the
+        CPS_MESSAGE_BODY_NAME configuration with the struct field or map key.
+        This value is stored as a ByteString, any integer, byte, float, or array
+        type will be included in the message body as if it were the sole value.
+*   For arrays, we only support primitive array types due to potential
+    collisions of field names or keys of a struct/map array. The connector
+    handles arrays in a fairly predictable fashion, each value is concatenated
+    together into a ByteString object.
+*   In all cases, the Kafka key value is stored in the Pubsub message's
+    attributes as a string with the key set by
+    ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, currently "key".
+
+The source connector takes a similar approach in handling the conversion
+from a Pubsub message into a SourceRecord with a relevant Schema.
+
+*   The connector searches for the given KAFKA_MESSAGE_KEY_CONFIG in the
+    attributes of the Pubsub message. If found, this will be used as the Kafka
+    key with a string schema type. Otherwise, it will be set to null.
+*   If the Pubsub message doesn't have any other attributes, the message body
+    is used as the SourceRecord value with a bytes schema.
+*   However, if there are attributes beyond the Kafka key, the value is assigned
+    a struct schema. Each key in the Pubsub message's attributes map becomes a
+    field name, with the values set accordingly with string schemas. In this
+    case, the Pubsub message body is identified by the field name set in
+    ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_FIELD, currently "message", and has
+    the schema types bytes.
