@@ -14,7 +14,7 @@ The goal of this framework is twofold:
 
 ### Quickstart
 
-You must have [Maven](https://maven.apache.org/) installed, be running on an Unix environment, either Linux or Mac OS X, and have the `zip` command line utility available. You can then run `python run.py --project=<your_project>` which will install the load test framework and run a basic load test.
+You must have [Maven](https://maven.apache.org/) installed, be running on an Unix environment, either Linux or Mac OS X, and have the `zip` command line utility available. You can then run `python run.py --project=<your_project>` which will install the load test framework and run a basic load test. You can provide the `--test` command line parameter to change test type. The default is 'latency', but it can also be set to 'throughput' which will test the maximum throughput on a single VM at different numbers of cores, and 'service' which will test maximum throughput on a 16 core VM. You can also set `--client_types` to set the clients to test. This is a comma deliminated list, valid options being 'gcloud_python', 'gcloud_java', and 'vtk'. 'experimental' requires you to be whitelisted for access to an experimental feature of Cloud Pub/Sub. You can contact cloud-pubsub@google.com to request access.
 
 ### Pre-Running Steps
 
