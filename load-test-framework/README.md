@@ -12,19 +12,12 @@ The goal of this framework is twofold:
 2.  Provide users with a tool that allows them to benchmark their own Kafka
     configuration.
 
-### Building
+### Quickstart
 
-These instructions assume you are using [Maven](https://maven.apache.org/).
-
-1.  Make the jar that contains the connector:
-
-    `mvn package`
-
-2. Copy the jar into the GCE resource directory:
-
-    `cp target/driver.jar src/main/resources/gce/`
-
-The resulting jar is at target/driver.jar.
+You must have [Maven](https://maven.apache.org/) installed, be running on an Unix environment, either Linux or Mac OS X, and have the `zip` command line utility available.  
+You can then run `python run.py --project=<your_project>` which will install the load test framework and run a basic load test.  
+The `--test` parameter changes the test type. The default is 'latency', but it can also be set to 'throughput' which will test the maximum throughput on a single VM at different numbers of cores, and 'service' which will test maximum throughput on a 16 core VM.  
+The `--client_types` parameter to sets the clients to test. This is a comma deliminated list, valid options being 'gcloud_python', 'gcloud_java', and 'vtk'. 'experimental' requires you to be whitelisted for access to an experimental feature of Cloud Pub/Sub. You can contact cloud-pubsub@google.com to request access.
 
 ### Pre-Running Steps
 
@@ -74,44 +67,3 @@ We took care to make sure the data recording was as similar as possible. Both cl
 measure total latency as the time a message is added to a batch to be sent until its
 callback method is called. Although exactly what load the service sees might differ
 slightly, the record of how it responds, its latency and throughput, are equivalent.
-
-### Quickstart
-
-1.  The jar file can be executed with numerous commands and options specified
-    from the command line. In a single invocation, the framework allows you to
-    use Kafka or Cloud Pub/Sub as the message service, and to publish or consume
-    messages from this service. The following command runs a load test for Cloud
-    Pub/Sub.
-
-    `java -jar target/driver.jar --project your_project`
-
-2.  To get a list of all available commands, options and defaults, run the
-    following.
-
-    `java -jar target/driver.jar --help`
-
-### Common Tests
-
-#### Minimum Latency on a single instance
-
-```bash
---request_rate=1 --message_size=1
-```
-
-#### Maximum Throughput on a single instance
-
-```bash
--—message_size=10000 —-batch_size=10 --request_rate=1000000
-```
-
-#### Maximum QPS on a single instance
-
-```bash
-—-message_size=1 --request_rate=1000000
-```
-
-#### Maximum Service Throughput for N instances under 200 ms Publish to Ack Latency
-
-```bash
-—-cps_publisher_count=N —-cps_subscriber_count=N*3 --max_publish_latency_test=true --max_publish_latency_millis=200 --request_rate=100
-```
