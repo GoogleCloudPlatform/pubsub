@@ -123,14 +123,14 @@ public class Driver {
       names = {"--cps_grpc_publisher_count"},
       description = "Number of gRPC CPS publishers to start."
   )
-  private int cpsGrpcJavaPublisherCount = 1;
+  private int cpsGrpcJavaPublisherCount = 0;
   @Parameter(
       names = {"--cps_grpc_subscriber_count"},
       description =
           "Number of gRPC CPS subscribers to start. If this is not divisible by cps_subscription_fanout"
               + ", we will round down to the closest multiple of cps_subscription_fanout."
   )
-  private int cpsGrpcSubscriberCount = 1;
+  private int cpsGrpcSubscriberCount = 0;
 
   @Parameter(
     names = {"--kafka_publisher_count"},
