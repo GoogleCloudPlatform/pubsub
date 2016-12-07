@@ -42,6 +42,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.nio.charset.Charset;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -76,24 +77,29 @@ public class SheetsService {
     service = tmp;
   }
 
-  private Sheets authorize() throws Exception {
-    InputStream in = new FileInputStream(new File(System.getenv("GOOGLE_OATH2_CREDENTIALS")));
-    JsonFactory factory = new JacksonFactory();
-    GoogleClientSecrets clientSecrets =
-        GoogleClientSecrets.load(factory, new InputStreamReader(in));
-    HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
-    FileDataStoreFactory dataStoreFactory = new FileDataStoreFactory(new File(dataStoreDirectory));
-    List<String> scopes = Collections.singletonList(SheetsScopes.SPREADSHEETS);
-    GoogleAuthorizationCodeFlow flow =
-        new GoogleAuthorizationCodeFlow.Builder(
-            transport, factory, clientSecrets, scopes)
-            .setAccessType("offline")
-            .setDataStoreFactory(dataStoreFactory)
-            .build();
-    Credential credential = new AuthorizationCodeInstalledApp(
-        flow, new LocalServerReceiver()).authorize("user");
-    return new Sheets.Builder(transport, factory, credential)
-        .setApplicationName(APPLICATION_NAME).build();
+  private Sheets authorize() {
+    try {
+      InputStream in = new FileInputStream(new File(System.getenv("GOOGLE_OATH2_CREDENTIALS")));
+      JsonFactory factory = new JacksonFactory();
+      GoogleClientSecrets clientSecrets =
+          GoogleClientSecrets.load(factory, new InputStreamReader(in, Charset.defaultCharset()));
+      HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
+      FileDataStoreFactory dataStoreFactory =
+          new FileDataStoreFactory(new File(dataStoreDirectory));
+      List<String> scopes = Collections.singletonList(SheetsScopes.SPREADSHEETS);
+      GoogleAuthorizationCodeFlow flow =
+          new GoogleAuthorizationCodeFlow.Builder(transport, factory, clientSecrets, scopes)
+              .setAccessType("offline")
+              .setDataStoreFactory(dataStoreFactory)
+              .build();
+      Credential credential =
+          new AuthorizationCodeInstalledApp(flow, new LocalServerReceiver()).authorize("user");
+      return new Sheets.Builder(transport, factory, credential)
+          .setApplicationName(APPLICATION_NAME)
+          .build();
+    } catch (Exception e) {
+      return null;
+    }
   }
 
   /* Publishes stats information to Google Sheets document. Format for sheet assumes the following
@@ -145,7 +151,7 @@ public class SheetsService {
     }
     valueRow.add(Client.messageSize);
     if (Client.numberOfMessages <= 0) {
-      valueRow.add(Client.loadtestLengthSeconds);
+      valueRow.add(Client.loadtestDuration.getSeconds());
       valueRow.add("N/A");
     } else {
       valueRow.add("N/A");
@@ -153,7 +159,7 @@ public class SheetsService {
     }
     valueRow.add(Client.publishBatchSize);
     valueRow.add(Client.maxMessagesPerPull);
-    valueRow.add(Client.pollLength);
+    valueRow.add(Client.pollDuration.getSeconds());
     valueRow.add(Client.maxOutstandingRequests);
     valueRow.add(Client.requestRate);
     valueRow.add(Client.requestRate * count);

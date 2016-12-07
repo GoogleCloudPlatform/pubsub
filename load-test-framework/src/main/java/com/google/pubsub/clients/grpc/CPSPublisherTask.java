@@ -15,23 +15,37 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.grpc;
 
+import static com.google.pubsub.clients.common.Task.RunResult.fromBatchSize;
+import static com.google.pubsub.flic.controllers.Client.maxOutstandingRequests;
+import static com.google.pubsub.flic.controllers.Client.messageSize;
+
 import com.beust.jcommander.JCommander;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.common.base.Function;
 import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.v1.PublishRequest;
+import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PubsubMessage;
+import com.google.pubsub.v1.PullRequest;
+import com.google.pubsub.v1.PullResponse;
+import com.google.pubsub.v1.SubscriberGrpc;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import io.grpc.auth.ClientAuthInterceptor;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,34 +63,37 @@ class CPSPublisherTask extends Task {
   private final int batchSize;
   private final ByteString payload;
   private GoogleCredentials credentials = null;
-  private PublisherGrpc.PublisherBlockingStub[] stubs;
+  private PublisherGrpc.PublisherFutureStub[] stubs;
   private int currentStubIdx;
+  private final Integer id;
+  private final AtomicInteger sequenceNumber = new AtomicInteger(0);
 
-  private CPSPublisherTask(String project, String topic, int messageSize, int batchSize,
-                           int maxOutstandingRequests) {
-    super(project, "grpc", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
-    this.topic = "projects/" + project + "/topics/" + topic;
-    this.batchSize = batchSize;
+  private CPSPublisherTask(StartRequest request) {
+    super(request, "grpc", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
+    this.topic = "projects/"
+        + request.getProject()
+        + "/subscriptions/"
+        + request.getSubscription();
+    this.batchSize = request.getPublishBatchSize();
     this.payload = ByteString.copyFromUtf8(LoadTestRunner.createMessage(messageSize));
     try {
       this.credentials =
           GoogleCredentials.getApplicationDefault()
               .createScoped(ImmutableList.of("https://www.googleapis.com/auth/cloud-platform"));
-      stubs = new PublisherGrpc.PublisherBlockingStub[maxOutstandingRequests];
+      stubs = new PublisherGrpc.PublisherFutureStub[maxOutstandingRequests];
       for (int i = 0; i < stubs.length; i++) {
-        stubs[i] = PublisherGrpc.newBlockingStub(getChannel());
+        stubs[i] = PublisherGrpc.newFutureStub(getChannel());
       }
     } catch (IOException e) {
       log.error("Unable to get credentials or create channel.", e);
     }
+    this.id = (new Random()).nextInt();
   }
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options options = new LoadTestRunner.Options();
     new JCommander(options, args);
-    LoadTestRunner.run(options, request ->
-        new CPSPublisherTask(request.getProject(), request.getTopic(), request.getMessageSize(),
-            request.getPublishBatchSize(), request.getMaxOutstandingRequests()));
+    LoadTestRunner.run(options, CPSPublisherTask::new);
   }
 
   private Channel getChannel() throws SSLException {
@@ -89,27 +106,27 @@ class CPSPublisherTask extends Task {
         new ClientAuthInterceptor(credentials, Executors.newSingleThreadExecutor()));
   }
 
-  private synchronized PublisherGrpc.PublisherBlockingStub getStub() {
-    PublisherGrpc.PublisherBlockingStub stub = stubs[currentStubIdx];
+  private synchronized PublisherGrpc.PublisherFutureStub getStub() {
+    PublisherGrpc.PublisherFutureStub stub = stubs[currentStubIdx];
     currentStubIdx = (currentStubIdx + 1) % stubs.length;
     return stub;
   }
 
   @Override
-  public void run() {
-    PublisherGrpc.PublisherBlockingStub stub = getStub();
+  public ListenableFuture<RunResult> doRun() {
+    PublisherGrpc.PublisherFutureStub stub = getStub();
     PublishRequest.Builder requestBuilder = PublishRequest.newBuilder().setTopic(topic);
     String sendTime = String.valueOf(System.currentTimeMillis());
-    Stopwatch stopwatch = Stopwatch.createStarted();
     for (int i = 0; i < batchSize; i++) {
       requestBuilder.addMessages(PubsubMessage.newBuilder()
           .setData(payload)
-          .putAttributes("sendTime", sendTime));
+          .putAttributes("sendTime", sendTime)
+          .putAttributes("clientId", id.toString())
+          .putAttributes("sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement())));
     }
-    PublishRequest request = requestBuilder.build();
-    stub.publish(request);
-    stopwatch.stop();
-    addNumberOfMessages(batchSize);
-    metricsHandler.recordLatencyBatch(stopwatch.elapsed(TimeUnit.MILLISECONDS), batchSize);
+    ListenableFuture<PublishResponse> responseFuture = stub.publish(requestBuilder.build());
+    Function<PublishResponse, RunResult> callback =
+        (response) -> RunResult.fromBatchSize(batchSize);
+    return Futures.transform(responseFuture, callback);
   }
 }

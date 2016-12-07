@@ -20,9 +20,13 @@ import com.google.cloud.pubsub.PubSub;
 import com.google.cloud.pubsub.PubSubException;
 import com.google.cloud.pubsub.PubSubOptions;
 import com.google.common.base.Preconditions;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.clients.common.Task.RunResult;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import java.util.ArrayList;
 import java.util.List;
 import org.slf4j.Logger;
@@ -37,41 +41,40 @@ class CPSSubscriberTask extends Task {
   private final int batchSize;
   private final PubSub pubSub;
 
-  private CPSSubscriberTask(String project, String subscription, int batchSize) {
-    super(project, "gcloud", MetricsHandler.MetricName.END_TO_END_LATENCY);
+  private CPSSubscriberTask(StartRequest request) {
+    super(request, "gcloud", MetricsHandler.MetricName.END_TO_END_LATENCY);
     this.pubSub = PubSubOptions.builder()
-        .projectId(project)
+        .projectId(request.getProject())
         .build().service();
-    this.subscription = Preconditions.checkNotNull(subscription);
-    this.batchSize = batchSize;
+    this.subscription = Preconditions.checkNotNull(request.getSubscription());
+    this.batchSize = request.getMaxMessagesPerPull();
   }
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options options = new LoadTestRunner.Options();
     new JCommander(options, args);
-    LoadTestRunner.run(options, request ->
-        new CPSSubscriberTask(request.getProject(), request.getSubscription(),
-            request.getMaxMessagesPerPull()));
+    LoadTestRunner.run(options, CPSSubscriberTask::new);
   }
 
   @Override
-  public void run() {
+  public ListenableFuture<RunResult> doRun() {
+    RunResult result = new RunResult();
     try {
       List<String> ackIds = new ArrayList<>();
-      long now = System.currentTimeMillis();
       pubSub.pull(subscription, batchSize).forEachRemaining((response) -> {
         ackIds.add(response.ackId());
-        metricsHandler.recordLatency(now - Long.parseLong(response.attributes().get("sendTime")));
-        addMessageIdentifier(
-            Integer.parseInt(response.attributes().get("clientId")),
-            Integer.parseInt(response.attributes().get("sequenceNumber")));
+        result.addMessageLatency(
+          Integer.parseInt(response.attributes().get("clientId")),
+          Integer.parseInt(response.attributes().get("sequenceNumber")),
+          System.currentTimeMillis() - Long.parseLong(response.attributes().get("sendTime")));
       });
-      if (ackIds.isEmpty()) {
-        return;
+      if (!ackIds.isEmpty()) {
+        pubSub.ack(subscription, ackIds);
       }
-      pubSub.ack(subscription, ackIds);
+      return Futures.immediateFuture(result);
     } catch (PubSubException e) {
       log.error("Error pulling or acknowledging messages.", e);
+      return Futures.immediateFailedFuture(e);
     }
   }
 }

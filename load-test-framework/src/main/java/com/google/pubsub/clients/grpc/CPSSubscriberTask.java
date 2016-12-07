@@ -15,12 +15,18 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.grpc;
 
+import static com.google.pubsub.flic.controllers.Client.maxOutstandingRequests;
+
 import com.beust.jcommander.JCommander;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.common.base.Function;
 import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
@@ -32,6 +38,7 @@ import io.grpc.auth.ClientAuthInterceptor;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -47,23 +54,25 @@ import java.util.concurrent.Executors;
 class CPSSubscriberTask extends Task {
   private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
   private final String subscription;
-  private final int batchSize;
+  private final int pullSize;
   private GoogleCredentials credentials = null;
-  private SubscriberGrpc.SubscriberBlockingStub[] stubs;
+  private SubscriberGrpc.SubscriberFutureStub[] stubs;
   private int currentStubIdx;
 
-  private CPSSubscriberTask(String project, String subscription, int batchSize,
-                            int maxOutstandingRequests) {
-    super(project, "grpc", MetricsHandler.MetricName.END_TO_END_LATENCY);
-    this.subscription = "projects/" + project + "/subscriptions/" + subscription;
-    this.batchSize = batchSize;
+  private CPSSubscriberTask(StartRequest request) {
+    super(request, "grpc", MetricsHandler.MetricName.END_TO_END_LATENCY);
+    this.subscription = "projects/"
+        + request.getProject()
+        + "/subscriptions/"
+        + request.getSubscription();
+    this.pullSize = request.getMaxMessagesPerPull();
     try {
       this.credentials =
           GoogleCredentials.getApplicationDefault()
               .createScoped(ImmutableList.of("https://www.googleapis.com/auth/cloud-platform"));
-      stubs = new SubscriberGrpc.SubscriberBlockingStub[maxOutstandingRequests];
+      stubs = new SubscriberGrpc.SubscriberFutureStub[maxOutstandingRequests];
       for (int i = 0; i < stubs.length; i++) {
-        stubs[i] = SubscriberGrpc.newBlockingStub(getChannel());
+        stubs[i] = SubscriberGrpc.newFutureStub(getChannel());
       }
     } catch (IOException e) {
       log.error("Unable to get credentials or create channel.", e);
@@ -73,9 +82,7 @@ class CPSSubscriberTask extends Task {
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options options = new LoadTestRunner.Options();
     new JCommander(options, args);
-    LoadTestRunner.run(options, request ->
-        new CPSSubscriberTask(request.getProject(), request.getSubscription(),
-            request.getMaxMessagesPerPull(), request.getMaxOutstandingRequests()));
+    LoadTestRunner.run(options, CPSSubscriberTask::new);
   }
 
   private Channel getChannel() throws SSLException {
@@ -88,36 +95,34 @@ class CPSSubscriberTask extends Task {
         new ClientAuthInterceptor(credentials, Executors.newSingleThreadExecutor()));
   }
 
-  private synchronized SubscriberGrpc.SubscriberBlockingStub getStub() {
-    SubscriberGrpc.SubscriberBlockingStub stub = stubs[currentStubIdx];
-    currentStubIdx = (currentStubIdx + 1) % stubs.length;
-    return stub;
+  @Override
+  public ListenableFuture<RunResult> doRun() {
+    SubscriberGrpc.SubscriberFutureStub stub = getStub();
+    ListenableFuture<PullResponse> responseFuture = stub.pull(
+        PullRequest.newBuilder()
+            .setSubscription(subscription)
+            .setMaxMessages(pullSize)
+            .build());
+    Function<PullResponse, RunResult> callback = (response) -> {
+      RunResult out = new RunResult();
+      List<String> ackIds = new ArrayList<>(response.getReceivedMessagesCount());
+      List<ReceivedMessage> receivedList = response.getReceivedMessagesList();
+      for (ReceivedMessage message : receivedList) {
+        ackIds.add(message.getAckId());
+        Map<String, String> attributesMap = message.getMessage().getAttributesMap();
+        out.addMessageLatency(
+            Integer.parseInt(attributesMap.get("clientId")),
+            Integer.parseInt(attributesMap.get("sequenceNumber")),
+            System.currentTimeMillis() - Long.parseLong(attributesMap.get("sendTime")));
+      }
+      return out;
+    };
+    return Futures.transform(responseFuture, callback);
   }
 
-  @Override
-  public void run() {
-    try {
-      SubscriberGrpc.SubscriberBlockingStub stub = getStub();
-      PullResponse response = stub.pull(
-          PullRequest.newBuilder()
-              .setSubscription(subscription)
-              .setMaxMessages(batchSize)
-              .build());
-      long now = System.currentTimeMillis();
-      List<String> ackIds = new ArrayList<>();
-      for (ReceivedMessage recvMsg : response.getReceivedMessagesList()) {
-        ackIds.add(recvMsg.getAckId());
-        metricsHandler.recordLatency(now - Long.parseLong(recvMsg.getMessage()
-            .getAttributesMap().get("sendTime")));
-      }
-      addNumberOfMessages(ackIds.size());
-      stub.acknowledge(
-          AcknowledgeRequest.newBuilder()
-              .setSubscription(subscription)
-              .addAllAckIds(ackIds)
-              .build());
-    } catch (Exception e) {
-      log.error("Error pulling or acknowledging messages.", e);
-    }
+  private synchronized SubscriberGrpc.SubscriberFutureStub getStub() {
+    SubscriberGrpc.SubscriberFutureStub stub = stubs[currentStubIdx];
+    currentStubIdx = (currentStubIdx + 1) % stubs.length;
+    return stub;
   }
 }

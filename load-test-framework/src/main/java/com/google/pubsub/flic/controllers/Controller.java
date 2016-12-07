@@ -26,10 +26,11 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
+import java.util.stream.LongStream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -41,7 +42,7 @@ import org.slf4j.LoggerFactory;
  */
 public abstract class Controller {
   protected static final Logger log = LoggerFactory.getLogger(Controller.class);
-  public static String resourceDirectory = "src/main/resources/gce";
+  public static String resourceDirectory = "target/classes/gce";
   protected final List<Client> clients = new ArrayList<>();
   protected final ScheduledExecutorService executor;
 
@@ -108,20 +109,13 @@ public abstract class Controller {
    * @return the results from the load test up to this point
    */
   private LoadtestStats getStatsForClientType(Client.ClientType type) {
+    LoadtestStats stats = new LoadtestStats();
     List<Client> clientsOfType = clients.stream()
         .filter(c -> c.getClientType() == type).collect(Collectors.toList());
-    if (clientsOfType.size() == 0) {
-      // There are no clients of this type, so return null
-      return null;
-    }
-    LoadtestStats stats = new LoadtestStats();
-    Optional<Client> longestRunningClient = clientsOfType.stream()
-        .max((a, b) -> Long.compare(a.getRunningSeconds(), b.getRunningSeconds()));
     stats.runningSeconds =
-        longestRunningClient.isPresent() ? longestRunningClient.get().getRunningSeconds()
-            : System.currentTimeMillis() / 1000 - Client.startTime.getSeconds();
-    clientsOfType.forEach(client -> {
-      long[] bucketValues = client.getBucketValues();
+        clientsOfType.stream().mapToLong(Client::getRunningSeconds).max().getAsLong()
+            - Client.burnInDuration.getSeconds();
+    clientsOfType.stream().map(Client::getBucketValues).forEach(bucketValues -> {
       for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
         stats.bucketValues[i] += bucketValues[i];
       }
@@ -137,7 +131,10 @@ public abstract class Controller {
   public Map<Client.ClientType, LoadtestStats> getStatsForAllClientTypes() {
     final Map<Client.ClientType, LoadtestStats> results = new HashMap<>();
     List<ListenableFuture<Void>> resultFutures = new ArrayList<>();
-    for (Client.ClientType type : Client.ClientType.values()) {
+    getTypes().values().stream()
+        .map(Map::keySet).flatMap(Set::stream)
+        .map(ClientParams::getClientType).distinct()
+        .forEach(type -> {
       SettableFuture<Void> resultFuture = SettableFuture.create();
       resultFutures.add(resultFuture);
       executor.submit(() -> {
@@ -151,7 +148,7 @@ public abstract class Controller {
           resultFuture.setException(t);
         }
       });
-    }
+    });
     try {
       Futures.allAsList(resultFutures).get();
     } catch (ExecutionException | InterruptedException e) {
@@ -190,6 +187,14 @@ public abstract class Controller {
   public static class LoadtestStats {
     public long runningSeconds;
     public long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
+    /** Returns the average QPS. */
+    public double getQPS() {
+      return (double) LongStream.of(bucketValues).sum() / (double) runningSeconds;
+    }
+    /** Returns the average throughput in MB/s. */
+    public double getThroughput() {
+      return getQPS() * Client.messageSize / 1000000.0;
+    }
   }
 }
 

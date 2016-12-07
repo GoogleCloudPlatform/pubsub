@@ -34,7 +34,7 @@ message StartRequest {
   string topic = 2;
 
   // The number of requests that can be made, each second, per client.
-  int32 request_rate = 3;
+  double request_rate = 3;
 
   // The size of each user message to publish
   int32 message_size = 4;
@@ -46,7 +46,7 @@ message StartRequest {
   google.protobuf.Timestamp start_time = 6;
 
   oneof stop_conditions {
-    // The duration the load test should run for.
+    // The duration the load test should run for, after burn-in completes.
     google.protobuf.Duration test_duration = 7;
 
     // The number of messages to publish or expect to receive.
@@ -63,6 +63,12 @@ message StartRequest {
 
   // The maximum number of messages to pull which each request.
   int32 max_messages_per_pull = 12;
+
+  // The burn-in duration, before which results should not be reported.
+  google.protobuf.Duration burn_in_duration = 13;
+
+  // The max duration for coalescing a batch of published messages.
+  google.protobuf.Duration publish_batch_duration = 14;
 }
 
 message StartResponse {
@@ -73,12 +79,9 @@ message KafkaOptions {
   string broker = 1;
 
   // The length of time to poll for.
-  int32 poll_length = 2;
+  google.protobuf.Duration poll_duration = 2;
 
-  int32 max_fetch_ms = 3;
-}
-
-message CheckRequest {
+  google.protobuf.Duration max_fetch_duration = 3;
 }
 
 message MessageIdentifier {
@@ -87,6 +90,11 @@ message MessageIdentifier {
 
   // Sequence number of the published message with the given publish_client_id.
   int32 sequence_number = 2;
+}
+
+message CheckRequest {
+  // Duplicate messages that should not be reported for throughput and latency.
+  repeated MessageIdentifier duplicates = 1;
 }
 
 message CheckResponse {

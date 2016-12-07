@@ -17,9 +17,14 @@ package com.google.pubsub.clients.kafka;
 
 import com.beust.jcommander.JCommander;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.clients.common.Task.RunResult;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import java.util.Collections;
 import java.util.Properties;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -34,27 +39,25 @@ class KafkaSubscriberTask extends Task {
   private final long pollLength;
   private final ConcurrentLinkedQueue<KafkaConsumer<String, String>> queue;
 
-  private KafkaSubscriberTask(String broker, String project, String topic, String consumerGroup,
-      long pollLength, int consumerCount, int pullSize, int maxFetchMs) {
-    super(project, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);
-    this.pollLength = pollLength;
-
-    // Create subscriber
+  private KafkaSubscriberTask(StartRequest request) {
+    super(request, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);
+    this.pollLength = Durations.toMillis(request.getKafkaOptions().getPollDuration());
     Properties props = new Properties();
     props.putAll(new ImmutableMap.Builder<>()
         .put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
         .put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
-        .put("group.id", consumerGroup)
-        .put("max.partition.fetch.bytes", pullSize)
-        .put("fetch.wait.max.ms", maxFetchMs)
+        .put("group.id", request.getSubscription())
+        .put("max.partition.fetch.bytes", request.getMaxMessagesPerPull())
+        .put("fetch.wait.max.ms",
+            request.getKafkaOptions().getMaxFetchDuration().getSeconds() * 1000)
         .put("enable.auto.commit", "true")
         .put("session.timeout.ms", "30000")
         .put("auto.offset.reset", "latest")
-        .put("bootstrap.servers", broker).build());
+        .put("bootstrap.servers", request.getKafkaOptions().getBroker()).build());
     queue = new ConcurrentLinkedQueue<>();
-    for (int i = 0; i < consumerCount; i++) {
+    for (int i = 0; i < request.getMaxOutstandingRequests(); i++) {
       KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(props);
-      consumer.subscribe(Collections.singletonList(topic));
+      consumer.subscribe(Collections.singletonList(request.getTopic()));
       queue.add(consumer);
     }
   }
@@ -62,16 +65,12 @@ class KafkaSubscriberTask extends Task {
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options options = new LoadTestRunner.Options();
     new JCommander(options, args);
-    LoadTestRunner.run(options, request ->
-        new KafkaSubscriberTask(request.getKafkaOptions().getBroker(), request.getProject(),
-            request.getTopic(), request.getSubscription(),
-            request.getKafkaOptions().getPollLength(), request.getMaxOutstandingRequests(),
-            request.getMessageSize() * request.getMaxMessagesPerPull(),
-            request.getKafkaOptions().getMaxFetchMs()));
+    LoadTestRunner.run(options, KafkaSubscriberTask::new);
   }
 
   @Override
-  public void run() {
+  public ListenableFuture<RunResult> doRun() {
+    RunResult result = new RunResult();
     KafkaConsumer<String, String> consumer = queue.poll();
     while (consumer == null) { // Shouldn't ever happen, included just in case
       try {
@@ -80,13 +79,9 @@ class KafkaSubscriberTask extends Task {
       consumer = queue.poll();
     }
     ConsumerRecords<String, String> records = consumer.poll(pollLength);
-    addNumberOfMessages(records.count());
-    records.forEach(record ->
-        metricsHandler.recordLatency(System.currentTimeMillis() - record.timestamp()));
+    long now = System.currentTimeMillis();
+    records.forEach(record -> result.latencies.add(now - record.timestamp()));
     queue.add(consumer);
-  }
-
-  private int getConsumerIndex() {
-    return 0;
+    return Futures.immediateFuture(result);
   }
 }

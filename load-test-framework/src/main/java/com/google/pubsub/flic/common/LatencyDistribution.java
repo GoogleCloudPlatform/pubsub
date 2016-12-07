@@ -171,7 +171,10 @@ public class LatencyDistribution {
     }
   }
 
-  public void recordLatencyBatch(long latencyMs, int batchSize) {
+  public void recordBatchLatency(long latencyMs, int batchSize) {
+    if (batchSize < 1) {
+      return;
+    }
     synchronized (this) {
       double dev = latencyMs - mean;
       mean = (mean * count + latencyMs * batchSize) / (count + batchSize);

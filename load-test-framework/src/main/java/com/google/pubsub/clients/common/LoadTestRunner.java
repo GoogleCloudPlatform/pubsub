@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.RateLimiter;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Duration;
+import com.google.protobuf.util.Timestamps;
 import com.google.pubsub.flic.common.LoadtestGrpc;
 import com.google.pubsub.flic.common.LoadtestProto.CheckRequest;
 import com.google.pubsub.flic.common.LoadtestProto.CheckResponse;
@@ -47,6 +48,7 @@ import org.slf4j.LoggerFactory;
  */
 public class LoadTestRunner {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
+  private static final int MAX_IDLE_MILLIS = 60 * 1000; // 1 minute
   private static final Stopwatch stopwatch = Stopwatch.createUnstarted();
   private static Server server;
   private static Task task;
@@ -70,36 +72,23 @@ public class LoadTestRunner {
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(request.getMaxOutstandingRequests() + 10));
 
-    final RateLimiter rateLimiter;
-    String sub = request.getSubscription();
-    if (sub == null || sub.length() == 0) { // Only limit publisher to avoid subscriber backup
-      rateLimiter = RateLimiter.create(request.getRequestRate());
-    }  else {
-      log.info(request.getSubscription() + " subscription found, so not applying rate limitation");
-      rateLimiter = RateLimiter.create(Double.MAX_VALUE);
-    }
-    final Semaphore outstandingTestLimiter =
-        new Semaphore(request.getMaxOutstandingRequests(), false);
-
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
     if (toSleep > 0) {
       try {
         Thread.sleep(toSleep);
       } catch (InterruptedException e) {
-        log.error("Interrupted sleeping, starting test now." );
+        log.error("Interrupted sleeping, starting test now.");
       }
     }
 
     stopwatch.start();
     while (shouldContinue(request)) {
-      outstandingTestLimiter.acquireUninterruptibly();
-      rateLimiter.acquire();
-      executor.submit(task).addListener(outstandingTestLimiter::release, executor);
+      executor.submit(task);
     }
     stopwatch.stop();
-    outstandingTestLimiter.acquireUninterruptibly(request.getMaxOutstandingRequests());
-    executor.shutdownNow();
     finished.set(true);
+    task.shutdown();
+    executor.shutdownNow();
     log.info("Load test complete.");
   }
 
@@ -147,7 +136,8 @@ public class LoadTestRunner {
                                 Duration.newBuilder()
                                     .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
                             .setIsFinished(finishedValue)
-                            .addAllReceivedMessages(task.getMessageIdentifiers())
+                            .addAllReceivedMessages(
+                                task.flushMessageIdentifiers(request.getDuplicatesList()))
                             .build());
                     responseObserver.onCompleted();
                     if (finishedValue) {
@@ -172,14 +162,19 @@ public class LoadTestRunner {
   }
 
   private static boolean shouldContinue(StartRequest request) {
-    // If we have been idle for a minute, we should stop.
-    if (System.currentTimeMillis() - task.getLastUpdateMillis() > 60 * 1000) {
+    // If the test has been running for at least a minute, and we have been idle for a minute, we
+    // should stop.
+    if (System.currentTimeMillis() - Timestamps.toMillis(request.getStartTime()) > MAX_IDLE_MILLIS
+        && System.currentTimeMillis() - task.getLastUpdateMillis() > MAX_IDLE_MILLIS) {
       return false;
     }
     switch (request.getStopConditionsCase()) {
       case TEST_DURATION:
         return System.currentTimeMillis()
-            < (request.getStartTime().getSeconds() + request.getTestDuration().getSeconds()) * 1000;
+            < (request.getStartTime().getSeconds()
+                    + request.getBurnInDuration().getSeconds()
+                    + request.getTestDuration().getSeconds())
+                * 1000;
       case NUMBER_OF_MESSAGES:
         return task.getNumberOfMessages() < request.getNumberOfMessages();
       default:

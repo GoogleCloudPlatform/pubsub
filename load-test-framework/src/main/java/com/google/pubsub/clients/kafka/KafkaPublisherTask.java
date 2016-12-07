@@ -13,11 +13,14 @@
 // limitations under the License.
 //
 ////////////////////////////////////////////////////////////////////////////////
+
 package com.google.pubsub.clients.kafka;
 
 import com.beust.jcommander.JCommander;
-import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
@@ -25,14 +28,13 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.producer.Callback;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import java.util.Properties;
-import java.util.concurrent.TimeUnit;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import java.util.concurrent.ExecutionException;
 
 /**
  * Runs a task that publishes messages utilizing Kafka's implementation of the Producer<K,V>
@@ -47,20 +49,22 @@ class KafkaPublisherTask extends Task {
   private final KafkaProducer<String, String> publisher;
   private final ExecutorService callbackPool;
 
-  private KafkaPublisherTask(String broker, String project, String topic, int messageSize, 
-      int batchSize) {
-    super(project, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
-    this.topic = topic;
-    this.payload = LoadTestRunner.createMessage(messageSize);
-    this.batchSize = batchSize;
+  private KafkaPublisherTask(StartRequest request) {
+    super(request, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
+    this.topic = request.getTopic();
+    this.payload = LoadTestRunner.createMessage(request.getMessageSize());
+    this.batchSize = request.getPublishBatchSize();
     Properties props = new Properties();
-    props.putAll(new ImmutableMap.Builder<>().
-        put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer").
-        put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer").
-        put("acks", "all").
-        put("bootstrap.servers", broker).
-        put("batch.size", batchSize * messageSize). // Kafka takes batch size in bytes
-        put("linger.ms", 100).build());
+    props.putAll(new ImmutableMap.Builder<>()
+        .put("max.block.ms", "30000")
+        .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+        .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+        .put("acks", "all")
+        .put("bootstrap.servers", request.getKafkaOptions().getBroker())
+        .put("batch.size", batchSize * request.getMessageSize()) // Kafka takes batch size in bytes
+        .put("linger.ms", Long.toString(Durations.toMillis(request.getPublishBatchDuration())))
+        .build()
+    );
     this.publisher = new KafkaProducer<>(props);
     callbackPool = Executors.newCachedThreadPool();
   }
@@ -68,55 +72,47 @@ class KafkaPublisherTask extends Task {
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options options = new LoadTestRunner.Options();
     new JCommander(options, args);
-    LoadTestRunner.run(options, request ->
-        new KafkaPublisherTask(request.getKafkaOptions().getBroker(), request.getProject(),
-            request.getTopic(), request.getMessageSize(), request.getPublishBatchSize()));
+    LoadTestRunner.run(options, KafkaPublisherTask::new);
   }
 
-  @Override
-  public void run() {
-    AtomicInteger callbackCount = new AtomicInteger(batchSize);
-    Callback callback = (metadata, exception) -> {
-      callbackPool.submit(
-          new MetricsTask(metadata, exception, callbackCount, System.currentTimeMillis()));
-    };
-    long startTime = System.currentTimeMillis();
+  public ListenableFuture<RunResult> doRun() {
+    SettableFuture<RunResult> result = SettableFuture.create();
+    AtomicInteger messagesToSend = new AtomicInteger(batchSize);
+    AtomicInteger messagesSentSuccess = new AtomicInteger(batchSize);
     for (int i = 0; i < batchSize; i++) {
       publisher.send(
-          new ProducerRecord<>(topic, null, startTime, null, payload), callback);
+          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload),
+          (metadata, exception) -> {
+            callbackPool.submit(
+                new MetricsTask(exception, result, messagesSentSuccess, messagesToSend));
+          });
     }
-    try {
-      callbackCount.wait(); // wait until all callbacks for batch are received, notify in callback
-    } catch (InterruptedException e) {
-      log.error(e.getMessage(), e);
-    }
+    return result;
   }
 
   private class MetricsTask implements Runnable {
-    private RecordMetadata metadata;
-    private Exception exception;
-    private AtomicInteger callbackCount;
-    private long callbackTime;
 
-    public MetricsTask(RecordMetadata metadata, Exception exception, AtomicInteger callbackCount,
-        long callbackTime) {
-      this.metadata = metadata;
+    private Exception exception;
+    private AtomicInteger messagesSentSuccess;
+    private AtomicInteger messagesToSend;
+    private SettableFuture<RunResult> result;
+
+    public MetricsTask(Exception exception, SettableFuture<RunResult> result,
+        AtomicInteger messagesSentSuccess, AtomicInteger messagesToSend) {
       this.exception = exception;
-      this.callbackCount = callbackCount;
-      this.callbackTime = callbackTime;
+      this.messagesSentSuccess = messagesSentSuccess;
+      this.messagesToSend = messagesToSend;
+      this.result = result;
     }
 
     @Override
     public void run() {
       if (exception != null) {
+        messagesSentSuccess.decrementAndGet();
         log.error(exception.getMessage(), exception);
-        errorCount.incrementAndGet();
-        return;
       }
-      addNumberOfMessages(1);
-      metricsHandler.recordLatency(callbackTime - metadata.timestamp());
-      if (callbackCount.decrementAndGet() == 0) {
-        callbackCount.notify(); // wakes up parent run() thread for this batch
+      if (messagesToSend.decrementAndGet() == 0) {
+        result.set(RunResult.fromBatchSize(messagesSentSuccess.get()));
       }
     }
   }
