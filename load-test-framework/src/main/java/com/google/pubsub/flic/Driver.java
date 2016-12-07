@@ -389,7 +389,7 @@ public class Driver {
           !clientParamsMap.keySet().isEmpty(),
           "You must set at least one type of publisher greater than 0.");
       Preconditions.checkArgument(
-          broker == null && (kafkaPublisherCount != 0 || kafkaSubscriberCount != 0),
+          broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0),
           "If using Kafka you must provide the network address of your broker using the "
               + "--broker flag.");
 
