@@ -104,9 +104,9 @@ public class SheetsService {
   public void sendToSheets(String sheetId, Map<ClientType, Controller.LoadtestStats> results) {
     List<List<List<Object>>> values = getValuesList(results);
     try {
-      service.spreadsheets().values().append(sheetId, "CPS",
+      service.spreadsheets().values().append(sheetId, "CPS Data",
           new ValueRange().setValues(values.get(0))).setValueInputOption("USER_ENTERED").execute();
-      service.spreadsheets().values().append(sheetId, "Kafka",
+      service.spreadsheets().values().append(sheetId, "Kafka Data",
           new ValueRange().setValues(values.get(1))).setValueInputOption("USER_ENTERED").execute();
     } catch (IOException e) {
       log.error("Error publishing to spreadsheet: " + sheetId);

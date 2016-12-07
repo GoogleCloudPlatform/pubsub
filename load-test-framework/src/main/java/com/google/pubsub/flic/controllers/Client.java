@@ -54,7 +54,7 @@ public class Client {
   public static int maxFetchMs;
   public static String broker;
   public static int maxOutstandingRequests;
-  public static long burnInTimeMillis;
+  public static long burnInDurationSeconds;
   public static int numberOfMessages = 0;
   private final ClientType clientType;
   private final String networkAddress;
@@ -234,7 +234,8 @@ public class Client {
               clientStatus = ClientStatus.STOPPED;
               doneFuture.set(null);
             }
-            if (System.currentTimeMillis() < burnInTimeMillis) {
+            if (System.currentTimeMillis() <
+                TimeUnit.SECONDS.toMillis(startTime.getSeconds() + burnInDurationSeconds)) {
               return;
             }
             synchronized (this) {

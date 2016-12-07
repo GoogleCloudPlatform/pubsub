@@ -19,6 +19,7 @@ package com.google.pubsub.flic.controllers;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.LatencyDistribution;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -165,6 +166,8 @@ public abstract class Controller {
    * function returns it is guaranteed that all clients have started.
    */
   public void startClients(MessageTracker messageTracker) {
+    Client.startTime =
+        Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 30).build();
     SettableFuture<Void> startFuture = SettableFuture.create();
     clients.forEach((client) -> executor.execute(() -> {
       try {

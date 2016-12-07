@@ -321,6 +321,7 @@ public class Driver {
       }
       Client.messageSize = messageSize;
       Client.requestRate = requestRate;
+      Client.burnInDurationSeconds = burnInDurationSeconds;
       Client.loadtestLengthSeconds = loadtestLengthSeconds;
       Client.publishBatchSize = publishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
@@ -363,14 +364,11 @@ public class Driver {
       int highestRequestRate = 0;
       long backlogSize = 0;
       do {
-        Client.startTime =
-            Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 90).build();
-        Client.burnInTimeMillis = (Client.startTime.getSeconds() + burnInDurationSeconds) * 1000;
-        Date startDate = new Date();
-        startDate.setTime(Client.startTime.getSeconds() * 1000);
         MessageTracker messageTracker =
             new MessageTracker(numberOfMessages, cpsPublisherCount);
         controller.startClients(messageTracker);
+        Date startDate = new Date();
+        startDate.setTime(Client.startTime.getSeconds() * 1000);
         if (maxSubscriberThroughputTest) {
           controller.waitForPublisherClients();
           ListTimeSeriesResponse response =
