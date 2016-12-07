@@ -491,8 +491,6 @@ public class Driver {
   private Map<ClientType, Controller.LoadtestStats> runTest(Runnable whileRunning)
       throws Throwable {
     Map<ClientType, Controller.LoadtestStats> statsMap;
-    Client.startTime =
-        Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 90).build();
     MessageTracker messageTracker =
         new MessageTracker(
             numberOfMessages,
