@@ -18,10 +18,12 @@ package com.google.cloud.pubsub;
 
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
+import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.AbstractService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
-import io.grpc.Channel;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
@@ -30,6 +32,8 @@ import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 import javax.net.ssl.SSLException;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
@@ -37,7 +41,15 @@ import org.slf4j.LoggerFactory;
 
 /** Implementation of {@link Subscriber}. */
 public class SubscriberImpl extends AbstractService implements Subscriber {
-  private static final int DEFAULT_MIN_THREAD_POOL_SIZE = 5;
+  private static final int THREADS_PER_CHANNEL = 5;
+  @VisibleForTesting static final int CHANNELS_PER_CORE = 10;
+  private static final int MAX_INBOUND_MESSAGE_SIZE =
+      20 * 1024 * 1024; // 20MB API maximum message size.
+  private static final int INITIAL_ACK_DEADLINE_SECONDS = 10;
+  private static final int MAX_ACK_DEADLINE_SECONDS = 600;
+  private static final int MIN_ACK_DEADLINE_SECONDS = 10;
+  private static final Duration ACK_DEADLINE_UPDATE_PERIOD = Duration.standardMinutes(1);
+  private static final double PERCENTILE_FOR_ACK_DEADLINE_UPDATES = 99.9;
 
   private static final Logger logger = LoggerFactory.getLogger(SubscriberImpl.class);
 
@@ -45,44 +57,49 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
   private final Optional<Integer> maxOutstandingBytes;
   private final Optional<Integer> maxOutstandingMessages;
   private final Duration ackExpirationPadding;
-  private final SubscriberConnection[] subscribers;
+  private final SubscriberConnection[] subscriberConnections;
   private final ScheduledExecutorService executor;
-  private static final int MAX_INBOUND_MESSAGE_SIZE =
-      20 * 1024 * 1024; // 20MB API maximum message size.
+  private final Distribution ackLatencyDistribution =
+      new Distribution(MAX_ACK_DEADLINE_SECONDS + 1);
+  private ScheduledFuture<?> ackDeadlineUpdater;
+  private int streamAckDeadlineSeconds;
 
   public SubscriberImpl(SubscriberImpl.Builder builder) {
     maxOutstandingBytes = builder.maxOutstandingBytes;
     maxOutstandingMessages = builder.maxOutstandingMessages;
     subscription = builder.subscription;
     ackExpirationPadding = builder.ackExpirationPadding;
+    streamAckDeadlineSeconds =
+        Math.max(
+            INITIAL_ACK_DEADLINE_SECONDS,
+            Ints.saturatedCast(ackExpirationPadding.getStandardSeconds()));
 
     FlowController flowController =
         new FlowController(builder.maxOutstandingBytes, builder.maxOutstandingBytes, false);
 
-    int numCores = Math.max(1, Runtime.getRuntime().availableProcessors());
+    int numChannels = Math.max(1, Runtime.getRuntime().availableProcessors()) * CHANNELS_PER_CORE;
     executor =
         builder.executor.isPresent()
             ? builder.executor.get()
             : Executors.newScheduledThreadPool(
-                (numCores * DEFAULT_MIN_THREAD_POOL_SIZE) + 1,
+                numChannels * THREADS_PER_CHANNEL,
                 new ThreadFactoryBuilder()
                     .setDaemon(true)
                     .setNameFormat("cloud-pubsub-subscriber-thread-%d")
                     .build());
-    subscribers = new SubscriberConnection[numCores];
+    subscriberConnections = new SubscriberConnection[numChannels];
 
-    Channel channel;
+    ManagedChannelBuilder<? extends ManagedChannelBuilder<?>> channelBuilder;
     try {
-      channel =
-          builder.channel.isPresent()
-              ? builder.channel.get()
+      channelBuilder =
+          builder.channelBuilder.isPresent()
+              ? builder.channelBuilder.get()
               : NettyChannelBuilder.forAddress(PUBSUB_API_ADDRESS, 443)
                   .maxMessageSize(MAX_INBOUND_MESSAGE_SIZE)
                   .flowControlWindow(5000000) // 2.5 MB
                   .negotiationType(NegotiationType.TLS)
                   .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
-                  .executor(executor)
-                  .build();
+                  .executor(executor);
     } catch (SSLException e) {
       throw new RuntimeException("Failed to initialize gRPC channel.", e);
     }
@@ -97,14 +114,16 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
     } catch (IOException e) {
       throw new RuntimeException("Failed to get application default credentials.", e);
     }
-    for (int i = 0; i < subscribers.length; i++) {
-      subscribers[i] =
+    for (int i = 0; i < subscriberConnections.length; i++) {
+      subscriberConnections[i] =
           new SubscriberConnection(
               subscription,
               credentials,
               builder.receiver,
               ackExpirationPadding,
-              channel,
+              streamAckDeadlineSeconds,
+              ackLatencyDistribution,
+              channelBuilder.build(),
               flowController,
               executor);
     }
@@ -114,14 +133,25 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
   protected void doStart() {
     logger.debug("Starting subscriber group.");
 
-    CountDownLatch subscribersStarting = new CountDownLatch(subscribers.length);
-    for (SubscriberConnection subscriber : subscribers) {
+    CountDownLatch subscribersStarting = new CountDownLatch(subscriberConnections.length);
+    for (SubscriberConnection subscriber : subscriberConnections) {
       executor.submit(
           new Runnable() {
             @Override
             public void run() {
               subscriber.startAsync().awaitRunning();
               subscribersStarting.countDown();
+              subscriber.addListener(
+                  new Listener() {
+                    @Override
+                    public void failed(State from, Throwable failure) {
+                      // If a connection failed is because of a fatal error, we should fail the
+                      // whole subscriber.
+                      stopAllConnections();
+                      notifyFailed(failure);
+                    }
+                  },
+                  executor);
             }
           });
     }
@@ -130,28 +160,67 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
+
+    ackDeadlineUpdater =
+        executor.scheduleAtFixedRate(
+            new Runnable() {
+              @Override
+              public void run() {
+                // It is guaranteed this will be <= MAX_ACK_DEADLINE_SECONDS, the max of the API.
+                long ackLatency =
+                    ackLatencyDistribution.getNthPercentile(PERCENTILE_FOR_ACK_DEADLINE_UPDATES);
+                if (ackLatency > 0) {
+                  int possibleStreamAckDeadlineSeconds =
+                      Math.max(
+                          MIN_ACK_DEADLINE_SECONDS,
+                          Ints.saturatedCast(
+                              Math.max(ackLatency, ackExpirationPadding.getStandardSeconds())));
+                  if (streamAckDeadlineSeconds != possibleStreamAckDeadlineSeconds) {
+                    streamAckDeadlineSeconds = possibleStreamAckDeadlineSeconds;
+                    logger.debug(
+                        "Updating stream deadline to {} seconds.", streamAckDeadlineSeconds);
+                    for (SubscriberConnection subscriberConnection : subscriberConnections) {
+                      subscriberConnection.updateStreamAckDeadline(streamAckDeadlineSeconds);
+                    }
+                  }
+                }
+              }
+            },
+            ACK_DEADLINE_UPDATE_PERIOD.getMillis(),
+            ACK_DEADLINE_UPDATE_PERIOD.getMillis(),
+            TimeUnit.MILLISECONDS);
     notifyStarted();
   }
 
   @Override
   protected void doStop() {
-    CountDownLatch subscribersStopping = new CountDownLatch(subscribers.length);
-    for (SubscriberConnection subscriber : subscribers) {
+    ackDeadlineUpdater.cancel(true);
+    stopAllConnections();
+    notifyStopped();
+  }
+
+  private void stopAllConnections() {
+    CountDownLatch connectionsStopping = new CountDownLatch(subscriberConnections.length);
+    for (SubscriberConnection subscriberConnection : subscriberConnections) {
       executor.submit(
           new Runnable() {
             @Override
             public void run() {
-              subscriber.stopAsync().awaitTerminated();
-              subscribersStopping.countDown();
+              try {
+                subscriberConnection.stopAsync().awaitTerminated();
+              } catch (IllegalStateException ignored) {
+                // It is expected for some connections to be already in state failed so stop will
+                // throw this expection.
+              }
+              connectionsStopping.countDown();
             }
           });
     }
     try {
-    subscribersStopping.await();
+      connectionsStopping.await();
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
     }
-    notifyStopped();
   }
 
   @Override

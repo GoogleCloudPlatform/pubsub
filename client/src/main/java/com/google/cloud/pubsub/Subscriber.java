@@ -17,13 +17,14 @@
 package com.google.cloud.pubsub;
 
 import com.google.auth.Credentials;
+import com.google.auth.oauth2.GoogleCredentials;
 import com.google.cloud.pubsub.Subscriber.MessageReceiver.AckReply;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.Service;
 import com.google.pubsub.v1.PubsubMessage;
-import io.grpc.Channel;
+import io.grpc.ManagedChannelBuilder;
 import java.util.concurrent.ScheduledExecutorService;
 import org.joda.time.Duration;
 
@@ -33,8 +34,8 @@ import org.joda.time.Duration;
  *
  * <p>A {@link Subscriber} allows you to provide an implementation of a {@link MessageReceiver
  * receiver} to which messages are going to be delivered as soon as they are received by the
- * subscriber. The delivered messages then can be {@link AcknowledgeHandler#ack() acked} or {@link
- * AcknowledgeHandler#nack() nacked} at will as they get processed by the receiver. Nacking a
+ * subscriber. The delivered messages then can be {@link AckReply#ACK acked} or {@link
+ * AckReply#NACK nacked} at will as they get processed by the receiver. Nacking a
  * messages implies a later redelivery of such message.
  *
  * <p>The subscriber handles the ack management, by automatically extending the ack deadline while
@@ -149,7 +150,7 @@ public interface Subscriber extends Service {
     Optional<Integer> maxOutstandingBytes;
 
     Optional<ScheduledExecutorService> executor;
-    Optional<Channel> channel;
+    Optional<ManagedChannelBuilder<? extends ManagedChannelBuilder<?>>> channelBuilder;
 
     /**
      * Constructs a new {@link Builder}.
@@ -173,7 +174,7 @@ public interface Subscriber extends Service {
 
     private void setDefaults() {
       credentials = Optional.absent();
-      channel = Optional.absent();
+      channelBuilder = Optional.absent();
       ackExpirationPadding = DEFAULT_ACK_EXPIRATION_PADDING;
       maxOutstandingBytes = Optional.absent();
       maxOutstandingMessages = Optional.absent();
@@ -191,12 +192,13 @@ public interface Subscriber extends Service {
     }
 
     /**
-     * Channel to use.
+     * ManagedChannelBuilder to use to create Channels.
      *
      * <p>Must point at Cloud Pub/Sub endpoint.
      */
-    public Builder setChannel(Channel channel) {
-      this.channel = Optional.of(Preconditions.checkNotNull(channel));
+    public Builder setChannelBuilder(
+        ManagedChannelBuilder<? extends ManagedChannelBuilder<?>> channelBuilder) {
+      this.channelBuilder = Optional.of(Preconditions.checkNotNull(channelBuilder));
       return this;
     }
 
@@ -206,12 +208,13 @@ public interface Subscriber extends Service {
      *
      * @param maxOutstandingMessages must be greater than 0
      */
-    public void setMaxOutstandingMessages(int maxOutstandingMessages) {
+    public Builder setMaxOutstandingMessages(int maxOutstandingMessages) {
       Preconditions.checkArgument(
           maxOutstandingMessages > 0,
           "maxOutstandingMessages limit is disabled by default, but if set it must be set to a "
               + "value greater to 0.");
       this.maxOutstandingMessages = Optional.of(maxOutstandingMessages);
+      return this;
     }
 
     /**
@@ -220,12 +223,13 @@ public interface Subscriber extends Service {
      *
      * @param maxOutstandingBytes must be greater than 0
      */
-    public void setMaxOutstandingBytes(int maxOutstandingBytes) {
+    public Builder setMaxOutstandingBytes(int maxOutstandingBytes) {
       Preconditions.checkArgument(
           maxOutstandingBytes > 0,
           "maxOutstandingBytes limit is disabled by default, but if set it must be set to a value "
               + "greater than 0.");
       this.maxOutstandingBytes = Optional.of(maxOutstandingBytes);
+      return this;
     }
 
     /**
@@ -240,14 +244,16 @@ public interface Subscriber extends Service {
      *
      * @param ackExpirationPadding must be greater or equal to {@link #MIN_ACK_EXPIRATION_PADDING}
      */
-    public void setAckExpirationPadding(Duration ackExpirationPadding) {
+    public Builder setAckExpirationPadding(Duration ackExpirationPadding) {
       Preconditions.checkArgument(ackExpirationPadding.compareTo(MIN_ACK_EXPIRATION_PADDING) >= 0);
       this.ackExpirationPadding = ackExpirationPadding;
+      return this;
     }
 
     /** Gives the ability to set a custom executor. */
-    public void setExecutor(ScheduledExecutorService executor) {
+    public Builder setExecutor(ScheduledExecutorService executor) {
       this.executor = Optional.of(executor);
+      return this;
     }
 
     public Subscriber build() {

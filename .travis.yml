@@ -5,6 +5,7 @@ jdk:
 install:
 - mvn -f kafka-connector/pom.xml package
 - mvn -f load-test-framework/pom.xml package
+- mvn -f client/pom.xml package
 
 script:
 - ls
