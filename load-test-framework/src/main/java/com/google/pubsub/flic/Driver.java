@@ -38,7 +38,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.protobuf.Duration;
-import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import com.google.pubsub.flic.common.LatencyDistribution;
@@ -57,7 +56,6 @@ import java.text.SimpleDateFormat;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.Executors;
@@ -464,23 +462,37 @@ public class Driver {
             VERBOSE_STATS_POLL_SECONDS,
             TimeUnit.SECONDS);
       }
+      if (numCoresTest) {
+        runNumCoresTest(clientParamsMap, controllerFunction);
+        synchronized (pollingExecutor) {
+          pollingExecutor.shutdownNow();
+        }
+        System.exit(0);
+      }
       if (maxPublishLatencyTest) {
         controller = controllerFunction.apply(project, clientParamsMap);
         runMaxPublishLatencyTest();
       } else if (maxSubscriberThroughputTest) {
         controller = controllerFunction.apply(project, clientParamsMap);
         runMaxSubscriberThroughputTest();
-      } else if (numCoresTest) {
-        runNumCoresTest(clientParamsMap, controllerFunction);
       } else {
+        log.info("IN HERE");
         controller = controllerFunction.apply(project, clientParamsMap);
         Map<ClientType, Controller.LoadtestStats> statsMap = runTest(null);
+        log.info("RUNTEST RETURNED");
+        printStats(statsMap);
         GnuPlot.plot(statsMap);
         CsvOutput.outputStats(statsMap);
+        if (spreadsheetId.length() > 0) {
+          // Output results to common Google sheet
+          new SheetsService(dataStoreDirectory, controller.getTypes())
+              .sendToSheets(spreadsheetId, statsMap);
+        }
       }
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
+      controller.shutdown(null);
       System.exit(0);
     } catch (Throwable t) {
       log.error("An error occurred...", t);
@@ -502,8 +514,10 @@ public class Driver {
     if (whileRunning != null) {
       whileRunning.run();
     }
+    log.info("waitforclients");
     // Wait for the load test to finish.
     controller.waitForClients();
+    log.info("get stats");
     statsMap = controller.getStatsForAllClientTypes();
     printStats(statsMap);
     Iterable<MessageIdentifier> missing = messageTracker.getMissing();
@@ -514,11 +528,6 @@ public class Driver {
             String.format(
                 "%d:%d", identifier.getPublisherClientId(), identifier.getSequenceNumber()));
       }
-    }
-    if (spreadsheetId.length() > 0) {
-      // Output results to common Google sheet
-      new SheetsService(dataStoreDirectory, controller.getTypes())
-          .sendToSheets(spreadsheetId, statsMap);
     }
     return statsMap;
   }
@@ -542,7 +551,6 @@ public class Driver {
       }
     }
     log.info("Maximum Request Rate: " + highestRequestRate);
-    controller.shutdown(null);
   }
 
   private void runMaxSubscriberThroughputTest() throws Throwable {
@@ -603,7 +611,6 @@ public class Driver {
     log.info(
         "We accumulated a backlog during this test, refer to the last run "
             + "for the maximum throughput attained before accumulating backlog.");
-    controller.shutdown(null);
   }
 
   private void runNumCoresTest(

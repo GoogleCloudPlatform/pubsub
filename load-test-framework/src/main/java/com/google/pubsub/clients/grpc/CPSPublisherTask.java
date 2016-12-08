@@ -88,6 +88,7 @@ class CPSPublisherTask extends Task {
       log.error("Unable to get credentials or create channel.", e);
     }
     this.id = (new Random()).nextInt();
+    log.info("START: " + request.getStartTime() + ", burn " + request.getBurnInDuration().getSeconds());
   }
 
   public static void main(String[] args) throws Exception {
@@ -114,6 +115,7 @@ class CPSPublisherTask extends Task {
 
   @Override
   public ListenableFuture<RunResult> doRun() {
+    log.info("DO RUN");
     PublisherGrpc.PublisherFutureStub stub = getStub();
     PublishRequest.Builder requestBuilder = PublishRequest.newBuilder().setTopic(topic);
     String sendTime = String.valueOf(System.currentTimeMillis());
@@ -125,8 +127,12 @@ class CPSPublisherTask extends Task {
           .putAttributes("sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement())));
     }
     ListenableFuture<PublishResponse> responseFuture = stub.publish(requestBuilder.build());
-    Function<PublishResponse, RunResult> callback =
-        (response) -> RunResult.fromBatchSize(batchSize);
-    return Futures.transform(responseFuture, callback);
+    Function<PublishResponse, RunResult> transformFunction =
+        (response) -> {
+          RunResult out = RunResult.fromBatchSize(response.getMessageIdsCount());
+          log.info("count: " + response.getMessageIdsCount() + ", outcount " + out.batchSize);
+          return out;
+        };
+    return Futures.transform(responseFuture, transformFunction);
   }
 }

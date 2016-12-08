@@ -33,11 +33,14 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Each task is responsible for implementing its action and for creating {@link LoadTestRunner}.
  */
 public abstract class Task implements Runnable {
+  private static final Logger log = LoggerFactory.getLogger(Task.class);
   protected final AtomicInteger numMessages = new AtomicInteger(0);
   private final MetricsHandler metricsHandler;
   private final Map<MessageIdentifier, Long> identifiers = new HashMap<>();
@@ -51,9 +54,10 @@ public abstract class Task implements Runnable {
     this.metricsHandler = new MetricsHandler(request.getProject(), type, metricName);
     this.burnInTimeMillis =
         Timestamps.toMillis(Timestamps.add(request.getStartTime(), request.getBurnInDuration()));
-    if (request.getSubscription().length() != 0) {
+    if (request.getSubscription().length() == 0) {
       rateLimiter = RateLimiter.create(request.getRequestRate());
     } else { // Don't limit subscriber to prevent subscriber backlog
+      log.info("Subscription found so not limiting request rate.");
       rateLimiter = RateLimiter.create(Double.MAX_VALUE);
     }
     outstandingRequestLimiter = new Semaphore(request.getMaxOutstandingRequests(), false);
@@ -107,9 +111,11 @@ public abstract class Task implements Runnable {
             new FutureCallback<RunResult>() {
               @Override
               public void onSuccess(RunResult result) {
+                log.info("ON SUCCESS");
                 stopwatch.stop();
                 outstandingRequestLimiter.release();
                 if (result.batchSize > 0) {
+                  log.info("Recording batch latency");
                   recordBatchLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS), result.batchSize);
                   return;
                 }
@@ -124,6 +130,7 @@ public abstract class Task implements Runnable {
 
               @Override
               public void onFailure(Throwable t) {
+                log.info("ON FAILURE");
                 outstandingRequestLimiter.release();
               }
             });
