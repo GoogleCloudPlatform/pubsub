@@ -87,46 +87,48 @@ Connector supports the following configs:
 #### Schema Support and Data Model
 
 A pubsub message has two main parts: the message body and attributes. The
-message body is a ByteString object that translates well to and from the byte[]
-bodies of Kafka messages. For this reason, we recommend using primitive data
-types where possible to prevent deserializing and reserializing the same message
-body.
+message body is a [ByteString](https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/ByteString)
+object that translates well to and from the byte[]
+bodies of Kafka messages. For this reason, we recommend using a converter that
+produces primitive data types (i.e. integer, float, string, or bytes schema)
+where possible to prevent deserializing and reserializing the same message body.
 
 Additionally, a Pubsub message size cannot exceed 10MB, so please check
 your broker's message.max.bytes configuration to prevent possible errors.
 
 The sink connector handles the conversion in the following way:
 
-*   For all primitive data types (integers, floats, bytes, and strings), the
-    bytes are stored as the message body.
+*   For integer, float, string, and bytes schemas, the bytes of the Kafka
+    message's value are passed directly into the Pubsub message body.
 *   For map and struct types, the values are stored in attributes. Pubsub only
     supports string to string mapping in attributes. To make the connector as
     versatile as possible, the toString() method will be called on whatever
     object passed in as the key or value for a map and the value for a struct.
     *   One additional feature is we allow a specification of a particular
         field or key to be placed in the Pubsub message body. To do so, set the
-        CPS_MESSAGE_BODY_NAME configuration with the struct field or map key.
-        This value is stored as a ByteString, any integer, byte, float, or array
-        type will be included in the message body as if it were the sole value.
+        messageBodyName configuration with the struct field or map key.
+        This value is stored as a ByteString, and any integer, byte, float, or
+        array type is included in the message body as if it were the sole value.
 *   For arrays, we only support primitive array types due to potential
     collisions of field names or keys of a struct/map array. The connector
     handles arrays in a fairly predictable fashion, each value is concatenated
     together into a ByteString object.
 *   In all cases, the Kafka key value is stored in the Pubsub message's
-    attributes as a string with the key set by
-    ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, currently "key".
+    attributes as a string, currently "key".
 
 The source connector takes a similar approach in handling the conversion
 from a Pubsub message into a SourceRecord with a relevant Schema.
 
-*   The connector searches for the given KAFKA_MESSAGE_KEY_CONFIG in the
+*   The connector searches for the given kafka.key.attribute in the
     attributes of the Pubsub message. If found, this will be used as the Kafka
     key with a string schema type. Otherwise, it will be set to null.
 *   If the Pubsub message doesn't have any other attributes, the message body
-    is used as the SourceRecord value with a bytes schema.
+    is stored as a byte[] for the Kafka message's value.
 *   However, if there are attributes beyond the Kafka key, the value is assigned
     a struct schema. Each key in the Pubsub message's attributes map becomes a
     field name, with the values set accordingly with string schemas. In this
     case, the Pubsub message body is identified by the field name set in
-    ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_FIELD, currently "message", and has
-    the schema types bytes.
+    "message", and has the schema types bytes.
+    *   In these cases, to carry forward the structure of data stored in
+        attributes, we recommend using a converter that can represent a struct
+        schema type in a useful way, e.g. JsonConverter.
