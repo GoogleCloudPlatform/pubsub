@@ -5,7 +5,7 @@
   <groupId>com.google.pubsub</groupId>
   <artifactId>cloud-pubsub-client</artifactId>
   <packaging>jar</packaging>
-  <version>0.1-EXPERIMENTAL</version>
+  <version>0.2-EXPERIMENTAL</version>
 
   <name>Google Cloud Pub/Sub Client</name>
   <description>
@@ -108,6 +108,18 @@
       <groupId>log4j</groupId>
       <artifactId>log4j</artifactId>
       <version>1.2.17</version>
+    </dependency>
+    <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>4.11</version>
+        <scope>test</scope>
+    </dependency>
+    <dependency>
+        <groupId>org.mockito</groupId>
+        <artifactId>mockito-all</artifactId>
+        <version>1.9.5</version>
+        <scope>test</scope>
     </dependency>
   </dependencies>
 
