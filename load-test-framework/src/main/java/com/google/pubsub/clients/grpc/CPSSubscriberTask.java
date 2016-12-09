@@ -70,7 +70,7 @@ class CPSSubscriberTask extends Task {
       this.credentials =
           GoogleCredentials.getApplicationDefault()
               .createScoped(ImmutableList.of("https://www.googleapis.com/auth/cloud-platform"));
-      stubs = new SubscriberGrpc.SubscriberFutureStub[maxOutstandingRequests];
+      stubs = new SubscriberGrpc.SubscriberFutureStub[request.getMaxOutstandingRequests()];
       for (int i = 0; i < stubs.length; i++) {
         stubs[i] = SubscriberGrpc.newFutureStub(getChannel());
       }

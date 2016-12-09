@@ -111,11 +111,9 @@ public abstract class Task implements Runnable {
             new FutureCallback<RunResult>() {
               @Override
               public void onSuccess(RunResult result) {
-                log.info("ON SUCCESS");
                 stopwatch.stop();
                 outstandingRequestLimiter.release();
                 if (result.batchSize > 0) {
-                  log.info("Recording batch latency");
                   recordBatchLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS), result.batchSize);
                   return;
                 }
@@ -130,7 +128,6 @@ public abstract class Task implements Runnable {
 
               @Override
               public void onFailure(Throwable t) {
-                log.info("ON FAILURE");
                 outstandingRequestLimiter.release();
               }
             });

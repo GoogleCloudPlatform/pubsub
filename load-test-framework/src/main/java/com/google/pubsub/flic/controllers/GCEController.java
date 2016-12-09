@@ -312,7 +312,7 @@ public class GCEController extends Controller {
             try {
               compute.instanceGroupManagers()
                   .resize(projectName, zone, "cps-loadtest-"
-                      + param.getClientType() + "-" + "cores" + "-" + i, 0)
+                      + param.getClientType() + "-" + cores + "-" + i, 0)
                   .execute();
             } catch (IOException e) {
               log.error("Unable to resize Instance Group for " + param.getClientType() + ", please "

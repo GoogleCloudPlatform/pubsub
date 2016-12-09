@@ -26,11 +26,14 @@ import com.google.common.base.Stopwatch;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+import com.google.pubsub.v1.ListTopicsRequest;
+import com.google.pubsub.v1.ListTopicsResponse;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PublisherGrpc;
@@ -38,6 +41,7 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.SubscriberGrpc;
+import com.google.pubsub.v1.Topic;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
 import io.grpc.auth.ClientAuthInterceptor;
@@ -45,6 +49,7 @@ import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
 import java.util.Random;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,15 +77,15 @@ class CPSPublisherTask extends Task {
     super(request, "grpc", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     this.topic = "projects/"
         + request.getProject()
-        + "/subscriptions/"
-        + request.getSubscription();
+        + "/topics/"
+        + request.getTopic();
     this.batchSize = request.getPublishBatchSize();
     this.payload = ByteString.copyFromUtf8(LoadTestRunner.createMessage(messageSize));
     try {
       this.credentials =
           GoogleCredentials.getApplicationDefault()
               .createScoped(ImmutableList.of("https://www.googleapis.com/auth/cloud-platform"));
-      stubs = new PublisherGrpc.PublisherFutureStub[maxOutstandingRequests];
+      stubs = new PublisherGrpc.PublisherFutureStub[request.getMaxOutstandingRequests()];
       for (int i = 0; i < stubs.length; i++) {
         stubs[i] = PublisherGrpc.newFutureStub(getChannel());
       }
@@ -88,7 +93,6 @@ class CPSPublisherTask extends Task {
       log.error("Unable to get credentials or create channel.", e);
     }
     this.id = (new Random()).nextInt();
-    log.info("START: " + request.getStartTime() + ", burn " + request.getBurnInDuration().getSeconds());
   }
 
   public static void main(String[] args) throws Exception {
@@ -115,7 +119,6 @@ class CPSPublisherTask extends Task {
 
   @Override
   public ListenableFuture<RunResult> doRun() {
-    log.info("DO RUN");
     PublisherGrpc.PublisherFutureStub stub = getStub();
     PublishRequest.Builder requestBuilder = PublishRequest.newBuilder().setTopic(topic);
     String sendTime = String.valueOf(System.currentTimeMillis());
@@ -128,11 +131,7 @@ class CPSPublisherTask extends Task {
     }
     ListenableFuture<PublishResponse> responseFuture = stub.publish(requestBuilder.build());
     Function<PublishResponse, RunResult> transformFunction =
-        (response) -> {
-          RunResult out = RunResult.fromBatchSize(response.getMessageIdsCount());
-          log.info("count: " + response.getMessageIdsCount() + ", outcount " + out.batchSize);
-          return out;
-        };
+        (response) -> RunResult.fromBatchSize(response.getMessageIdsCount());
     return Futures.transform(responseFuture, transformFunction);
   }
 }

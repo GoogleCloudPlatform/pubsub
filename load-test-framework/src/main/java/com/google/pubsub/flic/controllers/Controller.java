@@ -115,17 +115,14 @@ public abstract class Controller {
     LoadtestStats stats = new LoadtestStats();
     List<Client> clientsOfType = clients.stream()
         .filter(c -> c.getClientType() == type).collect(Collectors.toList());
-    log.info("list of size: " + clientsOfType.size());
     stats.runningSeconds =
         clientsOfType.stream().mapToLong(Client::getRunningSeconds).max().getAsLong()
             - Client.burnInDuration.getSeconds();
-    log.info("Running seconds: " + stats.runningSeconds);
     clientsOfType.stream().map(Client::getBucketValues).forEach(bucketValues -> {
       for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
         stats.bucketValues[i] += bucketValues[i];
       }
     });
-    log.info("Buckets sum: " + LongStream.of(stats.bucketValues).sum());
     return stats;
   }
 
@@ -145,7 +142,6 @@ public abstract class Controller {
       resultFutures.add(resultFuture);
       executor.submit(() -> {
         try {
-          log.info("Getting stats for type: " + type.toString());
           LoadtestStats stats = getStatsForClientType(type);
           if (stats != null) {
             results.put(type, stats);
@@ -158,7 +154,6 @@ public abstract class Controller {
     });
     try {
       Futures.allAsList(resultFutures).get();
-      log.info("FUTURES GOT");
     } catch (ExecutionException | InterruptedException e) {
       log.error("Failed health check, will return results accumulated during test up to now.",
           e instanceof ExecutionException ? e.getCause() : e);
@@ -176,7 +171,6 @@ public abstract class Controller {
         Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 105).build();
     SettableFuture<Void> startFuture = SettableFuture.create();
     AtomicInteger toStart = new AtomicInteger(clients.size());
-    log.info("Clients: " + clients.toString());
     clients.forEach((client) -> executor.execute(() -> {
       try {
         client.start(messageTracker);

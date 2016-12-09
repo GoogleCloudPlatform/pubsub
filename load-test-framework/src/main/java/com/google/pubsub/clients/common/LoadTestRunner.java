@@ -69,8 +69,6 @@ public class LoadTestRunner {
 
   private static void runTest(StartRequest request) {
     log.info("Request received, starting up server.");
-    log.info("Current time: " + (System.currentTimeMillis() / 1000));
-    log.info("Start time: " + request.getStartTime().getSeconds());
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
         Executors.newFixedThreadPool(request.getMaxOutstandingRequests() + 10));
 
@@ -89,7 +87,6 @@ public class LoadTestRunner {
     }
     stopwatch.stop();
     finished.set(true);
-    log.info("Task done message count: " + task.getNumberOfMessages() + ", last update " + task.getLastUpdateMillis() + ", bucket: " + task.getBucketValues().toString());
     task.shutdown();
     executor.shutdownNow();
     log.info("Load test complete.");

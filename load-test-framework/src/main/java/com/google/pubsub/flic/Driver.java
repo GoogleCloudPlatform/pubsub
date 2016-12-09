@@ -476,17 +476,17 @@ public class Driver {
         controller = controllerFunction.apply(project, clientParamsMap);
         runMaxSubscriberThroughputTest();
       } else {
-        log.info("IN HERE");
         controller = controllerFunction.apply(project, clientParamsMap);
         Map<ClientType, Controller.LoadtestStats> statsMap = runTest(null);
-        log.info("RUNTEST RETURNED");
         printStats(statsMap);
-        GnuPlot.plot(statsMap);
-        CsvOutput.outputStats(statsMap);
         if (spreadsheetId.length() > 0) {
-          // Output results to common Google sheet
+          // Output results to Google sheet
           new SheetsService(dataStoreDirectory, controller.getTypes())
               .sendToSheets(spreadsheetId, statsMap);
+        } else {
+          // Output results to image/csv files
+          GnuPlot.plot(statsMap);
+          CsvOutput.outputStats(statsMap);
         }
       }
       synchronized (pollingExecutor) {
@@ -514,10 +514,8 @@ public class Driver {
     if (whileRunning != null) {
       whileRunning.run();
     }
-    log.info("waitforclients");
     // Wait for the load test to finish.
     controller.waitForClients();
-    log.info("get stats");
     statsMap = controller.getStatsForAllClientTypes();
     printStats(statsMap);
     Iterable<MessageIdentifier> missing = messageTracker.getMissing();
@@ -550,7 +548,6 @@ public class Driver {
         highestRequestRate = Client.requestRate;
       }
     }
-    log.info("Maximum Request Rate: " + highestRequestRate);
   }
 
   private void runMaxSubscriberThroughputTest() throws Throwable {
