@@ -95,6 +95,8 @@ public class LatencyDistribution {
     int index = getNthPercentileIndex(bucketValues, percentile);
     if (index < 1) {
       return "N/A";
+    } else if (index == 0) {
+      return "0.0 - " + Double.toString(LATENCY_BUCKETS[0]);
     }
     return LATENCY_BUCKETS[index - 1] + " - " + LATENCY_BUCKETS[index];
   }
@@ -103,6 +105,8 @@ public class LatencyDistribution {
     int index = getNthPercentileIndex(bucketValues, percentile);
     if (index < 1) {
       return "N/A";
+    } else if (index == 0) {
+      return Double.toString(LATENCY_BUCKETS[0] / 2);
     }
     return Double.toString((LATENCY_BUCKETS[index - 1] + LATENCY_BUCKETS[index]) / 2);
   }

@@ -34,11 +34,14 @@ import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.Controller;
+import com.google.pubsub.flic.controllers.Controller.LoadtestStats;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import java.nio.charset.Charset;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
@@ -47,8 +50,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.LongStream;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Outputs load test results to Google Sheets.
@@ -57,32 +58,23 @@ public class SheetsService {
   private static final Logger log = LoggerFactory.getLogger(SheetsService.class);
   private static final String APPLICATION_NAME = "loadtest-framework";
   private final Sheets service;
-  private int cpsPublisherCount = 0;
-  private int cpsSubscriberCount = 0;
-  private int kafkaPublisherCount = 0;
-  private int kafkaSubscriberCount = 0;
+  private Map<Client.ClientType, Integer> countMap;
   private String dataStoreDirectory;
 
   public SheetsService(String dataStoreDirectory, Map<String, Map<ClientParams, Integer>> types) {
     this.dataStoreDirectory = dataStoreDirectory;
-    this.service = authorize();
-    fillClientCounts(types);
-  }
-
-  private void fillClientCounts(Map<String, Map<ClientParams, Integer>> types) {
+    Sheets tmp;
+    try {
+      tmp = authorize();
+    } catch (Exception e) {
+      tmp = null;
+    }
     types.values().forEach(paramsMap -> {
-      Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
+      countMap = paramsMap.keySet().stream().
           collect(Collectors.groupingBy(
-              ClientParams::getClientType, Collectors.summingInt(t -> 1)));
-      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER);
-      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER);
-      cpsPublisherCount += countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER);
-      cpsPublisherCount += countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER);
-      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER);
-      cpsSubscriberCount += countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER);
-      kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
-      kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
+              ClientParams::getClientType, Collectors.summingInt(ct -> paramsMap.get(ct))));
     });
+    service = tmp;
   }
 
   private Sheets authorize() {
@@ -118,9 +110,9 @@ public class SheetsService {
   public void sendToSheets(String sheetId, Map<ClientType, Controller.LoadtestStats> results) {
     List<List<List<Object>>> values = getValuesList(results);
     try {
-      service.spreadsheets().values().append(sheetId, "CPS",
+      service.spreadsheets().values().append(sheetId, "CPS Data",
           new ValueRange().setValues(values.get(0))).setValueInputOption("USER_ENTERED").execute();
-      service.spreadsheets().values().append(sheetId, "Kafka",
+      service.spreadsheets().values().append(sheetId, "Kafka Data",
           new ValueRange().setValues(values.get(1))).setValueInputOption("USER_ENTERED").execute();
     } catch (IOException e) {
       log.error("Error publishing to spreadsheet: " + sheetId);
@@ -130,99 +122,64 @@ public class SheetsService {
   public List<List<List<Object>>> getValuesList(Map<ClientType, Controller.LoadtestStats> results) {
     List<List<Object>> cpsValues = new ArrayList<>(results.size());
     List<List<Object>> kafkaValues = new ArrayList<>(results.size());
-
-    results.forEach((type, stats) -> {
-      List<Object> valueRow = new ArrayList<>(13);
-      switch (type) {
-        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
-        case CPS_GCLOUD_JAVA_PUBLISHER:
-        case CPS_GCLOUD_PYTHON_PUBLISHER:
-        case CPS_VTK_JAVA_PUBLISHER:
-          if (cpsPublisherCount == 0) {
-            return;
-          }
-          valueRow.add(cpsPublisherCount);
-          valueRow.add(0);
-          cpsValues.add(0, valueRow);
-          break;
-        case CPS_EXPERIMENTAL_JAVA_SUBSCRIBER:
-        case CPS_GCLOUD_JAVA_SUBSCRIBER:
-          if (cpsSubscriberCount == 0) {
-            return;
-          }
-          valueRow.add(0);
-          valueRow.add(cpsSubscriberCount);
-          cpsValues.add(valueRow);
-          break;
-        case KAFKA_PUBLISHER:
-          if (kafkaPublisherCount == 0) {
-            return;
-          }
-          valueRow.add(kafkaPublisherCount);
-          valueRow.add(0);
-          kafkaValues.add(0, valueRow);
-          break;
-        case KAFKA_SUBSCRIBER:
-          if (kafkaSubscriberCount == 0) {
-            return;
-          }
-          valueRow.add(0);
-          valueRow.add(kafkaSubscriberCount);
-          kafkaValues.add(valueRow);
-          break;
-        default:
-          throw new IllegalArgumentException("Type " + type + " in results map was not expected.");
-      }
-      valueRow.add(Client.messageSize);
-      if (Client.numberOfMessages <= 0) {
-        valueRow.add(Client.loadtestDuration.getSeconds());
-        valueRow.add("N/A");
-      } else {
-        valueRow.add("N/A");
-        valueRow.add(Client.numberOfMessages);
-      }
-      valueRow.add(Client.publishBatchSize);
-      valueRow.add(Client.maxMessagesPerPull);
-      valueRow.add(Client.requestRate);
-      valueRow.add(Client.maxOutstandingRequests);
-      valueRow.add(new DecimalFormat("#.##").format(
-          (double) LongStream.of(
-              stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
-    });
+    results.forEach((type, stats) -> addRowForType(cpsValues, kafkaValues, type, stats));
     List<List<List<Object>>> out = new ArrayList<>();
     out.add(cpsValues);
     out.add(kafkaValues);
     return out;
   }
 
-  /**
-   * @return the cpsPublisherCount
-   */
-  int getCpsPublisherCount() {
-    return cpsPublisherCount;
+  private void addRowForType(List<List<Object>> cpsValues, List<List<Object>> kafkaValues,
+                             Client.ClientType type, LoadtestStats stats) {
+    int count = countMap.get(type);
+    if (count == 0) {
+      return;
+    }
+    List<Object> valueRow = new ArrayList<>(13);
+    if(type.isPublisher()) {
+      valueRow.add(count);
+      valueRow.add(0);
+    } else {
+      valueRow.add(0);
+      valueRow.add(count);
+    }
+    try {
+      valueRow.add(type.getTypeString());
+    } catch(IllegalAccessException e) {
+      log.error(e.toString());
+      return;
+    }
+    valueRow.add(Client.messageSize);
+    if (Client.numberOfMessages <= 0) {
+      valueRow.add(Client.loadtestDuration.getSeconds());
+      valueRow.add("N/A");
+    } else {
+      valueRow.add("N/A");
+      valueRow.add(Client.numberOfMessages);
+    }
+    valueRow.add(Client.publishBatchSize);
+    valueRow.add(Client.maxMessagesPerPull);
+    valueRow.add(Client.pollDuration.getSeconds());
+    valueRow.add(Client.maxOutstandingRequests);
+    valueRow.add(Client.requestRate);
+    valueRow.add(Client.requestRate * count);
+    long totalSent = LongStream.of(stats.bucketValues).sum();
+    double messagesPerSec = (double) totalSent / (double) stats.runningSeconds;
+    valueRow.add(new DecimalFormat("#.##").format(messagesPerSec / Client.publishBatchSize));
+    valueRow.add(new DecimalFormat("#.##").format(messagesPerSec * Client.messageSize / 1000000.0));
+    valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 50.0));
+    valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.0));
+    valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9));
+    if (type.toString().startsWith("cps")) {
+      cpsValues.add(valueRow);
+    } else if (type.toString().startsWith("kafka")) {
+      kafkaValues.add(valueRow);
+    } else {
+      throw new IllegalArgumentException("ClientType starts with neither cps nor kafka");
+    }
   }
 
-  /**
-   * @return the cpsSubscriberCount
-   */
-  int getCpsSubscriberCount() {
-    return cpsSubscriberCount;
-  }
-
-  /**
-   * @return the kafkaPublisherCount
-   */
-  int getKafkaPublisherCount() {
-    return kafkaPublisherCount;
-  }
-
-  /**
-   * @return the kafkaSubscriberCount
-   */
-  int getKafkaSubscriberCount() {
-    return kafkaSubscriberCount;
+  public Map<Client.ClientType, Integer> getCountMap() {
+    return countMap;
   }
 }

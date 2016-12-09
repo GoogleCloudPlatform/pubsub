@@ -118,20 +118,33 @@ public class GCEController extends Controller {
           paramsMap.keySet().stream()
               .filter(p -> p.getClientType() == clientType.getSubscriberType())
               .map(p -> p.subscription).forEach(subscription -> {
-            try {
-              pubsub.projects().subscriptions().delete("projects/" + projectName
-                  + "/subscriptions/" + subscription).execute();
-            } catch (IOException e) {
-              log.debug("Error deleting subscription, assuming it has not yet been created.", e);
-            }
-            try {
-              pubsub.projects().subscriptions().create("projects/" + projectName
-                  + "/subscriptions/" + subscription, new Subscription()
-                  .setTopic("projects/" + projectName + "/topics/" + topic)
-                  .setAckDeadlineSeconds(10)).execute();
-            } catch (IOException e) {
-              pubsubFuture.setException(e);
-            }
+              try {
+                pubsub.projects().subscriptions().delete("projects/" + projectName
+                    + "/subscriptions/" + subscription).execute();
+              } catch (GoogleJsonResponseException e) {
+                if (e.getStatusCode() != NOT_FOUND) {
+                  pubsubFuture.setException(e);
+                  return;
+                }
+                log.info("Deleting subscription that doesn't exist, ok.");
+              } catch (Exception e) {
+                pubsubFuture.setException(e);
+                return;
+              }
+              try {
+                pubsub.projects().subscriptions().create("projects/" + projectName
+                    + "/subscriptions/" + subscription, new Subscription()
+                    .setTopic("projects/" + projectName + "/topics/" + topic)
+                    .setAckDeadlineSeconds(10)).execute();
+              } catch (GoogleJsonResponseException e) {
+                if (e.getStatusCode() != ALREADY_EXISTS) {
+                  pubsubFuture.setException(e);
+                  return;
+                }
+                log.info("Subscription already re-created, ignore.");
+              } catch (IOException e) {
+                pubsubFuture.setException(e);
+              }
           });
           pubsubFuture.set(null);
         });
@@ -157,16 +170,19 @@ public class GCEController extends Controller {
       });
       List<SettableFuture<Void>> createGroupFutures = new ArrayList<>();
       types.forEach((zone, paramsMap) -> paramsMap.forEach((param, n) -> {
-        SettableFuture<Void> createGroupFuture = SettableFuture.create();
-        createGroupFutures.add(createGroupFuture);
-        executor.execute(() -> {
-          try {
-            createManagedInstanceGroup(zone, param.getClientType());
-            createGroupFuture.set(null);
-          } catch (Exception e) {
-            createGroupFuture.setException(e);
-          }
-        });
+        for (int i = 0; i < n / 40 + 1; i++) {
+          SettableFuture<Void> createGroupFuture = SettableFuture.create();
+          createGroupFutures.add(createGroupFuture);
+          final int num = i; // Create instance group manager for every 40 clients
+          executor.execute(() -> {
+            try {
+              createManagedInstanceGroup(zone, param.getClientType(), num);
+              createGroupFuture.set(null);
+            } catch (Exception e) {
+              createGroupFuture.setException(e);
+            }
+          });
+        }
       }));
 
       // Wait for files and instance groups to be created.
@@ -181,16 +197,25 @@ public class GCEController extends Controller {
       log.info("Starting instances.");
       List<SettableFuture<Void>> resizingFutures = new ArrayList<>();
       types.forEach((zone, paramsMap) -> paramsMap.forEach((type, n) -> {
-        SettableFuture<Void> resizingFuture = SettableFuture.create();
-        resizingFutures.add(resizingFuture);
-        executor.execute(() -> {
-          try {
-            startInstances(zone, type.getClientType(), n);
-            resizingFuture.set(null);
-          } catch (Exception e) {
-            resizingFuture.setException(e);
+        for (int i = 0; i < n / 40 + 1; i++) {
+          SettableFuture<Void> resizingFuture = SettableFuture.create();
+          resizingFutures.add(resizingFuture);
+          final int instanceCount; // 40 instances each + n % 40 to capture remaining
+          if (i == 0) {
+            instanceCount = n % 40;
+          } else {
+            instanceCount = 40;
           }
-        });
+          final int num = i;
+          executor.execute(() -> {
+            try {
+              startInstances(zone, type.getClientType(), instanceCount, num);
+              resizingFuture.set(null);
+            } catch (Exception e) {
+              resizingFuture.setException(e);
+            }
+          });
+        }
       }));
       Futures.allAsList(resizingFutures).get();
 
@@ -200,25 +225,28 @@ public class GCEController extends Controller {
       for (String zone : types.keySet()) {
         Map<ClientParams, Integer> paramsMap = types.get(zone);
         for (ClientParams type : paramsMap.keySet()) {
-          SettableFuture<Void> startFuture = SettableFuture.create();
-          startFutures.add(startFuture);
-          executor.execute(() -> {
-            int numErrors = 0;
-            while (true) {
-              try {
-                addInstanceGroupInfo(zone, type);
-                startFuture.set(null);
-                return;
-              } catch (IOException e) {
-                numErrors++;
-                if (numErrors > 3) {
-                  startFuture.setException(new Exception("Failed to get instance information."));
+          for (int i = 0; i < paramsMap.get(type) / 40 + 1; i++) {
+            SettableFuture<Void> startFuture = SettableFuture.create();
+            startFutures.add(startFuture);
+            final int num = i;
+            executor.execute(() -> {
+              int numErrors = 0;
+              while (true) {
+                try {
+                  addInstanceGroupInfo(zone, type, num);
+                  startFuture.set(null);
                   return;
+                } catch (IOException e) {
+                  numErrors++;
+                  if (numErrors > 3) {
+                    startFuture.setException(new Exception("Failed to get instance information."));
+                    return;
+                  }
+                  log.error("Transient error getting status for instance group, continuing", e);
                 }
-                log.error("Transient error getting status for instance group, continuing", e);
               }
-            }
-          });
+            });
+          }
         }
       }
 
@@ -280,14 +308,16 @@ public class GCEController extends Controller {
     }
     // Attempt to cleanly close all running instances.
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
-          try {
-            compute.instanceGroupManagers()
-                .resize(projectName, zone, "cps-loadtest-"
-                    + param.getClientType() + "-" + cores, 0)
-                .execute();
-          } catch (IOException e) {
-            log.error("Unable to resize Instance Group for " + param.getClientType() + ", please "
-                + "manually ensure you do not have any running instances to avoid being billed.");
+          for (int i = 0; i < count / 40 + 1; i++) {
+            try {
+              compute.instanceGroupManagers()
+                  .resize(projectName, zone, "cps-loadtest-"
+                      + param.getClientType() + "-" + cores + "-" + i, 0)
+                  .execute();
+            } catch (IOException e) {
+              log.error("Unable to resize Instance Group for " + param.getClientType() + ", please "
+                  + "manually ensure you do not have any running instances to avoid being billed.");
+            }
           }
         })
     );
@@ -332,7 +362,7 @@ public class GCEController extends Controller {
   /**
    * Creates the instance template and managed instance group for the given zone and type.
    */
-  private void createManagedInstanceGroup(String zone, ClientType type) throws Exception {
+  private void createManagedInstanceGroup(String zone, ClientType type, int num) throws Exception {
     // Create the Instance Template
     try {
       compute.instanceTemplates().insert(projectName,
@@ -348,7 +378,7 @@ public class GCEController extends Controller {
     while (true) {
       try {
         compute.instanceGroupManagers().insert(projectName, zone,
-            (new InstanceGroupManager()).setName("cps-loadtest-" + type + "-" + cores)
+            (new InstanceGroupManager()).setName("cps-loadtest-" + type + "-" + cores + "-" + num)
                 .setInstanceTemplate("projects/" + projectName
                     + "/global/instanceTemplates/cps-loadtest-" + type + "-" + cores)
                 .setTargetSize(0))
@@ -373,15 +403,15 @@ public class GCEController extends Controller {
    * Re-sizes the instance groups to zero and then to the given size in order to ensure previous
    * runs do not interfere in case they were not cleaned up properly.
    */
-  private void startInstances(String zone, ClientType type, Integer n) throws Exception {
+  private void startInstances(String zone, ClientType type, Integer n, int num) throws Exception {
     int errors = 0;
     while (true) {
       try {
         // We first resize to 0 to delete any left running from an improperly cleaned up prior run.
         compute.instanceGroupManagers().resize(projectName, zone,
-            "cps-loadtest-" + type + "-" + cores, 0).execute();
+            "cps-loadtest-" + type + "-" + cores + "-" + num, 0).execute();
         compute.instanceGroupManagers().resize(projectName, zone,
-            "cps-loadtest-" + type + "-" + cores, n).execute();
+            "cps-loadtest-" + type + "-" + cores + "-" + num, n).execute();
         return;
       } catch (GoogleJsonResponseException e) {
         if (errors > 10) {
@@ -434,12 +464,12 @@ public class GCEController extends Controller {
    * For the given zone and client type, we add the instances created to the clients array, for the
    * base controller.
    */
-  private void addInstanceGroupInfo(String zone, ClientParams params) throws IOException {
+  private void addInstanceGroupInfo(String zone, ClientParams params, int num) throws IOException {
     InstanceGroupManagersListManagedInstancesResponse response;
     do {
       response = compute.instanceGroupManagers().
           listManagedInstances(projectName, zone, "cps-loadtest-"
-              + params.getClientType() + "-" + cores).execute();
+              + params.getClientType() + "-" + cores + "-" + num).execute();
 
       // If we are not instantiating any instances of this type, just return.
       if (response.getManagedInstances() == null) {

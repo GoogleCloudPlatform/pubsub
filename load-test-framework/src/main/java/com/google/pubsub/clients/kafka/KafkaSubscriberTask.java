@@ -27,6 +27,7 @@ import com.google.pubsub.clients.common.Task.RunResult;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
@@ -36,22 +37,29 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
  */
 class KafkaSubscriberTask extends Task {
   private final long pollLength;
-  private final KafkaConsumer<String, String> subscriber;
+  private final ConcurrentLinkedQueue<KafkaConsumer<String, String>> queue;
 
   private KafkaSubscriberTask(StartRequest request) {
     super(request, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);
     this.pollLength = Durations.toMillis(request.getKafkaOptions().getPollDuration());
     Properties props = new Properties();
-    props.putAll(ImmutableMap.of(
-        "key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
-        "value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
-        "group.id", "SUBSCRIBER_ID",
-        "enable.auto.commit", "true",
-        "session.timeout.ms", "30000"
-    ));
-    props.put("bootstrap.servers", request.getKafkaOptions().getBroker());
-    subscriber = new KafkaConsumer<>(props);
-    subscriber.subscribe(Collections.singletonList(request.getTopic()));
+    props.putAll(new ImmutableMap.Builder<>()
+        .put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+        .put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer")
+        .put("group.id", request.getSubscription())
+        .put("max.partition.fetch.bytes", request.getMaxMessagesPerPull())
+        .put("fetch.wait.max.ms",
+            request.getKafkaOptions().getMaxFetchDuration().getSeconds() * 1000)
+        .put("enable.auto.commit", "true")
+        .put("session.timeout.ms", "30000")
+        .put("auto.offset.reset", "latest")
+        .put("bootstrap.servers", request.getKafkaOptions().getBroker()).build());
+    queue = new ConcurrentLinkedQueue<>();
+    for (int i = 0; i < request.getMaxOutstandingRequests(); i++) {
+      KafkaConsumer<String, String> consumer = new KafkaConsumer<String, String>(props);
+      consumer.subscribe(Collections.singletonList(request.getTopic()));
+      queue.add(consumer);
+    }
   }
 
   public static void main(String[] args) throws Exception {
@@ -63,9 +71,17 @@ class KafkaSubscriberTask extends Task {
   @Override
   public ListenableFuture<RunResult> doRun() {
     RunResult result = new RunResult();
-    ConsumerRecords<String, String> records = subscriber.poll(pollLength);
+    KafkaConsumer<String, String> consumer = queue.poll();
+    while (consumer == null) { // Shouldn't ever happen, included just in case
+      try {
+        Thread.sleep(5);
+      } catch (InterruptedException e) { }
+      consumer = queue.poll();
+    }
+    ConsumerRecords<String, String> records = consumer.poll(pollLength);
     long now = System.currentTimeMillis();
     records.forEach(record -> result.latencies.add(now - record.timestamp()));
+    queue.add(consumer);
     return Futures.immediateFuture(result);
   }
 }

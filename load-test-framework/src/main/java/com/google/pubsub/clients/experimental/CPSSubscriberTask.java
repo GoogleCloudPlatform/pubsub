@@ -42,7 +42,7 @@ class CPSSubscriberTask extends Task implements Subscriber.MessageReceiver {
                 "projects/"
                     + request.getProject()
                     + "/subscriptions/"
-                    + request.getPubsubOptions().getSubscription(),
+                    + request.getSubscription(),
                 this)
             .build();
   }

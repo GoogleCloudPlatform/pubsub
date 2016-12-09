@@ -46,8 +46,8 @@ class CPSSubscriberTask extends Task {
     this.pubSub = PubSubOptions.builder()
         .projectId(request.getProject())
         .build().service();
-    this.subscription = Preconditions.checkNotNull(request.getPubsubOptions().getSubscription());
-    this.batchSize = request.getPubsubOptions().getMaxMessagesPerPull();
+    this.subscription = Preconditions.checkNotNull(request.getSubscription());
+    this.batchSize = request.getMaxMessagesPerPull();
   }
 
   public static void main(String[] args) throws Exception {

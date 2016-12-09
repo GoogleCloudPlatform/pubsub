@@ -24,10 +24,11 @@ import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.clients.common.Task.RunResult;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import java.util.Properties;
-import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
@@ -44,6 +45,7 @@ class KafkaPublisherTask extends Task {
   private final String payload;
   private final int batchSize;
   private final KafkaProducer<String, String> publisher;
+  private final ExecutorService callbackPool;
 
   private KafkaPublisherTask(StartRequest request) {
     super(request, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
@@ -57,13 +59,12 @@ class KafkaPublisherTask extends Task {
         .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("acks", "all")
         .put("bootstrap.servers", request.getKafkaOptions().getBroker())
-        .put("buffer.memory", Integer.toString(1000 * 1000 * 1000)) // 1 GB
-        // 10M, high enough to allow for duration to control batching
-        .put("batch.size", Integer.toString(10 * 1000 * 1000))
+        .put("batch.size", batchSize * request.getMessageSize()) // Kafka takes batch size in bytes
         .put("linger.ms", Long.toString(Durations.toMillis(request.getPublishBatchDuration())))
         .build()
     );
     this.publisher = new KafkaProducer<>(props);
+    callbackPool = Executors.newCachedThreadPool();
   }
 
   public static void main(String[] args) throws Exception {
@@ -72,7 +73,6 @@ class KafkaPublisherTask extends Task {
     LoadTestRunner.run(options, KafkaPublisherTask::new);
   }
 
-  @Override
   public ListenableFuture<RunResult> doRun() {
     SettableFuture<RunResult> result = SettableFuture.create();
     AtomicInteger messagesToSend = new AtomicInteger(batchSize);
@@ -81,15 +81,37 @@ class KafkaPublisherTask extends Task {
       publisher.send(
           new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload),
           (metadata, exception) -> {
-            if (exception != null) {
-              messagesSentSuccess.decrementAndGet();
-              log.error(exception.getMessage(), exception);
-            }
-            if (messagesToSend.decrementAndGet() == 0) {
-              result.set(RunResult.fromBatchSize(messagesSentSuccess.get()));
-            }
+            callbackPool.submit(
+                new MetricsTask(exception, result, messagesSentSuccess, messagesToSend));
           });
     }
     return result;
+  }
+
+  private class MetricsTask implements Runnable {
+
+    private Exception exception;
+    private AtomicInteger messagesSentSuccess;
+    private AtomicInteger messagesToSend;
+    private SettableFuture<RunResult> result;
+
+    public MetricsTask(Exception exception, SettableFuture<RunResult> result,
+        AtomicInteger messagesSentSuccess, AtomicInteger messagesToSend) {
+      this.exception = exception;
+      this.messagesSentSuccess = messagesSentSuccess;
+      this.messagesToSend = messagesToSend;
+      this.result = result;
+    }
+
+    @Override
+    public void run() {
+      if (exception != null) {
+        messagesSentSuccess.decrementAndGet();
+        log.error(exception.getMessage(), exception);
+      }
+      if (messagesToSend.decrementAndGet() == 0) {
+        result.set(RunResult.fromBatchSize(messagesSentSuccess.get()));
+      }
+    }
   }
 }

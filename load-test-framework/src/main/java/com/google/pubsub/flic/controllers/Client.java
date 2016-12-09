@@ -26,7 +26,6 @@ import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.common.LoadtestGrpc;
 import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
-import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.netty.NettyChannelBuilder;
@@ -47,12 +46,13 @@ public class Client {
   private static final Logger log = LoggerFactory.getLogger(Client.class);
   private static final int PORT = 5000;
   public static int messageSize;
-  public static int requestRate;
+  public static double requestRate;
   public static Timestamp startTime;
   public static Duration loadtestDuration;
   public static int publishBatchSize;
   public static Duration publishBatchDuration;
   public static int maxMessagesPerPull;
+  public static Duration maxFetchDuration;
   public static Duration pollDuration;
   public static String broker;
   public static int maxOutstandingRequests;
@@ -106,8 +106,12 @@ public class Client {
         return "experimental";
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
+        return "gcloud";
       case CPS_GCLOUD_PYTHON_PUBLISHER:
         return "gcloud";
+      case CPS_GRPC_PUBLISHER:
+      case CPS_GRPC_SUBSCRIBER:
+        return "grpc";
       case CPS_VTK_JAVA_PUBLISHER:
         return "vtk";
       case KAFKA_PUBLISHER:
@@ -148,31 +152,32 @@ public class Client {
     this.messageTracker = messageTracker;
     // Send a gRPC call to start the server
     log.info("Connecting to " + networkAddress + ":" + PORT);
-    StartRequest.Builder requestBuilder =
-        StartRequest.newBuilder()
-            .setProject(project)
-            .setTopic(topic)
-            .setMaxOutstandingRequests(maxOutstandingRequests)
-            .setMessageSize(messageSize)
-            .setRequestRate(requestRate)
-            .setStartTime(startTime)
-            .setPublishBatchSize(publishBatchSize)
-            .setPublishBatchDuration(publishBatchDuration)
-            .setBurnInDuration(burnInDuration);
+    StartRequest.Builder requestBuilder = StartRequest.newBuilder()
+        .setProject(project)
+        .setTopic(topic)
+        .setMaxOutstandingRequests(maxOutstandingRequests)
+        .setMessageSize(messageSize)
+        .setRequestRate(requestRate)
+        .setStartTime(startTime)
+        .setPublishBatchSize(publishBatchSize)
+        .setMaxMessagesPerPull(maxMessagesPerPull)
+        .setPublishBatchDuration(publishBatchDuration)
+        .setBurnInDuration(burnInDuration);
     if (numberOfMessages > 0) {
       requestBuilder.setNumberOfMessages(numberOfMessages);
     } else {
       requestBuilder.setTestDuration(loadtestDuration);
     }
+    if (!clientType.isPublisher()) { // Only send subscription when client is subscriber type
+      requestBuilder.setSubscription(subscription);
+    }
     switch (clientType) {
       case CPS_EXPERIMENTAL_JAVA_SUBSCRIBER:
-        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
-            .setSubscription(subscription));
+        requestBuilder.setSubscription(subscription);
         break;
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
-        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
-            .setSubscription(subscription)
-            .setMaxMessagesPerPull(maxMessagesPerPull));
+        requestBuilder.setSubscription(subscription)
+            .setMaxMessagesPerPull(maxMessagesPerPull);
         break;
       case KAFKA_PUBLISHER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
@@ -181,6 +186,7 @@ public class Client {
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)
+            .setMaxFetchDuration(maxFetchDuration)
             .setPollDuration(pollDuration));
         break;
       case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
@@ -285,6 +291,8 @@ public class Client {
    * An enum representing the possible client types.
    */
   public enum ClientType {
+    CPS_GRPC_PUBLISHER,
+    CPS_GRPC_SUBSCRIBER,
     CPS_EXPERIMENTAL_JAVA_PUBLISHER,
     CPS_EXPERIMENTAL_JAVA_SUBSCRIBER,
     CPS_GCLOUD_JAVA_PUBLISHER,
@@ -296,6 +304,7 @@ public class Client {
 
     public boolean isCpsPublisher() {
       switch (this) {
+        case CPS_GRPC_PUBLISHER:
         case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
@@ -313,6 +322,7 @@ public class Client {
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
         case KAFKA_PUBLISHER:
+        case CPS_GRPC_PUBLISHER:
           return true;
         default:
           return false;
@@ -321,6 +331,8 @@ public class Client {
 
     public ClientType getSubscriberType() {
       switch (this) {
+        case CPS_GRPC_PUBLISHER:
+          return CPS_GRPC_SUBSCRIBER;
         case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
           return CPS_EXPERIMENTAL_JAVA_SUBSCRIBER;
         case CPS_GCLOUD_JAVA_PUBLISHER:
@@ -331,6 +343,24 @@ public class Client {
           return KAFKA_SUBSCRIBER;
         default:
           return this;
+      }
+    }
+
+    public String getTypeString() throws IllegalAccessException {
+      switch (this) {
+        case CPS_GCLOUD_JAVA_PUBLISHER:
+        case CPS_GCLOUD_JAVA_SUBSCRIBER:
+          return "gcloud";
+        case CPS_GCLOUD_PYTHON_PUBLISHER:
+          return "python gcloud";
+        case CPS_GRPC_SUBSCRIBER:
+        case CPS_GRPC_PUBLISHER:
+          return "grpc";
+        case KAFKA_PUBLISHER:
+        case KAFKA_SUBSCRIBER:
+          return "Apache";
+        default:
+          throw new IllegalAccessException("No type specified for this client");
       }
     }
 

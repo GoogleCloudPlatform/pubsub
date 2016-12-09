@@ -19,16 +19,21 @@ package com.google.pubsub.flic.controllers;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.LatencyDistribution;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.LongStream;
+import java.util.stream.Stream;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -137,7 +142,10 @@ public abstract class Controller {
       resultFutures.add(resultFuture);
       executor.submit(() -> {
         try {
-          results.put(type, getStatsForClientType(type));
+          LoadtestStats stats = getStatsForClientType(type);
+          if (stats != null) {
+            results.put(type, stats);
+          }
           resultFuture.set(null);
         } catch (Throwable t) {
           resultFuture.setException(t);
@@ -158,11 +166,17 @@ public abstract class Controller {
    * function returns it is guaranteed that all clients have started.
    */
   public void startClients(MessageTracker messageTracker) {
+    // Set start time to 105 seconds in future, because client.start() can take up to 100s
+    Client.startTime =
+        Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 105).build();
     SettableFuture<Void> startFuture = SettableFuture.create();
+    AtomicInteger toStart = new AtomicInteger(clients.size());
     clients.forEach((client) -> executor.execute(() -> {
       try {
         client.start(messageTracker);
-        startFuture.set(null);
+        if (toStart.decrementAndGet() == 0) {
+          startFuture.set(null);
+        }
       } catch (Throwable t) {
         startFuture.setException(t);
       }

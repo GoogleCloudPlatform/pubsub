@@ -16,8 +16,8 @@
 
 package com.google.pubsub.clients.common;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
+import com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -33,13 +33,16 @@ import java.util.concurrent.Semaphore;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Each task is responsible for implementing its action and for creating {@link LoadTestRunner}.
  */
 public abstract class Task implements Runnable {
+  private static final Logger log = LoggerFactory.getLogger(Task.class);
+  protected final AtomicInteger numMessages = new AtomicInteger(0);
   private final MetricsHandler metricsHandler;
-  private AtomicInteger numMessages = new AtomicInteger(0);
   private final Map<MessageIdentifier, Long> identifiers = new HashMap<>();
   private final Map<MessageIdentifier, Long> identifiersToRecord = new HashMap<>();
   private final AtomicLong lastUpdateMillis = new AtomicLong(System.currentTimeMillis());
@@ -51,7 +54,12 @@ public abstract class Task implements Runnable {
     this.metricsHandler = new MetricsHandler(request.getProject(), type, metricName);
     this.burnInTimeMillis =
         Timestamps.toMillis(Timestamps.add(request.getStartTime(), request.getBurnInDuration()));
-    rateLimiter = RateLimiter.create(request.getRequestRate());
+    if (request.getSubscription().length() == 0) {
+      rateLimiter = RateLimiter.create(request.getRequestRate());
+    } else { // Don't limit subscriber to prevent subscriber backlog
+      log.info("Subscription found so not limiting request rate.");
+      rateLimiter = RateLimiter.create(Double.MAX_VALUE);
+    }
     outstandingRequestLimiter = new Semaphore(request.getMaxOutstandingRequests(), false);
   }
 

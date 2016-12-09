@@ -38,7 +38,6 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.AtomicDouble;
 import com.google.protobuf.Duration;
-import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
 import com.google.pubsub.flic.common.LatencyDistribution;
@@ -119,6 +118,19 @@ public class Driver {
   private int cpsGcloudPythonPublisherCount = 0;
 
   @Parameter(
+      names = {"--cps_grpc_publisher_count"},
+      description = "Number of gRPC CPS publishers to start."
+  )
+  private int cpsGrpcJavaPublisherCount = 0;
+  @Parameter(
+      names = {"--cps_grpc_subscriber_count"},
+      description =
+          "Number of gRPC CPS subscribers to start. If this is not divisible by cps_subscription_fanout"
+              + ", we will round down to the closest multiple of cps_subscription_fanout."
+  )
+  private int cpsGrpcSubscriberCount = 0;
+
+  @Parameter(
     names = {"--kafka_publisher_count"},
     description = "Number of Kafka publishers to start."
   )
@@ -180,11 +192,12 @@ public class Driver {
   private Duration kafkaPollDuration = Durations.fromMillis(100);
 
   @Parameter(
-    names = {"--cps_subscription_fanout"},
-    description = "Number of subscriptions to create for each topic. Must be at least 1.",
+    names = {"--subscription_fanout"},
+    description = "Number of subscriptions (or consumer groups for Kafka) to create for each topic."
+        + " Must be at least 1.",
     validateWith = GreaterThanZeroValidator.class
   )
-  private int cpsSubscriptionFanout = 1;
+  private int subscriptionFanout = 1;
 
   @Parameter(
     names = {"--broker"},
@@ -196,13 +209,13 @@ public class Driver {
     names = {"--request_rate"},
     description = "The rate at which each client will make requests (batches per second)."
   )
-  private int requestRate = 10;
+  private double requestRate = Double.MAX_VALUE;
 
   @Parameter(
     names = {"--max_outstanding_requests"},
     description = "The maximum number of outstanding requests each client will allow."
   )
-  private int maxOutstandingRequests = 20;
+  private int maxOutstandingRequests = 32;
 
   @Parameter(
     names = {"--burn_in_duration"},
@@ -300,6 +313,13 @@ public class Driver {
   private String zone = "us-central1-a";
 
   @Parameter(
+      names = {"--max_fetch_duration"},
+      description = "The maximum duration the Kafka consumer's pull call blocks before returning.",
+      converter = DurationConverter.class
+  )
+  private Duration maxFetchDuration = Durations.fromMillis(100);
+
+  @Parameter(
     names = {"--cores"},
     description = "The number of cores to use on each GCE instance. Valid values are 1,2,4,8,16.",
     validateWith = CoresValidator.class
@@ -352,15 +372,13 @@ public class Driver {
         clientParamsMap.put(
             new ClientParams(ClientType.CPS_VTK_JAVA_PUBLISHER, null), cpsVtkJavaPublisherCount);
       }
+      if (cpsGrpcJavaPublisherCount > 0) {
+        clientParamsMap.put(
+            new ClientParams(ClientType.CPS_GRPC_PUBLISHER, null), cpsGrpcJavaPublisherCount);
+      }
       if (kafkaPublisherCount > 0) {
         clientParamsMap.put(
             new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount);
-      }
-      if (kafkaSubscriberCount > 0) {
-        Preconditions.checkArgument(
-            kafkaPublisherCount > 0, "--kafka_publisher_count must be > 0.");
-        clientParamsMap.put(
-            new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount);
       }
       Preconditions.checkArgument(
           Durations.toMillis(publishBatchDuration) >= 0,
@@ -370,7 +388,7 @@ public class Driver {
           "You must set at least one type of publisher greater than 0.");
       Preconditions.checkArgument(
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0),
-          "If using Kafka you must provide the network address of your broker using the"
+          "If using Kafka you must provide the network address of your broker using the "
               + "--broker flag.");
 
       if (maxPublishLatencyTest) {
@@ -380,7 +398,7 @@ public class Driver {
       }
       // Each type of client will have its own topic, so each topic will get
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
-      for (int i = 0; i < cpsSubscriptionFanout; ++i) {
+      for (int i = 0; i < subscriptionFanout; ++i) {
         if (cpsGcloudJavaSubscriberCount > 0) {
           Preconditions.checkArgument(
               cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount + cpsVtkJavaPublisherCount
@@ -388,7 +406,7 @@ public class Driver {
               "--cps_gcloud_java_publisher or --cps_gcloud_python_publisher must be > 0.");
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-subscription" + i),
-              cpsGcloudJavaSubscriberCount / cpsSubscriptionFanout);
+              cpsGcloudJavaSubscriberCount / subscriptionFanout);
         }
         if (cpsExperimentalJavaSubscriberCount > 0) {
           Preconditions.checkArgument(
@@ -397,18 +415,35 @@ public class Driver {
           clientParamsMap.put(
               new ClientParams(
                   ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER, "experimental-subscription" + i),
-              cpsExperimentalJavaSubscriberCount / cpsSubscriptionFanout);
+              cpsExperimentalJavaSubscriberCount / subscriptionFanout);
+        }
+        if (cpsGrpcSubscriberCount > 0) {
+          Preconditions.checkArgument(
+              cpsGrpcJavaPublisherCount > 0,
+              "--cps_grpc_publisher must be > 0 when cps_grpc_subscriber > 0.");
+          clientParamsMap.put(
+              new ClientParams(
+                  ClientType.CPS_GRPC_PUBLISHER, "grpc-subscription" + i),
+              cpsExperimentalJavaSubscriberCount / subscriptionFanout);
+        }
+        if (kafkaSubscriberCount > 0) {
+          Preconditions.checkArgument(
+              kafkaPublisherCount > 0, "--kafka_publisher_count must be > 0.");
+          clientParamsMap.put(
+              new ClientParams(ClientType.KAFKA_SUBSCRIBER, "consumer-group" + i),
+              kafkaSubscriberCount / subscriptionFanout);
         }
       }
       // Set static variables.
       Controller.resourceDirectory = resourceDirectory;
       Client.messageSize = messageSize;
+      Client.requestRate = requestRate;
+      Client.maxFetchDuration = maxFetchDuration;
       Client.loadtestDuration = loadtestDuration;
       Client.publishBatchSize = publishBatchSize;
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
       Client.pollDuration = kafkaPollDuration;
       Client.broker = broker;
-      Client.requestRate = requestRate;
       Client.maxOutstandingRequests = maxOutstandingRequests;
       Client.numberOfMessages = numberOfMessages;
       Client.burnInDuration = burnInDuration;
@@ -427,23 +462,37 @@ public class Driver {
             VERBOSE_STATS_POLL_SECONDS,
             TimeUnit.SECONDS);
       }
+      if (numCoresTest) {
+        runNumCoresTest(clientParamsMap, controllerFunction);
+        synchronized (pollingExecutor) {
+          pollingExecutor.shutdownNow();
+        }
+        System.exit(0);
+      }
       if (maxPublishLatencyTest) {
         controller = controllerFunction.apply(project, clientParamsMap);
         runMaxPublishLatencyTest();
       } else if (maxSubscriberThroughputTest) {
         controller = controllerFunction.apply(project, clientParamsMap);
         runMaxSubscriberThroughputTest();
-      } else if (numCoresTest) {
-        runNumCoresTest(clientParamsMap, controllerFunction);
       } else {
         controller = controllerFunction.apply(project, clientParamsMap);
         Map<ClientType, Controller.LoadtestStats> statsMap = runTest(null);
-        GnuPlot.plot(statsMap);
-        CsvOutput.outputStats(statsMap);
+        printStats(statsMap);
+        if (spreadsheetId.length() > 0) {
+          // Output results to Google sheet
+          new SheetsService(dataStoreDirectory, controller.getTypes())
+              .sendToSheets(spreadsheetId, statsMap);
+        } else {
+          // Output results to image/csv files
+          GnuPlot.plot(statsMap);
+          CsvOutput.outputStats(statsMap);
+        }
       }
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
       }
+      controller.shutdown(null);
       System.exit(0);
     } catch (Throwable t) {
       log.error("An error occurred...", t);
@@ -454,8 +503,6 @@ public class Driver {
   private Map<ClientType, Controller.LoadtestStats> runTest(Runnable whileRunning)
       throws Throwable {
     Map<ClientType, Controller.LoadtestStats> statsMap;
-    Client.startTime =
-        Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 90).build();
     MessageTracker messageTracker =
         new MessageTracker(
             numberOfMessages,
@@ -480,16 +527,11 @@ public class Driver {
                 "%d:%d", identifier.getPublisherClientId(), identifier.getSequenceNumber()));
       }
     }
-    if (spreadsheetId.length() > 0) {
-      // Output results to common Google sheet
-      new SheetsService(dataStoreDirectory, controller.getTypes())
-          .sendToSheets(spreadsheetId, statsMap);
-    }
     return statsMap;
   }
 
   private void runMaxPublishLatencyTest() throws Throwable {
-    int highestRequestRate = 0;
+    double highestRequestRate = 0;
     for (AtomicDouble publishLatency = new AtomicDouble(0);
         publishLatency.get() < maxPublishLatencyMillis;
         Client.requestRate = (int) (Client.requestRate * 1.1)) {
@@ -506,8 +548,6 @@ public class Driver {
         highestRequestRate = Client.requestRate;
       }
     }
-    log.info("Maximum Request Rate: " + highestRequestRate);
-    controller.shutdown(null);
   }
 
   private void runMaxSubscriberThroughputTest() throws Throwable {
@@ -568,7 +608,6 @@ public class Driver {
     log.info(
         "We accumulated a backlog during this test, refer to the last run "
             + "for the maximum throughput attained before accumulating backlog.");
-    controller.shutdown(null);
   }
 
   private void runNumCoresTest(
