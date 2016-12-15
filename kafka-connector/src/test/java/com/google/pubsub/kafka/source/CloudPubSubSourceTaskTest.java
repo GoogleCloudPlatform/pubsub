@@ -218,12 +218,12 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(1, result.size());
     Schema expectedSchema =
         SchemaBuilder.struct()
-            .field(ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE, Schema.BYTES_SCHEMA)
+            .field(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD, Schema.BYTES_SCHEMA)
             .field("attribute1", Schema.STRING_SCHEMA)
             .field("attribute2", Schema.STRING_SCHEMA)
             .build();
     Struct expectedValue = new Struct(expectedSchema)
-                               .put(ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE, KAFKA_VALUE)
+                               .put(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD, KAFKA_VALUE)
                                .put("attribute1", "attribute_value1")
                                .put("attribute2", "attribute_value2");
     SourceRecord expected =
