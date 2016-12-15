@@ -100,7 +100,7 @@ final class PollingSubscriberConnection extends AbstractSubscriberConnection {
         });
   }
 
-  private void pullMessages(Duration backoff) {
+  private void pullMessages(final Duration backoff) {
     ListenableFuture<PullResponse> pullResult =
         stub.withDeadlineAfter(DEFAULT_TIMEOUT.getMillis(), TimeUnit.MILLISECONDS)
             .pull(

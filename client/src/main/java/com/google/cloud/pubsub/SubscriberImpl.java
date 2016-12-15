@@ -252,9 +252,10 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
   }
 
   private void startConnections(
-      List<? extends AbstractSubscriberConnection> connections, Listener connectionsListener) {
-    CountDownLatch subscribersStarting = new CountDownLatch(numChannels);
-    for (AbstractSubscriberConnection subscriber : connections) {
+      List<? extends AbstractSubscriberConnection> connections,
+      final Listener connectionsListener) {
+    final CountDownLatch subscribersStarting = new CountDownLatch(numChannels);
+    for (final AbstractSubscriberConnection subscriber : connections) {
       executor.submit(
           new Runnable() {
             @Override
@@ -278,8 +279,8 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
       liveConnections = new ArrayList<AbstractSubscriberConnection>(connections);
       connections.clear();
     }
-    CountDownLatch connectionsStopping = new CountDownLatch(liveConnections.size());
-    for (AbstractSubscriberConnection subscriberConnection : liveConnections) {
+    final CountDownLatch connectionsStopping = new CountDownLatch(liveConnections.size());
+    for (final AbstractSubscriberConnection subscriberConnection : liveConnections) {
       executor.submit(
           new Runnable() {
             @Override
