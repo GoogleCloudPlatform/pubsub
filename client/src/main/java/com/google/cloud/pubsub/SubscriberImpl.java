@@ -24,11 +24,15 @@ import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.AbstractService;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import io.grpc.ManagedChannelBuilder;
+import io.grpc.Status;
+import io.grpc.StatusRuntimeException;
 import io.grpc.netty.GrpcSslContexts;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
@@ -57,14 +61,21 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
   private final Optional<Integer> maxOutstandingBytes;
   private final Optional<Integer> maxOutstandingMessages;
   private final Duration ackExpirationPadding;
-  private final SubscriberConnection[] subscriberConnections;
   private final ScheduledExecutorService executor;
   private final Distribution ackLatencyDistribution =
       new Distribution(MAX_ACK_DEADLINE_SECONDS + 1);
+  private final int numChannels;
+  private final FlowController flowController;
+  private final ManagedChannelBuilder<? extends ManagedChannelBuilder<?>> channelBuilder;
+  private final Credentials credentials;
+  private final MessageReceiver receiver;
+  private final List<StreamingSubscriberConnection> streamingSubscriberConnections;
+  private final List<PollingSubscriberConnection> pollingSubscriberConnections;
   private ScheduledFuture<?> ackDeadlineUpdater;
   private int streamAckDeadlineSeconds;
 
   public SubscriberImpl(SubscriberImpl.Builder builder) {
+    receiver = builder.receiver;
     maxOutstandingBytes = builder.maxOutstandingBytes;
     maxOutstandingMessages = builder.maxOutstandingMessages;
     subscription = builder.subscription;
@@ -74,10 +85,10 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
             INITIAL_ACK_DEADLINE_SECONDS,
             Ints.saturatedCast(ackExpirationPadding.getStandardSeconds()));
 
-    FlowController flowController =
+    flowController =
         new FlowController(builder.maxOutstandingBytes, builder.maxOutstandingBytes, false);
 
-    int numChannels = Math.max(1, Runtime.getRuntime().availableProcessors()) * CHANNELS_PER_CORE;
+    numChannels = Math.max(1, Runtime.getRuntime().availableProcessors()) * CHANNELS_PER_CORE;
     executor =
         builder.executor.isPresent()
             ? builder.executor.get()
@@ -87,9 +98,7 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
                     .setDaemon(true)
                     .setNameFormat("cloud-pubsub-subscriber-thread-%d")
                     .build());
-    subscriberConnections = new SubscriberConnection[numChannels];
 
-    ManagedChannelBuilder<? extends ManagedChannelBuilder<?>> channelBuilder;
     try {
       channelBuilder =
           builder.channelBuilder.isPresent()
@@ -104,7 +113,6 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
       throw new RuntimeException("Failed to initialize gRPC channel.", e);
     }
 
-    Credentials credentials;
     try {
       credentials =
           builder.credentials.isPresent()
@@ -114,52 +122,59 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
     } catch (IOException e) {
       throw new RuntimeException("Failed to get application default credentials.", e);
     }
-    for (int i = 0; i < subscriberConnections.length; i++) {
-      subscriberConnections[i] =
-          new SubscriberConnection(
-              subscription,
-              credentials,
-              builder.receiver,
-              ackExpirationPadding,
-              streamAckDeadlineSeconds,
-              ackLatencyDistribution,
-              channelBuilder.build(),
-              flowController,
-              executor);
-    }
+
+    streamingSubscriberConnections = new ArrayList<StreamingSubscriberConnection>(numChannels);
+    pollingSubscriberConnections = new ArrayList<PollingSubscriberConnection>(numChannels);
   }
 
   @Override
   protected void doStart() {
     logger.debug("Starting subscriber group.");
+    startStreamingConnections();
+    notifyStarted();
+  }
 
-    CountDownLatch subscribersStarting = new CountDownLatch(subscriberConnections.length);
-    for (SubscriberConnection subscriber : subscriberConnections) {
-      executor.submit(
-          new Runnable() {
-            @Override
-            public void run() {
-              subscriber.startAsync().awaitRunning();
-              subscribersStarting.countDown();
-              subscriber.addListener(
-                  new Listener() {
-                    @Override
-                    public void failed(State from, Throwable failure) {
-                      // If a connection failed is because of a fatal error, we should fail the
-                      // whole subscriber.
-                      stopAllConnections();
-                      notifyFailed(failure);
-                    }
-                  },
-                  executor);
+  @Override
+  protected void doStop() {
+    stopAllStreamingConnections();
+    stopAllPollingConnections();
+    notifyStopped();
+  }
+
+  private void startStreamingConnections() {
+    synchronized (streamingSubscriberConnections) {
+      for (int i = 0; i < numChannels; i++) {
+        streamingSubscriberConnections.add(
+            new StreamingSubscriberConnection(
+                subscription,
+                credentials,
+                receiver,
+                ackExpirationPadding,
+                streamAckDeadlineSeconds,
+                ackLatencyDistribution,
+                channelBuilder.build(),
+                flowController,
+                executor));
+      }
+    }
+    startConnections(
+        streamingSubscriberConnections,
+        new Listener() {
+          @Override
+          public void failed(State from, Throwable failure) {
+            // If a connection failed is because of a fatal error, we should fail the
+            // whole subscriber.
+            stopAllStreamingConnections();
+            if (failure instanceof StatusRuntimeException
+                && ((StatusRuntimeException) failure).getStatus().getCode()
+                    == Status.Code.UNIMPLEMENTED) {
+              logger.info("Unable to open streaming connections, falling back to polling.");
+              startPollingConnections();
+              return;
             }
-          });
-    }
-    try {
-      subscribersStarting.await();
-    } catch (InterruptedException e) {
-      throw new RuntimeException(e);
-    }
+            notifyFailed(failure);
+          }
+        });
 
     ackDeadlineUpdater =
         executor.scheduleAtFixedRate(
@@ -179,7 +194,8 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
                     streamAckDeadlineSeconds = possibleStreamAckDeadlineSeconds;
                     logger.debug(
                         "Updating stream deadline to {} seconds.", streamAckDeadlineSeconds);
-                    for (SubscriberConnection subscriberConnection : subscriberConnections) {
+                    for (StreamingSubscriberConnection subscriberConnection :
+                        streamingSubscriberConnections) {
                       subscriberConnection.updateStreamAckDeadline(streamAckDeadlineSeconds);
                     }
                   }
@@ -189,19 +205,81 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
             ACK_DEADLINE_UPDATE_PERIOD.getMillis(),
             ACK_DEADLINE_UPDATE_PERIOD.getMillis(),
             TimeUnit.MILLISECONDS);
-    notifyStarted();
   }
 
-  @Override
-  protected void doStop() {
+  private void stopAllStreamingConnections() {
+    stopConnections(streamingSubscriberConnections);
     ackDeadlineUpdater.cancel(true);
-    stopAllConnections();
-    notifyStopped();
   }
 
-  private void stopAllConnections() {
-    CountDownLatch connectionsStopping = new CountDownLatch(subscriberConnections.length);
-    for (SubscriberConnection subscriberConnection : subscriberConnections) {
+  private void startPollingConnections() {
+    synchronized (pollingSubscriberConnections) {
+      for (int i = 0; i < numChannels; i++) {
+        pollingSubscriberConnections.add(
+            new PollingSubscriberConnection(
+                subscription,
+                credentials,
+                receiver,
+                ackExpirationPadding,
+                ackLatencyDistribution,
+                channelBuilder.build(),
+                flowController,
+                executor));
+      }
+    }
+    startConnections(
+        pollingSubscriberConnections,
+        new Listener() {
+          @Override
+          public void failed(State from, Throwable failure) {
+            // If a connection failed is because of a fatal error, we should fail the
+            // whole subscriber.
+            stopAllPollingConnections();
+            try {
+              notifyFailed(failure);
+            } catch (IllegalStateException e) {
+              if (isRunning()) {
+                throw e;
+              }
+              // It could happen that we are shutting down while some channels fail.
+            }
+          }
+        });
+  }
+
+  private void stopAllPollingConnections() {
+    stopConnections(pollingSubscriberConnections);
+  }
+
+  private void startConnections(
+      List<? extends AbstractSubscriberConnection> connections, Listener connectionsListener) {
+    CountDownLatch subscribersStarting = new CountDownLatch(numChannels);
+    for (AbstractSubscriberConnection subscriber : connections) {
+      executor.submit(
+          new Runnable() {
+            @Override
+            public void run() {
+              subscriber.startAsync().awaitRunning();
+              subscribersStarting.countDown();
+              subscriber.addListener(connectionsListener, executor);
+            }
+          });
+    }
+    try {
+      subscribersStarting.await();
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private void stopConnections(List<? extends AbstractSubscriberConnection> connections) {
+    ArrayList<AbstractSubscriberConnection> liveConnections;
+    synchronized (connections) {
+      liveConnections = new ArrayList<AbstractSubscriberConnection>(connections);
+      connections.clear();
+    }
+    CountDownLatch connectionsStopping = new CountDownLatch(liveConnections.size());
+    for (AbstractSubscriberConnection subscriberConnection : liveConnections) {
       executor.submit(
           new Runnable() {
             @Override
