@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
@@ -136,10 +137,10 @@ public class CloudPubSubSourceTask extends SourceTask {
         SourceRecord record = null;
         if (hasAttributes) {
           SchemaBuilder valueSchemaBuilder = SchemaBuilder.struct().field(
-              ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE,
+              ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
               Schema.BYTES_SCHEMA);
 
-          for (Map.Entry<String, String> attribute :
+          for (Entry<String, String> attribute :
                messageAttributes.entrySet()) {
             if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
               valueSchemaBuilder.field(attribute.getKey(),
@@ -150,11 +151,11 @@ public class CloudPubSubSourceTask extends SourceTask {
           Schema valueSchema = valueSchemaBuilder.build();
           Struct value =
               new Struct(valueSchema)
-                  .put(ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE,
+                  .put(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
                        messageBytes);
           for (Field field : valueSchema.fields()) {
             if (!field.name().equals(
-                    ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE)) {
+                    ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD)) {
               value.put(field.name(), messageAttributes.get(field.name()));
             }
           }
