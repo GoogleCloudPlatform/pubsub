@@ -410,7 +410,7 @@ public class SubscriberImplTest {
   public void testFailedChannel_fatalError_subscriberFails() throws Exception {
     if (!isStreamingTest) {
       // This test is not applicable to polling.
-      return;
+      throw new IllegalStateException("To fullfil test expectation");
     }
 
     Subscriber subscriber =

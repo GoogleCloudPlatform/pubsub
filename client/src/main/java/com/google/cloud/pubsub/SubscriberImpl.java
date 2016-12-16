@@ -38,7 +38,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-import javax.net.ssl.SSLException;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -74,7 +73,7 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
   private ScheduledFuture<?> ackDeadlineUpdater;
   private int streamAckDeadlineSeconds;
 
-  public SubscriberImpl(SubscriberImpl.Builder builder) {
+  public SubscriberImpl(SubscriberImpl.Builder builder) throws IOException {
     receiver = builder.receiver;
     maxOutstandingBytes = builder.maxOutstandingBytes;
     maxOutstandingMessages = builder.maxOutstandingMessages;
@@ -99,29 +98,21 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
                     .setNameFormat("cloud-pubsub-subscriber-thread-%d")
                     .build());
 
-    try {
-      channelBuilder =
-          builder.channelBuilder.isPresent()
-              ? builder.channelBuilder.get()
-              : NettyChannelBuilder.forAddress(PUBSUB_API_ADDRESS, 443)
-                  .maxMessageSize(MAX_INBOUND_MESSAGE_SIZE)
-                  .flowControlWindow(5000000) // 2.5 MB
-                  .negotiationType(NegotiationType.TLS)
-                  .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
-                  .executor(executor);
-    } catch (SSLException e) {
-      throw new RuntimeException("Failed to initialize gRPC channel.", e);
-    }
+    channelBuilder =
+        builder.channelBuilder.isPresent()
+            ? builder.channelBuilder.get()
+            : NettyChannelBuilder.forAddress(PUBSUB_API_ADDRESS, 443)
+                .maxMessageSize(MAX_INBOUND_MESSAGE_SIZE)
+                .flowControlWindow(5000000) // 2.5 MB
+                .negotiationType(NegotiationType.TLS)
+                .sslContext(GrpcSslContexts.forClient().ciphers(null).build())
+                .executor(executor);
 
-    try {
-      credentials =
-          builder.credentials.isPresent()
-              ? builder.credentials.get()
-              : GoogleCredentials.getApplicationDefault()
-                  .createScoped(Collections.singletonList(PUBSUB_API_SCOPE));
-    } catch (IOException e) {
-      throw new RuntimeException("Failed to get application default credentials.", e);
-    }
+    credentials =
+        builder.credentials.isPresent()
+            ? builder.credentials.get()
+            : GoogleCredentials.getApplicationDefault()
+                .createScoped(Collections.singletonList(PUBSUB_API_SCOPE));
 
     streamingSubscriberConnections = new ArrayList<StreamingSubscriberConnection>(numChannels);
     pollingSubscriberConnections = new ArrayList<PollingSubscriberConnection>(numChannels);
@@ -156,25 +147,25 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
                 flowController,
                 executor));
       }
-    }
-    startConnections(
-        streamingSubscriberConnections,
-        new Listener() {
-          @Override
-          public void failed(State from, Throwable failure) {
-            // If a connection failed is because of a fatal error, we should fail the
-            // whole subscriber.
-            stopAllStreamingConnections();
-            if (failure instanceof StatusRuntimeException
-                && ((StatusRuntimeException) failure).getStatus().getCode()
-                    == Status.Code.UNIMPLEMENTED) {
-              logger.info("Unable to open streaming connections, falling back to polling.");
-              startPollingConnections();
-              return;
+      startConnections(
+          streamingSubscriberConnections,
+          new Listener() {
+            @Override
+            public void failed(State from, Throwable failure) {
+              // If a connection failed is because of a fatal error, we should fail the
+              // whole subscriber.
+              stopAllStreamingConnections();
+              if (failure instanceof StatusRuntimeException
+                  && ((StatusRuntimeException) failure).getStatus().getCode()
+                      == Status.Code.UNIMPLEMENTED) {
+                logger.info("Unable to open streaming connections, falling back to polling.");
+                startPollingConnections();
+                return;
+              }
+              notifyFailed(failure);
             }
-            notifyFailed(failure);
-          }
-        });
+          });
+    }
 
     ackDeadlineUpdater =
         executor.scheduleAtFixedRate(
@@ -226,25 +217,25 @@ public class SubscriberImpl extends AbstractService implements Subscriber {
                 flowController,
                 executor));
       }
-    }
-    startConnections(
-        pollingSubscriberConnections,
-        new Listener() {
-          @Override
-          public void failed(State from, Throwable failure) {
-            // If a connection failed is because of a fatal error, we should fail the
-            // whole subscriber.
-            stopAllPollingConnections();
-            try {
-              notifyFailed(failure);
-            } catch (IllegalStateException e) {
-              if (isRunning()) {
-                throw e;
+      startConnections(
+          pollingSubscriberConnections,
+          new Listener() {
+            @Override
+            public void failed(State from, Throwable failure) {
+              // If a connection failed is because of a fatal error, we should fail the
+              // whole subscriber.
+              stopAllPollingConnections();
+              try {
+                notifyFailed(failure);
+              } catch (IllegalStateException e) {
+                if (isRunning()) {
+                  throw e;
+                }
+                // It could happen that we are shutting down while some channels fail.
               }
-              // It could happen that we are shutting down while some channels fail.
             }
-          }
-        });
+          });
+    }
   }
 
   private void stopAllPollingConnections() {

@@ -108,7 +108,7 @@ class FakeSubscriberServiceImpl extends SubscriberImplBase {
 
   @Override
   public StreamObserver<StreamingPullRequest> streamingPull(
-      StreamObserver<StreamingPullResponse> responseObserver) {
+      final StreamObserver<StreamingPullResponse> responseObserver) {
     final Stream stream = new Stream();
     stream.requestObserver =
         new StreamObserver<StreamingPullRequest>() {
