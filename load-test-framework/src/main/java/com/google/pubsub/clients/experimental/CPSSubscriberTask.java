@@ -37,14 +37,18 @@ class CPSSubscriberTask extends Task implements Subscriber.MessageReceiver {
 
   private CPSSubscriberTask(StartRequest request) {
     super(request, "experimental", MetricsHandler.MetricName.END_TO_END_LATENCY);
-    this.subscriber =
-        Subscriber.Builder.newBuilder(
-                "projects/"
-                    + request.getProject()
-                    + "/subscriptions/"
-                    + request.getPubsubOptions().getSubscription(),
-                this)
-            .build();
+    try {
+      this.subscriber =
+          Subscriber.Builder.newBuilder(
+                  "projects/"
+                      + request.getProject()
+                      + "/subscriptions/"
+                      + request.getPubsubOptions().getSubscription(),
+                  this)
+              .build();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 
   public static void main(String[] args) throws Exception {

@@ -26,7 +26,6 @@ import com.google.common.base.Optional;
 import com.google.common.util.concurrent.SettableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -34,9 +33,6 @@ import org.junit.runners.JUnit4;
 /** Tests for {@link FlowController}. */
 @RunWith(JUnit4.class)
 public class FlowControllerTest {
-
-  @Before
-  public void setUp() throws Exception {}
 
   @Test
   public void testReserveRelease_ok() throws Exception {
@@ -54,20 +50,27 @@ public class FlowControllerTest {
     try {
       flowController.reserve(-1, 1);
       fail("Must have thrown an illegal argument error");
-    } catch (IllegalArgumentException expected) { }
+    } catch (IllegalArgumentException expected) { 
+      // Expected
+    }
     try {
       flowController.reserve(1, -1);
       fail("Must have thrown an illegal argument error");
-    } catch (IllegalArgumentException expected) { }
+    } catch (IllegalArgumentException expected) { 
+      // Expected
+    }
     try {
       flowController.reserve(0, 1);
       fail("Must have thrown an illegal argument error");
-    } catch (IllegalArgumentException expected) { }
+    } catch (IllegalArgumentException expected) { 
+      // Expected
+    }
   }
 
   @Test
   public void testReserveRelease_noLimits_ok() throws Exception {
-    FlowController flowController = new FlowController(Optional.absent(), Optional.absent(), false);
+    FlowController flowController =
+        new FlowController(Optional.<Integer>absent(), Optional.<Integer>absent(), false);
 
     flowController.reserve(1, 1);
     flowController.release(1, 1);
@@ -82,7 +85,8 @@ public class FlowControllerTest {
 
   @Test
   public void testReserveRelease_blockedByNumberOfMessages_noBytesLimit() throws Exception {
-    FlowController flowController = new FlowController(Optional.of(10), Optional.absent(), false);
+    FlowController flowController =
+        new FlowController(Optional.of(10), Optional.<Integer>absent(), false);
 
     testBlockingReserveRelease(flowController, 10, 10);
   }
@@ -96,17 +100,19 @@ public class FlowControllerTest {
 
   @Test
   public void testReserveRelease_blockedByNumberOfBytes_noMessagesLimit() throws Exception {
-    FlowController flowController = new FlowController(Optional.absent(), Optional.of(10), false);
+    FlowController flowController =
+        new FlowController(Optional.<Integer>absent(), Optional.of(10), false);
 
     testBlockingReserveRelease(flowController, 10, 10);
   }
 
-  private void testBlockingReserveRelease(
-      FlowController flowController, int maxNumMessages, int maxNumBytes) throws Exception {
+  private static void testBlockingReserveRelease(
+      final FlowController flowController, final int maxNumMessages, final int maxNumBytes)
+      throws Exception {
 
     flowController.reserve(1, 1);
 
-    SettableFuture<?> permitsReserved = SettableFuture.create();
+    final SettableFuture<?> permitsReserved = SettableFuture.create();
     Future<?> finished =
         Executors.newCachedThreadPool()
             .submit(
@@ -117,7 +123,7 @@ public class FlowControllerTest {
                       permitsReserved.set(null);
                       flowController.reserve(maxNumMessages, maxNumBytes);
                     } catch (CloudPubsubFlowControlException e) {
-                      throw new RuntimeException(e);
+                      throw new AssertionError(e);
                     }
                   }
                 });
@@ -138,7 +144,8 @@ public class FlowControllerTest {
 
   @Test
   public void testReserveRelease_rejectedByNumberOfMessages_noBytesLimit() throws Exception {
-    FlowController flowController = new FlowController(Optional.of(10), Optional.absent(), true);
+    FlowController flowController =
+        new FlowController(Optional.of(10), Optional.<Integer>absent(), true);
 
     testRejectedReserveRelease(
         flowController, 10, 10, MaxOutstandingMessagesReachedException.class);
@@ -153,7 +160,8 @@ public class FlowControllerTest {
 
   @Test
   public void testReserveRelease_rejectedByNumberOfBytes_noMessagesLimit() throws Exception {
-    FlowController flowController = new FlowController(Optional.absent(), Optional.of(10), true);
+    FlowController flowController =
+        new FlowController(Optional.<Integer>absent(), Optional.of(10), true);
 
     testRejectedReserveRelease(flowController, 10, 10, MaxOutstandingBytesReachedException.class);
   }

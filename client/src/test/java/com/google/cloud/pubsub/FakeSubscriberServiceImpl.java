@@ -18,10 +18,17 @@ package com.google.cloud.pubsub;
 
 import com.google.api.client.util.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.protobuf.Empty;
+import com.google.pubsub.v1.AcknowledgeRequest;
+import com.google.pubsub.v1.GetSubscriptionRequest;
+import com.google.pubsub.v1.ModifyAckDeadlineRequest;
 import com.google.pubsub.v1.PublisherGrpc.PublisherImplBase;
+import com.google.pubsub.v1.PullRequest;
+import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.StreamingPullRequest;
 import com.google.pubsub.v1.StreamingPullResponse;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberImplBase;
+import com.google.pubsub.v1.Subscription;
 import io.grpc.Status;
 import io.grpc.Status.Code;
 import io.grpc.StatusException;
@@ -30,6 +37,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -38,6 +47,17 @@ import java.util.concurrent.atomic.AtomicInteger;
  * Pub/Sub Publisher.
  */
 class FakeSubscriberServiceImpl extends SubscriberImplBase {
+  private final AtomicBoolean subscriptionInitialized = new AtomicBoolean(false);
+  private String subscription = "";
+  private final AtomicInteger messageAckDeadline = new AtomicInteger();
+  private final List<Stream> openedStreams = new ArrayList<>();
+  private final List<Stream> closedStreams = new ArrayList<>();
+  private final List<String> acks = new ArrayList<>();
+  private final List<ModifyAckDeadline> modAckDeadlines = new ArrayList<>();
+  private final List<PullRequest> receivedPullRequest = new ArrayList<>();
+  private final BlockingQueue<PullResponse> pullResponses = new LinkedBlockingDeque<>();
+  private int currentStream;
+
   public static enum CloseSide {
     SERVER,
     CLIENT
@@ -74,6 +94,11 @@ class FakeSubscriberServiceImpl extends SubscriberImplBase {
     public int hashCode() {
       return ackId.hashCode();
     }
+
+    @Override
+    public String toString() {
+      return "Ack ID: " + ackId + ", deadline seconds: " + seconds;
+    }
   }
 
   private static class Stream {
@@ -81,18 +106,9 @@ class FakeSubscriberServiceImpl extends SubscriberImplBase {
     private StreamObserver<StreamingPullResponse> responseObserver;
   }
 
-  private final AtomicBoolean subscriptionInitialized = new AtomicBoolean(false);
-  private String subscription = "";
-  private final AtomicInteger streamAckDeadline = new AtomicInteger();
-  private final List<Stream> openedStreams = new ArrayList<>();
-  private final List<Stream> closedStreams = new ArrayList<>();
-  private final List<String> acks = new ArrayList<>();
-  private final List<ModifyAckDeadline> modAckDeadlines = new ArrayList<>();
-  private int currentStream;
-
   @Override
   public StreamObserver<StreamingPullRequest> streamingPull(
-      StreamObserver<StreamingPullResponse> responseObserver) {
+      final StreamObserver<StreamingPullResponse> responseObserver) {
     final Stream stream = new Stream();
     stream.requestObserver =
         new StreamObserver<StreamingPullRequest>() {
@@ -128,9 +144,9 @@ class FakeSubscriberServiceImpl extends SubscriberImplBase {
               }
 
               if (request.getStreamAckDeadlineSeconds() > 0) {
-                synchronized (streamAckDeadline) {
-                  streamAckDeadline.set(request.getStreamAckDeadlineSeconds());
-                  streamAckDeadline.notifyAll();
+                synchronized (messageAckDeadline) {
+                  messageAckDeadline.set(request.getStreamAckDeadlineSeconds());
+                  messageAckDeadline.notifyAll();
                 }
               }
               if (subscription.isEmpty()) {
@@ -182,11 +198,61 @@ class FakeSubscriberServiceImpl extends SubscriberImplBase {
     return stream.requestObserver;
   }
 
-  public void sendResponse(StreamingPullResponse pullResponse) throws InterruptedException {
+  public void sendStreamingResponse(StreamingPullResponse pullResponse)
+      throws InterruptedException {
     waitForRegistedSubscription();
     synchronized (openedStreams) {
       openedStreams.get(getAndAdvanceCurrentStream()).responseObserver.onNext(pullResponse);
     }
+  }
+
+  public void setMessageAckDeadlineSeconds(int ackDeadline) {
+    messageAckDeadline.set(ackDeadline);
+  }
+
+  public void enqueuePullResponse(PullResponse response) {
+    pullResponses.add(response);
+  }
+
+  @Override
+  public void getSubscription(
+      GetSubscriptionRequest request, StreamObserver<Subscription> responseObserver) {
+    responseObserver.onNext(
+        Subscription.newBuilder()
+            .setName(request.getSubscription())
+            .setAckDeadlineSeconds(messageAckDeadline.get())
+            .setTopic("fake-topic")
+            .build());
+    responseObserver.onCompleted();
+  }
+
+  @Override
+  public void pull(PullRequest request, StreamObserver<PullResponse> responseObserver) {
+    receivedPullRequest.add(request);
+    try {
+      responseObserver.onNext(pullResponses.take());
+      responseObserver.onCompleted();
+    } catch (InterruptedException e) {
+      responseObserver.onError(e);
+    }
+  }
+
+  @Override
+  public void acknowledge(
+      AcknowledgeRequest request, io.grpc.stub.StreamObserver<Empty> responseObserver) {
+    addReceivedAcks(request.getAckIdsList());
+    responseObserver.onNext(Empty.getDefaultInstance());
+    responseObserver.onCompleted();
+  }
+
+  @Override
+  public void modifyAckDeadline(
+      ModifyAckDeadlineRequest request, StreamObserver<Empty> responseObserver) {
+    for (String ackId : request.getAckIdsList()) {
+      addReceivedModifyAckDeadline(new ModifyAckDeadline(ackId, request.getAckDeadlineSeconds()));
+    }
+    responseObserver.onNext(Empty.getDefaultInstance());
+    responseObserver.onCompleted();
   }
 
   public void sendError(Throwable error) throws InterruptedException {
@@ -212,8 +278,8 @@ class FakeSubscriberServiceImpl extends SubscriberImplBase {
       while (acks.size() < expectedCount) {
         acks.wait();
       }
-      ImmutableList<String> receivedAcksCopy = ImmutableList.copyOf(acks);
-      acks.clear();
+      List<String> receivedAcksCopy = ImmutableList.copyOf(acks.subList(0, expectedCount));
+      acks.removeAll(receivedAcksCopy);
       return receivedAcksCopy;
     }
   }
@@ -224,8 +290,9 @@ class FakeSubscriberServiceImpl extends SubscriberImplBase {
       while (modAckDeadlines.size() < expectedCount) {
         modAckDeadlines.wait();
       }
-      ImmutableList<ModifyAckDeadline> modAckDeadlinesCopy = ImmutableList.copyOf(modAckDeadlines);
-      modAckDeadlines.clear();
+      List<ModifyAckDeadline> modAckDeadlinesCopy =
+          ImmutableList.copyOf(modAckDeadlines.subList(0, expectedCount));
+      modAckDeadlines.removeAll(modAckDeadlinesCopy);
       return modAckDeadlinesCopy;
     }
   }
@@ -249,9 +316,9 @@ class FakeSubscriberServiceImpl extends SubscriberImplBase {
   }
 
   public void waitForStreamAckDeadline(int expectedValue) throws InterruptedException {
-    synchronized (streamAckDeadline) {
-      while (streamAckDeadline.get() != expectedValue) {
-        streamAckDeadline.wait();
+    synchronized (messageAckDeadline) {
+      while (messageAckDeadline.get() != expectedValue) {
+        messageAckDeadline.wait();
       }
     }
   }
@@ -283,6 +350,9 @@ class FakeSubscriberServiceImpl extends SubscriberImplBase {
             modAckDeadlines.clear();
             subscriptionInitialized.set(false);
             subscription = "";
+            pullResponses.clear();
+            receivedPullRequest.clear();
+            currentStream = 0;
           }
         }
       }
