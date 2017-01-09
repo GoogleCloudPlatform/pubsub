@@ -104,7 +104,7 @@ def main(project, test, client_types, vms_count, broker):
 if __name__ == '__main__':
   project_arg = None
   test_arg = 'latency'
-  client_types_arg = set(['gcloud'])
+  client_types_arg = set([])
   vms_count_arg = 1
   broker_arg = None
   opts, _ = getopt.getopt(
@@ -131,6 +131,8 @@ if __name__ == '__main__':
     sys.exit('Invalid --test parameter given. Must be set to \'latency\', '
              '\'throughput\', or \'service\'. (' + test_arg +
              ') was provided.')
+  if len(client_types_arg) == 0:
+    client_types_arg = set(['gcloud_java'])
   if not client_types_arg.issubset(
       set(['gcloud_python', 'gcloud_java', 'vtk', 'experimental'])):
     sys.exit(
