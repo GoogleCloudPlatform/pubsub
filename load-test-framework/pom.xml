@@ -20,7 +20,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.kafka</groupId>
-      <artifactId>kafka_2.10</artifactId>
+      <artifactId>kafka_2.11</artifactId>
       <version>0.10.0.0</version>
     </dependency>
     <dependency>
@@ -113,7 +113,7 @@
     <dependency>
       <groupId>com.google.api-client</groupId>
       <artifactId>google-api-client</artifactId>
-      <version>1.20.0</version>
+      <version>1.22.0</version>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
@@ -133,7 +133,7 @@
     <dependency>
        <groupId>com.google.apis</groupId>
        <artifactId>google-api-services-sheets</artifactId>
-       <version>v4-rev32-1.22.0</version>
+       <version>v4-rev108-1.22.0</version>
      </dependency>
      <dependency>
        <groupId>com.google.oauth-client</groupId>
@@ -144,6 +144,11 @@
        <groupId>com.google.oauth-client</groupId>
        <artifactId>google-oauth-client-jetty</artifactId>
        <version>1.22.0</version>
+     </dependency>
+     <dependency>
+       <groupId>com.101tec</groupId>
+       <artifactId>zkclient</artifactId>
+       <version>0.7</version>
      </dependency>
   </dependencies>
   <build>

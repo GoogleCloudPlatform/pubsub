@@ -85,6 +85,9 @@ message KafkaOptions {
 
   // The length of time to poll for.
   google.protobuf.Duration poll_duration = 2;
+
+  // The network address(es) of the Zookeeper hosts.
+  string zookeeper_ip_address = 3;
 }
 
 message MessageIdentifier {

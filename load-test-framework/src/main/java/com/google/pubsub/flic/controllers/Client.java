@@ -55,6 +55,7 @@ public class Client {
   public static int maxMessagesPerPull;
   public static Duration pollDuration;
   public static String broker;
+  public static String zookeeperIpAddress;
   public static int maxOutstandingRequests;
   public static Duration burnInDuration;
   public static int numberOfMessages = 0;
@@ -176,12 +177,14 @@ public class Client {
         break;
       case KAFKA_PUBLISHER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
-            .setBroker(broker));
+            .setBroker(broker)
+            .setZookeeperIpAddress(zookeeperIpAddress));
         break;
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)
-            .setPollDuration(pollDuration));
+            .setPollDuration(pollDuration)
+            .setZookeeperIpAddress(zookeeperIpAddress));
         break;
       case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_PUBLISHER:
@@ -300,6 +303,24 @@ public class Client {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
+          return true;
+        default:
+          return false;
+      }
+    }
+
+    public boolean isKafkaPublisher() {
+      switch (this) {
+        case KAFKA_PUBLISHER:
+          return true;
+        default:
+          return false;
+      }
+    }
+
+    public boolean isKafkaSubscriber() {
+      switch (this) {
+        case KAFKA_SUBSCRIBER:
           return true;
         default:
           return false;

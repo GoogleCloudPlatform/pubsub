@@ -193,6 +193,13 @@ public class Driver {
   private String broker;
 
   @Parameter(
+      names = {"--zookeeper_ip_address"},
+      description = "The network addresses of the Zookeeper clients, comma separated."
+  )
+
+  private String zookeeperIpAddress;
+
+  @Parameter(
     names = {"--request_rate"},
     description = "The rate at which each client will make requests (batches per second)."
   )
@@ -372,6 +379,11 @@ public class Driver {
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0),
           "If using Kafka you must provide the network address of your broker using the"
               + "--broker flag.");
+      Preconditions.checkArgument(
+          !(broker != null ^ zookeeperIpAddress != null),
+          "If using Kafka you must provide the network address of your broker using the"
+              + " --broker flag and the network address of your zookeeper hosts using the"
+              + " --zookeeper_ip_address flag.");
 
       if (maxPublishLatencyTest) {
         Preconditions.checkArgument(
@@ -408,6 +420,7 @@ public class Driver {
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
       Client.pollDuration = kafkaPollDuration;
       Client.broker = broker;
+      Client.zookeeperIpAddress = zookeeperIpAddress;
       Client.requestRate = requestRate;
       Client.maxOutstandingRequests = maxOutstandingRequests;
       Client.numberOfMessages = numberOfMessages;
@@ -485,6 +498,7 @@ public class Driver {
       new SheetsService(dataStoreDirectory, controller.getTypes())
           .sendToSheets(spreadsheetId, statsMap);
     }
+
     return statsMap;
   }
 

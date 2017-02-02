@@ -57,9 +57,16 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import kafka.admin.AdminUtils;
+import kafka.utils.ZKStringSerializer$;
+import kafka.utils.ZkUtils;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
+import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 
 /**
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
@@ -137,6 +144,55 @@ public class GCEController extends Controller {
         });
       });
     });
+    List<SettableFuture<Void>> kafkaFutures = new ArrayList<>();
+    types.values().forEach(paramsMap -> {
+      paramsMap.keySet().stream().map(p -> p.getClientType())
+          .distinct().filter(ClientType::isKafkaPublisher).forEach(clientType -> {
+        SettableFuture<Void> kafkaFuture = SettableFuture.create();
+        kafkaFutures.add(kafkaFuture);
+        executor.execute(() -> {
+          String topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
+          ZkClient zookeeperClient = new ZkClient(Client.zookeeperIpAddress, 15000, 10000, ZKStringSerializer$.MODULE$);
+          ZkUtils zookeeperUtils = new ZkUtils(zookeeperClient, new ZkConnection(Client.zookeeperIpAddress), false);
+          try {
+            if (AdminUtils.topicExists(zookeeperUtils, topic)) {
+              log.info("Deleting topic " + topic);
+              try {
+                AdminUtils.deleteTopic(zookeeperUtils, topic);
+                log.info("Deleted topic " + topic);
+              } catch (ZkNodeExistsException e) {
+                log.info("Topic " + topic + " already marked for delete");
+                kafkaFuture.setException(e);
+                return;
+              }
+            } else {
+              log.info("Topic " + topic + " does not exist, no need to delete");
+            }
+            Properties topicConfig = new Properties();
+            AdminUtils
+                .createTopic(zookeeperUtils, topic, 100, 2, AdminUtils.createTopic$default$5(),
+                    AdminUtils.createTopic$default$6());
+            log.info("Created topic " + topic);
+          } catch (Exception e) {
+            kafkaFuture.setException(e);
+          }
+
+          /*try {
+            Properties topicConfig = new Properties();
+            AdminUtils
+                .createTopic(zookeeperUtils, topic, 100, 2, AdminUtils.createTopic$default$5(),
+                    AdminUtils.createTopic$default$6());
+            log.info("Created topic " + topic);
+          } catch (Exception e) {
+            log.debug("Exception creating topic", e);
+            kafkaFuture.setException(e);
+            //return;
+          }*/
+          kafkaFuture.set(null);
+        });
+      });
+    });
+
     try {
       createStorageBucket();
       createFirewall();
@@ -172,6 +228,8 @@ public class GCEController extends Controller {
       // Wait for files and instance groups to be created.
       Futures.allAsList(pubsubFutures).get();
       log.info("Pub/Sub actions completed.");
+      Futures.allAsList(kafkaFutures).get();
+      log.info("Kafka actions completed.");
       Futures.allAsList(filesRemaining).get();
       log.info("File uploads completed.");
       Futures.allAsList(createGroupFutures).get();
