@@ -168,6 +168,9 @@ public class GCEController extends Controller {
             } else {
               log.info("Topic " + topic + " does not exist, no need to delete");
             }
+            while (AdminUtils.topicExists(zookeeperUtils, topic)) {
+              log.info("Waiting for topic to delete...");
+            }
             Properties topicConfig = new Properties();
             AdminUtils
                 .createTopic(zookeeperUtils, topic, 100, 2, AdminUtils.createTopic$default$5(),
@@ -175,19 +178,12 @@ public class GCEController extends Controller {
             log.info("Created topic " + topic);
           } catch (Exception e) {
             kafkaFuture.setException(e);
+            return;
+          } finally {
+            if (zookeeperClient != null) {
+              zookeeperClient.close();
+            }
           }
-
-          /*try {
-            Properties topicConfig = new Properties();
-            AdminUtils
-                .createTopic(zookeeperUtils, topic, 100, 2, AdminUtils.createTopic$default$5(),
-                    AdminUtils.createTopic$default$6());
-            log.info("Created topic " + topic);
-          } catch (Exception e) {
-            log.debug("Exception creating topic", e);
-            kafkaFuture.setException(e);
-            //return;
-          }*/
           kafkaFuture.set(null);
         });
       });
