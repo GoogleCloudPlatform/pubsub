@@ -318,15 +318,6 @@ public class Client {
       }
     }
 
-    public boolean isKafkaSubscriber() {
-      switch (this) {
-        case KAFKA_SUBSCRIBER:
-          return true;
-        default:
-          return false;
-      }
-    }
-
     public boolean isPublisher() {
       switch (this) {
         case CPS_EXPERIMENTAL_JAVA_PUBLISHER:

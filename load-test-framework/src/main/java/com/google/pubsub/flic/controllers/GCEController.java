@@ -161,7 +161,6 @@ public class GCEController extends Controller {
               log.info("Deleting topic " + topic);
               try {
                 AdminUtils.deleteTopic(zookeeperUtils, topic);
-                log.info("Deleted topic " + topic);
               } catch (ZkNodeExistsException e) {
                 log.info("Topic " + topic + " already marked for delete");
                 kafkaFuture.setException(e);
