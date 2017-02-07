@@ -77,6 +77,8 @@ public class GCEController extends Controller {
       "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
   private static final int ALREADY_EXISTS = 409;
   private static final int NOT_FOUND = 404;
+  private static final int REPLICATION_FACTOR = 2;
+  private static final int PARTITIONS = 100;
   public static String resourceDirectory = "target/classes/gce";
   private final Storage storage;
   private final Compute compute;
@@ -169,11 +171,11 @@ public class GCEController extends Controller {
               log.info("Topic " + topic + " does not exist, no need to delete");
             }
             while (AdminUtils.topicExists(zookeeperUtils, topic)) {
-              log.info("Waiting for topic to delete...");
+              // waiting for topic to delete before recreating
             }
             Properties topicConfig = new Properties();
             AdminUtils
-                .createTopic(zookeeperUtils, topic, 100, 2, AdminUtils.createTopic$default$5(),
+                .createTopic(zookeeperUtils, topic, PARTITIONS, REPLICATION_FACTOR, AdminUtils.createTopic$default$5(),
                     AdminUtils.createTopic$default$6());
             log.info("Created topic " + topic);
           } catch (Exception e) {
