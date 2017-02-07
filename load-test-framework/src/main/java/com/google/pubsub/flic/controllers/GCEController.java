@@ -77,8 +77,6 @@ public class GCEController extends Controller {
       "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
   private static final int ALREADY_EXISTS = 409;
   private static final int NOT_FOUND = 404;
-  private static final int REPLICATION_FACTOR = 2;
-  private static final int PARTITIONS = 100;
   public static String resourceDirectory = "target/classes/gce";
   private final Storage storage;
   private final Compute compute;
@@ -146,49 +144,57 @@ public class GCEController extends Controller {
         });
       });
     });
+
     List<SettableFuture<Void>> kafkaFutures = new ArrayList<>();
-    types.values().forEach(paramsMap -> {
-      paramsMap.keySet().stream().map(p -> p.getClientType())
-          .distinct().filter(ClientType::isKafkaPublisher).forEach(clientType -> {
-        SettableFuture<Void> kafkaFuture = SettableFuture.create();
-        kafkaFutures.add(kafkaFuture);
-        executor.execute(() -> {
-          String topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
-          ZkClient zookeeperClient = new ZkClient(Client.zookeeperIpAddress, 15000, 10000, ZKStringSerializer$.MODULE$);
-          ZkUtils zookeeperUtils = new ZkUtils(zookeeperClient, new ZkConnection(Client.zookeeperIpAddress), false);
-          try {
-            if (AdminUtils.topicExists(zookeeperUtils, topic)) {
-              log.info("Deleting topic " + topic);
-              try {
-                AdminUtils.deleteTopic(zookeeperUtils, topic);
-              } catch (ZkNodeExistsException e) {
-                log.info("Topic " + topic + " already marked for delete");
-                kafkaFuture.setException(e);
-                return;
+    // If the Zookeeper host is provided, delete and recreate the topic
+    // in order to eliminate performance issues from backlogs.
+    if (Client.zookeeperIpAddress != null) {
+      types.values().forEach(paramsMap -> {
+        paramsMap.keySet().stream().map(p -> p.getClientType())
+            .distinct().filter(ClientType::isKafkaPublisher).forEach(clientType -> {
+          SettableFuture<Void> kafkaFuture = SettableFuture.create();
+          kafkaFutures.add(kafkaFuture);
+          executor.execute(() -> {
+            String topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
+            ZkClient zookeeperClient = new ZkClient(Client.zookeeperIpAddress, 15000, 10000,
+                ZKStringSerializer$.MODULE$);
+            ZkUtils zookeeperUtils = new ZkUtils(zookeeperClient,
+                new ZkConnection(Client.zookeeperIpAddress), false);
+            try {
+              if (AdminUtils.topicExists(zookeeperUtils, topic)) {
+                log.info("Deleting topic " + topic);
+                try {
+                  AdminUtils.deleteTopic(zookeeperUtils, topic);
+                } catch (ZkNodeExistsException e) {
+                  log.info("Topic " + topic + " already marked for delete");
+                  kafkaFuture.setException(e);
+                  return;
+                }
+              } else {
+                log.info("Topic " + topic + " does not exist, no need to delete");
               }
-            } else {
-              log.info("Topic " + topic + " does not exist, no need to delete");
+              while (AdminUtils.topicExists(zookeeperUtils, topic)) {
+                // waiting for topic to delete before recreating
+              }
+              Properties topicConfig = new Properties();
+              AdminUtils
+                  .createTopic(zookeeperUtils, topic, Client.partitions, Client.replicationFactor,
+                      AdminUtils.createTopic$default$5(),
+                      AdminUtils.createTopic$default$6());
+              log.info("Created topic " + topic);
+            } catch (Exception e) {
+              kafkaFuture.setException(e);
+              return;
+            } finally {
+              if (zookeeperClient != null) {
+                zookeeperClient.close();
+              }
             }
-            while (AdminUtils.topicExists(zookeeperUtils, topic)) {
-              // waiting for topic to delete before recreating
-            }
-            Properties topicConfig = new Properties();
-            AdminUtils
-                .createTopic(zookeeperUtils, topic, PARTITIONS, REPLICATION_FACTOR, AdminUtils.createTopic$default$5(),
-                    AdminUtils.createTopic$default$6());
-            log.info("Created topic " + topic);
-          } catch (Exception e) {
-            kafkaFuture.setException(e);
-            return;
-          } finally {
-            if (zookeeperClient != null) {
-              zookeeperClient.close();
-            }
-          }
-          kafkaFuture.set(null);
+            kafkaFuture.set(null);
+          });
         });
       });
-    });
+    }
 
     try {
       createStorageBucket();

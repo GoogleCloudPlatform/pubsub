@@ -124,7 +124,6 @@ public class SheetsService {
           new ValueRange().setValues(values.get(1))).setValueInputOption("USER_ENTERED").execute();
     } catch (IOException e) {
       log.error("Error publishing to spreadsheet: " + sheetId);
-      log.error("Here's the exception: " + e);
     }
   }
 
@@ -189,7 +188,7 @@ public class SheetsService {
       valueRow.add(new DecimalFormat("#.##").format(
           (double) LongStream.of(
               stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
-      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 50.0));   // changed this from 95 to 50 to mirror John's tests
+      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 50.0));
       valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.0));
       valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9));
     });

@@ -196,7 +196,6 @@ public class Driver {
       names = {"--zookeeper_ip_address"},
       description = "The network addresses of the Zookeeper clients, comma separated."
   )
-
   private String zookeeperIpAddress;
 
   @Parameter(
@@ -319,6 +318,20 @@ public class Driver {
   )
   private boolean verbose = false;
 
+  @Parameter(
+      names = {"--replication_factor"},
+      description = "The replication factor to use in creating a Kafka topic, if the Kafka broker"
+          + "is included as a flag."
+  )
+  private int replicationFactor = 2;
+
+  @Parameter(
+      names = {"--partitions"},
+      description = "The number of partitions to use in creating a Kafka topic, if the "
+          + "Kafka broker is included as a flag."
+  )
+  private int partitions = 100;
+
   private Controller controller;
 
   public static void main(String[] args) {
@@ -379,12 +392,6 @@ public class Driver {
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0),
           "If using Kafka you must provide the network address of your broker using the"
               + "--broker flag.");
-      Preconditions.checkArgument(
-          !(broker != null ^ zookeeperIpAddress != null),
-          "If using Kafka you must provide the network address of your broker using the"
-              + " --broker flag and the network address of your zookeeper hosts using the"
-              + " --zookeeper_ip_address flag.");
-
       if (maxPublishLatencyTest) {
         Preconditions.checkArgument(
             clientParamsMap.size() == 1,
@@ -426,6 +433,8 @@ public class Driver {
       Client.numberOfMessages = numberOfMessages;
       Client.burnInDuration = burnInDuration;
       Client.publishBatchDuration = publishBatchDuration;
+      Client.partitions = partitions;
+      Client.replicationFactor = replicationFactor;
 
       // Start a thread to poll and output results.
       ScheduledExecutorService pollingExecutor = Executors.newSingleThreadScheduledExecutor();

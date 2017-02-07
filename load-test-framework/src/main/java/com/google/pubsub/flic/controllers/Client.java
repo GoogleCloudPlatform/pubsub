@@ -59,6 +59,8 @@ public class Client {
   public static int maxOutstandingRequests;
   public static Duration burnInDuration;
   public static int numberOfMessages = 0;
+  public static int replicationFactor;
+  public static int partitions;
   private final ClientType clientType;
   private final String networkAddress;
   private final String project;
@@ -178,13 +180,17 @@ public class Client {
       case KAFKA_PUBLISHER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)
-            .setZookeeperIpAddress(zookeeperIpAddress));
+            .setZookeeperIpAddress(zookeeperIpAddress)
+            .setReplicationFactor(replicationFactor)
+            .setPartitions(partitions));
         break;
       case KAFKA_SUBSCRIBER:
         requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
             .setBroker(broker)
             .setPollDuration(pollDuration)
-            .setZookeeperIpAddress(zookeeperIpAddress));
+            .setZookeeperIpAddress(zookeeperIpAddress)
+            .setReplicationFactor(replicationFactor)
+            .setPartitions(partitions));
         break;
       case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_PUBLISHER:
