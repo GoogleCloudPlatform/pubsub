@@ -148,7 +148,8 @@ public class GCEController extends Controller {
     List<SettableFuture<Void>> kafkaFutures = new ArrayList<>();
     // If the Zookeeper host is provided, delete and recreate the topic
     // in order to eliminate performance issues from backlogs.
-    if (Client.zookeeperIpAddress != null) {
+    if (!Client.zookeeperIpAddress.isEmpty()) {
+      log.info("ATTENTION WE R IN TOPIC STUFF FOR KAFKA");
       types.values().forEach(paramsMap -> {
         paramsMap.keySet().stream().map(p -> p.getClientType())
             .distinct().filter(ClientType::isKafkaPublisher).forEach(clientType -> {
@@ -231,8 +232,8 @@ public class GCEController extends Controller {
       // Wait for files and instance groups to be created.
       Futures.allAsList(pubsubFutures).get();
       log.info("Pub/Sub actions completed.");
-      Futures.allAsList(kafkaFutures).get();
-      log.info("Kafka actions completed.");
+      //Futures.allAsList(kafkaFutures).get();
+      //log.info("Kafka actions completed.");
       Futures.allAsList(filesRemaining).get();
       log.info("File uploads completed.");
       Futures.allAsList(createGroupFutures).get();

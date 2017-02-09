@@ -196,7 +196,7 @@ public class Driver {
       names = {"--zookeeper_ip_address"},
       description = "The network addresses of the Zookeeper clients, comma separated."
   )
-  private String zookeeperIpAddress;
+  private String zookeeperIpAddress = "";
 
   @Parameter(
     names = {"--request_rate"},
