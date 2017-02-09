@@ -149,7 +149,6 @@ public class GCEController extends Controller {
     // If the Zookeeper host is provided, delete and recreate the topic
     // in order to eliminate performance issues from backlogs.
     if (!Client.zookeeperIpAddress.isEmpty()) {
-      log.info("ATTENTION WE R IN TOPIC STUFF FOR KAFKA");
       types.values().forEach(paramsMap -> {
         paramsMap.keySet().stream().map(p -> p.getClientType())
             .distinct().filter(ClientType::isKafkaPublisher).forEach(clientType -> {
@@ -163,16 +162,16 @@ public class GCEController extends Controller {
                 new ZkConnection(Client.zookeeperIpAddress), false);
             try {
               if (AdminUtils.topicExists(zookeeperUtils, topic)) {
-                log.info("Deleting topic " + topic);
+                log.info("Deleting topic " + topic + ".");
                 try {
                   AdminUtils.deleteTopic(zookeeperUtils, topic);
                 } catch (ZkNodeExistsException e) {
-                  log.info("Topic " + topic + " already marked for delete");
+                  log.info("Topic " + topic + " already marked for delete.");
                   kafkaFuture.setException(e);
                   return;
                 }
               } else {
-                log.info("Topic " + topic + " does not exist, no need to delete");
+                log.info("Topic " + topic + " does not exist.");
               }
               while (AdminUtils.topicExists(zookeeperUtils, topic)) {
                 // waiting for topic to delete before recreating
@@ -182,7 +181,7 @@ public class GCEController extends Controller {
                   .createTopic(zookeeperUtils, topic, Client.partitions, Client.replicationFactor,
                       AdminUtils.createTopic$default$5(),
                       AdminUtils.createTopic$default$6());
-              log.info("Created topic " + topic);
+              log.info("Created topic " + topic + ".");
             } catch (Exception e) {
               kafkaFuture.setException(e);
               return;
@@ -232,8 +231,8 @@ public class GCEController extends Controller {
       // Wait for files and instance groups to be created.
       Futures.allAsList(pubsubFutures).get();
       log.info("Pub/Sub actions completed.");
-      //Futures.allAsList(kafkaFutures).get();
-      //log.info("Kafka actions completed.");
+      Futures.allAsList(kafkaFutures).get();
+      log.info("Kafka actions completed.");
       Futures.allAsList(filesRemaining).get();
       log.info("File uploads completed.");
       Futures.allAsList(createGroupFutures).get();

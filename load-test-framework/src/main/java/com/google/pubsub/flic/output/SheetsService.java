@@ -123,7 +123,7 @@ public class SheetsService {
       service.spreadsheets().values().append(sheetId, "Kafka",
           new ValueRange().setValues(values.get(1))).setValueInputOption("USER_ENTERED").execute();
     } catch (IOException e) {
-      log.error("Error publishing to spreadsheet: " + sheetId);
+      log.error("Error publishing to spreadsheet " + sheetId + ": " + e);
     }
   }
 
