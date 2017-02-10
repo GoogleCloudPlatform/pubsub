@@ -107,53 +107,6 @@ public class PubsubConsumer<K, V> implements Consumer<K, V> {
 
   @SuppressWarnings("unchecked")
   private PubsubConsumer(ConsumerConfig config, Deserializer<K> keyDeserializer, Deserializer<V> valueDeserializer) {
-    try {
-      log.debug("Starting the Pubsub consumer");
-      this.requestTimeoutMs = config.getInt(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG);
-      int sessionTimeoutMs = config.getInt(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG);
-      int fetchMaxWaitMs = config.getInt(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG);
-      if (this.requestTimeoutMs <= sessionTimeOutMs || this.requestTimeoutMs <= fetchMaxWaitMs)
-        throw new ConfigException(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG + " should be greater than " + ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG + " and " + ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG);
-      this.time = Time.SYSTEM;
 
-      String clientId = config.getString(ConsumerConfig.CLIENT_ID_CONFIG);
-      if (clientId.length() <= 0)
-        clientId = "consumer-" + CONSUMER_CLIENT_ID_SEQUENCE.getAndIncrement();
-      this.clientId = clientId;
-      Map<String, String> metricsTags = new LinkedHashMap<>();
-      metricsTags.put("client-id", clientId);
-      MetricConfig metricConfig = new MetricConfig().samples(config.getInt(ConsumerConfig.METRICS_NUM_SAMPLES_CONFIG))
-          .timeWindow(config.getLong(ConsumerConfig.METRICS_SAMPLE_WINDOW_MS_CONFIG), TimeUnit.MILLISECONDS)
-          .tags(metricsTags);
-      List<MetricsReporter> reporters = config.getConfiguredInstances(ConsumerConfig.METRIC_REPORTER_CLASSES_CONFIG,
-          MetricsReporter.class);
-      reporters.add(new JmxReporter(JMX_PREFIX));
-      this.metrics = new Metrics(metricConfig, reporters, time);
-      this.retryBackoffMs = config.getLong(ConsumerConfig.RETRY_BACKOFF_MS_CONFIG);
-
-      // load interceptors and make sure they get clientId
-      Map<String, Object> userProvidedConfigs = config.originals();
-      userProvidedConfigs.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
-      List<ConsumerInterceptor<K, V>> interceptorList = (List) (new ConsumerConfig(userProvidedConfigs)).getConfiguredInstances(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG,
-          ConsumerInterceptor.class);
-      this.interceptors = interceptorList.isEmpty() ? null : new ConsumerInterceptors<>(interceptorList);
-      if (keyDeserializer == null) {
-        this.keyDeserializer = config.getConfiguredInstance(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-            Deserializer.class);
-        this.keyDeserializer.configure(config.originals(), true);
-      } else {
-        config.ignore(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG);
-        this.keyDeserializer = keyDeserializer;
-      }
-      if (valueDeserializer == null) {
-        this.valueDeserializer = config.getConfiguredInstance(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-            Deserializer.class);
-        this.valueDeserializer.configure(config.originals(), false);
-      } else {
-        config.ignore(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG);
-        this.valueDeserializer = valueDeserializer;
-      }
-
-    }
   }
 }
