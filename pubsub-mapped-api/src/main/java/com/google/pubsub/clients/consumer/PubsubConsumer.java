@@ -12,105 +12,58 @@
  */
 package com.google.kafka.clients.consumer;
 
-public class PubsubConsumer<K, V> implements Consumer<K, V> {
+import org.apache.kafka.clients.ClientUtils;
+import org.apache.kafka.clients.Metadata;
+import org.apache.kafka.clients.NetworkClient;
+import org.apache.kafka.clients.ConsumerConfig;
+import org.apache.kafka.clients.consumer.internals.ConsumerCoordinator;
+import org.apache.kafka.clients.consumer.internals.ConsumerInterceptors;
+import org.apache.kafka.clients.consumer.internals.ConsumerNetworkClient;
+import org.apache.kafka.clients.consumer.internals.ConsumerNetworkClient.PollCondition;
+import org.apache.kafka.clients.consumer.internals.Fetcher;
+import org.apache.kafka.clients.consumer.internals.NoOpConsumerRebalanceListener;
+import org.apache.kafka.clients.consumer.internals.PartitionAssignor;
+import org.apache.kafka.clients.consumer.internals.SubscriptionState;
+import org.apache.kafka.common.Cluster;
+import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
+import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.errors.InterruptException;
+import org.apache.kafka.common.internals.ClusterResourceListeners;
+import org.apache.kafka.common.metrics.JmxReporter;
+import org.apache.kafka.common.metrics.MetricConfig;
+import org.apache.kafka.common.metrics.Metrics;
+import org.apache.kafka.common.metrics.MetricsReporter;
+import org.apache.kafka.common.network.ChannelBuilder;
+import org.apache.kafka.common.network.Selector;
+import org.apache.kafka.common.requests.MetadataRequest;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.utils.AppInfoParser;
+import org.apache.kafka.common.utils.Time;
+import org.apache.kafka.common.utils.Utils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-  private static final Logger log = LoggerFactory.getLogger(PubsubConsumer.class);
-  private static final long NO_CURRENT_THREAD = -1L;
-  private static final AtomicInteger CONSUMER_CLIENT_ID_SEQUENCE = new AtomicInteger(1);
-  private static final String JMX_PREFIX = "cps.consumer";
-  static final long DEFAULT_CLOSE_TIMEOUT_MS = 30 * 1000;
-
-  private final String clientId;
-  private final ConsumerCoordinator coordinator;  // this might need to be an /internal class
-  private final Deserializer<K> keyDeserializer;
-  private final Deserializer<V> valueDeserializer;
-  private final Fetcher<K, V> fetcher;
-  private final ConsumerInterceptors<K, V> interceptors;
-
-  private final Time time;
-  private final ConsumerNetworkClient client;
-  private final Metrics metrics;
-  private final SubscriptionState subscriptions;
-  private final long retryBackoffMs;
-  private final long requestTimeoutMs;
-  private volatile boolean closed = false;
-
-  // currentThread holds the threadId of the current thread accessing PubsubConsumer
-  // and is used to prevent multi-threaded access
-  private final AtomicLong currentThread = new AtomicLong(NO_CURRENT_THREAD);
-  // refcount is used to allow reentrant access by the thread who has acquired currentThread
-  private final AtomicInteger refcount = new AtomicInteger(0);
-
-  /**
-   * A consumer is instantiated by providing a set of key-value pairs as configuration. Valid configuration strings
-   * are documented <a href="http://kafka.apache.org/documentation.html#consumerconfigs" >here</a>. Values can be
-   * either strings or objects of the appropriate type (for example a numeric configuration would accept either the
-   * string "42" or the integer 42).
-   * <p>
-   * Valid configuration strings are documented at {@link ConsumerConfig}
-   *
-   * @param configs The consumer configs
-   */
-  public PubsubConsumer(Map<String, Object> configs) {
-    this(configs, null, null);
-  }
-
-  /**
-   * A consumer is instantiated by providing a set of key-value pairs as configuration, and a key and a value {@link Deserializer}.
-   * <p>
-   * Valid configuration strings are documented at {@link ConsumerConfig}
-   *
-   * @param configs The consumer configs
-   * @param keyDeserializer The deserializer for key that implements {@link Deserializer}. The configure() method
-   *            won't be called in the consumer when the deserializer is passed in directly.
-   * @param valueDeserializer The deserializer for value that implements {@link Deserializer}. The configure() method
-   *            won't be called in the consumer when the deserializer is passed in directly.
-   */
-  public PubsubConsumer(Map<String, Object> configs,
-      Deserializer<K> keyDeserializer,
-      Deserializer<V> valueDeserializer) {
-    this(new ConsumerConfig(ConsumerConfig.addDeserializerToConfig(configs, keyDeserializer, valueDeserializer)),
-        keyDeserializer,
-        valueDeserializer);
-  }
-
-  /**
-   * A consumer is instantiated by providing a {@link java.util.Properties} object as configuration.
-   * <p>
-   * Valid configuration strings are documented at {@link ConsumerConfig}
-   *
-   * @param properties The consumer configuration properties
-   */
-  public PubsubConsumer(Properties properties) {
-    this(properties, null, null);
-  }
-
-  /**
-   * A consumer is instantiated by providing a {@link java.util.Properties} object as configuration, and a
-   * key and a value {@link Deserializer}.
-   * <p>
-   * Valid configuration strings are documented at {@link ConsumerConfig}
-   *
-   * @param properties The consumer configuration properties
-   * @param keyDeserializer The deserializer for key that implements {@link Deserializer}. The configure() method
-   *            won't be called in the consumer when the deserializer is passed in directly.
-   * @param valueDeserializer The deserializer for value that implements {@link Deserializer}. The configure() method
-   *            won't be called in the consumer when the deserializer is passed in directly.
-   */
-  public PubsubConsumer(Properties properties,
-      Deserializer<K> keyDeserializer,
-      Deserializer<V> valueDeserializer) {
-    this(new ConsumerConfig(ConsumerConfig.addDeserializerToConfig(properties, keyDeserializer, valueDeserializer)),
-        keyDeserializer,
-        valueDeserializer);
-  }
-
-  @SuppressWarnings("unchecked")
-  private PubsubConsumer(ConsumerConfig config, Deserializer<K> keyDeserializer, Deserializer<V> valueDeserializer) {
-
-  }
-=======
-package com.google.kafka.cients.consumer;
+import java.net.InetSocketAddress;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.ConcurrentModificationException;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.regex.Pattern;
 
 public class PubsubConsumer<K, V> implements Consumer<K, V> {
 
@@ -205,7 +158,7 @@ public class PubsubConsumer<K, V> implements Consumer<K, V> {
 
     @SuppressWarnings("unchecked")
     private PubsubConsumer(ConsumerConfig config, Deserializer<K> keyDeserializer, Deserializer<V> valueDeserializer) {
-        try {
+       /* try {
             log.debug("Starting the Kafka consumer");
             this.requestTimeoutMs = config.getInt(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG);
             int sessionTimeoutMs = config.getInt(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG);
@@ -244,9 +197,82 @@ public class PubsubConsumer<K, V> implements Consumer<K, V> {
                 this.keyDeserializer = keyDeserializer;
             }
             if (valueDeserializer == null) {
-               // this.valueDeserializer = config.getConfigured
+                this.valueDeserializer = config.getConfiguredInstance(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                    Deserializer.class);
+                this.valueDeserializer.configure(config.originals(), false);
+            } else {
+                config.ignore(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG);
+                this.valueDeserializer = valueDeserializer;
             }
-        }   // left off at kafka's line 645
+
+            ClusterResourceListeners clusterResourceListeners = configureClusterResourceListeners(keyDeserializer, valueDeserializer, reporters, interceptorList);
+            this.metadata = new Metadata(retryBackoffMs, config.getLong(ConsumerConfig.METADATA_MAX_AGE_CONFIG), false, clusterResourceListeners);
+            List<InetSocketAddress> addresses = ClientUtils.parseAndValidateAddresses(config.getList(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
+            this.metadata.update(Cluster.bootstrap(addresses), 0);
+            String metricGrpPrefix = "consumer";
+            ChannelBuilder channelBuilder = ClientUtils.createChannelBuilder(config);
+            NetworkClient netClient = new NetworkClient(
+                new Selector(config.getLong(ConsumerConfig.CONNECTIONS_MAX_IDLE_MS_CONFIG), metrics, time, metricGrpPrefix, channelBuilder),
+                this.metadata,
+                clientId,
+                100, // a fixed large enough value will suffice
+                config.getLong(ConsumerConfig.RECONNECT_BACKOFF_MS_CONFIG),
+                config.getInt(ConsumerConfig.SEND_BUFFER_CONFIG),
+                config.getInt(ConsumerConfig.RECEIVE_BUFFER_CONFIG),
+                config.getInt(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG),
+                time,
+                true);
+            this.client = new ConsumerNetworkClient(netClient, metadata, time, retryBackoffMs,
+                config.getInt(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG));
+            OffsetResetStrategy offsetResetStrategy = OffsetResetStrategy.valueOf(config.getString(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG).toUpperCase(Locale.ROOT));
+            this.subscriptions = new SubscriptionState(offsetResetStrategy);
+            List<PartitionAssignor> assignors = config.getConfiguredInstances(
+                ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
+                PartitionAssignor.class);
+            this.coordinator = new ConsumerCoordinator(this.client,
+                config.getString(ConsumerConfig.GROUP_ID_CONFIG),
+                config.getInt(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG),
+                config.getInt(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG),
+                config.getInt(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG),
+                assignors,
+                this.metadata,
+                this.subscriptions,
+                metrics,
+                metricGrpPrefix,
+                this.time,
+                retryBackoffMs,
+                config.getBoolean(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG),
+                config.getInt(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG),
+                this.interceptors,
+                config.getBoolean(ConsumerConfig.EXCLUDE_INTERNAL_TOPICS_CONFIG));
+            this.fetcher = new Fetcher<>(this.client,
+                config.getInt(ConsumerConfig.FETCH_MIN_BYTES_CONFIG),
+                config.getInt(ConsumerConfig.FETCH_MAX_BYTES_CONFIG),
+                config.getInt(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG),
+                config.getInt(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG),
+                config.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG),
+                config.getBoolean(ConsumerConfig.CHECK_CRCS_CONFIG),
+                this.keyDeserializer,
+                this.valueDeserializer,
+                this.metadata,
+                this.subscriptions,
+                metrics,
+                metricGrpPrefix,
+                this.time,
+                this.retryBackoffMs);
+
+            config.logUnused();
+            AppInfoParser.registerAppInfo(JMX_PREFIX, clientId);
+
+            log.debug("Kafka consumer created");
+        } catch (Throwable t) {
+            // call close methods if internal objects are already constructed
+            // this is to prevent resource leak. see KAFKA-2121
+            close(0, true);
+            // now propagate the exception
+            throw new KafkaException("Failed to construct kafka consumer", t);
+
+        }   */
     }
 
     /**
