@@ -14,111 +14,100 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.pubsub.clients.producer;
+package com.google.kafka.clients.producer;
 
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
-import static org.powermock.api.easymock.PowerMock.createMock;
-import com.google.pubsub.clients.producer.PubsubProducer.Builder;
-import com.google.pubsub.common.PubsubChannelUtil;
-import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
-import java.io.IOException;
-import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.CommonClientConfigs;
+import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.network.Selectable;
+import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.junit.Before;
+import org.apache.kafka.test.MockMetricsReporter;
+import org.apache.kafka.test.MockProducerInterceptor;
+import org.apache.kafka.test.MockSerializer;
+import org.junit.Assert;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
-import org.mockito.Mockito;
-import org.mockito.MockitoAnnotations;
-import org.mockito.invocation.InvocationOnMock;
-import org.mockito.stubbing.Answer;
-import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.core.classloader.annotations.PowerMockIgnore;
 import org.powermock.modules.junit4.PowerMockRunner;
 
-//@RunWith(PowerMockRunner.class)
-//@PrepareForTest(PublisherFutureStub.class)
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+
+@RunWith(PowerMockRunner.class)
+@PowerMockIgnore("javax.management.*")
 public class PubsubProducerTest {
 
-  private static final String TOPIC = "testTopic";
-  private static final String MESSAGE = "testMessage";
-  private static final String PROJECT = "unit-test-proj";
-  private static final StringSerializer testSerializer = new StringSerializer();
-  private static final ProducerRecord testRecord = new ProducerRecord(TOPIC, MESSAGE);
+    @Test
+    public void testSerializerClose() throws Exception {
+        Map<String, Object> configs = new HashMap<>();
+        configs.put(ProducerConfig.CLIENT_ID_CONFIG, "testConstructorClose");
+        configs.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9999");
+        configs.put(ProducerConfig.METRIC_REPORTER_CLASSES_CONFIG, MockMetricsReporter.class.getName());
+        configs.put(CommonClientConfigs.SECURITY_PROTOCOL_CONFIG, CommonClientConfigs.DEFAULT_SECURITY_PROTOCOL);
+        final int oldInitCount = MockSerializer.INIT_COUNT.get();
+        final int oldCloseCount = MockSerializer.CLOSE_COUNT.get();
 
-   private static PublisherFutureStub mockStub;
-  @Mock private static PubsubChannelUtil mockChannelUtil;
+        PubsubProducer<byte[], byte[]> producer = new PubsubProducer<byte[], byte[]>(
+                configs, new MockSerializer(), new MockSerializer());
+        Assert.assertEquals(oldInitCount + 2, MockSerializer.INIT_COUNT.get());
+        Assert.assertEquals(oldCloseCount, MockSerializer.CLOSE_COUNT.get());
 
-  private boolean channelIsClosed;
+        producer.close();
+        Assert.assertEquals(oldInitCount + 2, MockSerializer.INIT_COUNT.get());
+        Assert.assertEquals(oldCloseCount + 2, MockSerializer.CLOSE_COUNT.get());
+    }
 
+    @Test
+    public void testInterceptorConstructClose() throws Exception {
+        try {
+            Properties props = new Properties();
+            // test with client ID assigned by PubsubProducer
+            props.setProperty(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9999");
+            props.setProperty(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, MockProducerInterceptor.class.getName());
+            props.setProperty(MockProducerInterceptor.APPEND_STRING_PROP, "something");
 
-  @Before
-  public void setUp() {
-  //  mockStub = createMock(PublisherFutureStub.class);
-    MockitoAnnotations.initMocks(this);
-    channelIsClosed = false;
+            PubsubProducer<String, String> producer = new PubsubProducer<String, String>(
+                    props, new StringSerializer(), new StringSerializer());
+            Assert.assertEquals(1, MockProducerInterceptor.INIT_COUNT.get());
+            Assert.assertEquals(0, MockProducerInterceptor.CLOSE_COUNT.get());
 
-    Mockito.doAnswer(new Answer() {
-      @Override
-      public Object answer(InvocationOnMock invocationOnMock) throws Throwable {
-        return channelIsClosed = true;
-      }
-    }).when(mockChannelUtil).closeChannel();
-  }
+            // Cluster metadata will only be updated on calling onSend.
+            Assert.assertNull(MockProducerInterceptor.CLUSTER_META.get());
 
-  /* send() tests */
-  @Test
-  public void testSendPublisherClosed() throws IOException {
-   /* PubsubProducer testProducer = getNewProducer();
-    testProducer.close();
+            producer.close();
+            Assert.assertEquals(1, MockProducerInterceptor.INIT_COUNT.get());
+            Assert.assertEquals(1, MockProducerInterceptor.CLOSE_COUNT.get());
+        } finally {
+            // cleanup since we are using mutable static variables in MockProducerInterceptor
+            MockProducerInterceptor.resetCounters();
+        }
+    }
 
-    try {
-      testProducer.send(testRecord);
-      fail("Should have thrown a runtime exception.");
-    } catch (RuntimeException expected) {
-      assertTrue("Channel should be closed.", channelIsClosed);
-    }*/
-  }
+    @Test
+    public void testOsDefaultSocketBufferSizes() throws Exception {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9999");
+        config.put(ProducerConfig.SEND_BUFFER_CONFIG, Selectable.USE_DEFAULT_BUFFER_SIZE);
+        config.put(ProducerConfig.RECEIVE_BUFFER_CONFIG, Selectable.USE_DEFAULT_BUFFER_SIZE);
+        PubsubProducer<byte[], byte[]> producer = new PubsubProducer<>(
+                config, new ByteArraySerializer(), new ByteArraySerializer());
+        producer.close();
+    }
 
-  @Test
-  public void testSendRecordTooLarge() {
+    @Test(expected = KafkaException.class)
+    public void testInvalidSocketSendBufferSize() throws Exception {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9999");
+        config.put(ProducerConfig.SEND_BUFFER_CONFIG, -2);
+        new PubsubProducer<>(config, new ByteArraySerializer(), new ByteArraySerializer());
+    }
 
-  }
-
-  @Test
-  public void testSendBatchFull() {
-
-  }
-
-  /* This happens when the batch size is > 1 and not enough messages are batched */
-  @Test
-  public void testSendMessageNotSentYet() {
-
-  }
-
-  /* flush() tests */
-  @Test
-  public void testFlushMessagesSent() {
-
-  }
-
-  /* close() tests */
-  @Test
-  public void testCloseTimeoutLessThanZero() {
-
-  }
-
-  @Test
-  public void testCloseChannelCloseSuccessful() {
-
-  }
-
-  private PubsubProducer getNewProducer() throws IOException {
-
-    return new Builder<>(PROJECT, testSerializer, testSerializer)
-        .publisherFutureStub(mockStub)
-        .pubsubChannelUtil(mockChannelUtil)
-        .build();
-  }
-
+    @Test(expected = KafkaException.class)
+    public void testInvalidSocketReceiveBufferSize() throws Exception {
+        Map<String, Object> config = new HashMap<>();
+        config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9999");
+        config.put(ProducerConfig.RECEIVE_BUFFER_CONFIG, -2);
+        new PubsubProducer<>(config, new ByteArraySerializer(), new ByteArraySerializer());
+    }
 }
