@@ -14,7 +14,7 @@
 package com.google.kafka.cients.consumer;
 =======
 
-package com.google.kafka.clients.consumer;
+package com.google.pubsub.clients.consumer;
 
 import org.apache.kafka.clients.ClientUtils;
 import org.apache.kafka.clients.Metadata;
@@ -162,121 +162,7 @@ public class PubsubConsumer<K, V> implements Consumer<K, V> {
 
     @SuppressWarnings("unchecked")
     private PubsubConsumer(ConsumerConfig config, Deserializer<K> keyDeserializer, Deserializer<V> valueDeserializer) {
-       /* try {
-            log.debug("Starting the Kafka consumer");
-            this.requestTimeoutMs = config.getInt(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG);
-            int sessionTimeoutMs = config.getInt(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG);
-            int fetchMaxWaitMs = config.getInt(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG);
-            if (this.requestTimeoutMs <= sessionTimeoutMs || this.requestTimeoutMs <= fetchMaxWaitMs)
-                throw new ConfigException(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG + " should greater than " + ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG + " and " + ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG);
-            this.time = Time.SYSTEM;
 
-            String clientId = config.getString(ConsumerConfig.CLIENT_ID_CONFIG);
-            if (clientId.length() <= 0)
-                clientId = "consumer-" + CONSUMER_CLIENT_ID_SEQUENCE.getAndIncrement();
-            this.clientId = clientId;
-            Map<String, String> metricsTags = new LinkedHashMap<>();
-            metricsTags.put("client-id", clientId);
-            MetricConfig metricConfig = new MetricConfig().samples(config.getInt(ConsumerConfig.METRICS_NUM_SAMPLES_CONFIG))
-                    .timeWindow(config.getLong(ConsumerConfig.METRICS_SAMPLE_WINDOW_MS_CONFIG), TimeUnit.MILLISECONDS)
-                    .tags(metricsTags);
-            List<MetricsReporters> reporters = config.getConfiguredInstances(ConsumerConfig.METRIC_REPORTER_CLASSES_CONFIG,
-                    MetricsReporter.class);
-            reporters.add(new JmxReporter(JMX_PREFIX));
-            this.metrics = new Metrics(metricConfig, reporters, time);
-            this.retryBackoffMs = config.getLong(ConsumerConfig.RETRY_BACKOFF_MS_CONFIG);
-
-            // load interceptors and make sure they get clientId
-            Map<String, Object> userProvidedConfigs = config.originals();
-            userProvidedConfigs.put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
-            List<ConsumerInterceptor<K, V>> interceptorList = (List) (new ConsumerConfig(userProvidedConfigs)).getConfiguredInstances(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG,
-                    ConsumerInterceptor.class);
-            this.interceptors = interceptorList.isEmpty() ? null : new ConsumerInterceptors<>(interceptorList);
-            if (keyDeserializer == null) {
-                this.keyDeserializer = config.getConfiguredInstance(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
-                        Deserializer.class);
-                this.keyDeserializer.configure(config.originals(), true);
-            } else {
-                config.ignore(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG);
-                this.keyDeserializer = keyDeserializer;
-            }
-            if (valueDeserializer == null) {
-                this.valueDeserializer = config.getConfiguredInstance(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
-                    Deserializer.class);
-                this.valueDeserializer.configure(config.originals(), false);
-            } else {
-                config.ignore(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG);
-                this.valueDeserializer = valueDeserializer;
-            }
-
-            ClusterResourceListeners clusterResourceListeners = configureClusterResourceListeners(keyDeserializer, valueDeserializer, reporters, interceptorList);
-            this.metadata = new Metadata(retryBackoffMs, config.getLong(ConsumerConfig.METADATA_MAX_AGE_CONFIG), false, clusterResourceListeners);
-            List<InetSocketAddress> addresses = ClientUtils.parseAndValidateAddresses(config.getList(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG));
-            this.metadata.update(Cluster.bootstrap(addresses), 0);
-            String metricGrpPrefix = "consumer";
-            ChannelBuilder channelBuilder = ClientUtils.createChannelBuilder(config);
-            NetworkClient netClient = new NetworkClient(
-                new Selector(config.getLong(ConsumerConfig.CONNECTIONS_MAX_IDLE_MS_CONFIG), metrics, time, metricGrpPrefix, channelBuilder),
-                this.metadata,
-                clientId,
-                100, // a fixed large enough value will suffice
-                config.getLong(ConsumerConfig.RECONNECT_BACKOFF_MS_CONFIG),
-                config.getInt(ConsumerConfig.SEND_BUFFER_CONFIG),
-                config.getInt(ConsumerConfig.RECEIVE_BUFFER_CONFIG),
-                config.getInt(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG),
-                time,
-                true);
-            this.client = new ConsumerNetworkClient(netClient, metadata, time, retryBackoffMs,
-                config.getInt(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG));
-            OffsetResetStrategy offsetResetStrategy = OffsetResetStrategy.valueOf(config.getString(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG).toUpperCase(Locale.ROOT));
-            this.subscriptions = new SubscriptionState(offsetResetStrategy);
-            List<PartitionAssignor> assignors = config.getConfiguredInstances(
-                ConsumerConfig.PARTITION_ASSIGNMENT_STRATEGY_CONFIG,
-                PartitionAssignor.class);
-            this.coordinator = new ConsumerCoordinator(this.client,
-                config.getString(ConsumerConfig.GROUP_ID_CONFIG),
-                config.getInt(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG),
-                config.getInt(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG),
-                config.getInt(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG),
-                assignors,
-                this.metadata,
-                this.subscriptions,
-                metrics,
-                metricGrpPrefix,
-                this.time,
-                retryBackoffMs,
-                config.getBoolean(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG),
-                config.getInt(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG),
-                this.interceptors,
-                config.getBoolean(ConsumerConfig.EXCLUDE_INTERNAL_TOPICS_CONFIG));
-            this.fetcher = new Fetcher<>(this.client,
-                config.getInt(ConsumerConfig.FETCH_MIN_BYTES_CONFIG),
-                config.getInt(ConsumerConfig.FETCH_MAX_BYTES_CONFIG),
-                config.getInt(ConsumerConfig.FETCH_MAX_WAIT_MS_CONFIG),
-                config.getInt(ConsumerConfig.MAX_PARTITION_FETCH_BYTES_CONFIG),
-                config.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG),
-                config.getBoolean(ConsumerConfig.CHECK_CRCS_CONFIG),
-                this.keyDeserializer,
-                this.valueDeserializer,
-                this.metadata,
-                this.subscriptions,
-                metrics,
-                metricGrpPrefix,
-                this.time,
-                this.retryBackoffMs);
-
-            config.logUnused();
-            AppInfoParser.registerAppInfo(JMX_PREFIX, clientId);
-
-            log.debug("Kafka consumer created");
-        } catch (Throwable t) {
-            // call close methods if internal objects are already constructed
-            // this is to prevent resource leak. see KAFKA-2121
-            close(0, true);
-            // now propagate the exception
-            throw new KafkaException("Failed to construct kafka consumer", t);
-
-        }   */
     }
 
     /**
@@ -329,7 +215,6 @@ public class PubsubConsumer<K, V> implements Consumer<K, V> {
      *                 subscribed topics
      * @throws IllegalArgumentException If topics is null or contains null or empty elements
      */
-    @Override
     public void subscribe(Collection<String> topics, ConsumerRebalanceListener listener) {
 
     }

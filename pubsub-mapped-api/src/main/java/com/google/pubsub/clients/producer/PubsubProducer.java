@@ -10,11 +10,12 @@
  * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
  * specific language governing permissions and limitations under the License.
  */
-package com.google.kafka.clients.producer;
+package com.google.pubsub.clients.producer;
 
 import io.grpc.ManagedChannel;
 import io.grpc.netty.NettyChannelBuilder;
 import org.apache.kafka.clients.ClientUtils;
+import org.apache.kafka.clients.ProducerConfig;
 import org.apache.kafka.clients.producer.internals.ProducerInterceptors;
 import com.google.kafka.clients.producer.internals.PubsubAccumulator;
 import com.google.kafka.clients.producer.internals.PubsubSender;
@@ -87,52 +88,19 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     private final int requestTimeoutMs;
     private final ProducerInterceptors<K, V> interceptors;
 
-    /**
-     * A producer is instantiated by providing a set of key-value pairs as configuration. Valid configuration strings
-     * are documented <a href="http://kafka.apache.org/documentation.html#producerconfigs">here</a>. Values can be
-     * either strings or Objects of the appropriate type (for example a numeric configuration would accept either the
-     * string "42" or the integer 42).
-     * @param configs   The producer configs
-     *
-     */
     public PubsubProducer(Map<String, Object> configs) {
         this(new ProducerConfig(configs), null, null);
     }
 
-    /**
-     * A producer is instantiated by providing a set of key-value pairs as configuration, a key and a value {@link Serializer}.
-     * Valid configuration strings are documented <a href="http://kafka.apache.org/documentation.html#producerconfigs">here</a>.
-     * Values can be either strings or Objects of the appropriate type (for example a numeric configuration would accept
-     * either the string "42" or the integer 42).
-     * @param configs   The producer configs
-     * @param keySerializer  The serializer for key that implements {@link Serializer}. The configure() method won't be
-     *                       called in the producer when the serializer is passed in directly.
-     * @param valueSerializer  The serializer for value that implements {@link Serializer}. The configure() method won't
-     *                         be called in the producer when the serializer is passed in directly.
-     */
     public PubsubProducer(Map<String, Object> configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
         this(new ProducerConfig(ProducerConfig.addSerializerToConfig(configs, keySerializer, valueSerializer)),
                 keySerializer, valueSerializer);
     }
 
-    /**
-     * A producer is instantiated by providing a set of key-value pairs as configuration. Valid configuration strings
-     * are documented <a href="http://kafka.apache.org/documentation.html#producerconfigs">here</a>.
-     * @param properties   The producer configs
-     */
     public PubsubProducer(Properties properties) {
         this(new ProducerConfig(properties), null, null);
     }
 
-    /**
-     * A producer is instantiated by providing a set of key-value pairs as configuration, a key and a value {@link Serializer}.
-     * Valid configuration strings are documented <a href="http://kafka.apache.org/documentation.html#producerconfigs">here</a>.
-     * @param properties   The producer configs
-     * @param keySerializer  The serializer for key that implements {@link Serializer}. The configure() method won't be
-     *                       called in the producer when the serializer is passed in directly.
-     * @param valueSerializer  The serializer for value that implements {@link Serializer}. The configure() method won't
-     *                         be called in the producer when the serializer is passed in directly.
-     */
     public PubsubProducer(Properties properties, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
         this(new ProducerConfig(ProducerConfig.addSerializerToConfig(properties, keySerializer, valueSerializer)),
                 keySerializer, valueSerializer);
