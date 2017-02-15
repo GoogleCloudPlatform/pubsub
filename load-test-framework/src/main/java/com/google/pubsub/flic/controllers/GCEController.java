@@ -18,8 +18,8 @@ package com.google.pubsub.flic.controllers;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.api.client.http.FileContent;
 import com.google.api.client.http.HttpTransport;
-import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.Base64;
@@ -422,12 +422,16 @@ public class GCEController extends Controller {
         throw e;
       }
     }
-    try (InputStream inputStream = Files.newInputStream(filePath, StandardOpenOption.READ)) {
-      storage.objects().insert(projectName + "-cloud-pubsub-loadtest", null,
-          new InputStreamContent("application/octet-stream", inputStream))
-          .setName(filePath.getFileName().toString()).execute();
-      log.info("File " + filePath.getFileName() + " created.");
-    }
+
+    storage
+        .objects()
+        .insert(
+            projectName + "-cloud-pubsub-loadtest",
+            null,
+            new FileContent("application/octet-stream", filePath.toFile()))
+        .setName(filePath.getFileName().toString())
+        .execute();
+    log.info("File " + filePath.getFileName() + " created.");
   }
 
   /**

@@ -36,11 +36,11 @@ import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.internal.ServerImpl;
 import io.grpc.stub.StreamObserver;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import org.joda.time.Duration;
 import org.junit.AfterClass;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -202,7 +202,7 @@ public class PublisherImplTest {
     testPublisherServiceImpl.addPublishResponse(PublishResponse.newBuilder().addMessageIds("3"));
 
     ListenableFuture<String> publishFuture1 = sendTestMessage(publisher, "A");
-    
+
     fakeExecutor.advanceTime(Duration.standardSeconds(2));
     assertFalse(publishFuture1.isDone());
 
@@ -252,7 +252,7 @@ public class PublisherImplTest {
         .publish(Mockito.<PublishRequest>any(), Mockito.<StreamObserver<PublishResponse>>any());
   }
 
-  @Test
+  @Test(expected = Throwable.class)
   public void testPublishFailureRetries_exceededsRetryDuration() throws Exception {
     Publisher publisher =
         getTestPublisherBuilder()
@@ -271,15 +271,13 @@ public class PublisherImplTest {
 
     try {
       publishFuture1.get();
-      fail("Expected to fail");
-    } catch (Exception expected) {
+    } finally {
+      Mockito.verify(testPublisherServiceImpl, atLeast(10))
+          .publish(Mockito.<PublishRequest>any(), Mockito.<StreamObserver<PublishResponse>>any());
     }
-
-    Mockito.verify(testPublisherServiceImpl, atLeast(10))
-        .publish(Mockito.<PublishRequest>any(), Mockito.<StreamObserver<PublishResponse>>any());
   }
 
-  @Test
+  @Test(expected = ExecutionException.class)
   public void testPublishFailureRetries_nonRetryableFailsImmediately() throws Exception {
     Publisher publisher =
         getTestPublisherBuilder()
@@ -295,16 +293,14 @@ public class PublisherImplTest {
 
     try {
       publishFuture1.get();
-      fail("Expected to fail");
-    } catch (Exception expected) {
+    } finally {
+      Mockito.verify(testPublisherServiceImpl)
+          .publish(Mockito.<PublishRequest>any(), Mockito.<StreamObserver<PublishResponse>>any());
     }
-
-    Mockito.verify(testPublisherServiceImpl)
-        .publish(Mockito.<PublishRequest>any(), Mockito.<StreamObserver<PublishResponse>>any());
   }
 
   @Test
-  public void testPublisherGetters() {
+  public void testPublisherGetters() throws Exception {
     FakeCredentials credentials = new FakeCredentials();
     ScheduledExecutorService executor = Executors.newSingleThreadScheduledExecutor();
 
@@ -354,91 +350,106 @@ public class PublisherImplTest {
 
     try {
       builder.setChannelBuilder(null);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (NullPointerException expected) {
+      // Expected
     }
 
     try {
       builder.setCredentials(null);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (NullPointerException expected) {
+      // Expected
     }
 
     try {
       builder.setExecutor(null);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (NullPointerException expected) {
+      // Expected
     }
     try {
       builder.setMaxBatchBytes(0);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
     try {
       builder.setMaxBatchBytes(-1);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
 
     builder.setMaxBatchDuration(new Duration(1));
     try {
       builder.setMaxBatchDuration(null);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (NullPointerException expected) {
+      // Expected
     }
     try {
       builder.setMaxBatchDuration(new Duration(-1));
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
 
     builder.setMaxBatchMessages(1);
     try {
       builder.setMaxBatchMessages(0);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
     try {
       builder.setMaxBatchMessages(-1);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
 
     builder.setMaxOutstandingBytes(1);
     try {
       builder.setMaxOutstandingBytes(0);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
     try {
       builder.setMaxOutstandingBytes(-1);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
 
     builder.setMaxOutstandingMessages(1);
     try {
       builder.setMaxOutstandingMessages(0);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
     try {
       builder.setMaxOutstandingMessages(-1);
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
 
     builder.setRequestTimeout(Publisher.MIN_REQUEST_TIMEOUT);
     try {
       builder.setRequestTimeout(Publisher.MIN_REQUEST_TIMEOUT.minus(1));
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
     builder.setSendBatchDeadline(Publisher.MIN_SEND_BATCH_DURATION);
     try {
       builder.setSendBatchDeadline(Publisher.MIN_SEND_BATCH_DURATION.minus(1));
-      Assert.fail("Should have thrown an IllegalArgumentException");
+      fail("Should have thrown an IllegalArgumentException");
     } catch (IllegalArgumentException expected) {
+      // Expected
     }
   }
 

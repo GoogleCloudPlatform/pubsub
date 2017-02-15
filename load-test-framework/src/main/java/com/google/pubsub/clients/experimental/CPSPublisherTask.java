@@ -49,15 +49,19 @@ class CPSPublisherTask extends Task {
     super(request, "experimental", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     this.batchSize = request.getPublishBatchSize();
     this.id = (new Random()).nextInt();
-    this.publisher =
-        Publisher.Builder.newBuilder(
-                "projects/" + request.getProject() + "/topics/" + request.getTopic())
-            .setMaxBatchDuration(
-                Duration.millis(Durations.toMillis(request.getPublishBatchDuration())))
-            .setMaxBatchBytes(9500000)
-            .setMaxBatchMessages(950)
-            .setMaxOutstandingBytes(1000000000) // 1 GB
-            .build();
+    try {
+      this.publisher =
+          Publisher.Builder.newBuilder(
+                  "projects/" + request.getProject() + "/topics/" + request.getTopic())
+              .setMaxBatchDuration(
+                  Duration.millis(Durations.toMillis(request.getPublishBatchDuration())))
+              .setMaxBatchBytes(9500000)
+              .setMaxBatchMessages(950)
+              .setMaxOutstandingBytes(1000000000) // 1 GB
+              .build();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
     this.payload = ByteString.copyFromUtf8(LoadTestRunner.createMessage(request.getMessageSize()));
   }
 
