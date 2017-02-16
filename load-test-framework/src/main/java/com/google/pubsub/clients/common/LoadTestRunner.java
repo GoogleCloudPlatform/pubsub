@@ -72,7 +72,9 @@ public class LoadTestRunner {
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
         new ThreadPoolExecutor(request.getMaxOutstandingRequests() + 10,
                                request.getMaxOutstandingRequests() + 10,
-                               100, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>()));
+                               100, TimeUnit.SECONDS,
+                               new ArrayBlockingQueue<Runnable>(
+                                 request.getMaxOutstandingRequests() + 10)));
 
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
     if (toSleep > 0) {
