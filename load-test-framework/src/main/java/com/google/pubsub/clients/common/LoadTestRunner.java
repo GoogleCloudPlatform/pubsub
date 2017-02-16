@@ -34,7 +34,9 @@ import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
 import java.nio.charset.Charset;
 import java.util.Arrays;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -68,7 +70,9 @@ public class LoadTestRunner {
   private static void runTest(StartRequest request) {
     log.info("Request received, starting up server.");
     ListeningExecutorService executor = MoreExecutors.listeningDecorator(
-        Executors.newFixedThreadPool(request.getMaxOutstandingRequests() + 10));
+        new ThreadPoolExecutor(request.getMaxOutstandingRequests() + 10,
+                               request.getMaxOutstandingRequests() + 10,
+                               100, TimeUnit.SECONDS, new ArrayBlockingQueue<Runnable>()));
 
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
     if (toSleep > 0) {
