@@ -19,8 +19,6 @@ package com.google.pubsub.clients.common;
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
 import com.google.common.base.Stopwatch;
-import com.google.common.util.concurrent.ListeningExecutorService;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Timestamps;
@@ -69,12 +67,15 @@ public class LoadTestRunner {
 
   private static void runTest(StartRequest request) {
     log.info("Request received, starting up server.");
-    ListeningExecutorService executor = MoreExecutors.listeningDecorator(
-        new ThreadPoolExecutor(request.getMaxOutstandingRequests() + 10,
-                               request.getMaxOutstandingRequests() + 10,
-                               100, TimeUnit.SECONDS,
-                               new ArrayBlockingQueue<Runnable>(
-                                 request.getMaxOutstandingRequests() + 10)));
+    int poolSize = request.getMaxOutstandingRequests() + 10;
+    ThreadPoolExecutor executor =
+        new ThreadPoolExecutor(
+            poolSize,
+            poolSize,
+            100,
+            TimeUnit.SECONDS,
+            new ArrayBlockingQueue<Runnable>(poolSize),
+            new ThreadPoolExecutor.DiscardPolicy());
 
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
     if (toSleep > 0) {
@@ -87,7 +88,7 @@ public class LoadTestRunner {
 
     stopwatch.start();
     while (shouldContinue(request)) {
-      executor.submit(task);
+      executor.execute(task);
     }
     stopwatch.stop();
     finished.set(true);
