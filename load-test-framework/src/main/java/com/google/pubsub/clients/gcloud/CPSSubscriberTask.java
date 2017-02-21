@@ -16,10 +16,10 @@
 package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.JCommander;
-import com.google.cloud.pubsub.PubSub;
-import com.google.cloud.pubsub.PubSubException;
-import com.google.cloud.pubsub.PubSubOptions;
-import com.google.common.base.Preconditions;
+import com.google.cloud.pubsub.spi.v1.AckReply;
+import com.google.cloud.pubsub.spi.v1.AckReplyConsumer;
+import com.google.cloud.pubsub.spi.v1.MessageReceiver;
+import com.google.cloud.pubsub.spi.v1.Subscriber;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.clients.common.LoadTestRunner;
@@ -27,27 +27,37 @@ import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.clients.common.Task.RunResult;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
-import java.util.ArrayList;
-import java.util.List;
+import com.google.pubsub.v1.PubsubMessage;
+import com.google.pubsub.v1.SubscriptionName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Runs a task that consumes messages from a Cloud Pub/Sub subscription.
- */
-class CPSSubscriberTask extends Task {
+/** Runs a task that consumes messages from a Cloud Pub/Sub subscription. */
+class CPSSubscriberTask extends Task implements MessageReceiver {
   private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
-  private final String subscription;
-  private final int batchSize;
-  private final PubSub pubSub;
+  private final Subscriber subscriber;
 
   private CPSSubscriberTask(StartRequest request) {
     super(request, "gcloud", MetricsHandler.MetricName.END_TO_END_LATENCY);
-    this.pubSub = PubSubOptions.builder()
-        .projectId(request.getProject())
-        .build().service();
-    this.subscription = Preconditions.checkNotNull(request.getPubsubOptions().getSubscription());
-    this.batchSize = request.getPubsubOptions().getMaxMessagesPerPull();
+    try {
+      this.subscriber =
+          Subscriber.newBuilder(
+                  SubscriptionName.create(
+                      request.getProject(), request.getPubsubOptions().getSubscription()),
+                  this)
+              .build();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  @Override
+  public void receiveMessage(final PubsubMessage message, final AckReplyConsumer consumer) {
+    recordMessageLatency(
+        Integer.parseInt(message.getAttributesMap().get("clientId")),
+        Integer.parseInt(message.getAttributesMap().get("sequenceNumber")),
+        System.currentTimeMillis() - Long.parseLong(message.getAttributesMap().get("sendTime")));
+    consumer.accept(AckReply.ACK, null);
   }
 
   public static void main(String[] args) throws Exception {
@@ -58,23 +68,24 @@ class CPSSubscriberTask extends Task {
 
   @Override
   public ListenableFuture<RunResult> doRun() {
-    RunResult result = new RunResult();
-    try {
-      List<String> ackIds = new ArrayList<>();
-      pubSub.pull(subscription, batchSize).forEachRemaining((response) -> {
-        ackIds.add(response.ackId());
-        result.addMessageLatency(
-          Integer.parseInt(response.attributes().get("clientId")),
-          Integer.parseInt(response.attributes().get("sequenceNumber")),
-          System.currentTimeMillis() - Long.parseLong(response.attributes().get("sendTime")));
-      });
-      if (!ackIds.isEmpty()) {
-        pubSub.ack(subscription, ackIds);
+    synchronized (subscriber) {
+      if (subscriber.isRunning()) {
+        return Futures.immediateFuture(RunResult.empty());
       }
-      return Futures.immediateFuture(result);
-    } catch (PubSubException e) {
-      log.error("Error pulling or acknowledging messages.", e);
-      return Futures.immediateFailedFuture(e);
+      try {
+        subscriber.startAsync().awaitRunning();
+      } catch (Exception e) {
+        log.error("Fatal error from subscriber.", e);
+        return Futures.immediateFailedFuture(e);
+      }
+      return Futures.immediateFuture(RunResult.empty());
+    }
+  }
+
+  @Override
+  public void shutdown() {
+    synchronized (subscriber) {
+      subscriber.stopAsync().awaitTerminated();
     }
   }
 }
