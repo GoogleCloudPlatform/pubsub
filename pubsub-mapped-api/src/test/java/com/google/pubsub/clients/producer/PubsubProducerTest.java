@@ -16,7 +16,7 @@
  */
 package com.google.kafka.clients.producer;
 
-import org.apache.kafka.clients.CommonClientConfigs;
+/*import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.network.Selectable;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
@@ -32,13 +32,13 @@ import org.powermock.modules.junit4.PowerMockRunner;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Properties;
+import java.util.Properties;*/
 
-@RunWith(PowerMockRunner.class)
-@PowerMockIgnore("javax.management.*")
+//@RunWith(PowerMockRunner.class)
+//@PowerMockIgnore("javax.management.*")
 public class PubsubProducerTest {
 
-    @Test
+   /* @Test
     public void testSerializerClose() throws Exception {
         Map<String, Object> configs = new HashMap<>();
         configs.put(ProducerConfig.CLIENT_ID_CONFIG, "testConstructorClose");
@@ -110,4 +110,5 @@ public class PubsubProducerTest {
         config.put(ProducerConfig.RECEIVE_BUFFER_CONFIG, -2);
         new PubsubProducer<>(config, new ByteArraySerializer(), new ByteArraySerializer());
     }
+    */
 }
