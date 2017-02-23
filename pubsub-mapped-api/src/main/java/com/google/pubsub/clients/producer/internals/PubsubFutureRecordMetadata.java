@@ -22,6 +22,7 @@ import java.util.concurrent.TimeoutException;
 import org.apache.kafka.clients.producer.RecordMetadata;
 
 public class PubsubFutureRecordMetadata implements Future<RecordMetadata> {
+
   public boolean cancel(boolean b) {
     return false;
   }

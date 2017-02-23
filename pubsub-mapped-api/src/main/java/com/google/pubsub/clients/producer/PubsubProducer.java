@@ -32,10 +32,12 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.clients.producer.internals.FutureRecordMetadata;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.apache.kafka.common.errors.SerializationException;
 import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.metrics.JmxReporter;
@@ -85,7 +87,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
   private int batchSize;
   private boolean isAcks;
   private boolean closed = false;
-  private Map<String, List<PubsubMessage>> perTopicBatch;
+  private Map<String, List<PubsubMessage>> perTopicBatches;
+  private final int maxRequestSize;
 
   public PubsubProducer(Map<String, Object> configs) {
     this(new PubsubProducerConfig(configs), null, null);
@@ -136,7 +139,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     batchSize = configs.getInt(PubsubProducerConfig.BATCH_SIZE_CONFIG);
     isAcks = configs.getString(PubsubProducerConfig.ACKS_CONFIG).matches("1|all");
     project = configs.getString(PubsubProducerConfig.PROJECT_CONFIG);
-    perTopicBatch = Collections.synchronizedMap(new HashMap<>());
+    maxRequestSize = configs.getInt(PubsubProducerConfig.MAX_REQUEST_SIZE_CONFIG);
+    perTopicBatches = Collections.synchronizedMap(new HashMap<>());
     log.debug("Producer successfully initialized.");
   }
 
@@ -162,8 +166,9 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     String topic = record.topic();
     Map<String, String> attributes = new HashMap<>();
 
+    byte[] serializedKey = ByteString.EMPTY.toByteArray();
     if (record.key() != null) {
-      byte[] serializedKey = this.keySerializer.serialize(topic, record.key());
+      serializedKey = this.keySerializer.serialize(topic, record.key());
       attributes.put(PubsubUtils.KEY_ATTRIBUTE, new String(serializedKey, StandardCharsets.ISO_8859_1));
     }
 
@@ -176,15 +181,17 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       valueBytes = valueSerializer.serialize(topic, record.value());
     }
 
+    checkRecordSize(Records.LOG_OVERHEAD + Record.recordSize(serializedKey, valueBytes));
+
     PubsubMessage message =
         PubsubMessage.newBuilder()
           .setData(ByteString.copyFrom(valueBytes))
           .putAllAttributes(attributes)
           .build();
-    List<PubsubMessage> batch = perTopicBatch.get(topic);
+    List<PubsubMessage> batch = perTopicBatches.get(topic);
     if (batch == null) {
       batch = new ArrayList<>(batchSize);
-      perTopicBatch.put(topic, batch);
+      perTopicBatches.put(topic, batch);
     }
     batch.add(message);
     if (batch.size() == batchSize) {
@@ -196,7 +203,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
             .build();
       doSend(request, callback);
     }
-    return new PubsubFutureRecordMetadata();
+    return null; //new FutureRecordMetadata();
   }
 
   private Future<RecordMetadata> doSend(PublishRequest request, Callback callback) {
@@ -208,7 +215,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
               response,
               new FutureCallback<PublishResponse>() {
                 public void onSuccess(PublishResponse response) {
-                  perTopicBatch.clear();
+                  perTopicBatches.clear();
                   callback.onCompletion(null, null);
                 }
 
@@ -218,17 +225,24 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
               }
           );
         } else {
-          perTopicBatch.clear();
+          perTopicBatches.clear();
           callback.onCompletion(null, null);
         }
       } else {
         response.get();
-        perTopicBatch.clear();
+        perTopicBatches.clear();
       }
     } catch (InterruptedException | ExecutionException e) {
       return new FutureFailure(e);
     }
-    return new PubsubFutureRecordMetadata();
+    return null; //new FutureRecordMetadata();
+  }
+
+  private void checkRecordSize(int size) {
+    if (size > this.maxRequestSize) {
+      throw new RecordTooLargeException("Messge is " + size + " bytes which is larger than max request size you have"
+          + " configured");
+    }
   }
 
   /**
@@ -271,29 +285,6 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
     log.debug("Closed producer");
     closed = true;
-  }
-
-  /** Implementation of {@link Future}. */
-  private static class PubsubFutureRecordMetadata implements Future<RecordMetadata> {
-    public boolean cancel(boolean b) {
-      return false;
-    }
-
-    public boolean isCancelled() {
-      return false;
-    }
-
-    public boolean isDone() {
-      return false;
-    }
-
-    public RecordMetadata get() throws InterruptedException, ExecutionException {
-      return null;
-    }
-
-    public RecordMetadata get(long l, TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
-      return null;
-    }
   }
 
   /** Taken from KafkaProducer.java since FutureFailure is private inside that class. */
