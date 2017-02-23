@@ -63,7 +63,8 @@ public class PubsubProducerConfig extends AbstractConfig {
             .define(MAX_REQUEST_SIZE_CONFIG, Type.INT, DEFAULT_MAX_REQUEST_SIZE, atLeast(0), Importance.MEDIUM, MAX_REQUEST_SIZE_DOC)
             .define(BATCH_SIZE_CONFIG, Type.INT, 1, Importance.MEDIUM, BATCH_SIZE_DOC)
             .define(ACKS_CONFIG, Type.STRING, "1", Importance.MEDIUM, ACKS_DOC)
-            .define(PROJECT_CONFIG, Type.STRING, Importance.HIGH, PROJECT_DOC);
+            .define(PROJECT_CONFIG, Type.STRING, Importance.HIGH, PROJECT_DOC)
+            .define(MAX_REQUEST_SIZE_CONFIG, Type.INT, 1*1024*1024, atLeast(0), Importance.MEDIUM, MAX_REQUEST_SIZE_DOC);
   }
 
   PubsubProducerConfig(Map<?, ?> properties) {
