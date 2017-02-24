@@ -17,10 +17,11 @@
 package com.google.pubsub.clients.vtk;
 
 import com.beust.jcommander.JCommander;
-import com.google.cloud.pubsub.spi.v1.PublisherApi;
+import com.google.api.gax.core.RpcFutureCallback;
+import com.google.cloud.pubsub.spi.v1.PublisherClient;
 import com.google.cloud.pubsub.spi.v1.PublisherSettings;
-import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.LoadTestRunner;
@@ -28,7 +29,9 @@ import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.v1.PublishRequest;
+import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PubsubMessage;
+import com.google.pubsub.v1.TopicName;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -41,7 +44,7 @@ import org.slf4j.LoggerFactory;
 class CPSPublisherTask extends Task {
   private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
   private final String topic;
-  private final PublisherApi publisherApi;
+  private final PublisherClient publisherApi;
   private final ByteString payload;
   private final int batchSize;
   private final Integer id;
@@ -54,14 +57,14 @@ class CPSPublisherTask extends Task {
         .publishSettings()
         .getBundlingSettingsBuilder()
         .setDelayThreshold(Duration.millis(Durations.toMillis(request.getPublishBatchDuration())))
-        .setElementCountLimit(950)
-        .setRequestByteLimit(9500000);
+        .setElementCountThreshold(950L)
+        .setRequestByteThreshold(9500000L);
     try {
-      this.publisherApi = PublisherApi.create(publisherSettingsBuilder.build());
+      this.publisherApi = PublisherClient.create(publisherSettingsBuilder.build());
     } catch (Exception e) {
       throw new RuntimeException("Error creating publisher API.", e);
     }
-    this.topic = PublisherApi.formatTopicName(request.getProject(), request.getTopic());
+    this.topic = TopicName.create(request.getProject(), request.getTopic()).toString();
     this.payload = ByteString.copyFromUtf8(LoadTestRunner.createMessage(request.getMessageSize()));
     this.batchSize = request.getPublishBatchSize();
     this.id = (new Random()).nextInt();
@@ -88,8 +91,22 @@ class CPSPublisherTask extends Task {
     }
     PublishRequest request =
         PublishRequest.newBuilder().setTopic(topic).addAllMessages(messages).build();
-    return Futures.transform(
-        publisherApi.publishCallable().futureCall(request),
-        response -> RunResult.fromBatchSize(batchSize));
+    SettableFuture<RunResult> result = SettableFuture.create();
+    publisherApi
+        .publishCallable()
+        .futureCall(request)
+        .addCallback(
+            new RpcFutureCallback<PublishResponse>() {
+              @Override
+              public void onSuccess(PublishResponse s) {
+                result.set(RunResult.fromBatchSize(batchSize));
+              }
+
+              @Override
+              public void onFailure(Throwable t) {
+                result.setException(t);
+              }
+            });
+    return result;
   }
 }
