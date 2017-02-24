@@ -58,7 +58,7 @@ public class CloudPubSubSourceConnectorTest {
 
   @Test(expected = ConfigException.class)
   public void testStartWhenRequiredConfigMissing() {
-    connector.start(new HashMap<>());
+    connector.start(new HashMap<String, String>());
   }
 
   @Test
