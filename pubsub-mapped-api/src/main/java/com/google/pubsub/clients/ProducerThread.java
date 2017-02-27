@@ -1,14 +1,12 @@
 package com.google.pubsub.clients;
 
 import com.google.pubsub.clients.producer.PubsubProducer;
-import com.google.pubsub.clients.producer.PubsubProducer.Builder;
 import java.io.IOException;
 import java.util.Properties;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.RecordMetadata;
 
@@ -36,21 +34,19 @@ public class ProducerThread implements Runnable {
 
   private void processCommand() {
     try {
-      ProducerRecord<String, String> msg = new ProducerRecord<>(topic, "hello" + command);
-      for (int i = 0; i < 1; i++) {
-        producer.send(
-            msg,
-            new Callback() {
-              public void onCompletion(RecordMetadata metadata, Exception exception) {
-                if (exception != null) {
-                  log.error("Exception sending the message: " + exception.getMessage());
-                } else {
-                  log.info("Successfully sent message");
-                }
-              }
+      ProducerRecord<String, String> msg = new ProducerRecord<String, String>(topic, "message" + command);
+    producer.send(
+        msg,
+        new Callback() {
+          public void onCompletion(RecordMetadata metadata, Exception exception) {
+            if (exception != null) {
+              log.error("Exception sending the message: " + exception.getMessage());
+            } else {
+              log.info("Successfully sent message");
             }
-        );
-      }
+          }
+        }
+    );
       Thread.sleep(5000);
       producer.close();
     } catch (InterruptedException e) {

@@ -19,18 +19,19 @@ import com.google.auth.oauth2.GoogleCredentials;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
+import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
+import io.grpc.auth.ClientAuthInterceptor;
+import io.grpc.internal.ManagedChannelImpl;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.concurrent.Executors;
 
-/** Sets up the pub/sub grpc functionality  */
 public class PubsubChannelUtil {
-  private static final Logger log = LoggerFactory.getLogger(PubsubChannelUtil.class);
+
   private static final String ENDPOINT = "pubsub.googleapis.com";
   private static final List<String> CPS_SCOPE = Arrays.asList("https://www.googleapis.com/auth/pubsub");
 
@@ -40,16 +41,8 @@ public class PubsubChannelUtil {
   private ManagedChannel channel;
   private CallCredentials callCredentials;
 
-  /* Constructs instance with populated credentials and channel */
-  public PubsubChannelUtil() {
-    GoogleCredentials credentials;
-    try {
-      credentials = GoogleCredentials.getApplicationDefault()
-          .createScoped(CPS_SCOPE);
-    } catch (IOException exception) {
-      log.error("Exception occurred: " + exception.getMessage());
-      return;
-    }
+  public PubsubChannelUtil() throws IOException {
+    GoogleCredentials credentials = GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE);
     callCredentials = MoreCallCredentials.from(credentials);
     channel = NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
   }
