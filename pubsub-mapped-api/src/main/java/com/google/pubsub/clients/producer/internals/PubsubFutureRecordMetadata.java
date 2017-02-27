@@ -13,9 +13,15 @@
  * the License.
  */
 
-/*package com.google.pubsub.clients.producer.internals;
+package com.google.pubsub.clients.producer.internals;
 
-private static class PubsubFutureRecordMetadata implements Future<RecordMetadata> {
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.apache.kafka.clients.producer.RecordMetadata;
+
+public class PubsubFutureRecordMetadata implements Future<RecordMetadata> {
   public boolean cancel(boolean b) {
     return false;
   }
@@ -35,4 +41,4 @@ private static class PubsubFutureRecordMetadata implements Future<RecordMetadata
   public RecordMetadata get(long l, TimeUnit timeUnit) throws InterruptedException, ExecutionException, TimeoutException {
     return null;
   }
-}*/
+}

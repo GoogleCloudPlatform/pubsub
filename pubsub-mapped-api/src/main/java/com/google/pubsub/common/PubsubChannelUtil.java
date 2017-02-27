@@ -16,31 +16,46 @@
 package com.google.pubsub.common;
 
 import com.google.auth.oauth2.GoogleCredentials;
+import io.grpc.auth.MoreCallCredentials;
+import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.ClientInterceptors;
+import io.grpc.ManagedChannel;
 import io.grpc.auth.ClientAuthInterceptor;
 import io.grpc.internal.ManagedChannelImpl;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.Executors;
 
-public class PubsubUtils {
+public class PubsubChannelUtil {
 
   private static final String ENDPOINT = "pubsub.googleapis.com";
   private static final List<String> CPS_SCOPE = Arrays.asList("https://www.googleapis.com/auth/pubsub");
 
   public static final String CPS_TOPIC_FORMAT = "projects/%s/topics/%s";
   public static final String KEY_ATTRIBUTE = "key";
-  public static final String NO_PROJECT_ERROR = "No project specified. Use AdapterClient to specify project.";
 
-  public static Channel createChannel() throws Exception {
-    final ManagedChannelImpl channelImpl = NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
-    final ClientAuthInterceptor interceptor =
-        new ClientAuthInterceptor(
-            GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE),
-            Executors.newCachedThreadPool());
-    return ClientInterceptors.intercept(channelImpl, interceptor);
+  private ManagedChannel channel;
+  private CallCredentials callCredentials;
+
+  public PubsubChannelUtil() throws IOException {
+    GoogleCredentials credentials = GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE);
+    callCredentials = MoreCallCredentials.from(credentials);
+    channel = NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
+  }
+
+  public CallCredentials callCredentials() {
+    return callCredentials;
+  }
+
+  public Channel channel() {
+    return channel;
+  }
+
+  public void closeChannel() {
+    channel.shutdown();
   }
 }
