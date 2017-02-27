@@ -16,7 +16,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 public class ProducerThreadPool {
   private static final Logger log = LoggerFactory.getLogger(ProducerThreadPool.class);
 
-  public static void main(String[] args) throws IOException {
+  public static void main(String[] args) {
     ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder();
     threadFactoryBuilder.setNameFormat("pubsub-producer-thread");
     threadFactoryBuilder.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {

@@ -24,7 +24,9 @@ import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.common.PubsubUtils;
+import com.google.pubsub.common.PubsubChannelUtil;
+import com.google.pubsub.clients.producer.internals.PubsubFutureRecordMetadata;
+import io.grpc.ManagedChannel;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.clients.ClientUtils;
 import org.apache.kafka.clients.producer.Callback;
@@ -33,6 +35,10 @@ import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.clients.producer.internals.FutureRecordMetadata;
+import org.apache.kafka.clients.producer.internals.ProduceRequestResult;
+import org.apache.kafka.clients.producer.internals.RecordAccumulator;
+import org.apache.kafka.clients.producer.internals.RecordAccumulator.RecordAppendResult;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
@@ -89,6 +95,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
   private boolean closed = false;
   private Map<String, List<PubsubMessage>> perTopicBatches;
   private final int maxRequestSize;
+  private final Time time;
+  private PubsubChannelUtil channelUtil;
 
   public PubsubProducer(Map<String, Object> configs) {
     this(new PubsubProducerConfig(configs), null, null);
@@ -113,7 +121,9 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
   private PubsubProducer(PubsubProducerConfig configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
     try {
       log.trace("Starting the Pubsub producer");
-      publisher = PublisherGrpc.newFutureStub(PubsubUtils.createChannel());
+      this.time = new SystemTime();
+      channelUtil = new PubsubChannelUtil();
+      publisher = PublisherGrpc.newFutureStub(channelUtil.channel()).withCallCredentials(channelUtil.callCredentials());
       if (keySerializer == null) {
         this.keySerializer =
             configs.getConfiguredInstance(
@@ -141,6 +151,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     project = configs.getString(PubsubProducerConfig.PROJECT_CONFIG);
     maxRequestSize = configs.getInt(PubsubProducerConfig.MAX_REQUEST_SIZE_CONFIG);
     perTopicBatches = Collections.synchronizedMap(new HashMap<>());
+
+    String threadName = "pubsub-producer-network-thread";
     log.debug("Producer successfully initialized.");
   }
 
@@ -169,7 +181,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     byte[] serializedKey = ByteString.EMPTY.toByteArray();
     if (record.key() != null) {
       serializedKey = this.keySerializer.serialize(topic, record.key());
-      attributes.put(PubsubUtils.KEY_ATTRIBUTE, new String(serializedKey, StandardCharsets.ISO_8859_1));
+      attributes.put(channelUtil.KEY_ATTRIBUTE, new String(serializedKey, StandardCharsets.ISO_8859_1));
     }
 
     if (project == null) {
@@ -194,19 +206,24 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       perTopicBatches.put(topic, batch);
     }
     batch.add(message);
-    if (batch.size() == batchSize) {
+
+    long timestamp = record.timestamp() == null ? time.milliseconds() : record.timestamp();
+    RecordAccumulator.RecordAppendResult result = new RecordAppendResult(
+        new FutureRecordMetadata(new ProduceRequestResult(), 0,
+            timestamp, 0, serializedKey.length, valueBytes.length), batch.size() == batchSize, false);
+    if (result.batchIsFull) {
       log.trace("Sending a batch of messages.");
       PublishRequest request =
           PublishRequest.newBuilder()
-            .setTopic(String.format(PubsubUtils.CPS_TOPIC_FORMAT, project, topic))
+            .setTopic(String.format(channelUtil.CPS_TOPIC_FORMAT, project, topic))
             .addAllMessages(batch)
             .build();
-      doSend(request, callback);
+      doSend(request, callback, result);
     }
-    return null; //new FutureRecordMetadata();
+    return result.future;
   }
 
-  private Future<RecordMetadata> doSend(PublishRequest request, Callback callback) {
+  private Future<RecordMetadata> doSend(PublishRequest request, Callback callback, RecordAppendResult result) {
     try {
       ListenableFuture<PublishResponse> response = publisher.publish(request);
       if (callback != null) {
@@ -235,7 +252,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     } catch (InterruptedException | ExecutionException e) {
       return new FutureFailure(e);
     }
-    return null; //new FutureRecordMetadata();
+    return result.future;
   }
 
   private void checkRecordSize(int size) {
@@ -249,7 +266,15 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
    * Flush any accumulated records from the producer. Blocks until all sends are complete.
    */
   public void flush() {
-    throw new NotImplementedException("Not yet implemented");
+    log.debug("Flushing...");
+    for (String topic : perTopicBatches.keySet()) {
+      PublishRequest request =
+          PublishRequest.newBuilder()
+            .setTopic(String.format(channelUtil.CPS_TOPIC_FORMAT, project, topic))
+            .addAllMessages(perTopicBatches.get(topic))
+            .build();
+      doSend(request, null, null);
+    }
   }
 
   /**
@@ -283,6 +308,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       throw new IllegalArgumentException("Timout cannot be negative.");
     }
 
+    channelUtil.closeChannel();
     log.debug("Closed producer");
     closed = true;
   }

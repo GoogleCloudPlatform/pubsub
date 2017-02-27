@@ -1,7 +1,7 @@
 package com.google.pubsub.clients;
 
+import com.google.api.client.googleapis.MethodOverride.Builder;
 import com.google.pubsub.clients.producer.PubsubProducer;
-import com.google.pubsub.clients.producer.PubsubProducer.Builder;
 import java.io.IOException;
 import java.util.Properties;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -24,6 +24,8 @@ public class ProducerThread implements Runnable {
         .batchSize(Integer.parseInt(props.getProperty("batch.size")))
         .isAcks(props.getProperty("acks").matches("1|all"))
     .build();
+    this.command = s;
+    this.producer = new PubsubProducer<>(props);
     this.topic = topic;
   }
 
@@ -50,6 +52,7 @@ public class ProducerThread implements Runnable {
             }
         );
       }
+
       Thread.sleep(5000);
       producer.close();
     } catch (InterruptedException e) {
