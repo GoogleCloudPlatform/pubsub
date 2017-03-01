@@ -76,8 +76,8 @@ public class PubsubProducerConfig extends AbstractConfig {
   }
 
   public static Properties addSerializerToConfig(Properties properties, Serializer<?> keySerializer, Serializer<?> valueSerializer) {
-    Map<String, Object> newConfigs = new HashMap<String, Object>();
     Properties newProperties = new Properties();
+    newProperties.putAll(properties);
     if (keySerializer != null) {
       newProperties.put(KEY_SERIALIZER_CLASS_CONFIG, keySerializer.getClass());
     }

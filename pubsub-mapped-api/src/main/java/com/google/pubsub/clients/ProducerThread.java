@@ -30,19 +30,21 @@ public class ProducerThread implements Runnable {
 
   private void processCommand() {
     try {
-      ProducerRecord<String, String> msg = new ProducerRecord<String, String>(topic, "message" + command);
-    producer.send(
-        msg,
-        new Callback() {
-          public void onCompletion(RecordMetadata metadata, Exception exception) {
-            if (exception != null) {
-              log.error("Exception sending the message: " + exception.getMessage());
-            } else {
-              log.info("Successfully sent message");
+      ProducerRecord<String, String> msg = new ProducerRecord<>(topic, "message" + command);
+      for (int i = 0; i < 10; i++) {
+        producer.send(
+            msg,
+            new Callback() {
+              public void onCompletion(RecordMetadata metadata, Exception exception) {
+                if (exception != null) {
+                  log.error("Exception sending the message: " + exception.getMessage());
+                } else {
+                  log.info("Successfully sent message");
+                }
+              }
             }
-          }
-        }
-    );
+        );
+      }
       Thread.sleep(5000);
       producer.close();
     } catch (InterruptedException e) {

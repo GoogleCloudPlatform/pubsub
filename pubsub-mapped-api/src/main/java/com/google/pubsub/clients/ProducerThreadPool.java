@@ -33,15 +33,15 @@ public class ProducerThreadPool {
         .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("acks", "all")
-        .put("batch.size", 1)
+        .put("batch.size", 20)
         .put("linger.ms", 1)
         .build()
     );
 
    /* props.putAll(new ImmutableMap.Builder<>()
         .put("max.block.ms", "30000")
-        .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-        .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+        //.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+        //.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("acks", "all")
         .put("bootstrap.servers", "104.198.72.101:9092")
         .put("buffer.memory", Integer.toString(1000 * 1000 * 1000)) // 1 GB
@@ -49,9 +49,9 @@ public class ProducerThreadPool {
         .put("batch.size", Integer.toString(10 * 1000 * 1000))
         .put("linger.ms", 10)
         .build()
-    );*/
+    ); */
 
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 1; i++) {
       Runnable worker = new ProducerThread("" + i, props, args[0]);
       executor.execute(worker);
     }
