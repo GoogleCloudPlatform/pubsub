@@ -37,8 +37,8 @@ public class ProducerThread implements Runnable {
 
   private void processCommand() {
     try {
-      ProducerRecord<String, String> msg = new ProducerRecord<>(topic, "hello" + command);
-      for (int i = 0; i < 1; i++) {
+      ProducerRecord<String, String> msg = new ProducerRecord<>(topic, "message" + command);
+      for (int i = 0; i < 10; i++) {
         producer.send(
             msg,
             new Callback() {
@@ -52,7 +52,6 @@ public class ProducerThread implements Runnable {
             }
         );
       }
-
       Thread.sleep(5000);
       producer.close();
     } catch (InterruptedException e) {

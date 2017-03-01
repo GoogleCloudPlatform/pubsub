@@ -16,20 +16,19 @@
 package com.google.pubsub.common;
 
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.pubsub.v1.PublisherGrpc;
+import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
-import io.grpc.ClientInterceptors;
 import io.grpc.ManagedChannel;
-import io.grpc.auth.ClientAuthInterceptor;
-import io.grpc.internal.ManagedChannelImpl;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.Executors;
 
+/** Sets up the pub/sub grpc functionality  */
 public class PubsubChannelUtil {
 
   private static final String ENDPOINT = "pubsub.googleapis.com";
@@ -41,10 +40,15 @@ public class PubsubChannelUtil {
   private ManagedChannel channel;
   private CallCredentials callCredentials;
 
+  /* Constructs instance with populated credentials and channel */
   public PubsubChannelUtil() throws IOException {
     GoogleCredentials credentials = GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE);
     callCredentials = MoreCallCredentials.from(credentials);
     channel = NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
+  }
+
+  public PublisherFutureStub createPublisherFutureStub() {
+    return PublisherGrpc.newFutureStub(channel).withCallCredentials(callCredentials);
   }
 
   public CallCredentials callCredentials() {
