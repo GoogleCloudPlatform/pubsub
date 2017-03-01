@@ -25,45 +25,27 @@ import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.common.PubsubChannelUtil;
-import com.google.pubsub.clients.producer.internals.PubsubFutureRecordMetadata;
-import io.grpc.ManagedChannel;
 import org.apache.commons.lang3.NotImplementedException;
-import org.apache.kafka.clients.ClientUtils;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
-import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.clients.producer.internals.FutureRecordMetadata;
 import org.apache.kafka.clients.producer.internals.ProduceRequestResult;
 import org.apache.kafka.clients.producer.internals.RecordAccumulator;
 import org.apache.kafka.clients.producer.internals.RecordAccumulator.RecordAppendResult;
-import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
-import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordTooLargeException;
-import org.apache.kafka.common.errors.SerializationException;
-import org.apache.kafka.common.errors.TimeoutException;
-import org.apache.kafka.common.metrics.JmxReporter;
-import org.apache.kafka.common.metrics.MetricConfig;
-import org.apache.kafka.common.metrics.Metrics;
-import org.apache.kafka.common.metrics.MetricsReporter;
-import org.apache.kafka.common.metrics.Sensor;
-import org.apache.kafka.common.network.Selectable;
-import org.apache.kafka.common.record.CompressionType;
 import org.apache.kafka.common.record.Record;
 import org.apache.kafka.common.record.Records;
 import org.apache.kafka.common.serialization.Serializer;
-import org.apache.kafka.common.utils.AppInfoParser;
-import org.apache.kafka.common.utils.KafkaThread;
 import org.apache.kafka.common.utils.SystemTime;
 import org.apache.kafka.common.utils.Time;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.net.SocketOptions;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -73,11 +55,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedTransferQueue;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A Kafka client that publishes records to Google Cloud Pub/Sub.
@@ -123,7 +101,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       log.trace("Starting the Pubsub producer");
       this.time = new SystemTime();
       channelUtil = new PubsubChannelUtil();
-      publisher = PublisherGrpc.newFutureStub(channelUtil.channel()).withCallCredentials(channelUtil.callCredentials());
+      publisher = channelUtil.createPublisherFutureStub();
+
       if (keySerializer == null) {
         this.keySerializer =
             configs.getConfiguredInstance(
@@ -152,7 +131,6 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     maxRequestSize = configs.getInt(PubsubProducerConfig.MAX_REQUEST_SIZE_CONFIG);
     perTopicBatches = Collections.synchronizedMap(new HashMap<>());
 
-    String threadName = "pubsub-producer-network-thread";
     log.debug("Producer successfully initialized.");
   }
 
@@ -273,7 +251,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
             .setTopic(String.format(channelUtil.CPS_TOPIC_FORMAT, project, topic))
             .addAllMessages(perTopicBatches.get(topic))
             .build();
-      doSend(request, null());
+      doSend(request, null, null);
     }
   }
 
@@ -305,7 +283,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
    */
   public void close(long timeout, TimeUnit unit) {
     if (timeout < 0) {
-      throw new IllegalArgumentException("Timout cannot be negative.");
+      throw new IllegalArgumentException("Timeout cannot be negative.");
     }
 
     channelUtil.closeChannel();

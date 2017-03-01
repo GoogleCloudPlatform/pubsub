@@ -34,12 +34,12 @@ public class ProducerThreadPool {
         .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("acks", "all")
-        .put("batch.size", 1)
+        .put("batch.size", 20)
         .put("linger.ms", 1)
         .build()
     );
 
-    for (int i = 0; i < 20; i++) {
+    for (int i = 0; i < 1; i++) {
       Runnable worker = new ProducerThread("" + i, props, args[0]);
       executor.execute(worker);
     }
