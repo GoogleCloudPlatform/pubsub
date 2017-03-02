@@ -1,7 +1,7 @@
 package com.google.pubsub.clients;
 
-import com.google.api.client.googleapis.MethodOverride.Builder;
 import com.google.pubsub.clients.producer.PubsubProducer;
+import com.google.pubsub.clients.producer.PubsubProducer.Builder;
 import java.io.IOException;
 import java.util.Properties;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -24,11 +24,6 @@ public class ProducerThread implements Runnable {
         .batchSize(Integer.parseInt(props.getProperty("batch.size")))
         .isAcks(props.getProperty("acks").matches("1|all"))
     .build();
-    this.command = s;
-    //this.producer = new PubsubProducer<>(props);
-    this.producer = new PubsubProducer(new PubsubProducer.Builder(props.getProperty("project"), StringSerializer.class, StringSerializer.class)
-    .batchSize(props.getProperty("batch.size"))
-    .)
     this.topic = topic;
   }
 
@@ -40,8 +35,8 @@ public class ProducerThread implements Runnable {
 
   private void processCommand() {
     try {
-      ProducerRecord<String, String> msg = new ProducerRecord<>(topic, "message" + command);
-      for (int i = 0; i < 10; i++) {
+      ProducerRecord<String, String> msg = new ProducerRecord<>(topic, "hello" + command);
+      for (int i = 0; i < 1; i++) {
         producer.send(
             msg,
             new Callback() {
