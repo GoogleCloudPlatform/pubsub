@@ -30,45 +30,20 @@ import org.junit.Test;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class PubsubProducerTest {
 
   private static final String TOPIC = "testTopic";
   private static final String MESSAGE = "testMessage";
 
-  /* Constructor Tests */
-  @Test
-  public void testConstructorWithSerializers() {
-    Properties props = new Properties();
-    props.put(PubsubProducerConfig.PROJECT_CONFIG, "dataproc-kafka-test");
-    new PubsubProducer(props, new ByteArraySerializer(), new ByteArraySerializer()).close();
-  }
-
-  @Test(expected = ConfigException.class)
-  public void testConstructorNoSerializerProvided() {
-    Properties props = new Properties();
-    props.setProperty(PubsubProducerConfig.PROJECT_CONFIG, "dataproc-kafka-test");
-    new PubsubProducer(props).close();
-  }
-
-  @Test(expected = ConfigException.class)
-  public void testConstructorNoProjectProvided() {
-    Properties props = new Properties();
-    props.putAll(new ImmutableMap.Builder<>()
-        .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-        .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-        .build()
-    );
-    new PubsubProducer(props).close();
-  }
-
   /* send() tests */
- /* @Test(expected = RuntimeException.class)
+  @Test
   public void testSendPublisherClosed() {
+    // mock the PublisherFutureStub
 
-  }*/
+    // mock the PubsubChannelUtil
+    // construct using testing constructor, every other param normal
+  }
 
   private PubsubProducer getNewProducer() {
     Properties props = new Properties();

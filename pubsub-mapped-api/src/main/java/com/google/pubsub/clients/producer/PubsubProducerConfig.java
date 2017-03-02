@@ -46,6 +46,10 @@ public class PubsubProducerConfig extends AbstractConfig {
   public static final String MAX_REQUEST_SIZE_CONFIG = "max.request.size";
   private static final String MAX_REQUEST_SIZE_DOC = "The maximum size of a request in bytes.";
 
+  public static final int DEFAULT_BATCH_SIZE = 1;
+  public static final boolean DEFAULT_ACKS = true;
+  public static final int DEFAULT_MAX_REQUEST_SIZE = 1*1024*1024;
+
   static {
     CONFIG =
         new ConfigDef()
@@ -53,10 +57,10 @@ public class PubsubProducerConfig extends AbstractConfig {
                 KEY_SERIALIZER_CLASS_CONFIG, Type.CLASS, Importance.HIGH, KEY_SERIALIZER_CLASS_DOC)
             .define(
                 VALUE_SERIALIZER_CLASS_CONFIG, Type.CLASS, Importance.HIGH, VALUE_SERIALIZER_CLASS_DOC)
-            .define(BATCH_SIZE_CONFIG, Type.INT, 1, Importance.MEDIUM, BATCH_SIZE_DOC)
-            .define(ACKS_CONFIG, Type.STRING, "1", Importance.MEDIUM, ACKS_DOC)
             .define(PROJECT_CONFIG, Type.STRING, Importance.HIGH, PROJECT_DOC)
-            .define(MAX_REQUEST_SIZE_CONFIG, Type.INT, 1*1024*1024, atLeast(0), Importance.MEDIUM, MAX_REQUEST_SIZE_DOC);
+            .define(BATCH_SIZE_CONFIG, Type.INT, DEFAULT_BATCH_SIZE, Importance.MEDIUM, BATCH_SIZE_DOC)
+            .define(ACKS_CONFIG, Type.STRING, "1", Importance.MEDIUM, ACKS_DOC)
+            .define(MAX_REQUEST_SIZE_CONFIG, Type.INT, DEFAULT_MAX_REQUEST_SIZE, atLeast(0), Importance.MEDIUM, MAX_REQUEST_SIZE_DOC);
   }
 
   PubsubProducerConfig(Map<?, ?> properties) {
