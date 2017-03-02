@@ -1,6 +1,8 @@
 package com.google.pubsub.clients;
 
 import com.google.pubsub.clients.producer.PubsubProducer;
+import com.google.pubsub.clients.producer.PubsubProducer.Builder;
+import java.io.IOException;
 import java.util.Properties;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
@@ -17,12 +19,12 @@ public class ProducerThread implements Runnable {
   private String topic;
   private static final Logger log = LoggerFactory.getLogger(ProducerThread.class);
 
-  public ProducerThread(String s, Properties props, String topic) {
+  public ProducerThread(String s, Properties props, String topic) throws IOException {
     this.command = s;
-    //this.producer = new PubsubProducer<>(props);
-    this.producer = new PubsubProducer(new PubsubProducer.Builder(props.getProperty("project"), StringSerializer.class, StringSerializer.class)
-    .batchSize(props.getProperty("batch.size"))
-    .)
+    this.producer = new Builder<>(props.getProperty("project"), new StringSerializer(), new StringSerializer())
+        .batchSize(Integer.parseInt(props.getProperty("batch.size")))
+        .isAcks(props.getProperty("acks").matches("1|all"))
+    .build();
     this.topic = topic;
   }
 
@@ -34,8 +36,8 @@ public class ProducerThread implements Runnable {
 
   private void processCommand() {
     try {
-      ProducerRecord<String, String> msg = new ProducerRecord<>(topic, "message" + command);
-      for (int i = 0; i < 10; i++) {
+      ProducerRecord<String, String> msg = new ProducerRecord<>(topic, "hello" + command);
+      for (int i = 0; i < 1; i++) {
         producer.send(
             msg,
             new Callback() {
