@@ -15,6 +15,7 @@
 
 package com.google.pubsub.clients.producer;
 
+import com.google.api.client.repackaged.com.google.common.base.Preconditions;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -25,6 +26,8 @@ import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.common.PubsubChannelUtil;
+import java.io.IOError;
+import java.io.IOException;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
@@ -64,17 +67,31 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
   private static final Logger log = LoggerFactory.getLogger(PubsubProducer.class);
 
-  private PublisherFutureStub publisher;
-  private String project;
-  private Serializer<K> keySerializer;
-  private Serializer<V> valueSerializer;
-  private int batchSize;
-  private boolean isAcks;
-  private boolean closed = false;
-  private Map<String, List<PubsubMessage>> perTopicBatches;
+  private final PublisherFutureStub publisher;
+  private final String project;
+  private final Serializer<K> keySerializer;
+  private final Serializer<V> valueSerializer;
+  private final int batchSize;
+  private final boolean isAcks;
+  private final Map<String, List<PubsubMessage>> perTopicBatches;
   private final int maxRequestSize;
   private final Time time;
-  private PubsubChannelUtil channelUtil;
+  private final PubsubChannelUtil channelUtil;
+
+  private boolean closed = false;
+
+  private PubsubProducer(Builder builder) {
+    publisher = builder.publisher;
+    project = builder.project;
+    keySerializer = builder.keySerializer;
+    valueSerializer = builder.valueSerializer;
+    batchSize = builder.batchSize;
+    isAcks = builder.isAcks;
+    perTopicBatches = builder.perTopicBatches;
+    maxRequestSize = builder.maxRequestSize;
+    time = builder.time;
+    channelUtil = builder.channelUtil;
+  }
 
   public PubsubProducer(Map<String, Object> configs) {
     this(new PubsubProducerConfig(configs), null, null);
@@ -101,7 +118,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       log.trace("Starting the Pubsub producer");
       this.time = new SystemTime();
       channelUtil = new PubsubChannelUtil();
-      publisher = channelUtil.createPublisherFutureStub();
+      publisher = PublisherGrpc.newFutureStub(channelUtil.channel()).withCallCredentials(channelUtil.callCredentials());
 
       if (keySerializer == null) {
         this.keySerializer =
@@ -289,6 +306,69 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     channelUtil.closeChannel();
     log.debug("Closed producer");
     closed = true;
+  }
+
+  public static class Builder {
+    private final String project;
+    private final Serializer keySerializer;
+    private final Serializer valueSerializer;
+
+    private PubsubChannelUtil channelUtil;
+    private PublisherFutureStub publisher;
+    private int batchSize;
+    private boolean isAcks;
+    private Map<String, List<PubsubMessage>> perTopicBatches;
+    private int maxRequestSize;
+    private Time time;
+
+    public Builder(String project, Serializer keySerializer, Serializer valueSerializer) {
+      this.project = project;
+      this.keySerializer = keySerializer;
+      this.valueSerializer = valueSerializer;
+      setDefaults();
+    }
+
+    private void setDefaults() {
+      // this is where to set 'regular' fields w/o side effects
+      this.batchSize = PubsubProducerConfig.DEFAULT_BATCH_SIZE;
+      this.isAcks = PubsubProducerConfig.DEFAULT_ACKS;
+      this.perTopicBatches = Collections.synchronizedMap(new HashMap<>());
+      this.maxRequestSize = PubsubProducerConfig.DEFAULT_MAX_REQUEST_SIZE;
+      this.time = new SystemTime();
+    }
+
+    public Builder publisherFutureStub(PublisherFutureStub val) { publisher = val; return this; }
+
+    public Builder batchSize(int val) {
+      Preconditions.checkArgument(val > 0);
+      batchSize = val;
+      return this;
+    }
+
+    public Builder isAcks(boolean val) { isAcks = val; return this; }
+
+    public Builder perTopicBatches(Map<String, List<PubsubMessage>> val) { perTopicBatches = val; return this; }
+
+    public Builder maxRequestSize(int val) {
+      Preconditions.checkArgument(val >= 0);
+      maxRequestSize = val;
+      return this;
+    }
+
+    public Builder time(Time val) { time = val; return this; }
+
+    public Builder pubsubChannelUtil(PubsubChannelUtil val) { channelUtil = val; return this; }
+
+    public PubsubProducer build() throws IOException {
+      // this is where to set fields w/ side effects
+      if (channelUtil == null) {
+        this.channelUtil = new PubsubChannelUtil();
+      }
+      if (publisher == null) {
+        this.publisher = PublisherGrpc.newFutureStub(channelUtil.channel()).withCallCredentials(channelUtil.callCredentials());
+      }
+      return new PubsubProducer(this);
+    }
   }
 
   /** Taken from KafkaProducer.java since FutureFailure is private inside that class. */

@@ -25,7 +25,10 @@ public class ProducerThread implements Runnable {
         .isAcks(props.getProperty("acks").matches("1|all"))
     .build();
     this.command = s;
-    this.producer = new PubsubProducer<>(props);
+    //this.producer = new PubsubProducer<>(props);
+    this.producer = new PubsubProducer(new PubsubProducer.Builder(props.getProperty("project"), StringSerializer.class, StringSerializer.class)
+    .batchSize(props.getProperty("batch.size"))
+    .)
     this.topic = topic;
   }
 
