@@ -1,6 +1,7 @@
 package com.google.pubsub.clients;
 
 import com.google.pubsub.clients.producer.PubsubProducer;
+import com.google.pubsub.clients.producer.PubsubProducer.Builder;
 import java.io.IOException;
 import java.util.Properties;
 import org.apache.kafka.common.serialization.StringSerializer;
