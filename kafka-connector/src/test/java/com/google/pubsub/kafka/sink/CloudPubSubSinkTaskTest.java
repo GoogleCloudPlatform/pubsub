@@ -245,8 +245,7 @@ public class CloudPubSubSinkTaskTest {
     Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
     partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
     List<SinkRecord> records = getSampleRecords();
-    ListenableFuture<PublishResponse> badFuture =
-        spy(Futures.immediateFailedFuture(new Exception()));
+    ListenableFuture<PublishResponse> badFuture = spy(Futures.<PublishResponse>immediateFailedFuture(new Exception()));
     when(publisher.publish(any(PublishRequest.class))).thenReturn(badFuture);
     task.put(records);
     task.flush(partitionOffsets);

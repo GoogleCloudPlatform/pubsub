@@ -103,7 +103,7 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testPollInRegularCase() throws Exception {
     task.start(props);
-    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
+    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm1).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -128,12 +128,12 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testPollWithDuplicateReceivedMessages() throws Exception {
     task.start(props);
-    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
+    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm1).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
-    ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<>());
+    ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<String, String>());
     stubbedPullResponse =
         PullResponse.newBuilder().addReceivedMessages(0, rm1).addReceivedMessages(1, rm2).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
@@ -152,7 +152,7 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testPollWithNoMessageKeyAttribute() throws Exception {
     task.start(props);
-    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -251,7 +251,7 @@ public class CloudPubSubSourceTaskTest {
     task.start(props);
     Map<String, String> attributes = new HashMap<>();
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
-    ReceivedMessage withoutKey = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
+    ReceivedMessage withoutKey = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
     ReceivedMessage withKey = createReceivedMessage(ACK_ID2, CPS_MESSAGE, attributes);
     PullResponse stubbedPullResponse =
         PullResponse.newBuilder()
@@ -294,7 +294,7 @@ public class CloudPubSubSourceTaskTest {
         CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
         CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString());
     task.start(props);
-    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -321,10 +321,10 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testPollWithPartitionSchemeRoundRobin() throws Exception {
     task.start(props);
-    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>());
-    ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<>());
-    ReceivedMessage rm3 = createReceivedMessage(ACK_ID3, CPS_MESSAGE, new HashMap<>());
-    ReceivedMessage rm4 = createReceivedMessage(ACK_ID4, CPS_MESSAGE, new HashMap<>());
+    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
+    ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<String, String>());
+    ReceivedMessage rm3 = createReceivedMessage(ACK_ID3, CPS_MESSAGE, new HashMap<String, String>());
+    ReceivedMessage rm4 = createReceivedMessage(ACK_ID4, CPS_MESSAGE, new HashMap<String, String>());
     PullResponse stubbedPullResponse =
         PullResponse.newBuilder()
             .addReceivedMessages(0, rm1)

@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/GoogleCloudPlatform/pubsub.svg?branch=master)](https://travis-ci.org/GoogleCloudPlatform/pubsub) 
+
 This repository contains open-source projects managed by the owners of
 [Google Cloud Pub/Sub](https://cloud.google.com/pubsub/). The projects
 available are:
