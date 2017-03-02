@@ -1,14 +1,15 @@
 package com.google.pubsub.jms.light;
 
-import com.google.auth.oauth2.GoogleCredentials;
-import io.grpc.ManagedChannelBuilder;
+import com.google.api.gax.core.RetrySettings;
+import com.google.api.gax.grpc.FlowControlSettings;
+import com.google.api.gax.grpc.ProviderManager;
+import com.google.common.base.MoreObjects;
+import org.joda.time.Duration;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSContext;
 import javax.jms.JMSException;
-import javax.jms.JMSSecurityException;
-import java.io.IOException;
 
 /**
  * Default PubSub {@link ConnectionFactory} implementation.
@@ -17,24 +18,16 @@ import java.io.IOException;
  */
 public class PubSubConnectionFactory implements ConnectionFactory
 {
-
-  private ManagedChannelBuilder channelBuilder;
-  private GoogleCredentials credentials;
+  private ProviderManager providerManager;
+  private FlowControlSettings flowControlSettings;
+  private RetrySettings retrySettings;
 
   @Override
   public Connection createConnection() throws JMSException
   {
-    PubSubConnection result;
-    try
-    {
-      result = new PubSubConnection(channelBuilder, credentials);
-    }
-    catch (final IOException e)
-    {
-      throw new JMSSecurityException("Credentials are broken or unavailable. " + e.getMessage());
-    }
-
-    return result;
+    return new PubSubConnection(providerManager,
+        MoreObjects.firstNonNull(flowControlSettings, getDefaultFlowControllerSettings()),
+        MoreObjects.firstNonNull(retrySettings, getDefaultRetrySettings()));
   }
 
   @Override
@@ -67,13 +60,37 @@ public class PubSubConnectionFactory implements ConnectionFactory
     return null;
   }
 
-  public void setChannelBuilder(final ManagedChannelBuilder channelBuilder)
+  public void setProviderManager(final ProviderManager providerManager)
   {
-    this.channelBuilder = channelBuilder;
+    this.providerManager = providerManager;
   }
 
-  public void setCredentials(final GoogleCredentials googleCredentials)
+  public void setFlowControlSettings(final FlowControlSettings flowControlSettings)
   {
-    this.credentials = googleCredentials;
+    this.flowControlSettings = flowControlSettings;
+  }
+
+  public void setRetrySettings(final RetrySettings retrySettings)
+  {
+    this.retrySettings = retrySettings;
+  }
+
+  @SuppressWarnings("checkstyle:magicnumber")
+  protected RetrySettings getDefaultRetrySettings()
+  {
+    return RetrySettings.newBuilder()
+        .setTotalTimeout(Duration.standardSeconds(15L))
+        .setInitialRetryDelay(Duration.millis(200))
+        .setRetryDelayMultiplier(2d)
+        .setMaxRetryDelay(Duration.standardSeconds(5L))
+        .setInitialRpcTimeout(Duration.millis(200))
+        .setRpcTimeoutMultiplier(2d)
+        .setMaxRpcTimeout(Duration.standardSeconds(5L))
+        .build();
+  }
+
+  protected FlowControlSettings getDefaultFlowControllerSettings()
+  {
+    return FlowControlSettings.getDefaultInstance();
   }
 }

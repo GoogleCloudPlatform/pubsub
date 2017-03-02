@@ -1,8 +1,9 @@
 package com.google.pubsub.jms.light;
 
-import com.google.auth.oauth2.GoogleCredentials;
+import com.google.api.gax.core.RetrySettings;
+import com.google.api.gax.grpc.FlowControlSettings;
+import com.google.api.gax.grpc.ProviderManager;
 import com.google.common.collect.Sets;
-import io.grpc.ManagedChannelBuilder;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionConsumer;
@@ -13,7 +14,6 @@ import javax.jms.JMSException;
 import javax.jms.ServerSessionPool;
 import javax.jms.Session;
 import javax.jms.Topic;
-import java.io.IOException;
 import java.util.Set;
 
 /**
@@ -27,21 +27,24 @@ public class PubSubConnection implements Connection
   private ExceptionListener exceptionListener;
   private Set<Session> sessions = Sets.newConcurrentHashSet();
 
-  private GoogleCredentials credentials;
-  private ManagedChannelBuilder channelBuilder;
+  private ProviderManager providerManager;
+  private FlowControlSettings flowControlSettings = FlowControlSettings.getDefaultInstance();
+  private RetrySettings retrySettings;
 
   /**
-   * Default constructor.
-   * @param channelBuilder is .
-   * @param credentials .
-   * @throws IOException by credentials lookup process.
+   * Default Connection constructor.
+   * @param providerManager is a channel and executor container. Used by Publisher/Subscriber.
+   * @param flowControlSettings is a flow control: such as max outstanding messages and maximum outstanding bytes.
+   * @param retrySettings is a retry logic configuration.
    */
-  public PubSubConnection(final ManagedChannelBuilder channelBuilder,
-                          final GoogleCredentials credentials)
-      throws IOException
+  public PubSubConnection(
+      final ProviderManager providerManager,
+      final FlowControlSettings flowControlSettings,
+      final RetrySettings retrySettings)
   {
-    this.channelBuilder = channelBuilder;
-    this.credentials = credentials;
+    this.providerManager = providerManager;
+    this.flowControlSettings = flowControlSettings;
+    this.retrySettings = retrySettings;
   }
 
   @Override
@@ -114,16 +117,6 @@ public class PubSubConnection implements Connection
     this.exceptionListener = exceptionListener;
   }
 
-  public ManagedChannelBuilder getChannelBuilder()
-  {
-    return channelBuilder;
-  }
-
-  public GoogleCredentials getCredentials()
-  {
-    return credentials;
-  }
-
   @Override
   public void start() throws JMSException
   {
@@ -143,6 +136,8 @@ public class PubSubConnection implements Connection
     {
       session.close();
     }
+
+    providerManager.shutdown();
   }
 
   @Override
@@ -186,5 +181,20 @@ public class PubSubConnection implements Connection
       throws JMSException
   {
     return null;
+  }
+
+  public FlowControlSettings getFlowControlSettings()
+  {
+    return flowControlSettings;
+  }
+
+  public RetrySettings getRetrySettings()
+  {
+    return retrySettings;
+  }
+
+  public ProviderManager getProviderManager()
+  {
+    return providerManager;
   }
 }

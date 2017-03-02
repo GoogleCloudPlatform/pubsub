@@ -1,28 +1,29 @@
 package com.google.pubsub.jms.light.integration;
 
-import com.google.cloud.pubsub.PubSub;
-import com.google.cloud.pubsub.Subscription;
-import com.google.cloud.pubsub.SubscriptionInfo;
-import com.google.cloud.pubsub.TopicInfo;
-import com.google.cloud.pubsub.testing.LocalPubSubHelper;
+import com.google.cloud.pubsub.deprecated.PubSub;
+import com.google.cloud.pubsub.deprecated.Subscription;
+import com.google.cloud.pubsub.deprecated.SubscriptionInfo;
+import com.google.cloud.pubsub.deprecated.TopicInfo;
+import com.google.cloud.pubsub.deprecated.testing.LocalPubSubHelper;
+import com.google.common.base.Joiner;
 import org.joda.time.Duration;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
+import java.util.logging.Logger;
 
 public class BaseIntegrationTest
 {
-  private static final Logger LOGGER = LoggerFactory.getLogger(BaseIntegrationTest.class);
+  private static final Logger LOGGER = Logger.getLogger(BaseIntegrationTest.class.getName());
 
   public static String PROJECT_ID = "jms-light";
   public static String TOPIC_NAME = "test_topic";
   public static String SUBSCRIPTION_NAME = "test_topic_first";
 
   private static int EMBEDDED_SERVICE_PORT;
+  private static String EMBEDDED_SERVICE_HOST = "127.0.0.1";
   private static LocalPubSubHelper EMBEDDED_PUBSUB_SERVICE;
   private static Subscription SUBSCRIPTION;
 
@@ -35,7 +36,7 @@ public class BaseIntegrationTest
     final PubSub pubSubService = EMBEDDED_PUBSUB_SERVICE.getOptions()
         .toBuilder()
         .setProjectId(PROJECT_ID)
-        .setHost("localhost:" + EMBEDDED_SERVICE_PORT)
+        .setHost(Joiner.on(':').join(getServiceHost(), getServicePort()))
         .build()
         .getService();
 
@@ -44,8 +45,8 @@ public class BaseIntegrationTest
     pubSubService.create(TopicInfo.of(TOPIC_NAME));
     SUBSCRIPTION = pubSubService.create(SubscriptionInfo.of(TOPIC_NAME, SUBSCRIPTION_NAME));
 
-    LOGGER.info("       topics: {}", pubSubService.listTopics().getValues());
-    LOGGER.info("subscriptions: {}", pubSubService.listSubscriptions().getValues());
+    LOGGER.info(String.format("       topics: %s", pubSubService.listTopics().getValues()));
+    LOGGER.info(String.format("subscriptions: %s", pubSubService.listSubscriptions().getValues()));
   }
 
   @AfterClass
@@ -54,17 +55,17 @@ public class BaseIntegrationTest
     EMBEDDED_PUBSUB_SERVICE.stop(Duration.standardSeconds(10L));
   }
 
-  public String getServiceHost()
+  public static String getServiceHost()
   {
-    return "localhost";
+    return EMBEDDED_SERVICE_HOST;
   }
 
-  public int getServicePort()
+  public static int getServicePort()
   {
     return EMBEDDED_SERVICE_PORT;
   }
 
-  public Subscription getServiceSubscription()
+  public static Subscription getServiceSubscription()
   {
     return SUBSCRIPTION;
   }

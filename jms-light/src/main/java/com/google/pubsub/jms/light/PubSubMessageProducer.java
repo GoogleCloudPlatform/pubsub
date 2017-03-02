@@ -1,12 +1,11 @@
 package com.google.pubsub.jms.light;
 
-import com.google.cloud.pubsub.Publisher;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
+import com.google.api.gax.core.RpcFuture;
+import com.google.api.gax.core.RpcFutureCallback;
+import com.google.cloud.pubsub.spi.v1.Publisher;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import com.google.pubsub.v1.TopicName;
 
 import javax.jms.CompletionListener;
 import javax.jms.Destination;
@@ -16,6 +15,9 @@ import javax.jms.JMSException;
 import javax.jms.Message;
 import javax.jms.Session;
 import javax.jms.Topic;
+import java.io.IOException;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * Default PubSub {@link javax.jms.MessageProducer} implementation.
@@ -24,7 +26,7 @@ import javax.jms.Topic;
  */
 public class PubSubMessageProducer extends AbstractMessageProducer
 {
-  private static final Logger LOGGER = LoggerFactory.getLogger(PubSubMessageProducer.class);
+  private static final Logger LOGGER = Logger.getLogger(PubSubMessageProducer.class.getName());
   private Publisher publisher;
 
   /**
@@ -57,29 +59,30 @@ public class PubSubMessageProducer extends AbstractMessageProducer
 
     if (!getDestination().equals(destination))
     {
-      throw new IllegalArgumentException("Destination [" + destination + "] is invalid. Expected ["
-          + getDestination() + "].");
+      throw new IllegalArgumentException("Destination [" + destination
+          + "] is invalid. Expected [" + getDestination() + "].");
     }
 
-    Futures.addCallback(publisher.publish(
+    final RpcFuture<String> messageIdFuture = publisher.publish(
         PubsubMessage.newBuilder()
             .setData(ByteString.copyFromUtf8(message.getBody(String.class)))
-            .build()),
-        new FutureCallback<String>()
+            .build());
+
+    messageIdFuture.addCallback(
+        new RpcFutureCallback<String>()
         {
-          @Override
-          public void onSuccess(final String messageId)
+          @Override public void onSuccess(final String messageId)
           {
+            LOGGER.fine(String.format("%s has been sent successfully.", messageId));
             if (null != completionListener)
             {
               completionListener.onCompletion(message);
             }
           }
 
-          @Override
-          public void onFailure(final Throwable thrown)
+          @Override public void onFailure(final Throwable thrown)
           {
-            LOGGER.error("Message sending error:", thrown);
+            LOGGER.log(Level.SEVERE, "Message sending error:", thrown);
             if (null != completionListener)
             {
               completionListener.onException(message, (Exception) thrown);
@@ -91,6 +94,7 @@ public class PubSubMessageProducer extends AbstractMessageProducer
   protected Publisher createPublisher(final Destination destination) throws JMSException
   {
     final Publisher result;
+
     if (destination instanceof Topic)
     {
       result = createPublisher((Topic) destination);
@@ -103,20 +107,40 @@ public class PubSubMessageProducer extends AbstractMessageProducer
     return result;
   }
 
-  protected Publisher createPublisher(final Topic topic)
-      throws JMSException
+  protected Publisher createPublisher(final Topic topic) throws JMSException
   {
     final PubSubConnection connection = ((PubSubSession) getSession()).getConnection();
-    return Publisher.Builder.newBuilder(topic.getTopicName())
-        .setChannelBuilder(connection.getChannelBuilder())
-        .setCredentials(connection.getCredentials())
-        .build();
+    try
+    {
+      return Publisher
+          .newBuilder(TopicName.parse(topic.getTopicName()))
+          .setChannelProvider(connection.getProviderManager())
+          .setExecutorProvider(connection.getProviderManager())
+          .setFlowControlSettings(connection.getFlowControlSettings())
+          .setRetrySettings(connection.getRetrySettings())
+          .build();
+    }
+    catch (final IOException e)
+    {
+      LOGGER.log(Level.SEVERE, "Can't create publisher.", e);
+      throw new JMSException(e.getMessage());
+    }
   }
 
+  @SuppressWarnings("PMD.AvoidCatchingGenericException")
   @Override
   public synchronized void close() throws JMSException
   {
     super.close();
-    publisher.shutdown();
+
+    try
+    {
+      publisher.shutdown();
+    }
+    catch (final Exception e)
+    {
+      LOGGER.log(Level.SEVERE, "Can't close message producer.", e);
+      throw new JMSException(e.getMessage());
+    }
   }
 }

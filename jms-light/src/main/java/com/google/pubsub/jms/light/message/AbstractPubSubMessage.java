@@ -1,11 +1,10 @@
 package com.google.pubsub.jms.light.message;
 
 import com.google.common.base.Charsets;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.jms.Destination;
 import javax.jms.JMSException;
+import java.util.logging.Logger;
 
 /**
  * Default PubSub {@link javax.jms.Message} implementation.
@@ -14,7 +13,7 @@ import javax.jms.JMSException;
  */
 public abstract class AbstractPubSubMessage extends AbstractPropertyMessage
 {
-  private static final Logger LOGGER = LoggerFactory.getLogger(AbstractPubSubMessage.class);
+  private static final Logger LOGGER = Logger.getLogger(AbstractPubSubMessage.class.getName());
 
   private boolean acknowledged;
   private String jmsMessageId;
@@ -35,7 +34,7 @@ public abstract class AbstractPubSubMessage extends AbstractPropertyMessage
     if (acknowledged)
     {
       //TODO: seems as exceptional state.
-      LOGGER.warn("Message already acknowledged. [" + getJMSMessageID() + "]");
+      LOGGER.warning("Message already acknowledged. [" + getJMSMessageID() + "]");
     }
     else
     {

@@ -32,7 +32,10 @@
   <module name="RegexpMultiline">
     <property name="format" value="(new Date)|(new java.util.Date)|(Calendar.getInstance().getTime)|(System.nanoTime)|(System.currentTimeMillis)"/>
   </module>
+  <module name="SuppressWarningsFilter"/>
+
   <module name="TreeWalker">
+    <module name="SuppressWarningsHolder"/>
     <property name="tabWidth" value="2"/>
 
     <module name="AvoidStarImport"/>
@@ -153,7 +156,9 @@
     <module name="WhitespaceAround"/>
     <module name="FinalClass"/>
     <module name="MissingSwitchDefault"/>
-    <module name="MagicNumber"/>
+    <module name="MagicNumber">
+      <property name="id" value="checkstyle:magicnumber"/>
+    </module>
     <module name="Indentation">
       <property name="basicOffset" value="2"/>
       <property name="braceAdjustment" value="0"/>
