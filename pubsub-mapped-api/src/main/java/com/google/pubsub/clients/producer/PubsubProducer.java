@@ -16,6 +16,7 @@
 package com.google.pubsub.clients.producer;
 
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -26,7 +27,6 @@ import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.common.PubsubChannelUtil;
-import java.io.IOError;
 import java.io.IOException;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.clients.producer.Callback;
@@ -83,14 +83,14 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
   private PubsubProducer(Builder builder) {
     publisher = builder.publisher;
     project = builder.project;
-    keySerializer = builder.keySerializer;
-    valueSerializer = builder.valueSerializer;
     batchSize = builder.batchSize;
     isAcks = builder.isAcks;
     perTopicBatches = builder.perTopicBatches;
     maxRequestSize = builder.maxRequestSize;
     time = builder.time;
     channelUtil = builder.channelUtil;
+    keySerializer = builder.keySerializer;
+    valueSerializer = builder.valueSerializer;
   }
 
   public PubsubProducer(Map<String, Object> configs) {
@@ -165,7 +165,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
    * Send a record and invoke the given callback when the record has been acknowledged by the server
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> record, Callback callback) {
-    log.info("Received " + record.toString());
+    log.trace("Received " + record.toString());
     if (closed) {
       throw new RuntimeException("Publisher is closed");
     }
@@ -252,7 +252,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
   private void checkRecordSize(int size) {
     if (size > this.maxRequestSize) {
-      throw new RecordTooLargeException("Messge is " + size + " bytes which is larger than max request size you have"
+      throw new RecordTooLargeException("Message is " + size + " bytes which is larger than max request size you have"
           + " configured");
     }
   }
@@ -308,10 +308,10 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     closed = true;
   }
 
-  public static class Builder {
+  public static class Builder<K, V> {
     private final String project;
-    private final Serializer keySerializer;
-    private final Serializer valueSerializer;
+    private final Serializer<K> keySerializer;
+    private final Serializer<V> valueSerializer;
 
     private PubsubChannelUtil channelUtil;
     private PublisherFutureStub publisher;
@@ -321,7 +321,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     private int maxRequestSize;
     private Time time;
 
-    public Builder(String project, Serializer keySerializer, Serializer valueSerializer) {
+    public Builder(String project, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
+      Preconditions.checkArgument(project != null && keySerializer != null && valueSerializer != null);
       this.project = project;
       this.keySerializer = keySerializer;
       this.valueSerializer = valueSerializer;
