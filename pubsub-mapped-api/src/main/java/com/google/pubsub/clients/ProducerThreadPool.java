@@ -16,8 +16,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 public class ProducerThreadPool {
   private static final Logger log = LoggerFactory.getLogger(ProducerThreadPool.class);
 
-
-  public static void main(String[] args) {
+  public static void main(String[] args) throws IOException {
     ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder();
     threadFactoryBuilder.setNameFormat("pubsub-producer-thread");
     threadFactoryBuilder.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
@@ -34,8 +33,8 @@ public class ProducerThreadPool {
         .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("acks", "all")
-        .put("batch.size", 20)
-        .put("linger.ms", 1)
+        .put("batch.size", "1")
+        .put("linger.ms", "1")
         .build()
     );
 
