@@ -2,6 +2,7 @@ package com.google.pubsub.clients;
 
 import com.google.pubsub.clients.producer.PubsubProducer;
 import java.util.Properties;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -18,7 +19,10 @@ public class ProducerThread implements Runnable {
 
   public ProducerThread(String s, Properties props, String topic) {
     this.command = s;
-    this.producer = new PubsubProducer<>(props);
+    //this.producer = new PubsubProducer<>(props);
+    this.producer = new PubsubProducer(new PubsubProducer.Builder(props.getProperty("project"), StringSerializer.class, StringSerializer.class)
+    .batchSize(props.getProperty("batch.size"))
+    .)
     this.topic = topic;
   }
 

@@ -47,10 +47,6 @@ public class PubsubChannelUtil {
     channel = NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
   }
 
-  public PublisherFutureStub createPublisherFutureStub() {
-    return PublisherGrpc.newFutureStub(channel).withCallCredentials(callCredentials);
-  }
-
   public CallCredentials callCredentials() {
     return callCredentials;
   }
