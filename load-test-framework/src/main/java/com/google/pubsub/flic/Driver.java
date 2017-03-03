@@ -193,6 +193,12 @@ public class Driver {
   private String broker;
 
   @Parameter(
+      names = {"--zookeeper_ip_address"},
+      description = "The network addresses of the Zookeeper clients, comma separated."
+  )
+  private String zookeeperIpAddress = "";
+
+  @Parameter(
     names = {"--request_rate"},
     description = "The rate at which each client will make requests (batches per second)."
   )
@@ -312,6 +318,20 @@ public class Driver {
   )
   private boolean verbose = false;
 
+  @Parameter(
+      names = {"--replication_factor"},
+      description = "The replication factor to use in creating a Kafka topic, if the Kafka broker"
+          + "is included as a flag."
+  )
+  private int replicationFactor = 2;
+
+  @Parameter(
+      names = {"--partitions"},
+      description = "The number of partitions to use in creating a Kafka topic, if the "
+          + "Kafka broker is included as a flag."
+  )
+  private int partitions = 100;
+
   private Controller controller;
 
   public static void main(String[] args) {
@@ -372,7 +392,6 @@ public class Driver {
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0),
           "If using Kafka you must provide the network address of your broker using the"
               + "--broker flag.");
-
       if (maxPublishLatencyTest) {
         Preconditions.checkArgument(
             clientParamsMap.size() == 1,
@@ -408,11 +427,14 @@ public class Driver {
       Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
       Client.pollDuration = kafkaPollDuration;
       Client.broker = broker;
+      Client.zookeeperIpAddress = zookeeperIpAddress;
       Client.requestRate = requestRate;
       Client.maxOutstandingRequests = maxOutstandingRequests;
       Client.numberOfMessages = numberOfMessages;
       Client.burnInDuration = burnInDuration;
       Client.publishBatchDuration = publishBatchDuration;
+      Client.partitions = partitions;
+      Client.replicationFactor = replicationFactor;
 
       // Start a thread to poll and output results.
       ScheduledExecutorService pollingExecutor = Executors.newSingleThreadScheduledExecutor();
@@ -485,6 +507,7 @@ public class Driver {
       new SheetsService(dataStoreDirectory, controller.getTypes())
           .sendToSheets(spreadsheetId, statsMap);
     }
+
     return statsMap;
   }
 
