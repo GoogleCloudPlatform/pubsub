@@ -16,45 +16,109 @@
  */
 package com.google.pubsub.clients.producer;
 
-import com.google.common.collect.ImmutableMap;
-import java.util.StringTokenizer;
-import java.util.concurrent.ExecutionException;
+import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import static org.powermock.api.easymock.PowerMock.createMock;
+import com.google.pubsub.clients.producer.PubsubProducer.Builder;
+import com.google.pubsub.common.PubsubChannelUtil;
+import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
+import java.io.IOException;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.serialization.ByteArraySerializer;
-import org.apache.kafka.common.config.ConfigException;
-
-
-import org.junit.Assert;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.Before;
 import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.Mock;
+import org.mockito.Mockito;
+import org.mockito.MockitoAnnotations;
+import org.mockito.invocation.InvocationOnMock;
+import org.mockito.stubbing.Answer;
+import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-
+//@RunWith(PowerMockRunner.class)
+//@PrepareForTest(PublisherFutureStub.class)
 public class PubsubProducerTest {
 
   private static final String TOPIC = "testTopic";
   private static final String MESSAGE = "testMessage";
+  private static final String PROJECT = "unit-test-proj";
+  private static final StringSerializer testSerializer = new StringSerializer();
+  private static final ProducerRecord testRecord = new ProducerRecord(TOPIC, MESSAGE);
+
+   private static PublisherFutureStub mockStub;
+  @Mock private static PubsubChannelUtil mockChannelUtil;
+
+  private boolean channelIsClosed;
+
+
+  @Before
+  public void setUp() {
+  //  mockStub = createMock(PublisherFutureStub.class);
+    MockitoAnnotations.initMocks(this);
+    channelIsClosed = false;
+
+    Mockito.doAnswer(new Answer() {
+      @Override
+      public Object answer(InvocationOnMock invocationOnMock) throws Throwable {
+        return channelIsClosed = true;
+      }
+    }).when(mockChannelUtil).closeChannel();
+  }
 
   /* send() tests */
   @Test
-  public void testSendPublisherClosed() {
-    // mock the PublisherFutureStub
+  public void testSendPublisherClosed() throws IOException {
+   /* PubsubProducer testProducer = getNewProducer();
+    testProducer.close();
 
-    // mock the PubsubChannelUtil
-    // construct using testing constructor, every other param normal
+    try {
+      testProducer.send(testRecord);
+      fail("Should have thrown a runtime exception.");
+    } catch (RuntimeException expected) {
+      assertTrue("Channel should be closed.", channelIsClosed);
+    }*/
   }
 
-  private PubsubProducer getNewProducer() {
-    Properties props = new Properties();
-    props.putAll(new ImmutableMap.Builder<>()
-        .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-        .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-        .put("project", "dataproc-kafka-test")
-        .build()
-    );
+  @Test
+  public void testSendRecordTooLarge() {
 
-    return new PubsubProducer(props);
+  }
+
+  @Test
+  public void testSendBatchFull() {
+
+  }
+
+  /* This happens when the batch size is > 1 and not enough messages are batched */
+  @Test
+  public void testSendMessageNotSentYet() {
+
+  }
+
+  /* flush() tests */
+  @Test
+  public void testFlushMessagesSent() {
+
+  }
+
+  /* close() tests */
+  @Test
+  public void testCloseTimeoutLessThanZero() {
+
+  }
+
+  @Test
+  public void testCloseChannelCloseSuccessful() {
+
+  }
+
+  private PubsubProducer getNewProducer() throws IOException {
+
+    return new Builder<>(PROJECT, testSerializer, testSerializer)
+        .publisherFutureStub(mockStub)
+        .pubsubChannelUtil(mockChannelUtil)
+        .build();
   }
 
 }

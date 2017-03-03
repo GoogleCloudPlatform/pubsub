@@ -14,6 +14,11 @@
       <version>0.2-EXPERIMENTAL</version>
     </dependency>
     <dependency>
+      <groupId>com.google.pubsub</groupId>
+      <artifactId>pubsub-mapped-api</artifactId>
+      <version>1.0-SNAPSHOT</version>
+    </dependency>
+    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.12</version>
