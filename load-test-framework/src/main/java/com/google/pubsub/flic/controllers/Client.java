@@ -116,6 +116,8 @@ public class Client {
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
         return "kafka";
+      case MAPPED_PUBLISHER:
+        return "mapped";
     }
     return null;
   }
@@ -301,7 +303,8 @@ public class Client {
     CPS_GCLOUD_PYTHON_PUBLISHER,
     CPS_VTK_JAVA_PUBLISHER,
     KAFKA_PUBLISHER,
-    KAFKA_SUBSCRIBER;
+    KAFKA_SUBSCRIBER,
+    MAPPED_PUBLISHER;
 
     public boolean isCpsPublisher() {
       switch (this) {

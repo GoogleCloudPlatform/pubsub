@@ -27,7 +27,6 @@ import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.common.PubsubChannelUtil;
-import java.io.IOException;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
@@ -360,7 +359,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
     public Builder pubsubChannelUtil(PubsubChannelUtil val) { channelUtil = val; return this; }
 
-    public PubsubProducer build() throws IOException {
+    public PubsubProducer build() {
       // this is where to set fields w/ side effects
       if (channelUtil == null) {
         this.channelUtil = new PubsubChannelUtil();

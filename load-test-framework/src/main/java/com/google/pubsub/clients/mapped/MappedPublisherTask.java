@@ -4,7 +4,6 @@ import com.beust.jcommander.JCommander;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.clients.common.LoadTestRunner;
-import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.MetricsHandler.MetricName;
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.clients.producer.PubsubProducer;
@@ -29,7 +28,7 @@ public class MappedPublisherTask extends Task {
   private final PubsubProducer<String, String> publisher;
 
   @SuppressWarnings("unchecked")
-  private MappedPublisherTask(StartRequest request) throws IOException {
+  private MappedPublisherTask(StartRequest request) {
     super(request, "mapped", MetricName.PUBLISH_ACK_LATENCY);
     this.topic = request.getTopic();
     this.payload = LoadTestRunner.createMessage(request.getMessageSize());
