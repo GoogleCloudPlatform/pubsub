@@ -42,7 +42,7 @@ public class AdapterTask extends Task {
                 .usePlaintext(true)
                 .build());
     try {
-      stub.start(request);
+      stub.start(request).get();
     } catch (Throwable t) {
       throw new RuntimeException("Unable to start server.", t);
     }
