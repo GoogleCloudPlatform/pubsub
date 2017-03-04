@@ -170,6 +170,8 @@ public class SheetsService {
           valueRow.add(kafkaSubscriberCount);
           kafkaValues.add(valueRow);
           break;
+        case MAPPED_PUBLISHER:
+          return;
         default:
           throw new IllegalArgumentException("Type " + type + " in results map was not expected.");
       }

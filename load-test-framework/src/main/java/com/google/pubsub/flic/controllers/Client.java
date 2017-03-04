@@ -198,6 +198,7 @@ public class Client {
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
       case CPS_VTK_JAVA_PUBLISHER:
+      case MAPPED_PUBLISHER:
         break;
     }
     StartRequest request = requestBuilder.build();
@@ -334,6 +335,7 @@ public class Client {
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
         case KAFKA_PUBLISHER:
+        case MAPPED_PUBLISHER:
           return true;
         default:
           return false;
@@ -347,6 +349,7 @@ public class Client {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
+        case MAPPED_PUBLISHER:
           return CPS_GCLOUD_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;

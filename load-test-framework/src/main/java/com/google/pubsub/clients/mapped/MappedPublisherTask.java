@@ -8,7 +8,6 @@ import com.google.pubsub.clients.common.MetricsHandler.MetricName;
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.clients.producer.PubsubProducer;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
-import java.io.IOException;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringSerializer;
