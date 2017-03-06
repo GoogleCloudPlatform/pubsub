@@ -12,9 +12,6 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-<<<<<<< HEAD:mapped-api/clients/src/main/java/com/google/kafka/clients/consumer/PubsubConsumer.java
-package com.google.kafka.cients.consumer;
-=======
 
 package com.google.pubsub.clients.consumer;
 

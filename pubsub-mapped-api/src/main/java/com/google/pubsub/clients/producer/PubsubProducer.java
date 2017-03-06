@@ -360,7 +360,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
     public Builder pubsubChannelUtil(PubsubChannelUtil val) { channelUtil = val; return this; }
 
-    public PubsubProducer build() throws IOException {
+    public PubsubProducer build() {
       // this is where to set fields w/ side effects
       if (channelUtil == null) {
         this.channelUtil = new PubsubChannelUtil();
