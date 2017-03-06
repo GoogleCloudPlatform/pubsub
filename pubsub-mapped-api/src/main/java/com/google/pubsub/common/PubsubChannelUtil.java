@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 
 /** Sets up the pub/sub grpc functionality  */
 public class PubsubChannelUtil {
+
   private static final Logger log = LoggerFactory.getLogger(PubsubChannelUtil.class);
   private static final String ENDPOINT = "pubsub.googleapis.com";
   private static final List<String> CPS_SCOPE = Arrays.asList("https://www.googleapis.com/auth/pubsub");
@@ -44,8 +45,7 @@ public class PubsubChannelUtil {
   public PubsubChannelUtil() {
     GoogleCredentials credentials;
     try {
-      credentials = GoogleCredentials.getApplicationDefault()
-          .createScoped(CPS_SCOPE);
+      credentials = GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE);
     } catch (IOException exception) {
       log.error("Exception occurred: " + exception.getMessage());
       return;
