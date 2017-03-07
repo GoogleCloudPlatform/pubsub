@@ -78,6 +78,7 @@ public class SheetsService {
       cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) : 0;
       cpsPublisherCount += (countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER): 0;
       cpsPublisherCount += (countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER) : 0;
+      cpsPublisherCount += (countMap.get(ClientType.CPS_MAPPED_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_MAPPED_JAVA_PUBLISHER) : 0;
       cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER): 0;
       cpsSubscriberCount += (countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER): 0;
       kafkaPublisherCount += (countMap.get(ClientType.KAFKA_PUBLISHER) != null) ? countMap.get(ClientType.KAFKA_PUBLISHER) : 0;
@@ -170,7 +171,7 @@ public class SheetsService {
           valueRow.add(kafkaSubscriberCount);
           kafkaValues.add(valueRow);
           break;
-        case MAPPED_PUBLISHER:
+        case CPS_MAPPED_JAVA_PUBLISHER:
           return;
         default:
           throw new IllegalArgumentException("Type " + type + " in results map was not expected.");

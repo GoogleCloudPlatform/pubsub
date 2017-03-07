@@ -37,7 +37,6 @@ public class SheetsServiceTest {
     Map<String, Map<ClientParams, Integer>> types = new HashMap<>();
     int expectedCpsCount = 0;
     int expectedKafkaCount = 0;
-    int expectedMappedCount = 0;
     Map<ClientParams, Integer> paramsMap = new HashMap<>();
     for (ClientType type : ClientType.values()) {
       paramsMap.put(new ClientParams(type, ""), 1);
@@ -45,10 +44,8 @@ public class SheetsServiceTest {
         expectedCpsCount++;
       } else if (type.toString().startsWith("kafka")) {
         expectedKafkaCount++;
-      } else if (type.toString().startsWith("mapped")) {
-        expectedMappedCount++;
       } else {
-        fail("ClientType toString didn't start with cps, mapped, or kafka");
+        fail("ClientType toString didn't start with cps or kafka");
       }
     }
     types.put("zone-test", paramsMap);
