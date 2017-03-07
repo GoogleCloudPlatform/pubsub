@@ -18,16 +18,16 @@ import org.slf4j.LoggerFactory;
  * Runs a task that publishes messages utilizing Pub/Sub's implementation of the Kafka Producer<K,V>
  * interface
  */
-public class MappedPublisherTask extends Task {
+public class CPSPublisherTask extends Task {
 
-  private static final Logger log = LoggerFactory.getLogger(MappedPublisherTask.class);
+  private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
   private final String topic;
   private final String payload;
   private final int batchSize;
   private final PubsubProducer<String, String> publisher;
 
   @SuppressWarnings("unchecked")
-  private MappedPublisherTask(StartRequest request) {
+  private CPSPublisherTask(StartRequest request) {
     super(request, "mapped", MetricName.PUBLISH_ACK_LATENCY);
     this.topic = request.getTopic();
     this.payload = LoadTestRunner.createMessage(request.getMessageSize());
@@ -43,7 +43,7 @@ public class MappedPublisherTask extends Task {
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options options = new LoadTestRunner.Options();
     new JCommander(options, args);
-    LoadTestRunner.run(options, MappedPublisherTask::new);
+    LoadTestRunner.run(options, CPSPublisherTask::new);
   }
 
   @Override
@@ -66,4 +66,7 @@ public class MappedPublisherTask extends Task {
     }
     return result;
   }
+
+  @Override
+  public void shutdown() { publisher.close(); }
 }
