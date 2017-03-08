@@ -16,7 +16,6 @@
 package com.google.pubsub.clients.producer;
 
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -27,7 +26,6 @@ import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.common.PubsubChannelUtil;
-import java.io.IOException;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
