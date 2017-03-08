@@ -75,7 +75,7 @@ public class LoadTestRunner {
             100,
             TimeUnit.SECONDS,
             new ArrayBlockingQueue<Runnable>(poolSize),
-            new ThreadPoolExecutor.DiscardPolicy());
+            new ThreadPoolExecutor.CallerRunsPolicy());
 
     final long toSleep = request.getStartTime().getSeconds() * 1000 - System.currentTimeMillis();
     if (toSleep > 0) {
