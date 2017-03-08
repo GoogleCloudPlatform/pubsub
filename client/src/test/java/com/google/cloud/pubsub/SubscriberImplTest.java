@@ -220,6 +220,8 @@ public class SubscriberImplTest {
 
     // Trigger nack sending
     subscriber.stopAsync().awaitTerminated();
+    // TODO: it's really unstable test and cause of most travis failures. To solve it I decided to use sleep at the time. But we should find a real reason of it or modify requirements.
+    Thread.sleep(200L);
 
     assertEquivalent(
         ImmutableList.of(new ModifyAckDeadline("A", 0)),

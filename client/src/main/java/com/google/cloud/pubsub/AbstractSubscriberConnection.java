@@ -310,7 +310,10 @@ abstract class AbstractSubscriberConnection extends AbstractService {
 
   private void addOutstadingAckHandlers(
       ExpirationInfo expiration, final List<AckHandler> ackHandlers) {
-    outstandingAckHandlers.putIfAbsent(expiration, new ArrayList<AckHandler>(ackHandlers.size()));
+    if (outstandingAckHandlers.get(expiration) == null)
+    {
+      outstandingAckHandlers.put(expiration, new ArrayList<AckHandler>(ackHandlers.size()));
+    }
     outstandingAckHandlers.get(expiration).addAll(ackHandlers);
   }
 
