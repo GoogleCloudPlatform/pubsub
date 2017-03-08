@@ -1,12 +1,17 @@
 language: java
-jdk:
-  - oraclejdk8
 
-install:
-- mvn -f kafka-connector/pom.xml package
-- mvn -f load-test-framework/pom.xml package
-- mvn -f client/pom.xml package
+matrix:
+  include:
+    - os: linux
+      jdk: oraclejdk8
+    - os: linux
+      jdk: oraclejdk7
+    - os: linux
+      jdk: openjdk7
 
 script:
-- ls
-
+  - mvn -q -B -f jms-light/pom.xml clean verify
+  - mvn -q -B -f kafka-connector/pom.xml clean verify
+  - mvn -q -B -f client/pom.xml clean verify -Dmaven.javadoc.skip=true -Dgpg.skip=true -Djava.util.logging.config.file=client/src/test/resources/logging.properties
+  - jdk_switcher use oraclejdk8
+  - mvn -q -B -f load-test-framework/pom.xml clean verify

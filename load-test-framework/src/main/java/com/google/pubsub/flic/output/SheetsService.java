@@ -74,14 +74,14 @@ public class SheetsService {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
           collect(Collectors.groupingBy(
               ClientParams::getClientType, Collectors.summingInt(t -> 1)));
-      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER);
-      cpsPublisherCount += countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER);
-      cpsPublisherCount += countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER);
-      cpsPublisherCount += countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER);
-      cpsSubscriberCount += countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER);
-      cpsSubscriberCount += countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER);
-      kafkaPublisherCount += countMap.get(ClientType.KAFKA_PUBLISHER);
-      kafkaSubscriberCount += countMap.get(ClientType.KAFKA_PUBLISHER);
+      cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER) : 0;
+      cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) : 0;
+      cpsPublisherCount += (countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER): 0;
+      cpsPublisherCount += (countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER) : 0;
+      cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER): 0;
+      cpsSubscriberCount += (countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER): 0;
+      kafkaPublisherCount += (countMap.get(ClientType.KAFKA_PUBLISHER) != null) ? countMap.get(ClientType.KAFKA_PUBLISHER) : 0;
+      kafkaSubscriberCount += (countMap.get(ClientType.KAFKA_SUBSCRIBER) != null) ? countMap.get(ClientType.KAFKA_SUBSCRIBER) : 0;
     });
   }
 
@@ -123,7 +123,7 @@ public class SheetsService {
       service.spreadsheets().values().append(sheetId, "Kafka",
           new ValueRange().setValues(values.get(1))).setValueInputOption("USER_ENTERED").execute();
     } catch (IOException e) {
-      log.error("Error publishing to spreadsheet: " + sheetId);
+      log.error("Error publishing to spreadsheet " + sheetId + ": " + e);
     }
   }
 
@@ -188,9 +188,9 @@ public class SheetsService {
       valueRow.add(new DecimalFormat("#.##").format(
           (double) LongStream.of(
               stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 95.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
-      valueRow.add(LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
+      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 50.0));
+      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.0));
+      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9));
     });
     List<List<List<Object>>> out = new ArrayList<>();
     out.add(cpsValues);
