@@ -1,17 +1,18 @@
-/**
- * Licensed to the Apache Software Foundation (ASF) under one or more contributor license
- * agreements. See the NOTICE file distributed with this work for additional information regarding
- * copyright ownership. The ASF licenses this file to You under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance with the License. You may obtain a
- * copy of the License at
- *
- * http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
- */
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////////
 
 package com.google.pubsub.clients.producer;
 
@@ -97,7 +98,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
   public PubsubProducer(Map<String, Object> configs, Serializer<K> keySerializer,
       Serializer<V> valueSerializer) {
-    this(new PubsubProducerConfig(PubsubProducerConfig.addSerializerToConfig(configs, keySerializer, valueSerializer)),
+    this(new PubsubProducerConfig(
+            PubsubProducerConfig.addSerializerToConfig(configs, keySerializer, valueSerializer)),
         keySerializer, valueSerializer);
   }
 
@@ -107,16 +109,19 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
   public PubsubProducer(Properties properties, Serializer<K> keySerializer,
       Serializer<V> valueSerializer) {
-    this(new PubsubProducerConfig(PubsubProducerConfig.addSerializerToConfig(properties, keySerializer, valueSerializer)),
+    this(new PubsubProducerConfig(
+            PubsubProducerConfig.addSerializerToConfig(properties, keySerializer, valueSerializer)),
         keySerializer, valueSerializer);
   }
 
-  private PubsubProducer(PubsubProducerConfig configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
+  private PubsubProducer(PubsubProducerConfig configs, Serializer<K> keySerializer,
+      Serializer<V> valueSerializer) {
     try {
       log.trace("Starting the Pubsub producer");
       this.time = new SystemTime();
       channelUtil = new PubsubChannelUtil();
-      publisher = PublisherGrpc.newFutureStub(channelUtil.channel()).withCallCredentials(channelUtil.callCredentials());
+      publisher = PublisherGrpc.newFutureStub(channelUtil.channel())
+          .withCallCredentials(channelUtil.callCredentials());
 
       if (keySerializer == null) {
         this.keySerializer =
@@ -150,17 +155,14 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
   }
 
   /**
-   * Send the given record asynchronously and return a future which will eventually contain the response information.
-   *
-   * @param record The record to send
-   * @return A future which will eventually contain the response information
+   * Sends the given record.
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> record) {
     return send(record, null);
   }
 
   /**
-   * Send a record and invoke the given callback when the record has been acknowledged by the server
+   * Sends the given record and invokes the specified callback.
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> record, Callback callback) {
     log.trace("Received " + record.toString());
@@ -174,7 +176,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     byte[] serializedKey = ByteString.EMPTY.toByteArray();
     if (record.key() != null) {
       serializedKey = this.keySerializer.serialize(topic, record.key());
-      attributes.put(channelUtil.KEY_ATTRIBUTE, new String(serializedKey, StandardCharsets.ISO_8859_1));
+      attributes
+          .put(channelUtil.KEY_ATTRIBUTE, new String(serializedKey, StandardCharsets.ISO_8859_1));
     }
 
     if (project == null) {
@@ -190,9 +193,9 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
     PubsubMessage message =
         PubsubMessage.newBuilder()
-          .setData(ByteString.copyFrom(valueBytes))
-          .putAllAttributes(attributes)
-          .build();
+            .setData(ByteString.copyFrom(valueBytes))
+            .putAllAttributes(attributes)
+            .build();
     List<PubsubMessage> batch = perTopicBatches.get(topic);
     if (batch == null) {
       batch = new ArrayList<>(batchSize);
@@ -203,20 +206,22 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     long timestamp = record.timestamp() == null ? time.milliseconds() : record.timestamp();
     RecordAccumulator.RecordAppendResult result = new RecordAppendResult(
         new FutureRecordMetadata(new ProduceRequestResult(), 0,
-            timestamp, 0, serializedKey.length, valueBytes.length), batch.size() == batchSize, false);
+            timestamp, 0, serializedKey.length, valueBytes.length), batch.size() == batchSize,
+        false);
     if (result.batchIsFull) {
       log.trace("Sending a batch of messages.");
       PublishRequest request =
           PublishRequest.newBuilder()
-            .setTopic(String.format(channelUtil.CPS_TOPIC_FORMAT, project, topic))
-            .addAllMessages(batch)
-            .build();
+              .setTopic(String.format(channelUtil.CPS_TOPIC_FORMAT, project, topic))
+              .addAllMessages(batch)
+              .build();
       doSend(request, callback, result);
     }
     return result.future;
   }
 
-  private Future<RecordMetadata> doSend(PublishRequest request, Callback callback, RecordAppendResult result) {
+  private Future<RecordMetadata> doSend(PublishRequest request, Callback callback,
+      RecordAppendResult result) {
     try {
       ListenableFuture<PublishResponse> response = publisher.publish(request);
       if (callback != null) {
@@ -243,58 +248,58 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
         perTopicBatches.clear();
       }
     } catch (InterruptedException | ExecutionException e) {
-      return new FutureFailure(e);
+      log.error("Exception occurred during send: " + e);
+      return null;
     }
     return result.future;
   }
 
   private void checkRecordSize(int size) {
     if (size > this.maxRequestSize) {
-      throw new RecordTooLargeException("Message is " + size + " bytes which is larger than max request size you have"
-          + " configured");
+      throw new RecordTooLargeException(
+          "Message is " + size + " bytes which is larger than max request size you have"
+              + " configured");
     }
   }
 
   /**
-   * Flush any accumulated records from the producer. Blocks until all sends are complete.
+   * Flushes records that have accumulated.
    */
   public void flush() {
     log.debug("Flushing...");
     for (String topic : perTopicBatches.keySet()) {
       PublishRequest request =
           PublishRequest.newBuilder()
-            .setTopic(String.format(channelUtil.CPS_TOPIC_FORMAT, project, topic))
-            .addAllMessages(perTopicBatches.get(topic))
-            .build();
+              .setTopic(String.format(channelUtil.CPS_TOPIC_FORMAT, project, topic))
+              .addAllMessages(perTopicBatches.get(topic))
+              .build();
       doSend(request, null, null);
     }
   }
 
   /**
-   * Get a list of partitions for the given topic for custom partition assignment. The partition metadata will change
-   * over time so this list should not be cached.
+   * Not supported by this implementation.
    */
   public List<PartitionInfo> partitionsFor(String topic) {
     throw new NotImplementedException("Partitions not supported");
   }
 
   /**
-   * Return a map of metrics maintained by the producer
+   * Not supported by this implementation.
    */
   public Map<MetricName, ? extends Metric> metrics() {
     throw new NotImplementedException("Metrics not supported.");
   }
 
   /**
-   * Close this producer
+   * Closes the producer.
    */
   public void close() {
     close(0, null);
   }
 
   /**
-   * Tries to close the producer cleanly within the specified timeout. If the close does not complete within the
-   * timeout, fail any pending send requests and force close the producer.
+   * Closes the producer with the given timeout.
    */
   public void close(long timeout, TimeUnit unit) {
     if (timeout < 0) {
@@ -306,7 +311,12 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     closed = true;
   }
 
+  /**
+   * PubsubProducer.Builder is used to create an instance of the publisher, with the specified
+   * properties and configurations.
+   */
   public static class Builder<K, V> {
+
     private final String project;
     private final Serializer<K> keySerializer;
     private final Serializer<V> valueSerializer;
@@ -320,7 +330,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     private Time time;
 
     public Builder(String project, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
-      Preconditions.checkArgument(project != null && keySerializer != null && valueSerializer != null);
+      Preconditions
+          .checkArgument(project != null && keySerializer != null && valueSerializer != null);
       this.project = project;
       this.keySerializer = keySerializer;
       this.valueSerializer = valueSerializer;
@@ -336,7 +347,10 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       this.time = new SystemTime();
     }
 
-    public Builder publisherFutureStub(PublisherFutureStub val) { publisher = val; return this; }
+    public Builder publisherFutureStub(PublisherFutureStub val) {
+      publisher = val;
+      return this;
+    }
 
     public Builder batchSize(int val) {
       Preconditions.checkArgument(val > 0);
@@ -344,9 +358,15 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       return this;
     }
 
-    public Builder isAcks(boolean val) { isAcks = val; return this; }
+    public Builder isAcks(boolean val) {
+      isAcks = val;
+      return this;
+    }
 
-    public Builder perTopicBatches(Map<String, List<PubsubMessage>> val) { perTopicBatches = val; return this; }
+    public Builder perTopicBatches(Map<String, List<PubsubMessage>> val) {
+      perTopicBatches = val;
+      return this;
+    }
 
     public Builder maxRequestSize(int val) {
       Preconditions.checkArgument(val >= 0);
@@ -354,9 +374,15 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       return this;
     }
 
-    public Builder time(Time val) { time = val; return this; }
+    public Builder time(Time val) {
+      time = val;
+      return this;
+    }
 
-    public Builder pubsubChannelUtil(PubsubChannelUtil val) { channelUtil = val; return this; }
+    public Builder pubsubChannelUtil(PubsubChannelUtil val) {
+      channelUtil = val;
+      return this;
+    }
 
     public PubsubProducer build() {
       // this is where to set fields w/ side effects
@@ -364,38 +390,11 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
         this.channelUtil = new PubsubChannelUtil();
       }
       if (publisher == null) {
-        this.publisher = PublisherGrpc.newFutureStub(channelUtil.channel()).withCallCredentials(channelUtil.callCredentials());
+        this.publisher = PublisherGrpc.newFutureStub(channelUtil.channel())
+            .withCallCredentials(channelUtil.callCredentials());
       }
       return new PubsubProducer(this);
     }
   }
 
-  /** Taken from KafkaProducer.java since FutureFailure is private inside that class. */
-  private static class FutureFailure implements Future<RecordMetadata> {
-    private final ExecutionException exception;
-
-    public FutureFailure(Exception e) {
-      this.exception = new ExecutionException(e);
-    }
-
-    public boolean cancel(boolean interrupt) {
-      return false;
-    }
-
-    public RecordMetadata get() throws ExecutionException {
-      throw this.exception;
-    }
-
-    public RecordMetadata get(long timeout, TimeUnit unit) throws ExecutionException {
-      throw this.exception;
-    }
-
-    public boolean isCancelled() {
-      return false;
-    }
-
-    public boolean isDone() {
-      return true;
-    }
-  }
 }
