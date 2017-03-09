@@ -96,37 +96,43 @@ public abstract class Task implements Runnable {
 
   @Override
   public void run() {
-    if (outstandingRequestLimiter.tryAcquire()) {
-      if (rateLimiter.tryAcquire(250, TimeUnit.MILLISECONDS)) {
-        Stopwatch stopwatch = Stopwatch.createStarted();
-        Futures.addCallback(doRun(),
-            new FutureCallback<RunResult>() {
-              @Override
-              public void onSuccess(RunResult result) {
-                stopwatch.stop();
-                outstandingRequestLimiter.release();
-                if (result.batchSize > 0) {
-                  recordBatchLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS), result.batchSize);
-                  return;
-                }
-                if (result.identifiers.isEmpty()) {
-                  // Because result.identifiers is not populated, we are not checking for
-                  // duplicates, so just record the latencies immediately.
-                  result.latencies.forEach(l -> recordLatency(l));
-                  return;
-                }
-                recordAllMessageLatencies(result.identifiers, result.latencies);
-              }
-
-              @Override
-              public void onFailure(Throwable t) {
-                outstandingRequestLimiter.release();
-              }
-            });
-        } else {
-          outstandingRequestLimiter.release();
-        }
+    try {
+      if (!outstandingRequestLimiter.tryAcquire(250, TimeUnit.MILLISECONDS)) {
+        return;
       }
+    } catch (InterruptedException e) {
+      return;
+    }
+    if (!rateLimiter.tryAcquire(250, TimeUnit.MILLISECONDS)) {
+      outstandingRequestLimiter.release();
+      return;
+    }
+
+    Stopwatch stopwatch = Stopwatch.createStarted();
+    Futures.addCallback(doRun(),
+        new FutureCallback<RunResult>() {
+          @Override
+          public void onSuccess(RunResult result) {
+            stopwatch.stop();
+            outstandingRequestLimiter.release();
+            if (result.batchSize > 0) {
+              recordBatchLatency(stopwatch.elapsed(TimeUnit.MILLISECONDS), result.batchSize);
+              return;
+            }
+            if (result.identifiers.isEmpty()) {
+              // Because result.identifiers is not populated, we are not checking for
+              // duplicates, so just record the latencies immediately.
+              result.latencies.forEach(l -> recordLatency(l));
+              return;
+            }
+            recordAllMessageLatencies(result.identifiers, result.latencies);
+          }
+
+          @Override
+          public void onFailure(Throwable t) {
+            outstandingRequestLimiter.release();
+          }
+        });
   }
 
   List<Long> getBucketValues() {
