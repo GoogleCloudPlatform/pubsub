@@ -37,7 +37,7 @@ public class ProducerThreadPool {
   private static final Logger log = LoggerFactory.getLogger(ProducerThreadPool.class);
 
   public static void main(String[] args) {
-    Preconditions.checkArgument(args[0] != null);
+    Preconditions.checkArgument(args.length > 0);
     ThreadFactoryBuilder threadFactoryBuilder = new ThreadFactoryBuilder();
     threadFactoryBuilder.setNameFormat("pubsub-producer-thread");
     threadFactoryBuilder.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
@@ -60,11 +60,11 @@ public class ProducerThreadPool {
     );
 
     int numThreads = 2;
-    if (args[1] != null) {
+    if (args.length > 1) {
       numThreads = Integer.parseInt(args[1]);
     }
     int numMessages = 1;
-    if (args[2] != null) {
+    if (args.length > 2) {
       numMessages = Integer.parseInt(args[2]);
     }
 
