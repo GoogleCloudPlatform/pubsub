@@ -17,8 +17,6 @@
 package com.google.pubsub.common;
 
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.pubsub.v1.PublisherGrpc;
-import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import io.grpc.auth.MoreCallCredentials;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
