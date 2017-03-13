@@ -17,17 +17,21 @@
 package com.google.pubsub.clients.producer;
 
 import com.google.api.client.repackaged.com.google.common.base.Preconditions;
+import com.google.api.gax.core.RpcFuture;
+import com.google.api.gax.core.RpcFutureCallback;
+import com.google.api.gax.grpc.BundlingSettings;
+import com.google.api.gax.grpc.FlowControlSettings;
+import com.google.cloud.pubsub.spi.v1.Publisher;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
-import com.google.pubsub.v1.PublishRequest;
-import com.google.pubsub.v1.PublishResponse;
-import com.google.pubsub.v1.PublisherGrpc;
-import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.common.PubsubChannelUtil;
+import com.google.pubsub.v1.TopicName;
+import java.io.IOException;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
@@ -40,12 +44,11 @@ import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.apache.kafka.common.record.Record;
 import org.apache.kafka.common.record.Records;
 import org.apache.kafka.common.serialization.Serializer;
+import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.nio.charset.StandardCharsets;
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -61,30 +64,24 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
   private static final Logger log = LoggerFactory.getLogger(PubsubProducer.class);
 
-  private final PublisherFutureStub publisher;
   private final String project;
   private final Serializer<K> keySerializer;
   private final Serializer<V> valueSerializer;
   private final int batchSize;
   private final boolean isAcks;
-  private final Map<String, List<PubsubMessage>> perTopicBatches;
   private final int maxRequestSize;
-  private final PubsubChannelUtil channelUtil;
-  private final SettableFuture<RecordMetadata> future;
+  private final Map<TopicName, Publisher> publishers;
 
   private boolean closed = false;
 
   private PubsubProducer(Builder builder) {
-    publisher = builder.publisher;
     project = builder.project;
     batchSize = builder.batchSize;
     isAcks = builder.isAcks;
-    perTopicBatches = builder.perTopicBatches;
     maxRequestSize = builder.maxRequestSize;
-    channelUtil = builder.channelUtil;
     keySerializer = builder.keySerializer;
     valueSerializer = builder.valueSerializer;
-    future = SettableFuture.create();
+    publishers = new HashMap<>();
   }
 
   public PubsubProducer(Map<String, Object> configs) {
@@ -113,9 +110,6 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       Serializer<V> valueSerializer) {
     try {
       log.trace("Starting the Pubsub producer");
-      channelUtil = new PubsubChannelUtil();
-      publisher = PublisherGrpc.newFutureStub(channelUtil.channel())
-          .withCallCredentials(channelUtil.callCredentials());
 
       if (keySerializer == null) {
         this.keySerializer =
@@ -138,12 +132,11 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-    future = SettableFuture.create();
     batchSize = configs.getInt(PubsubProducerConfig.BATCH_SIZE_CONFIG);
     isAcks = configs.getString(PubsubProducerConfig.ACKS_CONFIG).matches("1|all");
     project = configs.getString(PubsubProducerConfig.PROJECT_CONFIG);
     maxRequestSize = configs.getInt(PubsubProducerConfig.MAX_REQUEST_SIZE_CONFIG);
-    perTopicBatches = new HashMap<>();
+    publishers = new HashMap<>();
 
     log.debug("Producer successfully initialized.");
   }
@@ -164,81 +157,71 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       throw new RuntimeException("Publisher is closed");
     }
 
-    String topic = record.topic();
+    TopicName topic = TopicName.create(project, record.topic());
     Map<String, String> attributes = new HashMap<>();
 
     byte[] serializedKey = ByteString.EMPTY.toByteArray();
     if (record.key() != null) {
-      serializedKey = this.keySerializer.serialize(topic, record.key());
+      serializedKey = this.keySerializer.serialize(topic.getTopic(), record.key());
       attributes
           .put(PubsubChannelUtil.KEY_ATTRIBUTE, new String(serializedKey, StandardCharsets.ISO_8859_1));
     }
 
-    if (project == null) {
-      throw new RuntimeException("No project specified.");
-    }
-
     byte[] valueBytes = ByteString.EMPTY.toByteArray();
     if (record.value() != null) {
-      valueBytes = valueSerializer.serialize(topic, record.value());
+      valueBytes = valueSerializer.serialize(topic.getTopic(), record.value());
     }
 
     checkRecordSize(Records.LOG_OVERHEAD + Record.recordSize(serializedKey, valueBytes));
+
+    synchronized (publishers) {
+      if (!publishers.containsKey(topic)) {
+        try {
+          Publisher newPub = Publisher.newBuilder(topic)
+              .setBundlingSettings(BundlingSettings.newBuilder()
+                  .setIsEnabled(true)
+                  .setElementCountThreshold((long) batchSize)
+                  .setDelayThreshold(new Duration(1))
+                  .setRequestByteThreshold(1000L)
+                  .build())
+              .setFlowControlSettings(FlowControlSettings.newBuilder()
+                  .setMaxOutstandingRequestBytes(maxRequestSize)
+                  .build())
+              .build();
+          publishers.put(topic, newPub);
+        } catch (IOException e) {
+          log.error("Exception occurred: " + e);
+        }
+      }
+    }
 
     PubsubMessage message =
         PubsubMessage.newBuilder()
             .setData(ByteString.copyFrom(valueBytes))
             .putAllAttributes(attributes)
             .build();
-    List<PubsubMessage> batch = perTopicBatches.get(topic);
-    if (batch == null) {
-      batch = new ArrayList<>(batchSize);
-      perTopicBatches.put(topic, batch);
-    }
-    batch.add(message);
 
-    if (batch.size() == batchSize) {
-      log.trace("Sending a batch of messages.");
-      PublishRequest request =
-          PublishRequest.newBuilder()
-              .setTopic(String.format(PubsubChannelUtil.CPS_TOPIC_FORMAT, project, topic))
-              .addAllMessages(batch)
-              .build();
-      doSend(request, callback);
-    }
-    return future;
-  }
+    RpcFuture<String> messageIdFuture = publishers.get(topic).publish(message);
+    Future<RecordMetadata> future = SettableFuture.create();
 
-  private Future<RecordMetadata> doSend(PublishRequest request, Callback callback) {
-    try {
-      ListenableFuture<PublishResponse> response = publisher.publish(request);
-      if (callback != null) {
-        if (isAcks) {
-          Futures.addCallback(
-              response,
-              new FutureCallback<PublishResponse>() {
-                public void onSuccess(PublishResponse response) {
-                  perTopicBatches.clear();
-                  callback.onCompletion(null, null);
-                }
+    if (callback != null) {
+      if (isAcks) {
+        messageIdFuture.addCallback(new RpcFutureCallback<String>() {
+          @Override
+          public void onFailure(Throwable t) {
+            callback.onCompletion(null, new ExecutionException(t));
+          }
 
-                public void onFailure(Throwable t) {
-                  callback.onCompletion(null, new Exception(t));
-                }
-              }
-          );
-        } else {
-          perTopicBatches.clear();
-          callback.onCompletion(null, null);
-        }
+          @Override
+          public void onSuccess(String result) {
+            callback.onCompletion(null, null);
+          }
+        });
       } else {
-        response.get();
-        perTopicBatches.clear();
+        callback.onCompletion(null, null);
       }
-    } catch (InterruptedException | ExecutionException e) {
-      future.setException(e);
-      // TODO: fix this so it's not unused
     }
+
     return future;
   }
 
@@ -255,13 +238,12 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
    */
   public void flush() {
     log.debug("Flushing...");
-    for (String topic : perTopicBatches.keySet()) {
-      PublishRequest request =
-          PublishRequest.newBuilder()
-              .setTopic(String.format(channelUtil.CPS_TOPIC_FORMAT, project, topic))
-              .addAllMessages(perTopicBatches.get(topic))
-              .build();
-      doSend(request, null);
+    for (TopicName topic : publishers.keySet()) {
+      try {
+        publishers.get(topic).shutdown();
+      } catch (Exception e) {
+        log.error("Exception occurred during flush: " + e);
+      }
     }
   }
 
@@ -293,8 +275,13 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     if (timeout < 0) {
       throw new IllegalArgumentException("Timeout cannot be negative.");
     }
-
-    channelUtil.closeChannel();
+    for (TopicName topic : publishers.keySet()) {
+      try {
+        publishers.get(topic).shutdown();
+      } catch (Exception e) {
+        log.error("Exception occurred during close: " + e);
+      }
+    }
     log.debug("Closed producer");
     closed = true;
   }
@@ -309,11 +296,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     private final Serializer<K> keySerializer;
     private final Serializer<V> valueSerializer;
 
-    private PubsubChannelUtil channelUtil;
-    private PublisherFutureStub publisher;
     private int batchSize;
     private boolean isAcks;
-    private Map<String, List<PubsubMessage>> perTopicBatches;
     private int maxRequestSize;
 
     public Builder(String project, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
@@ -329,13 +313,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       // this is where to set 'regular' fields w/o side effects
       this.batchSize = PubsubProducerConfig.DEFAULT_BATCH_SIZE;
       this.isAcks = PubsubProducerConfig.DEFAULT_ACKS;
-      this.perTopicBatches = Collections.synchronizedMap(new HashMap<>());
       this.maxRequestSize = PubsubProducerConfig.DEFAULT_MAX_REQUEST_SIZE;
-    }
-
-    public Builder publisherFutureStub(PublisherFutureStub val) {
-      publisher = val;
-      return this;
     }
 
     public Builder batchSize(int val) {
@@ -349,31 +327,13 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       return this;
     }
 
-    public Builder perTopicBatches(Map<String, List<PubsubMessage>> val) {
-      perTopicBatches = val;
-      return this;
-    }
-
     public Builder maxRequestSize(int val) {
       Preconditions.checkArgument(val >= 0);
       maxRequestSize = val;
       return this;
     }
 
-    public Builder pubsubChannelUtil(PubsubChannelUtil val) {
-      channelUtil = val;
-      return this;
-    }
-
     public PubsubProducer build() {
-      // this is where to set fields w/ side effects
-      if (channelUtil == null) {
-        this.channelUtil = new PubsubChannelUtil();
-      }
-      if (publisher == null) {
-        this.publisher = PublisherGrpc.newFutureStub(channelUtil.channel())
-            .withCallCredentials(channelUtil.callCredentials());
-      }
       return new PubsubProducer(this);
     }
   }
