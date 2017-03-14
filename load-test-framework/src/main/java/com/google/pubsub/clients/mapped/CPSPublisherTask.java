@@ -35,7 +35,7 @@ public class CPSPublisherTask extends Task {
 
     this.publisher = new PubsubProducer.Builder<>(request.getProject(), new StringSerializer(),
         new StringSerializer())
-        .batchSize(this.batchSize)
+        .batchSize(9500000)
         .isAcks(true)
         .build();
   }
