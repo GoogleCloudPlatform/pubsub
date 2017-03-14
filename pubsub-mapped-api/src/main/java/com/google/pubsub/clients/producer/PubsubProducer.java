@@ -22,10 +22,6 @@ import com.google.api.gax.core.RpcFutureCallback;
 import com.google.api.gax.grpc.BundlingSettings;
 import com.google.api.gax.grpc.FlowControlSettings;
 import com.google.cloud.pubsub.spi.v1.Publisher;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.ListenableFutureTask;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
@@ -40,6 +36,7 @@ import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.RecordTooLargeException;
 import org.apache.kafka.common.record.Record;
 import org.apache.kafka.common.record.Records;
@@ -63,13 +60,16 @@ import java.util.concurrent.TimeUnit;
 public class PubsubProducer<K, V> implements Producer<K, V> {
 
   private static final Logger log = LoggerFactory.getLogger(PubsubProducer.class);
+  private static final long DEFAULT_ELEMENT_COUNT_THRESHOLD = 1000;
 
   private final String project;
   private final Serializer<K> keySerializer;
   private final Serializer<V> valueSerializer;
-  private final int batchSize;
+  private final long batchSize;
+  private final int bufferMemory;
   private final boolean isAcks;
   private final int maxRequestSize;
+  private final long lingerMs;
   private final Map<TopicName, Publisher> publishers;
 
   private boolean closed = false;
@@ -81,6 +81,8 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     maxRequestSize = builder.maxRequestSize;
     keySerializer = builder.keySerializer;
     valueSerializer = builder.valueSerializer;
+    lingerMs = builder.lingerMs;
+    bufferMemory = builder.bufferMemory;
     publishers = new HashMap<>();
   }
 
@@ -132,10 +134,12 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-    batchSize = configs.getInt(PubsubProducerConfig.BATCH_SIZE_CONFIG);
+    batchSize = configs.getLong(PubsubProducerConfig.BATCH_SIZE_CONFIG);
     isAcks = configs.getString(PubsubProducerConfig.ACKS_CONFIG).matches("1|all");
     project = configs.getString(PubsubProducerConfig.PROJECT_CONFIG);
     maxRequestSize = configs.getInt(PubsubProducerConfig.MAX_REQUEST_SIZE_CONFIG);
+    lingerMs = configs.getLong(PubsubProducerConfig.LINGER_MS_CONFIG);
+    bufferMemory = configs.getInt(PubsubProducerConfig.BUFFER_MEMORY_CONFIG);
     publishers = new HashMap<>();
 
     log.debug("Producer successfully initialized.");
@@ -180,12 +184,12 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
           Publisher newPub = Publisher.newBuilder(topic)
               .setBundlingSettings(BundlingSettings.newBuilder()
                   .setIsEnabled(true)
-                  .setElementCountThreshold((long) batchSize)
-                  .setDelayThreshold(new Duration(1))
-                  .setRequestByteThreshold(1000L)
+                  .setElementCountThreshold(DEFAULT_ELEMENT_COUNT_THRESHOLD)
+                  .setDelayThreshold(Duration.millis(lingerMs))
+                  .setRequestByteThreshold(batchSize)
                   .build())
               .setFlowControlSettings(FlowControlSettings.newBuilder()
-                  .setMaxOutstandingRequestBytes(maxRequestSize)
+                  .setMaxOutstandingRequestBytes(bufferMemory)
                   .build())
               .build();
           publishers.put(topic, newPub);
@@ -203,22 +207,24 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
     RpcFuture<String> messageIdFuture = publishers.get(topic).publish(message);
     Future<RecordMetadata> future = SettableFuture.create();
+    RecordMetadata metadata = new RecordMetadata(new TopicPartition(topic.getTopic(), 0),
+        0, 0,  System.currentTimeMillis(), 0, serializedKey.length, valueBytes.length);
 
     if (callback != null) {
       if (isAcks) {
         messageIdFuture.addCallback(new RpcFutureCallback<String>() {
           @Override
           public void onFailure(Throwable t) {
-            callback.onCompletion(null, new ExecutionException(t));
+            callback.onCompletion(metadata, new ExecutionException(t));
           }
 
           @Override
           public void onSuccess(String result) {
-            callback.onCompletion(null, null);
+            callback.onCompletion(metadata, null);
           }
         });
       } else {
-        callback.onCompletion(null, null);
+        callback.onCompletion(metadata, null);
       }
     }
 
@@ -296,7 +302,9 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     private final Serializer<K> keySerializer;
     private final Serializer<V> valueSerializer;
 
-    private int batchSize;
+    private long batchSize;
+    private long lingerMs;
+    private int bufferMemory;
     private boolean isAcks;
     private int maxRequestSize;
 
@@ -314,9 +322,11 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       this.batchSize = PubsubProducerConfig.DEFAULT_BATCH_SIZE;
       this.isAcks = PubsubProducerConfig.DEFAULT_ACKS;
       this.maxRequestSize = PubsubProducerConfig.DEFAULT_MAX_REQUEST_SIZE;
+      this.lingerMs = PubsubProducerConfig.DEFAULT_LINGER_MS;
+      this.bufferMemory = PubsubProducerConfig.DEFAULT_BUFFER_MEMORY;
     }
 
-    public Builder batchSize(int val) {
+    public Builder batchSize(long val) {
       Preconditions.checkArgument(val > 0);
       batchSize = val;
       return this;
@@ -330,6 +340,18 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     public Builder maxRequestSize(int val) {
       Preconditions.checkArgument(val >= 0);
       maxRequestSize = val;
+      return this;
+    }
+
+    public Builder lingerMs(long val) {
+      Preconditions.checkArgument(val >= 0);
+      lingerMs = val;
+      return this;
+    }
+
+    public Builder bufferMemory(int val) {
+      Preconditions.checkArgument(val >= 0);
+      bufferMemory = val;
       return this;
     }
 
