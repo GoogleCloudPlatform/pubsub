@@ -3,6 +3,7 @@ package com.google.pubsub.clients.mapped;
 import com.beust.jcommander.JCommander;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler.MetricName;
 import com.google.pubsub.clients.common.Task;
@@ -36,6 +37,8 @@ public class CPSPublisherTask extends Task {
     this.publisher = new PubsubProducer.Builder<>(request.getProject(), new StringSerializer(),
         new StringSerializer())
         .batchSize(9500000)
+        .lingerMs(request.getPublishBatchDuration().getSeconds())
+        .bufferMemory((int)Durations.toMillis(request.getPublishBatchDuration()))
         .isAcks(true)
         .build();
   }
@@ -60,7 +63,7 @@ public class CPSPublisherTask extends Task {
               log.error(exception.getMessage(), exception);
             }
             if (messagesToSend.decrementAndGet() == 0) {
-              result.set(RunResult.fromBatchSize(messagesSentSuccess.get()));
+              result.set(RunResult.fromBatchSize(batchSize));
             }
           });
     }
