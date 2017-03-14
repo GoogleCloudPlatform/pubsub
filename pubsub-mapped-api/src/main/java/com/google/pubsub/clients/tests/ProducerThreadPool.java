@@ -54,7 +54,7 @@ public class ProducerThreadPool {
         .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("acks", "all")
-        .put("batch.size", "5")
+        .put("batch.size", "1000")
         .put("linger.ms", "1")
         .build()
     );

@@ -42,6 +42,7 @@ public class ProducerThread implements Runnable {
     this.producer = new Builder<>(props.getProperty("project"), new StringSerializer(), new StringSerializer())
         .batchSize(Integer.parseInt(props.getProperty("batch.size")))
         .isAcks(props.getProperty("acks").matches("1|all"))
+        .lingerMs(Long.parseLong(props.getProperty("linger.ms")))
     .build();
     this.topic = topic;
     this.numMessages = numMessages;
@@ -55,8 +56,8 @@ public class ProducerThread implements Runnable {
 
   private void processCommand() {
     try {
-      ProducerRecord<String, String> msg = new ProducerRecord<>(topic, "hello" + command);
       for (int i = 0; i < numMessages; i++) {
+        ProducerRecord<String, String> msg = new ProducerRecord<>(topic, "hello" + command + i);
         producer.send(
             msg,
             new Callback() {
@@ -65,6 +66,7 @@ public class ProducerThread implements Runnable {
                   log.error("Exception sending the message: " + exception.getMessage());
                 } else {
                   log.info("Successfully sent message");
+                  log.info("HERE'S THE METADATA: " + metadata);
                 }
               }
             }
