@@ -251,6 +251,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
         log.error("Exception occurred during flush: " + e);
       }
     }
+    publishers.clear();
   }
 
   /**

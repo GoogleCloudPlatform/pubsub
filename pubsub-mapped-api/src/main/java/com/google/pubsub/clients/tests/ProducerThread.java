@@ -66,7 +66,6 @@ public class ProducerThread implements Runnable {
                   log.error("Exception sending the message: " + exception.getMessage());
                 } else {
                   log.info("Successfully sent message");
-                  log.info("HERE'S THE METADATA: " + metadata);
                 }
               }
             }
