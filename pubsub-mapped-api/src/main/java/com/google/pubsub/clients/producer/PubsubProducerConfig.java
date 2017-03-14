@@ -38,7 +38,7 @@ public class PubsubProducerConfig extends AbstractConfig {
       + "the <code>Serializer</code> interface.";
 
   public static final String VALUE_SERIALIZER_CLASS_CONFIG = "value.serializer";
-  private static final String VALUE_SERIALIZER_CLASS_DOC = "Serializer class for vlaue that "
+  private static final String VALUE_SERIALIZER_CLASS_DOC = "Serializer class for value that "
       + "implements the <code>Serializer</code> interface.";
 
   public static final String BATCH_SIZE_CONFIG = "batch.size";
@@ -54,9 +54,17 @@ public class PubsubProducerConfig extends AbstractConfig {
   public static final String MAX_REQUEST_SIZE_CONFIG = "max.request.size";
   private static final String MAX_REQUEST_SIZE_DOC = "The maximum size of a request in bytes.";
 
+  public static final String LINGER_MS_CONFIG = "linger.ms";
+  private static final String LINGER_MS_DOC = "Referred to as delayThreshold in CPS.";
+
+  public static final String BUFFER_MEMORY_CONFIG = "buffer.memory";
+  private static final String BUFFER_MEMORY_DOC = "Referred to as maxOutstandingRequestBytes in CPS.";
+
   public static final int DEFAULT_BATCH_SIZE = 1;
+  public static final long DEFAULT_LINGER_MS = 0L;
   public static final boolean DEFAULT_ACKS = true;
-  public static final int DEFAULT_MAX_REQUEST_SIZE = 1*1024*1024;
+  public static final int DEFAULT_MAX_REQUEST_SIZE = 1024*1024;
+  public static final int DEFAULT_BUFFER_MEMORY = 32 * 1024 * 1024;
 
   static {
     CONFIG =
@@ -66,9 +74,11 @@ public class PubsubProducerConfig extends AbstractConfig {
             .define(
                 VALUE_SERIALIZER_CLASS_CONFIG, Type.CLASS, Importance.HIGH,
                 VALUE_SERIALIZER_CLASS_DOC)
+            .define(BUFFER_MEMORY_CONFIG, Type.LONG, DEFAULT_BUFFER_MEMORY, atLeast(0L), Importance.HIGH, BUFFER_MEMORY_DOC)
             .define(PROJECT_CONFIG, Type.STRING, Importance.HIGH, PROJECT_DOC)
             .define(BATCH_SIZE_CONFIG, Type.INT, DEFAULT_BATCH_SIZE, Importance.MEDIUM,
                 BATCH_SIZE_DOC)
+            .define(LINGER_MS_CONFIG, Type.LONG, DEFAULT_LINGER_MS, atLeast(0L), Importance.MEDIUM, LINGER_MS_DOC)
             .define(ACKS_CONFIG, Type.STRING, "1", Importance.MEDIUM, ACKS_DOC)
             .define(MAX_REQUEST_SIZE_CONFIG, Type.INT, DEFAULT_MAX_REQUEST_SIZE, atLeast(0),
                 Importance.MEDIUM, MAX_REQUEST_SIZE_DOC);
