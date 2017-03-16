@@ -28,6 +28,7 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.common.PubsubChannelUtil;
 import com.google.pubsub.v1.TopicName;
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
@@ -60,7 +61,7 @@ import java.util.concurrent.TimeUnit;
 public class PubsubProducer<K, V> implements Producer<K, V> {
 
   private static final Logger log = LoggerFactory.getLogger(PubsubProducer.class);
-  private static final long DEFAULT_ELEMENT_COUNT_THRESHOLD = 1000;
+  private static final long DEFAULT_ELEMENT_COUNT_THRESHOLD = 950L;
 
   private final String project;
   private final Serializer<K> keySerializer;
@@ -72,7 +73,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
   private final long lingerMs;
   private final Map<TopicName, Publisher> publishers;
 
-  private boolean closed = false;
+  private AtomicBoolean closed;
 
   private PubsubProducer(Builder builder) {
     project = builder.project;
@@ -84,6 +85,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     lingerMs = builder.lingerMs;
     bufferMemory = builder.bufferMemory;
     publishers = new HashMap<>();
+    closed = new AtomicBoolean(false);
   }
 
   public PubsubProducer(Map<String, Object> configs) {
@@ -141,6 +143,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     lingerMs = configs.getLong(PubsubProducerConfig.LINGER_MS_CONFIG);
     bufferMemory = configs.getInt(PubsubProducerConfig.BUFFER_MEMORY_CONFIG);
     publishers = new HashMap<>();
+    closed = new AtomicBoolean(false);
 
     log.debug("Producer successfully initialized.");
   }
@@ -157,7 +160,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> record, Callback callback) {
     log.trace("Received " + record.toString());
-    if (closed) {
+    if (closed.get()) {
       throw new RuntimeException("Publisher is closed");
     }
 
@@ -183,7 +186,6 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
         try {
           Publisher newPub = Publisher.newBuilder(topic)
               .setBundlingSettings(BundlingSettings.newBuilder()
-                  .setIsEnabled(true)
                   .setElementCountThreshold(DEFAULT_ELEMENT_COUNT_THRESHOLD)
                   .setDelayThreshold(Duration.millis(lingerMs))
                   .setRequestByteThreshold(batchSize)
@@ -282,6 +284,9 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     if (timeout < 0) {
       throw new IllegalArgumentException("Timeout cannot be negative.");
     }
+    if (closed.getAndSet(true)) {
+      throw new IllegalStateException("Cannot close a producer if already closed.");
+    }
     for (TopicName topic : publishers.keySet()) {
       try {
         publishers.get(topic).shutdown();
@@ -290,7 +295,6 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       }
     }
     log.debug("Closed producer");
-    closed = true;
   }
 
   /**
