@@ -143,8 +143,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     lingerMs = configs.getLong(PubsubProducerConfig.LINGER_MS_CONFIG);
     bufferMemory = configs.getInt(PubsubProducerConfig.BUFFER_MEMORY_CONFIG);
     publishers = new HashMap<>();
-    closed.set(false);
-
+    closed = new AtomicBoolean(false);
     log.debug("Producer successfully initialized.");
   }
 
@@ -285,7 +284,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       throw new IllegalArgumentException("Timeout cannot be negative.");
     }
     if (closed.getAndSet(true)) {
-      throw new IllegalStateException("Cannot close a producer already closed.");
+      throw new IllegalStateException("Cannot close a producer if already closed.");
     }
     for (TopicName topic : publishers.keySet()) {
       try {
