@@ -36,9 +36,9 @@ public class CPSPublisherTask extends Task {
 
     this.publisher = new PubsubProducer.Builder<>(request.getProject(), new StringSerializer(),
         new StringSerializer())
-        .batchSize(9500000)
-        .lingerMs(request.getPublishBatchDuration().getSeconds())
-        .bufferMemory((int)Durations.toMillis(request.getPublishBatchDuration()))
+        .batchSize(9500000L)
+        .lingerMs(Durations.toMillis(request.getPublishBatchDuration()))
+        .bufferMemory(1000000000)
         .isAcks(true)
         .build();
   }
@@ -63,7 +63,7 @@ public class CPSPublisherTask extends Task {
               log.error(exception.getMessage(), exception);
             }
             if (messagesToSend.decrementAndGet() == 0) {
-              result.set(RunResult.fromBatchSize(batchSize));
+              result.set(RunResult.fromBatchSize(messagesSentSuccess.get()));
             }
           });
     }
