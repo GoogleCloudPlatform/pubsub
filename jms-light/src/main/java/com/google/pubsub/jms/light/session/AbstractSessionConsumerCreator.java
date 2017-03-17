@@ -12,77 +12,85 @@ import javax.jms.Topic;
  *
  * @author Maksym Prokhorenko
  */
-public abstract class AbstractSessionConsumerCreator extends AbstractSessionSubscriberCreator
-{
+public abstract class AbstractSessionConsumerCreator extends AbstractSessionSubscriberCreator {
   /**
    * Default constructor.
    * @param connection is a jms connection.
    * @param transacted is an indicator whether the session in transacted mode.
-   * @param acknowledgeMode is an acknowledgement mode {@link javax.jms.Session#AUTO_ACKNOWLEDGE}, {@link javax.jms.Session#CLIENT_ACKNOWLEDGE},
-   * {@link javax.jms.Session#SESSION_TRANSACTED}.
+   * @param acknowledgeMode is an acknowledgement mode {@link javax.jms.Session#AUTO_ACKNOWLEDGE},
+   *        {@link javax.jms.Session#CLIENT_ACKNOWLEDGE},
+   *        {@link javax.jms.Session#SESSION_TRANSACTED}.
    */
-  public AbstractSessionConsumerCreator(final PubSubConnection connection, final boolean transacted, final int acknowledgeMode)
-  {
+  public AbstractSessionConsumerCreator(
+      final PubSubConnection connection,
+      final boolean transacted,
+      final int acknowledgeMode) {
     super(connection, transacted, acknowledgeMode);
   }
 
   @Override
-  public MessageConsumer createConsumer(final Destination destination) throws JMSException
-  {
+  public MessageConsumer createConsumer(final Destination destination) throws JMSException {
     return null;
   }
 
   @Override
-  public MessageConsumer createConsumer(final Destination destination, final String messageSelector) throws JMSException
-  {
+  public MessageConsumer createConsumer(
+      final Destination destination,
+      final String messageSelector) throws JMSException {
     return null;
   }
 
   @Override
-  public MessageConsumer createConsumer(final Destination destination, final String messageSelector, final boolean noLocal) throws JMSException
-  {
+  public MessageConsumer createConsumer(
+      final Destination destination,
+      final String messageSelector,
+      final boolean noLocal) throws JMSException {
     return null;
   }
 
   @Override
-  public MessageConsumer createSharedConsumer(final Topic topic, final String sharedSubscriptionName) throws JMSException
-  {
+  public MessageConsumer createSharedConsumer(
+      final Topic topic,
+      final String sharedSubscriptionName) throws JMSException {
     return null;
   }
 
   @Override
-  public MessageConsumer createSharedConsumer(final Topic topic,
-                                              final String sharedSubscriptionName,
-                                              final String messageSelector) throws JMSException
-  {
+  public MessageConsumer createSharedConsumer(
+      final Topic topic,
+      final String sharedSubscriptionName,
+      final String messageSelector) throws JMSException {
     return null;
   }
 
   @Override
-  public MessageConsumer createDurableConsumer(final Topic topic, final String name) throws JMSException
-  {
+  public MessageConsumer createDurableConsumer(
+      final Topic topic,
+      final String name) throws JMSException {
     return null;
   }
 
   @Override
-  public MessageConsumer createDurableConsumer(final Topic topic,
-                                               final String name,
-                                               final String messageSelector,
-                                               final boolean noLocal) throws JMSException
-  {
+  public MessageConsumer createDurableConsumer(
+      final Topic topic,
+      final String name,
+      final String messageSelector,
+      final boolean noLocal) throws JMSException {
     return null;
   }
 
   @Override
-  public MessageConsumer createSharedDurableConsumer(final Topic topic, final String name) throws JMSException
-  {
+  public MessageConsumer createSharedDurableConsumer(
+      final Topic topic,
+      final String name) throws JMSException {
     return null;
   }
 
   @Override
-  public MessageConsumer createSharedDurableConsumer(final Topic topic, final String name, final String messageSelector) throws JMSException
-  {
+  public MessageConsumer createSharedDurableConsumer(
+      final Topic topic,
+      final String name,
+      final String messageSelector) throws JMSException {
     return null;
   }
-  
 }
