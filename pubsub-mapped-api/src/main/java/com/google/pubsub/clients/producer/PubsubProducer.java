@@ -64,6 +64,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
   private static final long DEFAULT_ELEMENT_COUNT_THRESHOLD = 950L;
 
   private final String project;
+  private final String topic;
   private final Serializer<K> keySerializer;
   private final Serializer<V> valueSerializer;
   private final long batchSize;
@@ -71,12 +72,13 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
   private final boolean isAcks;
   private final int maxRequestSize;
   private final long lingerMs;
-  private final Map<TopicName, Publisher> publishers;
+  private Publisher publisher;
 
   private AtomicBoolean closed;
 
   private PubsubProducer(Builder builder) {
     project = builder.project;
+    topic = builder.topic;
     batchSize = builder.batchSize;
     isAcks = builder.isAcks;
     maxRequestSize = builder.maxRequestSize;
@@ -84,7 +86,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     valueSerializer = builder.valueSerializer;
     lingerMs = builder.lingerMs;
     bufferMemory = builder.bufferMemory;
-    publishers = new HashMap<>();
+    publisher = newPublisher();
     closed = new AtomicBoolean(false);
   }
 
@@ -139,12 +141,33 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     batchSize = configs.getLong(PubsubProducerConfig.BATCH_SIZE_CONFIG);
     isAcks = configs.getString(PubsubProducerConfig.ACKS_CONFIG).matches("1|all");
     project = configs.getString(PubsubProducerConfig.PROJECT_CONFIG);
+    topic = configs.getString(PubsubProducerConfig.TOPIC_CONFIG);
     maxRequestSize = configs.getInt(PubsubProducerConfig.MAX_REQUEST_SIZE_CONFIG);
     lingerMs = configs.getLong(PubsubProducerConfig.LINGER_MS_CONFIG);
     bufferMemory = configs.getInt(PubsubProducerConfig.BUFFER_MEMORY_CONFIG);
-    publishers = new HashMap<>();
+    publisher = newPublisher();
     closed = new AtomicBoolean(false);
     log.debug("Producer successfully initialized.");
+  }
+
+  private Publisher newPublisher() {
+    TopicName topicName = TopicName.create(project, topic);
+    Publisher newPub = null;
+    try {
+      newPub = Publisher.newBuilder(topicName)
+          .setBundlingSettings(BundlingSettings.newBuilder()
+              .setElementCountThreshold(DEFAULT_ELEMENT_COUNT_THRESHOLD)
+              .setDelayThreshold(Duration.millis(lingerMs))
+              .setRequestByteThreshold(batchSize)
+              .build())
+          .setFlowControlSettings(FlowControlSettings.newBuilder()
+              .setMaxOutstandingRequestBytes(bufferMemory)
+              .build())
+          .build();
+    } catch (IOException e) {
+      log.error("Exception occurred: " + e);
+    }
+    return newPub;
   }
 
   /**
@@ -156,6 +179,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
 
   /**
    * Sends the given record and invokes the specified callback.
+   * The given record must have the same topic as the producer.
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> record, Callback callback) {
     log.trace("Received " + record.toString());
@@ -163,52 +187,34 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
       throw new RuntimeException("Publisher is closed");
     }
 
-    TopicName topic = TopicName.create(project, record.topic());
+    if (!record.topic().equals(topic)) {
+      throw new IllegalArgumentException("The record's topic must be the same as the Producer's topic.");
+    }
+
     Map<String, String> attributes = new HashMap<>();
 
     byte[] serializedKey = ByteString.EMPTY.toByteArray();
     if (record.key() != null) {
-      serializedKey = this.keySerializer.serialize(topic.getTopic(), record.key());
+      serializedKey = this.keySerializer.serialize(topic, record.key());
       attributes
           .put(PubsubChannelUtil.KEY_ATTRIBUTE, new String(serializedKey, StandardCharsets.ISO_8859_1));
     }
 
     byte[] valueBytes = ByteString.EMPTY.toByteArray();
     if (record.value() != null) {
-      valueBytes = valueSerializer.serialize(topic.getTopic(), record.value());
+      valueBytes = valueSerializer.serialize(topic, record.value());
     }
 
     checkRecordSize(Records.LOG_OVERHEAD + Record.recordSize(serializedKey, valueBytes));
-
-    synchronized (publishers) {
-      if (!publishers.containsKey(topic)) {
-        try {
-          Publisher newPub = Publisher.newBuilder(topic)
-              .setBundlingSettings(BundlingSettings.newBuilder()
-                  .setElementCountThreshold(DEFAULT_ELEMENT_COUNT_THRESHOLD)
-                  .setDelayThreshold(Duration.millis(lingerMs))
-                  .setRequestByteThreshold(batchSize)
-                  .build())
-              .setFlowControlSettings(FlowControlSettings.newBuilder()
-                  .setMaxOutstandingRequestBytes(bufferMemory)
-                  .build())
-              .build();
-          publishers.put(topic, newPub);
-        } catch (IOException e) {
-          log.error("Exception occurred: " + e);
-        }
-      }
-    }
 
     PubsubMessage message =
         PubsubMessage.newBuilder()
             .setData(ByteString.copyFrom(valueBytes))
             .putAllAttributes(attributes)
             .build();
-
-    RpcFuture<String> messageIdFuture = publishers.get(topic).publish(message);
+    RpcFuture<String> messageIdFuture = publisher.publish(message);
     Future<RecordMetadata> future = SettableFuture.create();
-    RecordMetadata metadata = new RecordMetadata(new TopicPartition(topic.getTopic(), 0),
+    RecordMetadata metadata = new RecordMetadata(new TopicPartition(topic, 0),
         0, 0,  System.currentTimeMillis(), 0, serializedKey.length, valueBytes.length);
 
     if (callback != null) {
@@ -245,14 +251,13 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
    */
   public void flush() {
     log.debug("Flushing...");
-    for (TopicName topic : publishers.keySet()) {
-      try {
-        publishers.get(topic).shutdown();
-      } catch (Exception e) {
-        log.error("Exception occurred during flush: " + e);
-      }
+    // Shut down publisher to flush the logs, then immediately restart it.
+    try {
+      publisher.shutdown();
+      publisher = newPublisher();
+    } catch (Exception e) {
+      log.error("Exception occurred during flush: " + e);
     }
-    publishers.clear();
   }
 
   /**
@@ -286,12 +291,10 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     if (closed.getAndSet(true)) {
       throw new IllegalStateException("Cannot close a producer if already closed.");
     }
-    for (TopicName topic : publishers.keySet()) {
-      try {
-        publishers.get(topic).shutdown();
-      } catch (Exception e) {
-        log.error("Exception occurred during close: " + e);
-      }
+    try {
+      publisher.shutdown();
+    } catch (Exception e) {
+      log.error("Exception occurred during close: " + e);
     }
     log.debug("Closed producer");
   }
@@ -305,6 +308,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     private final String project;
     private final Serializer<K> keySerializer;
     private final Serializer<V> valueSerializer;
+    private final String topic;
 
     private long batchSize;
     private long lingerMs;
@@ -312,12 +316,13 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     private boolean isAcks;
     private int maxRequestSize;
 
-    public Builder(String project, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
+    public Builder(String project, String topic, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
       Preconditions
           .checkArgument(project != null && keySerializer != null && valueSerializer != null);
       this.project = project;
       this.keySerializer = keySerializer;
       this.valueSerializer = valueSerializer;
+      this.topic = topic;
       setDefaults();
     }
 

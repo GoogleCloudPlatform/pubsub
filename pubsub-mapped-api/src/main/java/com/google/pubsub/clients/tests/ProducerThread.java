@@ -39,7 +39,7 @@ public class ProducerThread implements Runnable {
 
   public ProducerThread(String s, Properties props, String topic, int numMessages) {
     this.command = s;
-    this.producer = new Builder<>(props.getProperty("project"), new StringSerializer(), new StringSerializer())
+    this.producer = new Builder<>(props.getProperty("project"), topic, new StringSerializer(), new StringSerializer())
         .batchSize(Integer.parseInt(props.getProperty("batch.size")))
         .isAcks(props.getProperty("acks").matches("1|all"))
         .lingerMs(Long.parseLong(props.getProperty("linger.ms")))

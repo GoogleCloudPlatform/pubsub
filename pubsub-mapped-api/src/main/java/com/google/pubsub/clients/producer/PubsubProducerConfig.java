@@ -51,6 +51,9 @@ public class PubsubProducerConfig extends AbstractConfig {
   public static final String PROJECT_CONFIG = "project";
   private static final String PROJECT_DOC = "GCP project to use with the publisher.";
 
+  public static final String TOPIC_CONFIG = "topic";
+  private static final String TOPIC_DOC = "Topic to which messages are published.";
+
   public static final String MAX_REQUEST_SIZE_CONFIG = "max.request.size";
   private static final String MAX_REQUEST_SIZE_DOC = "The maximum size of a request in bytes.";
 
@@ -76,6 +79,7 @@ public class PubsubProducerConfig extends AbstractConfig {
                 VALUE_SERIALIZER_CLASS_DOC)
             .define(BUFFER_MEMORY_CONFIG, Type.LONG, DEFAULT_BUFFER_MEMORY, atLeast(0L), Importance.HIGH, BUFFER_MEMORY_DOC)
             .define(PROJECT_CONFIG, Type.STRING, Importance.HIGH, PROJECT_DOC)
+            .define(TOPIC_CONFIG, Type.STRING, Importance.HIGH, TOPIC_DOC)
             .define(BATCH_SIZE_CONFIG, Type.INT, DEFAULT_BATCH_SIZE, Importance.MEDIUM,
                 BATCH_SIZE_DOC)
             .define(LINGER_MS_CONFIG, Type.LONG, DEFAULT_LINGER_MS, atLeast(0L), Importance.MEDIUM, LINGER_MS_DOC)
