@@ -34,7 +34,7 @@ public class CPSPublisherTask extends Task {
     this.payload = LoadTestRunner.createMessage(request.getMessageSize());
     this.batchSize = request.getPublishBatchSize();
 
-    this.publisher = new PubsubProducer.Builder<>(request.getProject(), new StringSerializer(),
+    this.publisher = new PubsubProducer.Builder<>(request.getProject(), topic, new StringSerializer(),
         new StringSerializer())
         .batchSize(9500000L)
         .lingerMs(Durations.toMillis(request.getPublishBatchDuration()))

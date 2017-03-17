@@ -113,12 +113,4 @@ public class PubsubProducerTest {
 
   }
 
-  private PubsubProducer getNewProducer() throws IOException {
-
-    return new Builder<>(PROJECT, testSerializer, testSerializer)
-        .publisherFutureStub(mockStub)
-        .pubsubChannelUtil(mockChannelUtil)
-        .build();
-  }
-
 }
