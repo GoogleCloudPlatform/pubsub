@@ -30,7 +30,7 @@ wait
 
 cd ${TMP}
 chmod +x loadtest-go
-./loadtest-go -r pub & PIDSERV=$!
+./loadtest-go -r sub & PIDSERV=$!
 
 # Run the loadtest binary
 java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.PublisherAdapterTask

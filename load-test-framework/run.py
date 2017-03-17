@@ -64,7 +64,7 @@ def main(project, test, client_types, vms_count, broker):
       gcloud_subscriber_count += vms_count
     elif client == 'gcloud_go':
       arg_list.append('--cps_gcloud_go_publisher_count=' + str(vms_count))
-      gcloud_subscriber_count += vms_count
+      arg_list.append('--cps_gcloud_go_subscriber_count=' + str(vms_count))
     elif client == 'vtk':
       arg_list.append('--cps_vtk_java_publisher_count=' + str(vms_count))
       gcloud_subscriber_count += vms_count
