@@ -24,6 +24,7 @@ public class PubsubProducerConfigTest {
         .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("project", "unit-test-project")
+        .put("topic", "unit-test-topic")
         .build()
     );
 
