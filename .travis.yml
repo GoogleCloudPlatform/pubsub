@@ -10,7 +10,7 @@ matrix:
       jdk: openjdk7
 
 script:
-  - mvn -q -B -f jms-light/pom.xml clean verify -Dcheckstyle.skip=true
+  - mvn -q -B -f jms-light/pom.xml clean integration-test
   - mvn -q -B -f kafka-connector/pom.xml clean verify
   - mvn -q -B -f client/pom.xml clean verify -Dmaven.javadoc.skip=true -Dgpg.skip=true -Djava.util.logging.config.file=client/src/test/resources/logging.properties
   - jdk_switcher use oraclejdk8
