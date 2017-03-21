@@ -47,6 +47,7 @@ import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 import org.joda.time.Duration;
 import org.junit.After;
 import org.junit.Before;
@@ -178,7 +179,7 @@ public class SubscriberImplTest {
 
   @After
   public void tearDown() throws Exception {
-    testServer.shutdownNow().awaitTermination();
+    testServer.shutdownNow().awaitTermination(10, TimeUnit.SECONDS);
     fakeSubscriberServiceImpl.reset();
   }
 
