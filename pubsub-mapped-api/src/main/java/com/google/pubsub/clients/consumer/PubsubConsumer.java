@@ -126,7 +126,7 @@ public class PubsubConsumer<K, V> implements Consumer<K, V> {
   }
 
   public void seekToBeginning(Collection<TopicPartition> partitions) {
-
+    throw new NotImplementedException("Not yet implemented");
   }
 
   public void seekToEnd(Collection<TopicPartition> partitions) {
