@@ -131,6 +131,12 @@ public class Driver {
   private int kafkaSubscriberCount = 0;
 
   @Parameter(
+      names = {"--cps_mapped_java_publisher_count"},
+      description = "Number of cps mapped publishers to start."
+  )
+  private int cpsMappedJavaPublisherCount = 0;
+
+  @Parameter(
     names = {"--message_size", "-m"},
     description = "Message size in bytes (only when publishing messages).",
     validateWith = GreaterThanZeroValidator.class
@@ -372,6 +378,11 @@ public class Driver {
         clientParamsMap.put(
             new ClientParams(ClientType.CPS_VTK_JAVA_PUBLISHER, null), cpsVtkJavaPublisherCount);
       }
+      if (cpsMappedJavaPublisherCount > 0) {
+        clientParamsMap.put(
+            new ClientParams(ClientType.CPS_MAPPED_JAVA_PUBLISHER, null),
+            cpsMappedJavaPublisherCount);
+      }
       if (kafkaPublisherCount > 0) {
         clientParamsMap.put(
             new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount);
@@ -402,9 +413,10 @@ public class Driver {
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         if (cpsGcloudJavaSubscriberCount > 0) {
           Preconditions.checkArgument(
-              cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount + cpsVtkJavaPublisherCount
-                  > 0,
-              "--cps_gcloud_java_publisher or --cps_gcloud_python_publisher must be > 0.");
+              cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount +
+                  cpsVtkJavaPublisherCount + cpsMappedJavaPublisherCount > 0,
+              "--cps_gcloud_java_publisher, --cps_gcloud_python_publisher, or"
+                  + "--cps_mapped_java_publisher must be > 0.");
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-subscription" + i),
               cpsGcloudJavaSubscriberCount / cpsSubscriptionFanout);

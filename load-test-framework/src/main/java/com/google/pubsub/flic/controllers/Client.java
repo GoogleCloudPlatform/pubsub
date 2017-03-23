@@ -116,6 +116,8 @@ public class Client {
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
         return "kafka";
+      case CPS_MAPPED_JAVA_PUBLISHER:
+        return "mapped";
     }
     return null;
   }
@@ -196,6 +198,7 @@ public class Client {
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
       case CPS_VTK_JAVA_PUBLISHER:
+      case CPS_MAPPED_JAVA_PUBLISHER:
         break;
     }
     StartRequest request = requestBuilder.build();
@@ -301,7 +304,8 @@ public class Client {
     CPS_GCLOUD_PYTHON_PUBLISHER,
     CPS_VTK_JAVA_PUBLISHER,
     KAFKA_PUBLISHER,
-    KAFKA_SUBSCRIBER;
+    KAFKA_SUBSCRIBER,
+    CPS_MAPPED_JAVA_PUBLISHER;
 
     public boolean isCpsPublisher() {
       switch (this) {
@@ -309,6 +313,7 @@ public class Client {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
+        case CPS_MAPPED_JAVA_PUBLISHER:
           return true;
         default:
           return false;
@@ -331,6 +336,7 @@ public class Client {
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
         case KAFKA_PUBLISHER:
+        case CPS_MAPPED_JAVA_PUBLISHER:
           return true;
         default:
           return false;
@@ -344,6 +350,7 @@ public class Client {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
+        case CPS_MAPPED_JAVA_PUBLISHER:
           return CPS_GCLOUD_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;

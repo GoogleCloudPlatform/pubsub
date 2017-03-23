@@ -78,6 +78,7 @@ public class SheetsService {
       cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) : 0;
       cpsPublisherCount += (countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER): 0;
       cpsPublisherCount += (countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER) : 0;
+      cpsPublisherCount += (countMap.get(ClientType.CPS_MAPPED_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_MAPPED_JAVA_PUBLISHER) : 0;
       cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER): 0;
       cpsSubscriberCount += (countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER): 0;
       kafkaPublisherCount += (countMap.get(ClientType.KAFKA_PUBLISHER) != null) ? countMap.get(ClientType.KAFKA_PUBLISHER) : 0;
@@ -137,6 +138,7 @@ public class SheetsService {
         case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
+        case CPS_MAPPED_JAVA_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
           if (cpsPublisherCount == 0) {
             return;

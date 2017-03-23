@@ -147,7 +147,6 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     bufferMemory = configs.getInt(PubsubProducerConfig.BUFFER_MEMORY_CONFIG);
     publisher = newPublisher();
     closed = new AtomicBoolean(false);
-
     log.debug("Producer successfully initialized.");
   }
 
