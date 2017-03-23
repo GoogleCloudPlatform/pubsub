@@ -138,6 +138,7 @@ public class SheetsService {
         case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
+        case CPS_MAPPED_JAVA_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
           if (cpsPublisherCount == 0) {
             return;
@@ -171,8 +172,6 @@ public class SheetsService {
           valueRow.add(kafkaSubscriberCount);
           kafkaValues.add(valueRow);
           break;
-        case CPS_MAPPED_JAVA_PUBLISHER:
-          return;
         default:
           throw new IllegalArgumentException("Type " + type + " in results map was not expected.");
       }

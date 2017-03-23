@@ -134,7 +134,6 @@ public class Driver {
       names = {"--cps_mapped_java_publisher_count"},
       description = "Number of cps mapped publishers to start."
   )
-
   private int cpsMappedJavaPublisherCount = 0;
 
   @Parameter(
@@ -414,9 +413,10 @@ public class Driver {
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         if (cpsGcloudJavaSubscriberCount > 0) {
           Preconditions.checkArgument(
-              cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount + cpsVtkJavaPublisherCount + cpsMappedJavaPublisherCount
-                  > 0,
-              "--cps_gcloud_java_publisher or --cps_gcloud_python_publisher must be > 0.");
+              cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount +
+                  cpsVtkJavaPublisherCount + cpsMappedJavaPublisherCount > 0,
+              "--cps_gcloud_java_publisher, --cps_gcloud_python_publisher, or"
+                  + "--cps_mapped_java_publisher must be > 0.");
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-subscription" + i),
               cpsGcloudJavaSubscriberCount / cpsSubscriptionFanout);
