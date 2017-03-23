@@ -62,6 +62,9 @@ def main(project, test, client_types, vms_count, broker):
     elif client == 'gcloud_java':
       arg_list.append('--cps_gcloud_java_publisher_count=' + str(vms_count))
       gcloud_subscriber_count += vms_count
+    elif client == 'gcloud_go':
+      arg_list.append('--cps_gcloud_go_publisher_count=' + str(vms_count))
+      gcloud_subscriber_count += vms_count
     elif client == 'vtk':
       arg_list.append('--cps_vtk_java_publisher_count=' + str(vms_count))
       gcloud_subscriber_count += vms_count
@@ -134,7 +137,7 @@ if __name__ == '__main__':
   if len(client_types_arg) == 0:
     client_types_arg = set(['gcloud_java'])
   if not client_types_arg.issubset(
-      set(['gcloud_python', 'gcloud_java', 'vtk', 'experimental'])):
+      set(['gcloud_python', 'gcloud_java', 'gcloud_go', 'vtk', 'experimental'])):
     sys.exit(
         'Invalid --client_type parameter given. Must be a comma deliminated '
         'sequence of client types. Allowed client types are \'gcloud_python\', '
