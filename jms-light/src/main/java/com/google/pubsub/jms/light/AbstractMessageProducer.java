@@ -12,8 +12,7 @@ import javax.jms.Session;
  *
  * @author Maksym Prokhorenko
  */
-public abstract class AbstractMessageProducer implements MessageProducer
-{
+public abstract class AbstractMessageProducer implements MessageProducer {
   private final Destination destination;
   private final Session session;
 
@@ -30,109 +29,91 @@ public abstract class AbstractMessageProducer implements MessageProducer
    * @param session is a jms session.
    * @param destination is a jms destination.
    */
-  public AbstractMessageProducer(final Session session, final Destination destination)
-  {
+  public AbstractMessageProducer(final Session session, final Destination destination) {
     this.destination = destination;
     this.session = session;
   }
 
-  protected Session getSession()
-  {
+  protected Session getSession() {
     return session;
   }
 
   @Override
-  public void setDisableMessageID(final boolean disableMessageId) throws JMSException
-  {
+  public void setDisableMessageID(final boolean disableMessageId) throws JMSException {
     this.disableMessageId = disableMessageId;
   }
 
   @Override
-  public boolean getDisableMessageID() throws JMSException
-  {
+  public boolean getDisableMessageID() throws JMSException {
     return disableMessageId;
   }
 
   @Override
-  public void setDisableMessageTimestamp(final boolean disableTimestamp) throws JMSException
-  {
+  public void setDisableMessageTimestamp(final boolean disableTimestamp) throws JMSException {
     this.disableTimestamp = disableTimestamp;
   }
 
   @Override
-  public boolean getDisableMessageTimestamp() throws JMSException
-  {
+  public boolean getDisableMessageTimestamp() throws JMSException {
     return disableTimestamp;
   }
 
   @Override
-  public void setDeliveryMode(final int deliveryMode) throws JMSException
-  {
+  public void setDeliveryMode(final int deliveryMode) throws JMSException {
     this.deliveryMode = deliveryMode;
   }
 
   @Override
-  public int getDeliveryMode() throws JMSException
-  {
+  public int getDeliveryMode() throws JMSException {
     return deliveryMode;
   }
 
   @Override
-  public void setPriority(final int defaultPriority) throws JMSException
-  {
+  public void setPriority(final int defaultPriority) throws JMSException {
     this.priority = defaultPriority;
   }
 
   @Override
-  public int getPriority() throws JMSException
-  {
+  public int getPriority() throws JMSException {
     return priority;
   }
 
   @Override
-  public void setTimeToLive(final long timeToLive) throws JMSException
-  {
+  public void setTimeToLive(final long timeToLive) throws JMSException {
     this.timeToLive = timeToLive;
   }
 
   @Override
-  public long getTimeToLive() throws JMSException
-  {
+  public long getTimeToLive() throws JMSException {
     return timeToLive;
   }
 
   @Override
-  public void setDeliveryDelay(final long deliveryDelay) throws JMSException
-  {
+  public void setDeliveryDelay(final long deliveryDelay) throws JMSException {
     this.deliveryDelay = deliveryDelay;
   }
 
   @Override
-  public long getDeliveryDelay() throws JMSException
-  {
+  public long getDeliveryDelay() throws JMSException {
     return deliveryDelay;
   }
 
   @Override
-  public Destination getDestination() throws JMSException
-  {
+  public Destination getDestination() throws JMSException {
     return destination;
   }
 
   @Override
-  public void close() throws JMSException
-  {
+  public void close() throws JMSException {
     closed = true;
   }
 
-  protected boolean isClosed()
-  {
+  protected boolean isClosed() {
     return closed;
   }
 
   @Override
-  public void send(final Message message) throws JMSException
-  {
+  public void send(final Message message) throws JMSException {
     send(destination, message, deliveryMode, priority, timeToLive, null);
   }
 
@@ -140,15 +121,13 @@ public abstract class AbstractMessageProducer implements MessageProducer
   public void send(final Message message,
                    final int deliveryMode,
                    final int priority,
-                   final long timeToLive) throws JMSException
-  {
+                   final long timeToLive) throws JMSException {
     send(destination, message, deliveryMode, priority, timeToLive, null);
   }
 
   @Override
   public void send(final Destination destination,
-                   final Message message) throws JMSException
-  {
+                   final Message message) throws JMSException {
     send(destination, message, deliveryMode, priority, timeToLive, null);
   }
 
@@ -157,15 +136,13 @@ public abstract class AbstractMessageProducer implements MessageProducer
                    final Message message,
                    final int deliveryMode,
                    final int priority,
-                   final long timeToLive) throws JMSException
-  {
+                   final long timeToLive) throws JMSException {
     send(destination, message, deliveryMode, priority, timeToLive, null);
   }
 
   @Override
   public void send(final Message message,
-                   final CompletionListener completionListener) throws JMSException
-  {
+                   final CompletionListener completionListener) throws JMSException {
     send(getDestination(),
         message, deliveryMode, priority, timeToLive, completionListener);
   }
@@ -175,16 +152,14 @@ public abstract class AbstractMessageProducer implements MessageProducer
                    final int deliveryMode,
                    final int priority,
                    final long timeToLive,
-                   final CompletionListener completionListener) throws JMSException
-  {
+                   final CompletionListener completionListener) throws JMSException {
     send(destination, message, deliveryMode, priority, timeToLive, completionListener);
   }
 
   @Override
   public void send(final Destination destination,
                    final Message message,
-                   final CompletionListener completionListener) throws JMSException
-  {
+                   final CompletionListener completionListener) throws JMSException {
     send(destination, message, deliveryMode, priority, timeToLive, completionListener);
   }
 }
