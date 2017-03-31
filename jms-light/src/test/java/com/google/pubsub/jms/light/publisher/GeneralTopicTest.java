@@ -38,7 +38,7 @@ import org.junit.Test;
  *
  * @author Carter Page <carter@skyscreamer.org>
  */
-public class GeneralTopicTest {
+public class GeneralTopicTest extends AbstractJMSTest {
     @Test
     public void testCommonAndPubSubAreSameImplementation() {
         Assert.assertTrue(ConnectionFactory.class.isAssignableFrom(PubSubConnectionFactory.class));
@@ -75,10 +75,5 @@ public class GeneralTopicTest {
         Assert.assertTrue(msgOut instanceof TextMessage);
         Assert.assertEquals(testMessage, (TextMessage)msgOut);
         connection.close();
-    }
-    
-    private TopicConnection createTopicConnection(TopicConnectionFactory connectionFactory) {
-      // TODO: Implement this method.
-      return null;
     }
 }
