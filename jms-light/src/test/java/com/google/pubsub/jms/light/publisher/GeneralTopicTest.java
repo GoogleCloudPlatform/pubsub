@@ -5,10 +5,10 @@ import com.google.pubsub.jms.light.PubSubConnectionFactory;
 import com.google.pubsub.jms.light.PubSubSession;
 import com.google.pubsub.jms.light.PubSubMessageConsumer;
 import com.google.pubsub.jms.light.PubSubMessageProducer;
-import com.google.pubsub.jms.light.PubSubTopic;
 import com.google.pubsub.jms.light.PubSubTopicConnection;
 import com.google.pubsub.jms.light.PubSubTopicSession;
 import com.google.pubsub.jms.light.destination.PubSubDestination;
+import com.google.pubsub.jms.light.destination.PubSubTopicDestination;
 
 import javax.jms.Connection;
 import javax.jms.ConnectionFactory;
@@ -46,8 +46,8 @@ public class GeneralTopicTest extends AbstractJMSTest {
         Assert.assertTrue(Connection.class.isAssignableFrom(PubSubConnection.class));
         Assert.assertTrue(TopicConnection.class.isAssignableFrom(PubSubTopicConnection.class));
         Assert.assertTrue(PubSubConnection.class.isAssignableFrom(PubSubTopicConnection.class));
-        Assert.assertTrue(Topic.class.isAssignableFrom(PubSubTopic.class));
-        Assert.assertTrue(PubSubDestination.class.isAssignableFrom(PubSubTopic.class));
+        Assert.assertTrue(Topic.class.isAssignableFrom(PubSubTopicDestination.class));
+        Assert.assertTrue(PubSubDestination.class.isAssignableFrom(PubSubTopicDestination.class));
         Assert.assertTrue(Destination.class.isAssignableFrom(PubSubDestination.class));
         Assert.assertTrue(Session.class.isAssignableFrom(PubSubSession.class));
         Assert.assertTrue(TopicSession.class.isAssignableFrom(PubSubTopicSession.class));
