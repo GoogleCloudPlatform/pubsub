@@ -22,15 +22,16 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 
 # Download the loadtest binary to this machine and install Java 8.
 /usr/bin/apt-get update
-/usr/bin/apt-get install -y openjdk-8-jre-headless &
+/usr/bin/apt-get install -y openjdk-8-jre-headless unzip &
 /usr/bin/gsutil cp "gs://${BUCKET}/driver.jar" "${TMP}" &
-/usr/bin/gsutil cp "gs://${BUCKET}/loadtest-go" "${TMP}" &
+/usr/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}" &
 
 wait
 
 cd ${TMP}
-chmod +x loadtest-go
-./loadtest-go -r sub & PIDSERV=$!
+unzip cps.zip
+chmod +x ./target/loadtest-go
+./target/loadtest-go -r sub & PIDSERV=$!
 
 # Run the loadtest binary
 java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.PublisherAdapterTask
