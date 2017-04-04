@@ -1,13 +1,21 @@
 package com.google.pubsub.jms.light;
 
-import com.google.api.gax.core.RpcFuture;
-import com.google.api.gax.core.RpcFutureCallback;
+import com.google.api.gax.core.ApiFuture;
+import com.google.api.gax.core.ApiFutureCallback;
+import com.google.api.gax.core.ApiFutures;
 import com.google.cloud.pubsub.spi.v1.Publisher;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.TopicName;
 
 import java.io.IOException;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.jms.CompletionListener;
@@ -59,21 +67,24 @@ public class PubSubMessageProducer extends AbstractMessageProducer {
           + "] is invalid. Expected [" + getDestination() + "].");
     }
 
-    final RpcFuture<String> messageIdFuture = publisher.publish(
+    final ApiFuture<String> messageIdFuture = publisher.publish(
         PubsubMessage.newBuilder()
             .setData(ByteString.copyFromUtf8(message.getBody(String.class)))
             .build());
 
-    messageIdFuture.addCallback(
-        new RpcFutureCallback<String>() {
-          @Override public void onSuccess(final String messageId) {
+    ApiFutures.addCallback(
+        messageIdFuture,
+        new ApiFutureCallback<String>() {
+          @Override
+          public void onSuccess(final String messageId) {
             LOGGER.fine(String.format("%s has been sent successfully.", messageId));
             if (null != completionListener) {
               completionListener.onCompletion(message);
             }
           }
 
-          @Override public void onFailure(final Throwable thrown) {
+          @Override
+          public void onFailure(final Throwable thrown) {
             LOGGER.log(Level.SEVERE, "Message sending error:", thrown);
             if (null != completionListener) {
               completionListener.onException(message, (Exception) thrown);
@@ -98,7 +109,7 @@ public class PubSubMessageProducer extends AbstractMessageProducer {
     final PubSubConnection connection = ((PubSubSession) getSession()).getConnection();
     try {
       return Publisher
-          .newBuilder(TopicName.parse(topic.getTopicName()))
+          .defaultBuilder(TopicName.parse(topic.getTopicName()))
           .setChannelProvider(connection.getProviderManager())
           .setExecutorProvider(connection.getProviderManager())
           .setFlowControlSettings(connection.getFlowControlSettings())
