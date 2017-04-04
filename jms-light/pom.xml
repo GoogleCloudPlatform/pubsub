@@ -16,6 +16,7 @@
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
+        <version>3.6.1</version>
         <configuration>
           <source>${java.version}</source>
           <target>${java.version}</target>
@@ -27,6 +28,13 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-checkstyle-plugin</artifactId>
         <version>2.17</version>
+        <dependencies>
+          <dependency>
+            <groupId>com.puppycrawl.tools</groupId>
+            <artifactId>checkstyle</artifactId>
+            <version>7.6</version>
+          </dependency>
+        </dependencies>
         <executions>
           <execution>
             <id>checkstyle-validation</id>
@@ -35,7 +43,7 @@
               <goal>checkstyle</goal>
             </goals>
             <configuration>
-              <configLocation>configs/checkstyle/rules.xml</configLocation>
+              <configLocation>configs/checkstyle/google_checks.xml</configLocation>
               <suppressionsLocation>configs/checkstyle/suppression.xml</suppressionsLocation>
               <suppressionsFileExpression>checkstyle.suppressions.file</suppressionsFileExpression>
               <sourceDirectory>${project.build.sourceDirectory}</sourceDirectory>
@@ -121,6 +129,15 @@
       </plugin>
     </plugins>
   </build>
+  <reporting>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jxr-plugin</artifactId>
+        <version>2.5</version>
+      </plugin>
+    </plugins>
+  </reporting>
 
   <dependencies>
     <!-- JMS specification -->
