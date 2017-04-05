@@ -110,8 +110,10 @@ public class Client {
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
-      case CPS_GCLOUD_GO_PUBLISHER:
         return "gcloud";
+      case CPS_GCLOUD_GO_PUBLISHER:
+      case CPS_GCLOUD_GO_SUBSCRIBER:
+        return "gcloud-go";
       case CPS_VTK_JAVA_PUBLISHER:
         return "vtk";
       case KAFKA_PUBLISHER:
@@ -170,8 +172,8 @@ public class Client {
     }
     switch (clientType) {
       case CPS_EXPERIMENTAL_JAVA_SUBSCRIBER:
-        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
-            .setSubscription(subscription));
+      case CPS_GCLOUD_GO_SUBSCRIBER:
+        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder().setSubscription(subscription));
         break;
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder()
@@ -302,6 +304,7 @@ public class Client {
     CPS_GCLOUD_JAVA_SUBSCRIBER,
     CPS_GCLOUD_PYTHON_PUBLISHER,
     CPS_GCLOUD_GO_PUBLISHER,
+    CPS_GCLOUD_GO_SUBSCRIBER,
     CPS_VTK_JAVA_PUBLISHER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
@@ -348,11 +351,12 @@ public class Client {
           return CPS_EXPERIMENTAL_JAVA_SUBSCRIBER;
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
-        case CPS_GCLOUD_GO_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
           return CPS_GCLOUD_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;
+        case CPS_GCLOUD_GO_PUBLISHER:
+          return CPS_GCLOUD_GO_SUBSCRIBER;
         default:
           return this;
       }

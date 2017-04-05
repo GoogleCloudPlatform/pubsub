@@ -47,11 +47,18 @@ def main(project, test, client_types, vms_count, broker):
     subprocess.call(['mvn', 'package'])
     subprocess.call(['cp', 'target/driver.jar', 'target/classes/gce/'])
   if not os.path.isfile('./target/classes/gce/cps.zip'):
+    go_package = 'cloud.google.com/go/pubsub/loadtest/cmd'
+    go_bin_location = './target/loadtest-go'
+    return_code = subprocess.call(['go', 'build', '-o', go_bin_location, go_package])
+    if return_code != 0:
+      sys.exit('cannot build Go load tester, maybe run `go get -u {}`?'.format(go_package))
+
     subprocess.call([
         'zip', './target/classes/gce/cps.zip',
         './python_src/clients/cps_publisher_task.py',
         './python_src/clients/loadtest_pb2.py',
-        './python_src/clients/requirements.txt'
+        './python_src/clients/requirements.txt',
+        go_bin_location
     ])
   arg_list = ['java', '-jar', 'target/driver.jar', '--project', project]
   gcloud_subscriber_count = 0
@@ -64,7 +71,7 @@ def main(project, test, client_types, vms_count, broker):
       gcloud_subscriber_count += vms_count
     elif client == 'gcloud_go':
       arg_list.append('--cps_gcloud_go_publisher_count=' + str(vms_count))
-      gcloud_subscriber_count += vms_count
+      arg_list.append('--cps_gcloud_go_subscriber_count=' + str(vms_count))
     elif client == 'vtk':
       arg_list.append('--cps_vtk_java_publisher_count=' + str(vms_count))
       gcloud_subscriber_count += vms_count

@@ -125,6 +125,12 @@ public class Driver {
   private int cpsGcloudGoPublisherCount = 0;
 
   @Parameter(
+    names = {"--cps_gcloud_go_subscriber_count"},
+    description = "Number of CPS publishers of this type to start."
+  )
+  private int cpsGcloudGoSubscriberCount = 0;
+
+  @Parameter(
     names = {"--kafka_publisher_count"},
     description = "Number of Kafka publishers to start."
   )
@@ -428,6 +434,11 @@ public class Driver {
               new ClientParams(
                   ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER, "experimental-subscription" + i),
               cpsExperimentalJavaSubscriberCount / cpsSubscriptionFanout);
+        }
+        if (cpsGcloudGoSubscriberCount > 0) {
+          clientParamsMap.put(
+              new ClientParams(ClientType.CPS_GCLOUD_GO_SUBSCRIBER, "gcloud-subscription" + i),
+              cpsGcloudGoSubscriberCount / cpsSubscriptionFanout);
         }
       }
       // Set static variables.

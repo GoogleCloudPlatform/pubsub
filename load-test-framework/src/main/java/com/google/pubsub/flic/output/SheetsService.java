@@ -81,6 +81,7 @@ public class SheetsService {
       cpsPublisherCount += (countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER) : 0;
       cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER): 0;
       cpsSubscriberCount += (countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER): 0;
+      cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_GO_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_GO_SUBSCRIBER): 0;
       kafkaPublisherCount += (countMap.get(ClientType.KAFKA_PUBLISHER) != null) ? countMap.get(ClientType.KAFKA_PUBLISHER) : 0;
       kafkaSubscriberCount += (countMap.get(ClientType.KAFKA_SUBSCRIBER) != null) ? countMap.get(ClientType.KAFKA_SUBSCRIBER) : 0;
     });
@@ -149,6 +150,7 @@ public class SheetsService {
           break;
         case CPS_EXPERIMENTAL_JAVA_SUBSCRIBER:
         case CPS_GCLOUD_JAVA_SUBSCRIBER:
+        case CPS_GCLOUD_GO_SUBSCRIBER:
           if (cpsSubscriberCount == 0) {
             return;
           }
