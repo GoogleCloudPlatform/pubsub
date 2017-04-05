@@ -110,9 +110,10 @@ public class Client {
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
+        return "gcloud";
       case CPS_GCLOUD_GO_PUBLISHER:
       case CPS_GCLOUD_GO_SUBSCRIBER:
-        return "gcloud";
+        return "gcloud-go";
       case CPS_VTK_JAVA_PUBLISHER:
         return "vtk";
       case KAFKA_PUBLISHER:
