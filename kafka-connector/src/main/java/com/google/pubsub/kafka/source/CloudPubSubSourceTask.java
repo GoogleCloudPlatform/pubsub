@@ -28,7 +28,6 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -129,7 +128,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         Map<String, String> messageAttributes = message.getAttributes();
         String key = messageAttributes.get(kafkaMessageKeyAttribute);
         ByteString messageData = message.getData();
-        ByteBuffer messageBytes = messageData.asReadOnlyByteBuffer();
+        byte[] messageBytes = messageData.toByteArray();
 
         boolean hasAttributes =
             messageAttributes.size() > 1 || (messageAttributes.size() > 0 && key == null);
@@ -165,7 +164,7 @@ public class CloudPubSubSourceTask extends SourceTask {
                 null,
                 kafkaTopic,
                 selectPartition(key, value),
-                Schema.STRING_SCHEMA,
+                Schema.OPTIONAL_STRING_SCHEMA,
                 key,
                 valueSchema,
                 value);
@@ -176,7 +175,7 @@ public class CloudPubSubSourceTask extends SourceTask {
                 null,
                 kafkaTopic,
                 selectPartition(key, messageBytes),
-                Schema.STRING_SCHEMA,
+                Schema.OPTIONAL_STRING_SCHEMA,
                 key,
                 Schema.BYTES_SCHEMA,
                 messageBytes);
