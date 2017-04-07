@@ -473,14 +473,23 @@ public class Driver {
       }
       if (maxPublishLatencyTest) {
         controller = controllerFunction.apply(project, clientParamsMap);
+        if (controller == null) {
+          System.exit(1);
+        }
         runMaxPublishLatencyTest();
       } else if (maxSubscriberThroughputTest) {
         controller = controllerFunction.apply(project, clientParamsMap);
+        if (controller == null) {
+          System.exit(1);
+        }
         runMaxSubscriberThroughputTest();
       } else if (numCoresTest) {
         runNumCoresTest(clientParamsMap, controllerFunction);
       } else {
         controller = controllerFunction.apply(project, clientParamsMap);
+        if (controller == null) {
+          System.exit(1);
+        }
         Map<ClientType, Controller.LoadtestStats> statsMap = runTest(null);
         GnuPlot.plot(statsMap);
         CsvOutput.outputStats(statsMap);
@@ -506,7 +515,8 @@ public class Driver {
             cpsGcloudJavaPublisherCount
                 + cpsExperimentalJavaPublisherCount
                 + cpsVtkJavaPublisherCount
-                + cpsGcloudPythonPublisherCount);
+                + cpsGcloudPythonPublisherCount
+                + cpsGcloudGoPublisherCount);
     controller.startClients(messageTracker);
     if (whileRunning != null) {
       whileRunning.run();
@@ -625,6 +635,9 @@ public class Driver {
     CsvOutput csv = new CsvOutput();
     for (cores = 1; cores <= 16; cores *= 2) {
       controller = controllerFunction.apply(project, clientParamsMap);
+      if (controller == null) {
+        System.exit(1);
+      }
       statsMap = runTest(null);
       gnuPlot.addCoresResult(cores, statsMap);
       csv.addCoresResult(cores, statsMap);
