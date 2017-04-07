@@ -324,6 +324,7 @@ public class GCEController extends Controller {
               .setApplicationName("Cloud Pub/Sub Loadtest Framework")
               .build());
     } catch (Throwable t) {
+      log.error("Unable to initialize GCE: ", t);
       return null;
     }
   }

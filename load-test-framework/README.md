@@ -33,11 +33,13 @@ The `--client_types` parameter to sets the clients to test. This is a comma deli
     to your local machine.
 
 3.  Go to the "IAM" tab, find the service account you just created and click on
-    the dropdown menu named "Role(s)". Under the "Pub/Sub" submenu, select
-    "Pub/Sub Admin".
+    the dropdown menu named "Role(s)". Select "Project Editor". The load test
+    framework requires permissive access since it creates GCE templates,
+    creates Pub/Sub topics, and modifies firewalls. If you are uncomfortable
+    with the permissions, please use a new GCP project for running load tests.
 
     If you don't see the service account in the list, add a new permission, use
-    the service account as the member name, and select "Pub/Sub Admin" from the
+    the service account as the member name, and select "Project Editor" from the
     role dropdown menu in the window.
 
     Now, the service account you just created should appear in the members list
