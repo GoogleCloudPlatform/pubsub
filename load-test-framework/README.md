@@ -39,7 +39,7 @@ The `--client_types` parameter to sets the clients to test. This is a comma deli
     with the permissions, please use a new GCP project for running load tests.
 
     If you don't see the service account in the list, add a new permission, use
-    the service account as the member name, and select "Pub/Sub Admin" from the
+    the service account as the member name, and select "Project Editor" from the
     role dropdown menu in the window.
 
     Now, the service account you just created should appear in the members list
