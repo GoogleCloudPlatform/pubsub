@@ -36,8 +36,7 @@ The `--client_types` parameter to sets the clients to test. This is a comma deli
     the dropdown menu named "Role(s)". Select "Project Editor". The load test
     framework requires permissive access since it creates GCE templates,
     creates Pub/Sub topics, and modifies firewalls. If you are uncomfortable
-    with the permissions, please use a new GCP project for testing the
-    framework.
+    with the permissions, please use a new GCP project for running load tests.
 
     If you don't see the service account in the list, add a new permission, use
     the service account as the member name, and select "Pub/Sub Admin" from the
