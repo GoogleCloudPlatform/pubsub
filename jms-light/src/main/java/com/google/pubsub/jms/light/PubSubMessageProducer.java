@@ -4,18 +4,11 @@ import com.google.api.gax.core.ApiFuture;
 import com.google.api.gax.core.ApiFutureCallback;
 import com.google.api.gax.core.ApiFutures;
 import com.google.cloud.pubsub.spi.v1.Publisher;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.TopicName;
 
 import java.io.IOException;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.jms.CompletionListener;
