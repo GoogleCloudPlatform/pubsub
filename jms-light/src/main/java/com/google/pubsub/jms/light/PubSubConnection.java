@@ -1,7 +1,7 @@
 package com.google.pubsub.jms.light;
 
+import com.google.api.gax.core.FlowControlSettings;
 import com.google.api.gax.core.RetrySettings;
-import com.google.api.gax.grpc.FlowControlSettings;
 import com.google.api.gax.grpc.ProviderManager;
 import com.google.common.collect.Sets;
 
