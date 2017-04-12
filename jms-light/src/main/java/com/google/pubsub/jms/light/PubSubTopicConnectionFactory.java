@@ -1,5 +1,6 @@
 package com.google.pubsub.jms.light;
 
+import javax.jms.JMSException;
 import javax.jms.TopicConnection;
 import javax.jms.TopicConnectionFactory;
 
