@@ -19,4 +19,5 @@ public class PubSubTopicConnectionFactory implements TopicConnectionFactory {
   TopicConnection createTopicConnection(String userName, String password) throws JMSException {
     return null;
   }
+
 }
