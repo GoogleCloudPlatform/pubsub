@@ -17,7 +17,7 @@ public class PubSubTopicConnectionFactory extends PubSubConnectionFactory implem
   }
 
   @Override
-  public TopicConnection createTopicConnection(String userName, String password) throws JMSException {
+  public TopicConnection createTopicConnection(final String userName, final String password) throws JMSException {
     return null;
   }
 }
