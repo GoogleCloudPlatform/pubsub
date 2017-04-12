@@ -4,7 +4,7 @@ import javax.jms.TopicConnection;
 import javax.jms.TopicConnectionFactory;
 
 /**
- * Default pubSub {@link TopicConnectionFactory} implementation.
+ * Default PubSub {@link TopicConnectionFactory} implementation.
  *
  * @author Daiqian Zhang
  */
@@ -19,5 +19,4 @@ public class PubSubTopicConnectionFactory implements TopicConnectionFactory {
   TopicConnection createTopicConnection(String userName, String password) throws JMSException {
     return null;
   }
-
 }
