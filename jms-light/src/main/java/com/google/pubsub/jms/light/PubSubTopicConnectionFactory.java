@@ -9,7 +9,7 @@ import javax.jms.TopicConnectionFactory;
  *
  * @author Daiqian Zhang
  */
-public class PubSubTopicConnectionFactory implements TopicConnectionFactory {
+public class PubSubTopicConnectionFactory extends PubSubConnectionFactory implements TopicConnectionFactory {
 
   @Override
   public TopicConnection createTopicConnection() throws JMSException {
