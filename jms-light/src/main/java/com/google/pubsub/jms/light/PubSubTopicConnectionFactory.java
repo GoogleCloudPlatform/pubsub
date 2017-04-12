@@ -12,12 +12,12 @@ import javax.jms.TopicConnectionFactory;
 public class PubSubTopicConnectionFactory implements TopicConnectionFactory {
 
   @Override
-  TopicConnection createTopicConnection() throws JMSException {
+  public TopicConnection createTopicConnection() throws JMSException {
     return null;
   }
 
   @Override
-  TopicConnection createTopicConnection(String userName, String password) throws JMSException {
+  public TopicConnection createTopicConnection(String userName, String password) throws JMSException {
     return null;
   }
 }
