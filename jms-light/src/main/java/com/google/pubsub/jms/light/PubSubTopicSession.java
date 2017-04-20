@@ -1,8 +1,5 @@
 package com.google.pubsub.jms.light;
 
-import javax.jms.Topic;
-import javax.jms.TopicPublisher;
-import javax.jms.TopicSubscriber;
 import javax.jms.TemporaryTopic;
 
 /**
@@ -33,7 +30,7 @@ class PubSubTopicSession extends PubSubSession {
   }
 
   @Override
-  public void unsubscribe(String name) {
+  public void unsubscribe(final String name) {
   }
 
   // @Override
