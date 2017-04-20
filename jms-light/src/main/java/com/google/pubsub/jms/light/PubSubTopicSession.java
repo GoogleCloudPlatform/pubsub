@@ -28,22 +28,6 @@ class PubSubTopicSession extends PubSubSession {
   }
 
   @Override
-  public TopicPublisher createPublisher(Topic topic) {
-    return null;
-  }
-
-  @Override
-  public TopicSubscriber createSubscriber(Topic topic) {
-    return null;
-  }
-
-
-  @Override
-  public TopicSubscriber createSubscriber(Topic topic, String messageSelector, boolean noLocal) {
-    return null;
-  }
-
-  @Override
   public TemporaryTopic createTemporaryTopic() {
     return null;
   }
@@ -51,4 +35,9 @@ class PubSubTopicSession extends PubSubSession {
   @Override
   public void unsubscribe(String name) {
   }
+
+  // @Override
+  // public QueueBrowser createBrowser(final Queue queue) throws
+  // public createQueue
+  // public createTemporaryQueue
 }
