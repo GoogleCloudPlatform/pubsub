@@ -1,5 +1,9 @@
 package com.google.pubsub.jms.light;
 
+import javax.jms.JMSException;
+import javax.jms.Queue;
+import javax.jms.QueueBrowser;
+import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
 
 /**
@@ -33,8 +37,18 @@ class PubSubTopicSession extends PubSubSession {
   public void unsubscribe(final String name) {
   }
 
-  // @Override
-  // public QueueBrowser createBrowser(final Queue queue) throws
-  // public createQueue
-  // public createTemporaryQueue
+  @Override
+  public QueueBrowser createBrowser(final Queue queue) throws JMSException {
+    throw new JMSException("createBrowser can not be used in Pub/Sub messaging domain.");
+  }
+
+  @Override
+  public Queue createQueue(final String queueName) throws JMSException {
+    throw new JMSException("createQueue can not be used in Pub/Sub messaging domain.");
+  }
+
+  @Override
+  public TemporaryQueue createTemporaryQueue() throws JMSException {
+    throw new JMSException("createTemporaryQueue can not be used in Pub/Sub messaging domain.");
+  }
 }
