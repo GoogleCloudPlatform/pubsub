@@ -6,6 +6,8 @@ import javax.jms.QueueBrowser;
 import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
 
+import com.google.pubsub.jms.light.destination.PubSubTemporaryTopic;
+
 /**
  * Default PubSub {@link javax.jms.TopicSession} implementation.
  *
@@ -30,7 +32,7 @@ class PubSubTopicSession extends PubSubSession {
 
   @Override
   public TemporaryTopic createTemporaryTopic() {
-    return null;
+    return new PubSubTemporaryTopic(generateTemporaryTopicName());
   }
 
   @Override
@@ -50,5 +52,10 @@ class PubSubTopicSession extends PubSubSession {
   @Override
   public TemporaryQueue createTemporaryQueue() throws JMSException {
     throw new JMSException("createTemporaryQueue can not be used in Pub/Sub messaging domain.");
+  }
+
+  private String generateTemporaryTopicName() {
+    // TODO make sure the generated string is unique to the connection.
+    return null;
   }
 }
