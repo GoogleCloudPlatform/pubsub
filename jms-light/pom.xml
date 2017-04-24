@@ -20,9 +20,7 @@
         <configuration>
           <source>${java.version}</source>
           <target>${java.version}</target>
-          <compilerArgs>
-            <arg>-Xlint:all</arg>
-          </compilerArgs>
+          <compilerArgument>-Xlint:all</compilerArgument>
         </configuration>
       </plugin>
 

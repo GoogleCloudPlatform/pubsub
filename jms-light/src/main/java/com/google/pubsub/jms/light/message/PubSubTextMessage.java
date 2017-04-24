@@ -29,14 +29,14 @@ public class PubSubTextMessage extends AbstractPubSubMessage implements TextMess
 
   @Override
   public <T> T getBody(final Class<T> clazz) throws JMSException {
-    final String result;
+    final T result;
     if (isBodyAssignableTo(clazz)) {
-      result = getText();
+      result = clazz.cast(getText());
     } else {
       throw new MessageFormatException("Can't be assigned to " + clazz);
     }
 
-    return (T) result; 
+    return result; 
   }
 
   @Override
