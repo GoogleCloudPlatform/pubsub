@@ -123,9 +123,7 @@
         <configuration>
           <source>1.7</source>
           <target>1.7</target>
-          <compilerArgs>
-            <arg>-Xlint:all</arg>
-          </compilerArgs>
+          <compilerArgument>-Xlint:all</compilerArgument>
         </configuration>
       </plugin>
       <plugin>
