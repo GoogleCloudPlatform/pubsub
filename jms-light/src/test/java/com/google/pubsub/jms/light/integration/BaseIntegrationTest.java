@@ -6,16 +6,15 @@ import com.google.cloud.pubsub.deprecated.SubscriptionInfo;
 import com.google.cloud.pubsub.deprecated.TopicInfo;
 import com.google.cloud.pubsub.deprecated.testing.LocalPubSubHelper;
 import com.google.common.base.Joiner;
-import org.joda.time.Duration;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
 
 import java.io.IOException;
 import java.util.concurrent.TimeoutException;
 import java.util.logging.Logger;
+import org.joda.time.Duration;
+import org.junit.AfterClass;
+import org.junit.BeforeClass;
 
-public class BaseIntegrationTest
-{
+public class BaseIntegrationTest {
   private static final Logger LOGGER = Logger.getLogger(BaseIntegrationTest.class.getName());
 
   public static String PROJECT_ID = "jms-light";
@@ -27,9 +26,11 @@ public class BaseIntegrationTest
   private static LocalPubSubHelper EMBEDDED_PUBSUB_SERVICE;
   private static Subscription SUBSCRIPTION;
 
+  /**
+   * This method gets called before every test run and sets up a local pub/sub emulator.
+   */
   @BeforeClass
-  public static void startPubSub() throws IOException, InterruptedException
-  {
+  public static void startPubSub() throws IOException, InterruptedException {
     EMBEDDED_PUBSUB_SERVICE = LocalPubSubHelper.create();
     EMBEDDED_SERVICE_PORT = EMBEDDED_PUBSUB_SERVICE.getPort();
 
@@ -50,23 +51,19 @@ public class BaseIntegrationTest
   }
 
   @AfterClass
-  public static void shutdownPubSub() throws InterruptedException, TimeoutException, IOException
-  {
+  public static void shutdownPubSub() throws InterruptedException, TimeoutException, IOException {
     EMBEDDED_PUBSUB_SERVICE.stop(Duration.standardSeconds(10L));
   }
 
-  public static String getServiceHost()
-  {
+  public static String getServiceHost() {
     return EMBEDDED_SERVICE_HOST;
   }
 
-  public static int getServicePort()
-  {
+  public static int getServicePort() {
     return EMBEDDED_SERVICE_PORT;
   }
 
-  public static Subscription getServiceSubscription()
-  {
+  public static Subscription getServiceSubscription() {
     return SUBSCRIPTION;
   }
 }

@@ -9,7 +9,9 @@ import javax.jms.TopicConnectionFactory;
  *
  * @author Daiqian Zhang
  */
-public class PubSubTopicConnectionFactory extends PubSubConnectionFactory implements TopicConnectionFactory {
+public class PubSubTopicConnectionFactory
+    extends PubSubConnectionFactory
+    implements TopicConnectionFactory {
 
   @Override
   public TopicConnection createTopicConnection() throws JMSException {
@@ -17,7 +19,10 @@ public class PubSubTopicConnectionFactory extends PubSubConnectionFactory implem
   }
 
   @Override
-  public TopicConnection createTopicConnection(final String userName, final String password) throws JMSException {
+  public TopicConnection createTopicConnection(
+      final String userName,
+      final String password)
+          throws JMSException {
     return null;
   }
 }

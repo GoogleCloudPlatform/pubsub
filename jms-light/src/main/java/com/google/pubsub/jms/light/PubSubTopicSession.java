@@ -1,12 +1,12 @@
 package com.google.pubsub.jms.light;
 
+import com.google.pubsub.jms.light.destination.PubSubTemporaryTopic;
+
 import javax.jms.JMSException;
 import javax.jms.Queue;
 import javax.jms.QueueBrowser;
 import javax.jms.TemporaryQueue;
 import javax.jms.TemporaryTopic;
-
-import com.google.pubsub.jms.light.destination.PubSubTemporaryTopic;
 
 /**
  * Default PubSub {@link javax.jms.TopicSession} implementation.
