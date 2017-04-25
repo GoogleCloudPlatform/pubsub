@@ -52,6 +52,7 @@
               <consoleOutput>true</consoleOutput>
               <failsOnError>true</failsOnError>
               <linkXRef>true</linkXRef>
+              <includeTestSourceDirectory>true</includeTestSourceDirectory>
             </configuration>
           </execution>
         </executions>
