@@ -158,6 +158,10 @@ public class CloudPubSubSinkTask extends SinkTask {
   }
 
   private ByteString handleValue(Schema schema, Object value,  Map<String, String> attributes) {
+    if (schema == null) {
+        String str = value.toString();
+        return ByteString.copyFromUtf8(str);
+    }
     Schema.Type t = schema.type();
     switch (t) {
       case INT8:
