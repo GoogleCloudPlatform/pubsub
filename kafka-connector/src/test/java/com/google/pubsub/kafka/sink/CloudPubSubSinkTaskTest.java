@@ -166,16 +166,6 @@ public class CloudPubSubSinkTaskTest {
     } catch (DataException e) { } // Expected, pass.
   }
 
-  @Test
-  public void testNullSchema() {
-    task.start(props);
-    String val = "I have no schema";
-    SinkRecord record = new SinkRecord(null, -1, null, null, null, val, -1);
-    List<SinkRecord> list = new ArrayList<>();
-    list.add(record);
-    task.put(list);
-  }
-
   /**
    * Tests that if there are not enough messages buffered, publisher.publish() is not invoked.
    */
