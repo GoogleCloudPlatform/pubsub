@@ -191,8 +191,8 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   /**
-   * Attempt to ack all ids in {@link #ackIds}. If the ack request was unsuccessful then do not
-   * clear the list of acks. Instead, wait for the next call to this function to ack those ids.
+   * Attempt to ack all ids in {@link #ackIds}. Acks are best-effort, so if acking fails, messages
+   * may be delivered multiple times to Kafka.
    */
   private void ackMessages() {
     if (ackIds.size() != 0) {
@@ -200,6 +200,7 @@ public class CloudPubSubSourceTask extends SourceTask {
           .setSubscription(cpsSubscription);
       synchronized (ackIds) {
         requestBuilder.addAllAckIds(ackIds);
+        ackIds.clear();
       }
       ListenableFuture<Empty> response = subscriber.ackMessages(requestBuilder.build());
       Futures.addCallback(
@@ -208,12 +209,11 @@ public class CloudPubSubSourceTask extends SourceTask {
             @Override
             public void onSuccess(Empty result) {
               log.trace("Successfully acked a set of messages.");
-              ackIds.clear();
             }
 
             @Override
             public void onFailure(Throwable t) {
-              log.error("An exception occurred acking messages. Will try to ack messages again.");
+              log.error("An exception occurred acking messages: " + t);
             }
           });
     }
