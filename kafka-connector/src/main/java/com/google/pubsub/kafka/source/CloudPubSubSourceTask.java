@@ -196,14 +196,12 @@ public class CloudPubSubSourceTask extends SourceTask {
    */
   private void ackMessages() {
     if (ackIds.size() != 0) {
-      AcknowledgeRequest request;
+      AcknowledgeRequest.Builder requestBuilder = AcknowledgeRequest.newBuilder()
+          .setSubscription(cpsSubscription);
       synchronized (ackIds) {
-        request = AcknowledgeRequest.newBuilder()
-            .setSubscription(cpsSubscription)
-            .addAllAckIds(ackIds)
-            .build();
+        requestBuilder.addAllAckIds(ackIds);
       }
-      ListenableFuture<Empty> response = subscriber.ackMessages(request);
+      ListenableFuture<Empty> response = subscriber.ackMessages(requestBuilder.build());
       Futures.addCallback(
           response,
           new FutureCallback<Empty>() {
