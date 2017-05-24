@@ -184,9 +184,8 @@ public class CloudPubSubSourceTask extends SourceTask {
       }
       return sourceRecords;
     } catch (Exception e) {
-      // Kafka Connect suppresses any indication of an InterruptedException
-      // so we have to throw a RuntimeException.
-      throw new RuntimeException(e.getMessage());
+      log.info("Error while retrieving records, treating as an empty poll. " + e);
+      return new ArrayList<>();
     }
   }
 
