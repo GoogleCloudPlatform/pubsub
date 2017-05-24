@@ -408,12 +408,12 @@ public class CloudPubSubSourceTaskTest {
     assertRecordsEqual(expected4, result.get(3));
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testPollExceptionCase() throws Exception {
     task.start(props);
     // Could also throw ExecutionException if we wanted to...
     when(subscriber.pull(any(PullRequest.class)).get()).thenThrow(new InterruptedException());
-    task.poll();
+    assertEquals(0, task.poll().size());
   }
 
   private ReceivedMessage createReceivedMessage(
