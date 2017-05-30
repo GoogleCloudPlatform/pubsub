@@ -43,7 +43,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Deque;
+import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -84,6 +86,8 @@ public class SubscriberImplTest {
 
   private FakeCredentials testCredentials;
   private TestReceiver testReceiver;
+
+  private Watchdog wd;
 
   static class TestReceiver implements MessageReceiver {
     private final Deque<SettableFuture<AckReply>> outstandingMessageReplies =
@@ -163,6 +167,8 @@ public class SubscriberImplTest {
 
   @Before
   public void setUp() throws Exception {
+    wd = new Watchdog();
+
     MockitoAnnotations.initMocks(this);
 
     InProcessServerBuilder serverBuilder = InProcessServerBuilder.forName(testName.getMethodName());
@@ -181,6 +187,8 @@ public class SubscriberImplTest {
   public void tearDown() throws Exception {
     testServer.shutdownNow().awaitTermination(10, TimeUnit.SECONDS);
     fakeSubscriberServiceImpl.reset();
+
+    wd.stop();
   }
 
   @Test
@@ -494,6 +502,52 @@ public class SubscriberImplTest {
             String.format("Expected element %s is not contained in %s", expectedElem, target));
       }
       remaining.remove(expectedElem);
+    }
+  }
+
+  private static class Watchdog {
+    private Thread t;
+    private boolean running = true;
+    private long startTime;
+
+    private Watchdog() {
+      startTime = System.currentTimeMillis();
+      t = new Thread() {
+        public void run() {
+          runThread();
+        }
+      };
+      t.start();
+    }
+
+    private void runThread() {
+      while(running) {
+        if((System.currentTimeMillis() - startTime) > 2 * 60 * 1000l) {
+          printAllStackTraces();
+          System.exit(-1);
+        }
+        try {
+          Thread.sleep(100L);
+        } catch(InterruptedException ie) {
+        }
+      }
+    }
+
+    private void stop() {
+      running = false;
+      t.interrupt();
+    }
+
+    private static void printAllStackTraces() {
+      Map liveThreads = Thread.getAllStackTraces();
+      for (Iterator i = liveThreads.keySet().iterator(); i.hasNext(); ) {
+        Thread key = (Thread)i.next();
+        System.err.println("Thread " + key.getName());
+        StackTraceElement[] trace = (StackTraceElement[])liveThreads.get(key);
+        for (int j = 0; j < trace.length; j++) {
+          System.err.println("\tat " + trace[j]);
+        }
+      }
     }
   }
 }
