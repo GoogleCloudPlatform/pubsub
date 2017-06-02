@@ -28,9 +28,9 @@ import java.util.concurrent.atomic.AtomicLong;
 public class Distribution {
 
   private final AtomicLong[] bucketCounts;
-  private long count = 0;
-  private double mean = 0;
-  private double sumOfSquaredDeviation = 0;
+  private long count;
+  private double mean;
+  private double sumOfSquaredDeviation;
 
   public Distribution(int totalBuckets) {
     Preconditions.checkArgument(totalBuckets > 0);
@@ -56,10 +56,10 @@ public class Distribution {
     if (total == 0) {
       return 0;
     }
-    long count = (long) (total * percentile / 100.0);
-    for (int i = bucketCounts.length - 1; i > 0; i--) {
-      total -= bucketCounts[i];
-      if (total <= count) {
+    long count = (long) Math.ceil(total * percentile / 100.0);
+    for (int i = 0; i < bucketCounts.length; i++) {
+      count -= bucketCounts[i];
+      if (count <= 0) {
         return i;
       }
     }

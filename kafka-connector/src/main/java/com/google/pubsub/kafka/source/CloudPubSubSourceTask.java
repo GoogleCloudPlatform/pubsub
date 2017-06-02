@@ -28,12 +28,12 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
@@ -62,7 +62,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   // Keeps track of the current partition to publish to if the partition scheme is round robin.
   private int currentRoundRobinPartition = -1;
   // Keep track of all ack ids that have not been sent correctly acked yet.
-  private Set<String> ackIds = Collections.synchronizedSet(new HashSet<>());
+  private Set<String> ackIds = Collections.synchronizedSet(new HashSet<String>());
   private CloudPubSubSubscriber subscriber;
 
   public CloudPubSubSourceTask() {}
@@ -128,7 +128,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         Map<String, String> messageAttributes = message.getAttributes();
         String key = messageAttributes.get(kafkaMessageKeyAttribute);
         ByteString messageData = message.getData();
-        ByteBuffer messageBytes = messageData.asReadOnlyByteBuffer();
+        byte[] messageBytes = messageData.toByteArray();
 
         boolean hasAttributes =
             messageAttributes.size() > 1 || (messageAttributes.size() > 0 && key == null);
@@ -136,10 +136,10 @@ public class CloudPubSubSourceTask extends SourceTask {
         SourceRecord record = null;
         if (hasAttributes) {
           SchemaBuilder valueSchemaBuilder = SchemaBuilder.struct().field(
-              ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE,
+              ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
               Schema.BYTES_SCHEMA);
 
-          for (Map.Entry<String, String> attribute :
+          for (Entry<String, String> attribute :
                messageAttributes.entrySet()) {
             if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
               valueSchemaBuilder.field(attribute.getKey(),
@@ -150,11 +150,11 @@ public class CloudPubSubSourceTask extends SourceTask {
           Schema valueSchema = valueSchemaBuilder.build();
           Struct value =
               new Struct(valueSchema)
-                  .put(ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE,
+                  .put(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
                        messageBytes);
           for (Field field : valueSchema.fields()) {
             if (!field.name().equals(
-                    ConnectorUtils.KAFKA_MESSAGE_CPS_MESSAGE_ATTRIBUTE)) {
+                    ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD)) {
               value.put(field.name(), messageAttributes.get(field.name()));
             }
           }
@@ -164,7 +164,7 @@ public class CloudPubSubSourceTask extends SourceTask {
                 null,
                 kafkaTopic,
                 selectPartition(key, value),
-                Schema.STRING_SCHEMA,
+                Schema.OPTIONAL_STRING_SCHEMA,
                 key,
                 valueSchema,
                 value);
@@ -175,7 +175,7 @@ public class CloudPubSubSourceTask extends SourceTask {
                 null,
                 kafkaTopic,
                 selectPartition(key, messageBytes),
-                Schema.STRING_SCHEMA,
+                Schema.OPTIONAL_STRING_SCHEMA,
                 key,
                 Schema.BYTES_SCHEMA,
                 messageBytes);
@@ -184,36 +184,35 @@ public class CloudPubSubSourceTask extends SourceTask {
       }
       return sourceRecords;
     } catch (Exception e) {
-      // Kafka Connect suppresses any indication of an InterruptedException
-      // so we have to throw a RuntimeException.
-      throw new RuntimeException(e.getMessage());
+      log.info("Error while retrieving records, treating as an empty poll. " + e);
+      return new ArrayList<>();
     }
   }
 
   /**
-   * Attempt to ack all ids in {@link #ackIds}. If the ack request was unsuccessful then do not
-   * clear the list of acks. Instead, wait for the next call to this function to ack those ids.
+   * Attempt to ack all ids in {@link #ackIds}. Acks are best-effort, so if acking fails, messages
+   * may be delivered multiple times to Kafka.
    */
   private void ackMessages() {
     if (ackIds.size() != 0) {
-      AcknowledgeRequest request =
-          AcknowledgeRequest.newBuilder()
-              .setSubscription(cpsSubscription)
-              .addAllAckIds(ackIds)
-              .build();
-      ListenableFuture<Empty> response = subscriber.ackMessages(request);
+      AcknowledgeRequest.Builder requestBuilder = AcknowledgeRequest.newBuilder()
+          .setSubscription(cpsSubscription);
+      synchronized (ackIds) {
+        requestBuilder.addAllAckIds(ackIds);
+        ackIds.clear();
+      }
+      ListenableFuture<Empty> response = subscriber.ackMessages(requestBuilder.build());
       Futures.addCallback(
           response,
           new FutureCallback<Empty>() {
             @Override
             public void onSuccess(Empty result) {
               log.trace("Successfully acked a set of messages.");
-              ackIds.clear();
             }
 
             @Override
             public void onFailure(Throwable t) {
-              log.error("An exception occurred acking messages. Will try to ack messages again.");
+              log.error("An exception occurred acking messages: " + t);
             }
           });
     }

@@ -38,7 +38,6 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
-import org.mockito.internal.matchers.Null;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -159,6 +158,10 @@ public class CloudPubSubSinkTask extends SinkTask {
   }
 
   private ByteString handleValue(Schema schema, Object value,  Map<String, String> attributes) {
+    if (schema == null) {
+        String str = value.toString();
+        return ByteString.copyFromUtf8(str);
+    }
     Schema.Type t = schema.type();
     switch (t) {
       case INT8:

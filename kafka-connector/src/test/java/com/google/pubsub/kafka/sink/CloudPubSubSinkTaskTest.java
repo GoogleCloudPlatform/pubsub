@@ -166,6 +166,16 @@ public class CloudPubSubSinkTaskTest {
     } catch (DataException e) { } // Expected, pass.
   }
 
+  @Test
+  public void testNullSchema() {
+    task.start(props);
+    String val = "I have no schema";
+    SinkRecord record = new SinkRecord(null, -1, null, null, null, val, -1);
+    List<SinkRecord> list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
+  }
+
   /**
    * Tests that if there are not enough messages buffered, publisher.publish() is not invoked.
    */
@@ -245,8 +255,7 @@ public class CloudPubSubSinkTaskTest {
     Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
     partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
     List<SinkRecord> records = getSampleRecords();
-    ListenableFuture<PublishResponse> badFuture =
-        spy(Futures.immediateFailedFuture(new Exception()));
+    ListenableFuture<PublishResponse> badFuture = spy(Futures.<PublishResponse>immediateFailedFuture(new Exception()));
     when(publisher.publish(any(PublishRequest.class))).thenReturn(badFuture);
     task.put(records);
     task.flush(partitionOffsets);

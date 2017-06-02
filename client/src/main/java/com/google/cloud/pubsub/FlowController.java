@@ -46,6 +46,8 @@ class FlowController {
   }
 
   void reserve(int messages, int bytes) throws CloudPubsubFlowControlException {
+    Preconditions.checkArgument(messages > 0);
+    
     if (outstandingMessageCount != null) {
       if (!failOnLimits) {
         outstandingMessageCount.acquireUninterruptibly(messages);
@@ -57,7 +59,7 @@ class FlowController {
     // Will always allow to send a message even if it is larger than the flow control limit,
     // if it doesn't then it will deadlock the thread.
     if (outstandingByteCount != null) {
-      int permitsToDraw = Integer.min(maxOutstandingBytes.get(), bytes);
+      int permitsToDraw = Math.min(bytes, maxOutstandingBytes.get());
       if (!failOnLimits) {
         outstandingByteCount.acquireUninterruptibly(permitsToDraw);
       } else if (!outstandingByteCount.tryAcquire(permitsToDraw)) {
@@ -67,12 +69,14 @@ class FlowController {
   }
 
   void release(int messages, int bytes) {
+    Preconditions.checkArgument(messages > 0);
+    
     if (outstandingMessageCount != null) {
       outstandingMessageCount.release(messages);
     }
     if (outstandingByteCount != null) {
       // Need to return at most as much bytes as it can be drawn.
-      int permitsToReturn = Integer.min(maxOutstandingBytes.get(), bytes);
+      int permitsToReturn = Math.min(bytes, maxOutstandingBytes.get());
       outstandingByteCount.release(permitsToReturn);
     }
   }

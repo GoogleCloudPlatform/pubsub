@@ -17,49 +17,44 @@ package com.google.pubsub.clients.adapter;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.clients.common.Task.RunResult;
 import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.common.LoadtestWorkerGrpc;
 import io.grpc.ManagedChannelBuilder;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 
 /**
  * A Task that proxies commands to a LoadtestWorker process on localhost.
  */
 public class AdapterTask extends Task {
-  private static final Logger log = LoggerFactory.getLogger(AdapterTask.class);
-  private LoadtestWorkerGrpc.LoadtestWorkerBlockingStub stub;
+  private final LoadtestWorkerGrpc.LoadtestWorkerFutureStub stub;
 
   public AdapterTask(
       LoadtestProto.StartRequest request, MetricsHandler.MetricName metricName, Options options) {
-    super(request.getProject(), "adapter", metricName);
+    super(request, "adapter", metricName);
     stub =
-        LoadtestWorkerGrpc.newBlockingStub(
+        LoadtestWorkerGrpc.newFutureStub(
             ManagedChannelBuilder.forAddress("localhost", options.workerPort)
                 .usePlaintext(true)
                 .build());
     try {
-      stub.start(request);
+      stub.start(request).get();
     } catch (Throwable t) {
-      log.error("Unable to start server.", t);
-      System.exit(1);
+      throw new RuntimeException("Unable to start server.", t);
     }
   }
 
   @Override
-  public void run() {
-    try {
-      LoadtestProto.ExecuteResponse response =
-          stub.execute(LoadtestProto.ExecuteRequest.getDefaultInstance());
-      addNumberOfMessages(response.getLatenciesCount());
-      response.getLatenciesList().forEach(metricsHandler::recordLatency);
-      addAllMessageIdentifiers(response.getReceivedMessagesList());
-    } catch (Throwable t) {
-      log.error("Error running command on adapter task.", t);
-    }
+  public ListenableFuture<RunResult> doRun() {
+    return Futures.transform(
+        stub.execute(LoadtestProto.ExecuteRequest.getDefaultInstance()),
+        response ->
+            RunResult.fromMessages(
+                response.getReceivedMessagesList(), response.getLatenciesList()));
   }
 
   /**

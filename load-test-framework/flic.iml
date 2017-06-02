@@ -72,7 +72,7 @@
     <orderEntry type="library" name="Maven: com.google.apis:google-api-services-compute:v1-rev125-1.22.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.apis:google-api-services-storage:v1-rev85-1.22.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.apis:google-api-services-monitoring:v3-rev9-1.22.0" level="project" />
-    <orderEntry type="library" name="Maven: com.google.api-client:google-api-client:1.20.0" level="project" />
+    <orderEntry type="library" name="Maven: com.google.api-client:google-api-client:1.22.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.oauth-client:google-oauth-client:1.20.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.http-client:google-http-client:1.20.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.http-client:google-http-client-jackson2:1.20.0" level="project" />
@@ -107,7 +107,7 @@
     <orderEntry type="library" name="Maven: com.google.api.grpc:grpc-google-common-protos:0.1.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.api.grpc:grpc-google-iam-v1:0.1.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.api.grpc:grpc-google-pubsub-v1:0.1.0" level="project" />
-    <orderEntry type="library" name="Maven: com.google.apis:google-api-services-sheets:v4-rev32-1.22.0" level="project" />
+    <orderEntry type="library" name="Maven: com.google.apis:google-api-services-sheets:v4-rev108-1.22.0" level="project" />
     <orderEntry type="library" name="Maven: com.google.oauth-client:google-oauth-client-java6:1.11.0-beta" level="project" />
     <orderEntry type="library" name="Maven: com.google.oauth-client:google-oauth-client-jetty:1.22.0" level="project" />
     <orderEntry type="library" name="Maven: org.mortbay.jetty:jetty:6.1.26" level="project" />

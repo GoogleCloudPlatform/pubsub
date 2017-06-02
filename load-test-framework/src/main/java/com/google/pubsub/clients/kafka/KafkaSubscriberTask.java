@@ -17,9 +17,14 @@ package com.google.pubsub.clients.kafka;
 
 import com.beust.jcommander.JCommander;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.clients.common.Task.RunResult;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import java.util.Collections;
 import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -33,11 +38,9 @@ class KafkaSubscriberTask extends Task {
   private final long pollLength;
   private final KafkaConsumer<String, String> subscriber;
 
-  private KafkaSubscriberTask(String broker, String project, String topic, long pollLength) {
-    super(project, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);
-    this.pollLength = pollLength;
-
-    // Create subscriber
+  private KafkaSubscriberTask(StartRequest request) {
+    super(request, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);
+    this.pollLength = Durations.toMillis(request.getKafkaOptions().getPollDuration());
     Properties props = new Properties();
     props.putAll(ImmutableMap.of(
         "key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
@@ -46,24 +49,23 @@ class KafkaSubscriberTask extends Task {
         "enable.auto.commit", "true",
         "session.timeout.ms", "30000"
     ));
-    props.put("bootstrap.servers", broker);
+    props.put("bootstrap.servers", request.getKafkaOptions().getBroker());
     subscriber = new KafkaConsumer<>(props);
-    subscriber.subscribe(Collections.singletonList(topic));
+    subscriber.subscribe(Collections.singletonList(request.getTopic()));
   }
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options options = new LoadTestRunner.Options();
     new JCommander(options, args);
-    LoadTestRunner.run(options, request ->
-        new KafkaSubscriberTask(request.getKafkaOptions().getBroker(), request.getProject(),
-            request.getTopic(), request.getRequestRate()));
+    LoadTestRunner.run(options, KafkaSubscriberTask::new);
   }
 
   @Override
-  public void run() {
+  public ListenableFuture<RunResult> doRun() {
+    RunResult result = new RunResult();
     ConsumerRecords<String, String> records = subscriber.poll(pollLength);
-    addNumberOfMessages(records.count());
     long now = System.currentTimeMillis();
-    records.forEach(record -> metricsHandler.recordLatency(now - record.timestamp()));
+    records.forEach(record -> result.latencies.add(now - record.timestamp()));
+    return Futures.immediateFuture(result);
   }
 }

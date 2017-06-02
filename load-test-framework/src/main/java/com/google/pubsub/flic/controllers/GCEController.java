@@ -18,8 +18,8 @@ package com.google.pubsub.flic.controllers;
 import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
+import com.google.api.client.http.FileContent;
 import com.google.api.client.http.HttpTransport;
-import com.google.api.client.http.InputStreamContent;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.client.util.Base64;
@@ -57,34 +57,43 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import kafka.admin.AdminUtils;
+import kafka.utils.ZKStringSerializer$;
+import kafka.utils.ZkUtils;
 import org.apache.commons.codec.digest.DigestUtils;
+import org.I0Itec.zkclient.ZkClient;
+import org.I0Itec.zkclient.ZkConnection;
+import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 
 /**
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
  */
 public class GCEController extends Controller {
-  private static final String MACHINE_TYPE = "n1-standard-4"; // quad core machines
+  private static final String MACHINE_TYPE = "n1-standard-"; // standard machine prefix
   private static final String SOURCE_FAMILY =
       "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
   private static final int ALREADY_EXISTS = 409;
   private static final int NOT_FOUND = 404;
-  public static String resourceDirectory = "src/main/resources/gce";
+  public static String resourceDirectory = "target/classes/gce";
   private final Storage storage;
   private final Compute compute;
   private final String projectName;
+  private final int cores;
   private final Map<String, Map<ClientParams, Integer>> types;
 
   /**
    * Instantiates the load test on Google Compute Engine.
    */
   private GCEController(String projectName, Map<String, Map<ClientParams, Integer>> types,
-                        ScheduledExecutorService executor, Storage storage,
+                        int cores, ScheduledExecutorService executor, Storage storage,
                         Compute compute, Pubsub pubsub) throws Throwable {
     super(executor);
     this.projectName = projectName;
     this.types = types;
+    this.cores = cores;
     this.storage = storage;
     this.compute = compute;
 
@@ -135,6 +144,58 @@ public class GCEController extends Controller {
         });
       });
     });
+
+    List<SettableFuture<Void>> kafkaFutures = new ArrayList<>();
+    // If the Zookeeper host is provided, delete and recreate the topic
+    // in order to eliminate performance issues from backlogs.
+    if (!Client.zookeeperIpAddress.isEmpty()) {
+      types.values().forEach(paramsMap -> {
+        paramsMap.keySet().stream().map(p -> p.getClientType())
+            .distinct().filter(ClientType::isKafkaPublisher).forEach(clientType -> {
+          SettableFuture<Void> kafkaFuture = SettableFuture.create();
+          kafkaFutures.add(kafkaFuture);
+          executor.execute(() -> {
+            String topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
+            ZkClient zookeeperClient = new ZkClient(Client.zookeeperIpAddress, 15000, 10000,
+                ZKStringSerializer$.MODULE$);
+            ZkUtils zookeeperUtils = new ZkUtils(zookeeperClient,
+                new ZkConnection(Client.zookeeperIpAddress), false);
+            try {
+              if (AdminUtils.topicExists(zookeeperUtils, topic)) {
+                log.info("Deleting topic " + topic + ".");
+                try {
+                  AdminUtils.deleteTopic(zookeeperUtils, topic);
+                } catch (ZkNodeExistsException e) {
+                  log.info("Topic " + topic + " already marked for delete.");
+                  kafkaFuture.setException(e);
+                  return;
+                }
+              } else {
+                log.info("Topic " + topic + " does not exist.");
+              }
+              while (AdminUtils.topicExists(zookeeperUtils, topic)) {
+                // waiting for topic to delete before recreating
+              }
+              Properties topicConfig = new Properties();
+              AdminUtils
+                  .createTopic(zookeeperUtils, topic, Client.partitions, Client.replicationFactor,
+                      AdminUtils.createTopic$default$5(),
+                      AdminUtils.createTopic$default$6());
+              log.info("Created topic " + topic + ".");
+            } catch (Exception e) {
+              kafkaFuture.setException(e);
+              return;
+            } finally {
+              if (zookeeperClient != null) {
+                zookeeperClient.close();
+              }
+            }
+            kafkaFuture.set(null);
+          });
+        });
+      });
+    }
+
     try {
       createStorageBucket();
       createFirewall();
@@ -170,6 +231,8 @@ public class GCEController extends Controller {
       // Wait for files and instance groups to be created.
       Futures.allAsList(pubsubFutures).get();
       log.info("Pub/Sub actions completed.");
+      Futures.allAsList(kafkaFutures).get();
+      log.info("Kafka actions completed.");
       Futures.allAsList(filesRemaining).get();
       log.info("File uploads completed.");
       Futures.allAsList(createGroupFutures).get();
@@ -235,6 +298,7 @@ public class GCEController extends Controller {
   public static GCEController newGCEController(
       String projectName,
       Map<String, Map<ClientParams, Integer>> types,
+      int cores,
       ScheduledExecutorService executor) {
     try {
       HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
@@ -248,6 +312,7 @@ public class GCEController extends Controller {
       return new GCEController(
           projectName,
           types,
+          cores,
           executor,
           new Storage.Builder(transport, jsonFactory, credential)
               .setApplicationName("Cloud Pub/Sub Loadtest Framework")
@@ -259,6 +324,7 @@ public class GCEController extends Controller {
               .setApplicationName("Cloud Pub/Sub Loadtest Framework")
               .build());
     } catch (Throwable t) {
+      log.error("Unable to initialize GCE: ", t);
       return null;
     }
   }
@@ -278,8 +344,8 @@ public class GCEController extends Controller {
     types.forEach((zone, paramsCount) -> paramsCount.forEach((param, count) -> {
           try {
             compute.instanceGroupManagers()
-                .resize(projectName, zone, "cloud-pubsub-loadtest-framework-"
-                    + param.getClientType(), 0)
+                .resize(projectName, zone, "cps-loadtest-"
+                    + param.getClientType() + "-" + cores, 0)
                 .execute();
           } catch (IOException e) {
             log.error("Unable to resize Instance Group for " + param.getClientType() + ", please "
@@ -344,9 +410,9 @@ public class GCEController extends Controller {
     while (true) {
       try {
         compute.instanceGroupManagers().insert(projectName, zone,
-            (new InstanceGroupManager()).setName("cloud-pubsub-loadtest-framework-" + type)
+            (new InstanceGroupManager()).setName("cps-loadtest-" + type + "-" + cores)
                 .setInstanceTemplate("projects/" + projectName
-                    + "/global/instanceTemplates/cloud-pubsub-loadtest-instance-" + type)
+                    + "/global/instanceTemplates/cps-loadtest-" + type + "-" + cores)
                 .setTargetSize(0))
             .execute();
         return;
@@ -375,9 +441,9 @@ public class GCEController extends Controller {
       try {
         // We first resize to 0 to delete any left running from an improperly cleaned up prior run.
         compute.instanceGroupManagers().resize(projectName, zone,
-            "cloud-pubsub-loadtest-framework-" + type, 0).execute();
+            "cps-loadtest-" + type + "-" + cores, 0).execute();
         compute.instanceGroupManagers().resize(projectName, zone,
-            "cloud-pubsub-loadtest-framework-" + type, n).execute();
+            "cps-loadtest-" + type + "-" + cores, n).execute();
         return;
       } catch (GoogleJsonResponseException e) {
         if (errors > 10) {
@@ -418,12 +484,16 @@ public class GCEController extends Controller {
         throw e;
       }
     }
-    try (InputStream inputStream = Files.newInputStream(filePath, StandardOpenOption.READ)) {
-      storage.objects().insert(projectName + "-cloud-pubsub-loadtest", null,
-          new InputStreamContent("application/octet-stream", inputStream))
-          .setName(filePath.getFileName().toString()).execute();
-      log.info("File " + filePath.getFileName() + " created.");
-    }
+
+    storage
+        .objects()
+        .insert(
+            projectName + "-cloud-pubsub-loadtest",
+            null,
+            new FileContent("application/octet-stream", filePath.toFile()))
+        .setName(filePath.getFileName().toString())
+        .execute();
+    log.info("File " + filePath.getFileName() + " created.");
   }
 
   /**
@@ -434,8 +504,8 @@ public class GCEController extends Controller {
     InstanceGroupManagersListManagedInstancesResponse response;
     do {
       response = compute.instanceGroupManagers().
-          listManagedInstances(projectName, zone, "cloud-pubsub-loadtest-framework-"
-              + params.getClientType()).execute();
+          listManagedInstances(projectName, zone, "cps-loadtest-"
+              + params.getClientType() + "-" + cores).execute();
 
       // If we are not instantiating any instances of this type, just return.
       if (response.getManagedInstances() == null) {
@@ -465,9 +535,9 @@ public class GCEController extends Controller {
    */
   private InstanceTemplate defaultInstanceTemplate(String type) {
     return new InstanceTemplate()
-        .setName("cloud-pubsub-loadtest-instance-" + type)
+        .setName("cps-loadtest-" + type + "-" + cores)
         .setProperties(new InstanceProperties()
-            .setMachineType(MACHINE_TYPE)
+            .setMachineType(MACHINE_TYPE + cores)
             .setDisks(Collections.singletonList(new AttachedDisk()
                 .setBoot(true)
                 .setAutoDelete(true)

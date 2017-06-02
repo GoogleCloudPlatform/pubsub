@@ -45,8 +45,17 @@ message StartRequest {
   // The time at which the load test should start. If this is less than the current time, we start immediately.
   google.protobuf.Timestamp start_time = 6;
 
+  // The burn-in duration, before which results should not be reported.
+  google.protobuf.Duration burn_in_duration = 12;
+
+  // The number of user messages of size message_size to publish together.
+  int32 publish_batch_size = 11;
+
+  // The max duration for coalescing a batch of published messages.
+  google.protobuf.Duration publish_batch_duration = 13;
+
   oneof stop_conditions {
-    // The duration the load test should run for.
+    // The duration the load test should run for, after burn-in completes.
     google.protobuf.Duration test_duration = 7;
 
     // The number of messages to publish or expect to receive.
@@ -57,9 +66,6 @@ message StartRequest {
     PubsubOptions pubsub_options = 9;
     KafkaOptions kafka_options = 10;
   }
-
-  // The number of user messages of size message_size to batch together in each publish
-  int32 publish_batch_size = 11;
 }
 
 message StartResponse {
@@ -78,10 +84,16 @@ message KafkaOptions {
   string broker = 1;
 
   // The length of time to poll for.
-  int32 poll_length = 2;
-}
+  google.protobuf.Duration poll_duration = 2;
 
-message CheckRequest {
+  // The network address(es) of the Zookeeper host(s).
+  string zookeeper_ip_address = 3;
+
+  // The replication factor of the Kafka topic.
+  int32 replication_factor = 4;
+
+  // The number of partitions of the Kafka topic.
+  int32 partitions = 5;
 }
 
 message MessageIdentifier {
@@ -90,6 +102,11 @@ message MessageIdentifier {
 
   // Sequence number of the published message with the given publish_client_id.
   int32 sequence_number = 2;
+}
+
+message CheckRequest {
+  // Duplicate messages that should not be reported for throughput and latency.
+  repeated MessageIdentifier duplicates = 1;
 }
 
 message CheckResponse {
