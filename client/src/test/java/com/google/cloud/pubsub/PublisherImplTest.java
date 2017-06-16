@@ -30,11 +30,11 @@ import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PubsubMessage;
+import io.grpc.Server;
 import io.grpc.Status;
 import io.grpc.StatusException;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.internal.ServerImpl;
 import io.grpc.stub.StreamObserver;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -67,7 +67,7 @@ public class PublisherImplTest {
 
   private static FakePublisherServiceImpl testPublisherServiceImpl;
 
-  private static ServerImpl testServer;
+  private static Server testServer;
 
   @BeforeClass
   public static void setUpClass() throws Exception {
