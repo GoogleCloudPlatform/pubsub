@@ -147,7 +147,7 @@ public class CloudPubSubSourceTaskTest {
 
 
   /**
-   * Tests that when a call to ackMessages() fails, that the message is not sent again to Kafka if
+   * Tests that when a call to ackMessages() fails, that the message is redelivered to Kafka if
    * the message is received again by Cloud Pub/Sub. Also tests that ack ids are added properly if
    * the ack id has not been seen before.
    */
@@ -166,7 +166,7 @@ public class CloudPubSubSourceTaskTest {
     ListenableFuture<Empty> failedFuture = Futures.immediateFailedFuture(new Throwable());
     when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(failedFuture);
     result = task.poll();
-    assertEquals(1, result.size());
+    assertEquals(2, result.size());
     verify(subscriber, times(1)).ackMessages(any(AcknowledgeRequest.class));
 
   }
@@ -408,12 +408,12 @@ public class CloudPubSubSourceTaskTest {
     assertRecordsEqual(expected4, result.get(3));
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testPollExceptionCase() throws Exception {
     task.start(props);
     // Could also throw ExecutionException if we wanted to...
     when(subscriber.pull(any(PullRequest.class)).get()).thenThrow(new InterruptedException());
-    task.poll();
+    assertEquals(0, task.poll().size());
   }
 
   private ReceivedMessage createReceivedMessage(

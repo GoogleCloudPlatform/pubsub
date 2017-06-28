@@ -184,36 +184,35 @@ public class CloudPubSubSourceTask extends SourceTask {
       }
       return sourceRecords;
     } catch (Exception e) {
-      // Kafka Connect suppresses any indication of an InterruptedException
-      // so we have to throw a RuntimeException.
-      throw new RuntimeException(e.getMessage());
+      log.info("Error while retrieving records, treating as an empty poll. " + e);
+      return new ArrayList<>();
     }
   }
 
   /**
-   * Attempt to ack all ids in {@link #ackIds}. If the ack request was unsuccessful then do not
-   * clear the list of acks. Instead, wait for the next call to this function to ack those ids.
+   * Attempt to ack all ids in {@link #ackIds}. Acks are best-effort, so if acking fails, messages
+   * may be delivered multiple times to Kafka.
    */
   private void ackMessages() {
     if (ackIds.size() != 0) {
-      AcknowledgeRequest request =
-          AcknowledgeRequest.newBuilder()
-              .setSubscription(cpsSubscription)
-              .addAllAckIds(ackIds)
-              .build();
-      ListenableFuture<Empty> response = subscriber.ackMessages(request);
+      AcknowledgeRequest.Builder requestBuilder = AcknowledgeRequest.newBuilder()
+          .setSubscription(cpsSubscription);
+      synchronized (ackIds) {
+        requestBuilder.addAllAckIds(ackIds);
+        ackIds.clear();
+      }
+      ListenableFuture<Empty> response = subscriber.ackMessages(requestBuilder.build());
       Futures.addCallback(
           response,
           new FutureCallback<Empty>() {
             @Override
             public void onSuccess(Empty result) {
               log.trace("Successfully acked a set of messages.");
-              ackIds.clear();
             }
 
             @Override
             public void onFailure(Throwable t) {
-              log.error("An exception occurred acking messages. Will try to ack messages again.");
+              log.error("An exception occurred acking messages: " + t);
             }
           });
     }
@@ -222,9 +221,9 @@ public class CloudPubSubSourceTask extends SourceTask {
   /** Return the partition a message should go to based on {@link #kafkaPartitionScheme}. */
   private int selectPartition(Object key, Object value) {
     if (kafkaPartitionScheme.equals(PartitionScheme.HASH_KEY)) {
-      return key == null ? 0 : key.hashCode() % kafkaPartitions;
+      return key == null ? 0 : Math.abs(key.hashCode()) % kafkaPartitions;
     } else if (kafkaPartitionScheme.equals(PartitionScheme.HASH_VALUE)) {
-      return value.hashCode() % kafkaPartitions;
+      return Math.abs(value.hashCode()) % kafkaPartitions;
     } else {
       currentRoundRobinPartition = ++currentRoundRobinPartition % kafkaPartitions;
       return currentRoundRobinPartition;
