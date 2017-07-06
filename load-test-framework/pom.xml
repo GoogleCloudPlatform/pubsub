@@ -11,7 +11,7 @@
     <dependency>
       <groupId>com.google.pubsub</groupId>
       <artifactId>cloud-pubsub-client</artifactId>
-      <version>0.2-EXPERIMENTAL</version>
+      <version>0.2.1-EXPERIMENTAL</version>
     </dependency>
     <dependency>
       <groupId>junit</groupId>
@@ -40,29 +40,23 @@
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
-      <artifactId>grpc-all</artifactId>
-      <version>1.0.1</version>
-    </dependency>
-    <dependency>
-      <groupId>io.grpc</groupId>
       <artifactId>grpc-netty</artifactId>
-      <version>1.0.1</version>
+      <version>1.4.0</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
-      <version>1.0.1</version>
+      <version>1.4.0</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-stub</artifactId>
-      <version>1.0.1</version>
+      <version>1.4.0</version>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
       <artifactId>netty-tcnative-boringssl-static</artifactId>
-      <version>1.1.33.Fork14</version>
-      <classifier>linux-x86_64</classifier>
+      <version>2.0.3.Final</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -128,7 +122,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <version>0.9.3-alpha</version>
+      <version>0.20.1-beta</version>
     </dependency>
     <dependency>
        <groupId>com.google.apis</groupId>
@@ -199,9 +193,9 @@
         <artifactId>protobuf-maven-plugin</artifactId>
         <version>0.5.0</version>
         <configuration>
-          <protocArtifact>com.google.protobuf:protoc:3.0.0:exe:${os.detected.classifier}</protocArtifact>
+          <protocArtifact>com.google.protobuf:protoc:3.3.0:exe:${os.detected.classifier}</protocArtifact>
           <pluginId>grpc-java</pluginId>
-          <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.0.1:exe:${os.detected.classifier}</pluginArtifact>
+          <pluginArtifact>io.grpc:protoc-gen-grpc-java:1.4.0:exe:${os.detected.classifier}</pluginArtifact>
         </configuration>
         <executions>
           <execution>
