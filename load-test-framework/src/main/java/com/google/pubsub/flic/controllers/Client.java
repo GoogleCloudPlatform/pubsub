@@ -104,9 +104,6 @@ public class Client {
 
   public static String getTopicSuffix(ClientType clientType) {
     switch (clientType) {
-      case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
-      case CPS_EXPERIMENTAL_JAVA_SUBSCRIBER:
-        return "experimental";
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
@@ -114,8 +111,6 @@ public class Client {
       case CPS_GCLOUD_GO_PUBLISHER:
       case CPS_GCLOUD_GO_SUBSCRIBER:
         return "gcloud-go";
-      case CPS_VTK_JAVA_PUBLISHER:
-        return "vtk";
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
         return "kafka";
@@ -171,7 +166,6 @@ public class Client {
       requestBuilder.setTestDuration(loadtestDuration);
     }
     switch (clientType) {
-      case CPS_EXPERIMENTAL_JAVA_SUBSCRIBER:
       case CPS_GCLOUD_GO_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder().setSubscription(subscription));
         break;
@@ -195,11 +189,9 @@ public class Client {
             .setReplicationFactor(replicationFactor)
             .setPartitions(partitions));
         break;
-      case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
       case CPS_GCLOUD_GO_PUBLISHER:
-      case CPS_VTK_JAVA_PUBLISHER:
         break;
     }
     StartRequest request = requestBuilder.build();
@@ -298,24 +290,19 @@ public class Client {
    * An enum representing the possible client types.
    */
   public enum ClientType {
-    CPS_EXPERIMENTAL_JAVA_PUBLISHER,
-    CPS_EXPERIMENTAL_JAVA_SUBSCRIBER,
     CPS_GCLOUD_JAVA_PUBLISHER,
     CPS_GCLOUD_JAVA_SUBSCRIBER,
     CPS_GCLOUD_PYTHON_PUBLISHER,
     CPS_GCLOUD_GO_PUBLISHER,
     CPS_GCLOUD_GO_SUBSCRIBER,
-    CPS_VTK_JAVA_PUBLISHER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
 
     public boolean isCpsPublisher() {
       switch (this) {
-        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
-        case CPS_VTK_JAVA_PUBLISHER:
           return true;
         default:
           return false;
@@ -333,11 +320,9 @@ public class Client {
 
     public boolean isPublisher() {
       switch (this) {
-        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
-        case CPS_VTK_JAVA_PUBLISHER:
         case KAFKA_PUBLISHER:
           return true;
         default:
@@ -347,11 +332,8 @@ public class Client {
 
     public ClientType getSubscriberType() {
       switch (this) {
-        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
-          return CPS_EXPERIMENTAL_JAVA_SUBSCRIBER;
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
-        case CPS_VTK_JAVA_PUBLISHER:
           return CPS_GCLOUD_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;
