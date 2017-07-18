@@ -16,10 +16,10 @@
 package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.JCommander;
-import com.google.cloud.pubsub.spi.v1.AckReply;
-import com.google.cloud.pubsub.spi.v1.AckReplyConsumer;
-import com.google.cloud.pubsub.spi.v1.MessageReceiver;
-import com.google.cloud.pubsub.spi.v1.Subscriber;
+import com.google.cloud.pubsub.v1.AckReply;
+import com.google.cloud.pubsub.v1.AckReplyConsumer;
+import com.google.cloud.pubsub.v1.MessageReceiver;
+import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.clients.common.LoadTestRunner;

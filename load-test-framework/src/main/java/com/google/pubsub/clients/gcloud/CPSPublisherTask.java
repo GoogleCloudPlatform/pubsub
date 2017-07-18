@@ -19,7 +19,7 @@ import com.beust.jcommander.JCommander;
 import com.google.api.gax.core.RpcFutureCallback;
 import com.google.api.gax.grpc.BundlingSettings;
 import com.google.api.gax.grpc.FlowControlSettings;
-import com.google.cloud.pubsub.spi.v1.Publisher;
+import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
