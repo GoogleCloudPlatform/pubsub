@@ -9,11 +9,6 @@
   <url>http://maven.apache.org</url>
   <dependencies>
     <dependency>
-      <groupId>com.google.pubsub</groupId>
-      <artifactId>cloud-pubsub-client</artifactId>
-      <version>0.2-EXPERIMENTAL</version>
-    </dependency>
-    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.12</version>
@@ -128,7 +123,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <version>0.9.3-alpha</version>
+      <version>0.20.2-beta</version>
     </dependency>
     <dependency>
        <groupId>com.google.apis</groupId>
