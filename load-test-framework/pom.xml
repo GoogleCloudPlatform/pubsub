@@ -123,7 +123,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <version>0.20.3-beta-SNAPSHOT</version>
+      <version>0.20.2-beta</version>
     </dependency>
     <dependency>
        <groupId>com.google.apis</groupId>

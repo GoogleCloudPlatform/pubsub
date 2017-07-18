@@ -95,12 +95,6 @@ public class Driver {
   private int cpsGcloudJavaSubscriberCount = 0;
 
   @Parameter(
-    names = {"--cps_vtk_java_publisher_count"},
-    description = "Number of CPS publishers of this type to start."
-  )
-  private int cpsVtkJavaPublisherCount = 0;
-
-  @Parameter(
     names = {"--cps_gcloud_python_publisher_count"},
     description = "Number of CPS publishers of this type to start."
   )
@@ -368,10 +362,6 @@ public class Driver {
             new ClientParams(ClientType.CPS_GCLOUD_GO_PUBLISHER, null),
             cpsGcloudGoPublisherCount);
       }
-      if (cpsVtkJavaPublisherCount > 0) {
-        clientParamsMap.put(
-            new ClientParams(ClientType.CPS_VTK_JAVA_PUBLISHER, null), cpsVtkJavaPublisherCount);
-      }
       if (kafkaPublisherCount > 0) {
         clientParamsMap.put(
             new ClientParams(ClientType.KAFKA_PUBLISHER, null), kafkaPublisherCount);
@@ -402,8 +392,8 @@ public class Driver {
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         if (cpsGcloudJavaSubscriberCount > 0) {
           Preconditions.checkArgument(
-              cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount + cpsVtkJavaPublisherCount + cpsGcloudGoPublisherCount
-                  > 0,
+              cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount + cpsGcloudGoPublisherCount
+              > 0,
               "--cps_gcloud_java_publisher, --cps_gcloud_go_publisher, or --cps_gcloud_python_publisher must be > 0.");
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-subscription" + i),
@@ -487,9 +477,8 @@ public class Driver {
         new MessageTracker(
             numberOfMessages,
             cpsGcloudJavaPublisherCount
-                + cpsVtkJavaPublisherCount
-                + cpsGcloudPythonPublisherCount
-                + cpsGcloudGoPublisherCount);
+            + cpsGcloudPythonPublisherCount
+            + cpsGcloudGoPublisherCount);
     controller.startClients(messageTracker);
     if (whileRunning != null) {
       whileRunning.run();
