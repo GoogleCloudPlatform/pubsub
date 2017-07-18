@@ -16,10 +16,11 @@
 package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.JCommander;
-import com.google.api.gax.core.RpcFutureCallback;
-import com.google.api.gax.grpc.BundlingSettings;
-import com.google.api.gax.grpc.FlowControlSettings;
-import com.google.cloud.pubsub.spi.v1.Publisher;
+import com.google.api.core.ApiFuture;
+import com.google.api.core.ApiFutures;
+import com.google.api.core.ApiFutureCallback;
+import com.google.api.gax.batching.BatchingSettings;
+import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -33,10 +34,11 @@ import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.TopicName;
 import java.util.Random;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.threeten.bp.Duration;
 
 /**
  * Runs a task that publishes messages to a Cloud Pub/Sub topic.
@@ -48,29 +50,28 @@ class CPSPublisherTask extends Task {
   private final int batchSize;
   private final Integer id;
   private final AtomicInteger sequenceNumber = new AtomicInteger(0);
+  private final Semaphore outstandingBytes = new Semaphore(1000000000);  // 1 GB
+  private final int messageSize;
 
   private CPSPublisherTask(StartRequest request) {
     super(request, "gcloud", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     try {
       this.publisher =
-          Publisher.newBuilder(TopicName.create(request.getProject(), request.getTopic()))
-              .setBundlingSettings(
-                  BundlingSettings.newBuilder()
-                      .setDelayThreshold(
-                          Duration.millis(Durations.toMillis(request.getPublishBatchDuration())))
-                      .setRequestByteThreshold(9500000L)
+          Publisher.defaultBuilder(TopicName.create(request.getProject(), request.getTopic()))
+              .setBatchingSettings(
+                  BatchingSettings.newBuilder()
                       .setElementCountThreshold(950L)
+                      .setRequestByteThreshold(9500000L)
+                      .setDelayThreshold(
+                          Duration.ofMillis(Durations.toMillis(request.getPublishBatchDuration())))
                       .build())
-              .setFlowControlSettings(
-                  FlowControlSettings.newBuilder()
-                      .setMaxOutstandingRequestBytes(1000000000)
-                      .build()) // 1 GB
               .build();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
     this.payload = ByteString.copyFromUtf8(LoadTestRunner.createMessage(request.getMessageSize()));
     this.batchSize = request.getPublishBatchSize();
+    this.messageSize = request.getMessageSize();
     this.id = (new Random()).nextInt();
   }
 
@@ -82,40 +83,38 @@ class CPSPublisherTask extends Task {
 
   @Override
   public ListenableFuture<RunResult> doRun() {
-    try {
-      AtomicInteger numPending = new AtomicInteger(batchSize);
-      final SettableFuture<RunResult> done = SettableFuture.create();
-      String sendTime = String.valueOf(System.currentTimeMillis());
-      for (int i = 0; i < batchSize; i++) {
-        publisher
-            .publish(
-                PubsubMessage.newBuilder()
-                    .setData(payload)
-                    .putAttributes("sendTime", sendTime)
-                    .putAttributes("clientId", id.toString())
-                    .putAttributes(
-                        "sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement()))
-                    .build())
-            .addCallback(
-                new RpcFutureCallback<String>() {
-                  @Override
-                  public void onSuccess(String s) {
-                    if (numPending.decrementAndGet() == 0) {
-                      done.set(RunResult.fromBatchSize(batchSize));
-                    }
-                  }
-
-                  @Override
-                  public void onFailure(Throwable t) {
-                    done.setException(t);
-                  }
-                });
-      }
-      return done;
-    } catch (Throwable t) {
-      log.error("Flow control error.", t);
-      return Futures.immediateFailedFuture(t);
+    AtomicInteger numPending = new AtomicInteger(batchSize);
+    final SettableFuture<RunResult> done = SettableFuture.create();
+    String sendTime = String.valueOf(System.currentTimeMillis());
+    if (!outstandingBytes.tryAcquire(batchSize * messageSize)) {
+      return Futures.immediateFailedFuture(new Exception("Flow control limits reached."));
     }
+    for (int i = 0; i < batchSize; i++) {
+      ApiFutures.addCallback(publisher
+          .publish(
+              PubsubMessage.newBuilder()
+              .setData(payload)
+              .putAttributes("sendTime", sendTime)
+              .putAttributes("clientId", id.toString())
+              .putAttributes(
+                  "sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement()))
+              .build()), new ApiFutureCallback<String>() {
+            @Override
+            public void onSuccess(String messageId) {
+              outstandingBytes.release(messageSize);
+              if (numPending.decrementAndGet() == 0) {
+                done.set(RunResult.fromBatchSize(batchSize));
+              }
+            }
+
+            @Override
+            public void onFailure(Throwable t) {
+              outstandingBytes.release(messageSize);
+              done.setException(t);
+            }
+          });
+    }
+    return done;
   }
 
   @Override
