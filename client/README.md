@@ -1,6 +1,6 @@
-This repository used to contain alpha client libraries. The improvements that
-were present in these libraries have since been merged into the main client
-libraries, and those should be used instead. Our code will remain in Maven for
-any existing users, but they are strongly encouraged to migrate. You can find
-the client libraries
-[here](https://github.com/GoogleCloudPlatform/google-cloud-java/tree/master/google-cloud-pubsub).
+The alpha client libraries in this directory have been replaced by the official
+[Google Cloud Pub/Sub Java client library](https://github.com/GoogleCloudPlatform/google-cloud-java/tree/master/google-cloud-pubsub).
+The semantics and performance improvements introduced in these alpha libraries
+have been preserved and improved in the official libraries, so we strongly
+encourage you to migrate. However, we have no plan to remove this code from our [Maven
+repository](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.pubsub%22).
