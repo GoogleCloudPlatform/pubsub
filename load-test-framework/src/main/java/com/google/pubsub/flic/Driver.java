@@ -392,9 +392,12 @@ public class Driver {
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         if (cpsGcloudJavaSubscriberCount > 0) {
           Preconditions.checkArgument(
-              cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount + cpsGcloudGoPublisherCount
-              > 0,
-              "--cps_gcloud_java_publisher, --cps_gcloud_go_publisher, or --cps_gcloud_python_publisher must be > 0.");
+              cpsGcloudJavaPublisherCount
+                      + cpsGcloudPythonPublisherCount
+                      + cpsGcloudGoPublisherCount
+                  > 0,
+              "--cps_gcloud_java_publisher, --cps_gcloud_go_publisher, or "
+                  + "--cps_gcloud_python_publisher must be > 0.");
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-subscription" + i),
               cpsGcloudJavaSubscriberCount / cpsSubscriptionFanout);
@@ -741,3 +744,4 @@ public class Driver {
     }
   }
 }
+

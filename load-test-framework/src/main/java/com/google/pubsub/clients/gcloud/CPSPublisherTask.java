@@ -16,9 +16,8 @@
 package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.JCommander;
-import com.google.api.core.ApiFuture;
-import com.google.api.core.ApiFutures;
 import com.google.api.core.ApiFutureCallback;
+import com.google.api.core.ApiFutures;
 import com.google.api.gax.batching.BatchingSettings;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.util.concurrent.Futures;
