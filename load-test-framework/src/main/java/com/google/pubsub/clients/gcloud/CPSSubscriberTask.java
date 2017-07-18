@@ -57,7 +57,7 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
         Integer.parseInt(message.getAttributesMap().get("clientId")),
         Integer.parseInt(message.getAttributesMap().get("sequenceNumber")),
         System.currentTimeMillis() - Long.parseLong(message.getAttributesMap().get("sendTime")));
-    consumer.accept(AckReply.ACK, null);
+    consumer.ack();
   }
 
   public static void main(String[] args) throws Exception {

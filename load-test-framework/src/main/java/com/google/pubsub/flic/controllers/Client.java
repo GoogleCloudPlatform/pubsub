@@ -104,9 +104,6 @@ public class Client {
 
   public static String getTopicSuffix(ClientType clientType) {
     switch (clientType) {
-      case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
-      case CPS_EXPERIMENTAL_JAVA_SUBSCRIBER:
-        return "experimental";
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
@@ -298,8 +295,6 @@ public class Client {
    * An enum representing the possible client types.
    */
   public enum ClientType {
-    CPS_EXPERIMENTAL_JAVA_PUBLISHER,
-    CPS_EXPERIMENTAL_JAVA_SUBSCRIBER,
     CPS_GCLOUD_JAVA_PUBLISHER,
     CPS_GCLOUD_JAVA_SUBSCRIBER,
     CPS_GCLOUD_PYTHON_PUBLISHER,
@@ -311,7 +306,6 @@ public class Client {
 
     public boolean isCpsPublisher() {
       switch (this) {
-        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
@@ -333,7 +327,6 @@ public class Client {
 
     public boolean isPublisher() {
       switch (this) {
-        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
@@ -347,8 +340,6 @@ public class Client {
 
     public ClientType getSubscriberType() {
       switch (this) {
-        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
-          return CPS_EXPERIMENTAL_JAVA_SUBSCRIBER;
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:

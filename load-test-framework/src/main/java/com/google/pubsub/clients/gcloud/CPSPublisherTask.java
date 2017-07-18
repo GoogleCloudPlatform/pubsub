@@ -48,29 +48,28 @@ class CPSPublisherTask extends Task {
   private final int batchSize;
   private final Integer id;
   private final AtomicInteger sequenceNumber = new AtomicInteger(0);
+  private final Semaphore outstandingBytes = new Semaphore(1000000000);  // 1 GB
+  private final int messageSize;
 
   private CPSPublisherTask(StartRequest request) {
     super(request, "gcloud", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     try {
       this.publisher =
           Publisher.newBuilder(TopicName.create(request.getProject(), request.getTopic()))
-              .setBundlingSettings(
-                  BundlingSettings.newBuilder()
+              .setBatchingSettings(
+                  BatchingSettings.newBuilder()
+                      .setElementCountThreshold(950L)
+                      .setRequestByteThreshold(9500000L)
                       .setDelayThreshold(
                           Duration.millis(Durations.toMillis(request.getPublishBatchDuration())))
-                      .setRequestByteThreshold(9500000L)
-                      .setElementCountThreshold(950L)
                       .build())
-              .setFlowControlSettings(
-                  FlowControlSettings.newBuilder()
-                      .setMaxOutstandingRequestBytes(1000000000)
-                      .build()) // 1 GB
               .build();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
     this.payload = ByteString.copyFromUtf8(LoadTestRunner.createMessage(request.getMessageSize()));
     this.batchSize = request.getPublishBatchSize();
+    this.messageSize = request.getMessageSize();
     this.id = (new Random()).nextInt();
   }
 
@@ -82,40 +81,40 @@ class CPSPublisherTask extends Task {
 
   @Override
   public ListenableFuture<RunResult> doRun() {
-    try {
-      AtomicInteger numPending = new AtomicInteger(batchSize);
-      final SettableFuture<RunResult> done = SettableFuture.create();
-      String sendTime = String.valueOf(System.currentTimeMillis());
-      for (int i = 0; i < batchSize; i++) {
-        publisher
-            .publish(
-                PubsubMessage.newBuilder()
-                    .setData(payload)
-                    .putAttributes("sendTime", sendTime)
-                    .putAttributes("clientId", id.toString())
-                    .putAttributes(
-                        "sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement()))
-                    .build())
-            .addCallback(
-                new RpcFutureCallback<String>() {
-                  @Override
-                  public void onSuccess(String s) {
-                    if (numPending.decrementAndGet() == 0) {
-                      done.set(RunResult.fromBatchSize(batchSize));
-                    }
-                  }
-
-                  @Override
-                  public void onFailure(Throwable t) {
-                    done.setException(t);
-                  }
-                });
-      }
-      return done;
-    } catch (Throwable t) {
-      log.error("Flow control error.", t);
-      return Futures.immediateFailedFuture(t);
+    AtomicInteger numPending = new AtomicInteger(batchSize);
+    final SettableFuture<RunResult> done = SettableFuture.create();
+    String sendTime = String.valueOf(System.currentTimeMillis());
+    if (!outstandingBytes.tryAcquire(batchSize * messageSize)) {
+      return Futures.immediateFailedFuture(new Exception("Flow control limits reached."));
     }
+    for (int i = 0; i < batchSize; i++) {
+      publisher
+          .publish(
+              PubsubMessage.newBuilder()
+                  .setData(payload)
+                  .putAttributes("sendTime", sendTime)
+                  .putAttributes("clientId", id.toString())
+                  .putAttributes(
+                      "sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement()))
+                  .build())
+          .addCallback(
+              new RpcFutureCallback<String>() {
+                @Override
+                public void onSuccess(String s) {
+                  outstandingBytes.release(messageSize);
+                  if (numPending.decrementAndGet() == 0) {
+                    done.set(RunResult.fromBatchSize(batchSize));
+                  }
+                }
+
+                @Override
+                public void onFailure(Throwable t) {
+                  outstandingBytes.release(messageSize);
+                  done.setException(t);
+                }
+              });
+    }
+    return done;
   }
 
   @Override

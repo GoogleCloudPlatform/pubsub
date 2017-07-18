@@ -95,18 +95,6 @@ public class Driver {
   private int cpsGcloudJavaSubscriberCount = 0;
 
   @Parameter(
-    names = {"--cps_experimental_java_publisher_count"},
-    description = "Number of CPS publishers of this type to start."
-  )
-  private int cpsExperimentalJavaPublisherCount = 0;
-
-  @Parameter(
-    names = {"--cps_experimental_java_subscriber_count"},
-    description = "Number of CPS subscribers of this type to start."
-  )
-  private int cpsExperimentalJavaSubscriberCount = 0;
-
-  @Parameter(
     names = {"--cps_vtk_java_publisher_count"},
     description = "Number of CPS publishers of this type to start."
   )
@@ -380,11 +368,6 @@ public class Driver {
             new ClientParams(ClientType.CPS_GCLOUD_GO_PUBLISHER, null),
             cpsGcloudGoPublisherCount);
       }
-      if (cpsExperimentalJavaPublisherCount > 0) {
-        clientParamsMap.put(
-            new ClientParams(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER, null),
-            cpsExperimentalJavaPublisherCount);
-      }
       if (cpsVtkJavaPublisherCount > 0) {
         clientParamsMap.put(
             new ClientParams(ClientType.CPS_VTK_JAVA_PUBLISHER, null), cpsVtkJavaPublisherCount);
@@ -425,15 +408,6 @@ public class Driver {
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-subscription" + i),
               cpsGcloudJavaSubscriberCount / cpsSubscriptionFanout);
-        }
-        if (cpsExperimentalJavaSubscriberCount > 0) {
-          Preconditions.checkArgument(
-              cpsExperimentalJavaPublisherCount > 0,
-              "--cps_experimental_java_publisher or --cps_vtk_java_publisher must be > 0.");
-          clientParamsMap.put(
-              new ClientParams(
-                  ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER, "experimental-subscription" + i),
-              cpsExperimentalJavaSubscriberCount / cpsSubscriptionFanout);
         }
         if (cpsGcloudGoSubscriberCount > 0) {
           clientParamsMap.put(
@@ -513,7 +487,6 @@ public class Driver {
         new MessageTracker(
             numberOfMessages,
             cpsGcloudJavaPublisherCount
-                + cpsExperimentalJavaPublisherCount
                 + cpsVtkJavaPublisherCount
                 + cpsGcloudPythonPublisherCount
                 + cpsGcloudGoPublisherCount);
