@@ -14,7 +14,7 @@ class ServerImpl < Google::Pubsub::Loadtest::LoadtestWorker::Service
     @message_size = request.message_size
     @batch_size = request.publish_batch_size
     pubsub = Google::Cloud::Pubsub.new(project: request.project)
-    @topic = pubsub.topic request.topic
+    @publisher = Google::Cloud::Pubsub::AsyncPublisher.new request.topic, pubsub.service, interval: (request.publish_batch_duration.seconds.to_f + request.publish_batch_duration.nanos.to_f / 1000000000.0)
     @client_id = (Random.rand(2 ** 31)).to_s
     @num_msgs_published = 0
     @latencies = []
@@ -29,7 +29,7 @@ class ServerImpl < Google::Pubsub::Loadtest::LoadtestWorker::Service
     latencies = []
     puts "Received execute, going to publish " + @batch_size.to_s + " messages."
     0.upto(@batch_size) do |i|
-      @topic.publish_async ("A" * @message_size),
+      @publisher.publish ("A" * @message_size),
         :sendTime => (now.to_f * 1000).to_i.to_s,
         :clientId => @client_id,
         :sequenceNumber => (sequence_number + i).to_s do |result|
