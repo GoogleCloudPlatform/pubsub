@@ -32,9 +32,7 @@ def main(project, test, client_types, vms_count, broker):
     test: The type of test to run. Valid options are 'latency', 'throughput',
           and 'service'.
     client_types: The type of clients to run the test against. Valid options
-                  are 'gcloud_java', 'gcloud_python', 'vtk', and 'experimental'.
-                  'experimental' requires being a part of a whitelist, you can
-                  contact 'cloud-pubsub@google.com' to request access.
+                  are 'gcloud_java', 'gcloud_python', and 'gcloud_ruby' 'vtk'.
     vms_count: The number of VMs to start for each client type. You must have
                sufficient Google Compute Engine quota to start vms_count *
                len(client_types) * 4 cores, and it will take 4 times as much
@@ -47,18 +45,22 @@ def main(project, test, client_types, vms_count, broker):
     subprocess.call(['mvn', 'package'])
     subprocess.call(['cp', 'target/driver.jar', 'target/classes/gce/'])
   if not os.path.isfile('./target/classes/gce/cps.zip'):
-    go_package = 'cloud.google.com/go/pubsub/loadtest/cmd'
-    go_bin_location = './target/loadtest-go'
-    return_code = subprocess.call(['go', 'build', '-o', go_bin_location, go_package])
-    if return_code != 0:
-      sys.exit('cannot build Go load tester, maybe run `go get -u {}`?'.format(go_package))
+    #go_package = 'cloud.google.com/go/pubsub/loadtest/cmd'
+    #go_bin_location = './target/loadtest-go'
+    #return_code = subprocess.call(['go', 'build', '-o', go_bin_location, go_package])
+    #if return_code != 0:
+    #  sys.exit('cannot build Go load tester, maybe run `go get -u {}`?'.format(go_package))
 
     subprocess.call([
         'zip', './target/classes/gce/cps.zip',
         './python_src/clients/cps_publisher_task.py',
         './python_src/clients/loadtest_pb2.py',
         './python_src/clients/requirements.txt',
-        go_bin_location
+        './ruby_src/Gemfile',
+        './ruby_src/loadtest_pb.rb',
+        './ruby_src/loadtest_services_pb.rb',
+        './ruby_src/main.rb'#,
+        #go_bin_location
     ])
   arg_list = ['java', '-jar', 'target/driver.jar', '--project', project]
   gcloud_subscriber_count = 0
@@ -66,20 +68,15 @@ def main(project, test, client_types, vms_count, broker):
     if client == 'gcloud_python':
       arg_list.append('--cps_gcloud_python_publisher_count=' + str(vms_count))
       gcloud_subscriber_count += vms_count
+    elif client == 'gcloud_ruby':
+      arg_list.append('--cps_gcloud_ruby_publisher_count=' + str(vms_count))
+      gcloud_subscriber_count += vms_count
     elif client == 'gcloud_java':
       arg_list.append('--cps_gcloud_java_publisher_count=' + str(vms_count))
       gcloud_subscriber_count += vms_count
     elif client == 'gcloud_go':
       arg_list.append('--cps_gcloud_go_publisher_count=' + str(vms_count))
       arg_list.append('--cps_gcloud_go_subscriber_count=' + str(vms_count))
-    elif client == 'vtk':
-      arg_list.append('--cps_vtk_java_publisher_count=' + str(vms_count))
-      gcloud_subscriber_count += vms_count
-    elif client == 'experimental':
-      arg_list.append('--cps_experimental_java_publisher_count=' + str(
-          vms_count))
-      arg_list.append('--cps_experimental_java_subscriber_count=' + str(
-          vms_count))
   arg_list.append('--cps_gcloud_java_subscriber_count=' + str(
       gcloud_subscriber_count))
   if broker:
@@ -144,11 +141,11 @@ if __name__ == '__main__':
   if len(client_types_arg) == 0:
     client_types_arg = set(['gcloud_java'])
   if not client_types_arg.issubset(
-      set(['gcloud_python', 'gcloud_java', 'gcloud_go', 'vtk', 'experimental'])):
+      set(['gcloud_python', 'gcloud_java', 'gcloud_go', 'gcloud_ruby'])):
     sys.exit(
         'Invalid --client_type parameter given. Must be a comma deliminated '
         'sequence of client types. Allowed client types are \'gcloud_python\', '
-        '\'gcloud_java\', \'vtk\', and \'experimental\'. (' + ','.join(
+        '\'gcloud_java\', and \'gcloud_ruby\'. (' + ','.join(
             client_types_arg) +
         ') was provided. Kafka is assumed if --broker is provided.')
   main(project_arg, test_arg, client_types_arg, vms_count_arg, broker_arg)

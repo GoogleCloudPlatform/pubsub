@@ -36,17 +36,17 @@
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-all</artifactId>
-      <version>1.0.1</version>
+      <version>1.4.0</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-netty</artifactId>
-      <version>1.0.1</version>
+      <version>1.4.0</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>
       <artifactId>grpc-protobuf</artifactId>
-      <version>1.0.1</version>
+      <version>1.4.0</version>
     </dependency>
     <dependency>
       <groupId>io.grpc</groupId>

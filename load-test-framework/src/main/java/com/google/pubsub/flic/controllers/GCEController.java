@@ -373,7 +373,7 @@ public class GCEController extends Controller {
    * Adds a firewall rule to the default network so that we can connect to our clients externally.
    */
   private void createFirewall() throws IOException {
-    Firewall firewallRule = new Firewall()
+    /*Firewall firewallRule = new Firewall()
         .setName("cloud-loadtest-framework-firewall-rule")
         .setDescription("A firewall rule to allow the driver to coordinate load test instances.")
         .setAllowed(ImmutableList.of(
@@ -388,7 +388,7 @@ public class GCEController extends Controller {
       }
       compute.firewalls()
           .update(projectName, "cloud-loadtest-framework-firewall-rule", firewallRule).execute();
-    }
+    }*/
   }
 
   /**
@@ -534,6 +534,9 @@ public class GCEController extends Controller {
    * startup script used.
    */
   private InstanceTemplate defaultInstanceTemplate(String type) {
+    AccessConfig config = new AccessConfig();
+    config.setType("ONE_TO_ONE_NAT");
+    config.setName("External NAT");
     return new InstanceTemplate()
         .setName("cps-loadtest-" + type + "-" + cores)
         .setProperties(new InstanceProperties()
@@ -545,7 +548,7 @@ public class GCEController extends Controller {
                     .setSourceImage(SOURCE_FAMILY))))
             .setNetworkInterfaces(Collections.singletonList(new NetworkInterface()
                 .setNetwork("global/networks/default")
-                .setAccessConfigs(Collections.singletonList(new AccessConfig()))))
+                .setAccessConfigs(Collections.singletonList(config))))
             .setMetadata(new Metadata()
                 .setItems(ImmutableList.of(
                     new Metadata.Items()

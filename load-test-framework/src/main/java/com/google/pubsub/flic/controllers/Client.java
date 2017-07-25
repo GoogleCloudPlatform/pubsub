@@ -29,7 +29,7 @@ import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
 import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
-import io.grpc.netty.NettyChannelBuilder;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -107,6 +107,7 @@ public class Client {
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_JAVA_SUBSCRIBER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
+      case CPS_GCLOUD_RUBY_PUBLISHER:
         return "gcloud";
       case CPS_GCLOUD_GO_PUBLISHER:
       case CPS_GCLOUD_GO_SUBSCRIBER:
@@ -131,9 +132,9 @@ public class Client {
       return stubFactory.get();
     }
     return LoadtestGrpc.newStub(
-        NettyChannelBuilder.forAddress(networkAddress, PORT)
+        ManagedChannelBuilder.forAddress(networkAddress, PORT)
             .usePlaintext(true)
-            .maxMessageSize(100000000)
+            .maxInboundMessageSize(100000000)
             .build());
   }
 
@@ -191,6 +192,7 @@ public class Client {
         break;
       case CPS_GCLOUD_JAVA_PUBLISHER:
       case CPS_GCLOUD_PYTHON_PUBLISHER:
+      case CPS_GCLOUD_RUBY_PUBLISHER:
       case CPS_GCLOUD_GO_PUBLISHER:
         break;
     }
@@ -293,6 +295,7 @@ public class Client {
     CPS_GCLOUD_JAVA_PUBLISHER,
     CPS_GCLOUD_JAVA_SUBSCRIBER,
     CPS_GCLOUD_PYTHON_PUBLISHER,
+    CPS_GCLOUD_RUBY_PUBLISHER,
     CPS_GCLOUD_GO_PUBLISHER,
     CPS_GCLOUD_GO_SUBSCRIBER,
     KAFKA_PUBLISHER,
@@ -302,6 +305,7 @@ public class Client {
       switch (this) {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
+        case CPS_GCLOUD_RUBY_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
           return true;
         default:
@@ -322,6 +326,7 @@ public class Client {
       switch (this) {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
+        case CPS_GCLOUD_RUBY_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
         case KAFKA_PUBLISHER:
           return true;
@@ -334,6 +339,7 @@ public class Client {
       switch (this) {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
+        case CPS_GCLOUD_RUBY_PUBLISHER:
           return CPS_GCLOUD_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;

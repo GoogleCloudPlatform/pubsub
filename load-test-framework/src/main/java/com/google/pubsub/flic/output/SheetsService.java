@@ -76,6 +76,7 @@ public class SheetsService {
               ClientParams::getClientType, Collectors.summingInt(t -> 1)));
       cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER) : 0;
       cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) : 0;
+      cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_RUBY_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_RUBY_PUBLISHER) : 0;
       cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_GO_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_GO_PUBLISHER) : 0;
       cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER): 0;
       cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_GO_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_GO_SUBSCRIBER): 0;
@@ -135,6 +136,7 @@ public class SheetsService {
       switch (type) {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
+        case CPS_GCLOUD_RUBY_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
           if (cpsPublisherCount == 0) {
             return;

@@ -101,6 +101,12 @@ public class Driver {
   private int cpsGcloudPythonPublisherCount = 0;
 
   @Parameter(
+    names = {"--cps_gcloud_ruby_publisher_count"},
+    description = "Number of CPS publishers of this type to start."
+  )
+  private int cpsGcloudRubyPublisherCount = 0;
+
+  @Parameter(
     names = {"--cps_gcloud_go_publisher_count"},
     description = "Number of CPS publishers of this type to start."
   )
@@ -357,6 +363,11 @@ public class Driver {
             new ClientParams(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER, null),
             cpsGcloudPythonPublisherCount);
       }
+      if (cpsGcloudRubyPublisherCount > 0) {
+        clientParamsMap.put(
+            new ClientParams(ClientType.CPS_GCLOUD_RUBY_PUBLISHER, null),
+            cpsGcloudRubyPublisherCount);
+      }
       if (cpsGcloudGoPublisherCount > 0) {
         clientParamsMap.put(
             new ClientParams(ClientType.CPS_GCLOUD_GO_PUBLISHER, null),
@@ -394,9 +405,10 @@ public class Driver {
           Preconditions.checkArgument(
               cpsGcloudJavaPublisherCount
                       + cpsGcloudPythonPublisherCount
+                      + cpsGcloudRubyPublisherCount
                       + cpsGcloudGoPublisherCount
                   > 0,
-              "--cps_gcloud_java_publisher, --cps_gcloud_go_publisher, or "
+              "--cps_gcloud_java_publisher, --cps_gcloud_go_publisher, --cps_gcloud_ruby_publisher or "
                   + "--cps_gcloud_python_publisher must be > 0.");
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-subscription" + i),
@@ -481,6 +493,7 @@ public class Driver {
             numberOfMessages,
             cpsGcloudJavaPublisherCount
             + cpsGcloudPythonPublisherCount
+            + cpsGcloudRubyPublisherCount
             + cpsGcloudGoPublisherCount);
     controller.startClients(messageTracker);
     if (whileRunning != null) {
