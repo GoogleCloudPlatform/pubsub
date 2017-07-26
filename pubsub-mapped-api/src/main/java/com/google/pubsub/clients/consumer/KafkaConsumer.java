@@ -36,23 +36,23 @@ import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-public class PubsubConsumer<K, V> implements Consumer<K, V> {
+public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
-  public PubsubConsumer(Map<String, Object> configs) {
+  public KafkaConsumer(Map<String, Object> configs) {
 
   }
 
-  public PubsubConsumer(Map<String, Object> configs,
+  public KafkaConsumer(Map<String, Object> configs,
       Deserializer<K> keyDeserializer,
       Deserializer<V> valueDeserializer) {
 
   }
 
-  public PubsubConsumer(Properties properties) {
+  public KafkaConsumer(Properties properties) {
 
   }
 
-  public PubsubConsumer(Properties properties,
+  public KafkaConsumer(Properties properties,
       Deserializer<K> keyDeserializer,
       Deserializer<V> valueDeserializer) {
 
