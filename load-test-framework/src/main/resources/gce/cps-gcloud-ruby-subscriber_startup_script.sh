@@ -41,8 +41,8 @@ unzip cps.zip
 
 cd ./ruby_src
 /usr/local/rvm/gems/ruby-2.4.0/bin/bundle install
-/usr/local/rvm/gems/ruby-2.4.0/bin/bundle exec ruby cps_publisher_task.rb &
+/usr/local/rvm/gems/ruby-2.4.0/bin/bundle exec ruby cps_subscriber_task.rb &
 cd ..
 
 # Run the loadtest binary
-java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.PublisherAdapterTask
+java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.SubscriberAdapterTask

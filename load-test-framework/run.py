@@ -59,7 +59,8 @@ def main(project, test, client_types, vms_count, broker):
         './ruby_src/Gemfile',
         './ruby_src/loadtest_pb.rb',
         './ruby_src/loadtest_services_pb.rb',
-        './ruby_src/main.rb'#,
+        './ruby_src/cps_publisher_task.rb',
+        './ruby_src/cps_subscriber_task.rb'#,
         #go_bin_location
     ])
   arg_list = ['java', '-jar', 'target/driver.jar', '--project', project]
@@ -70,7 +71,7 @@ def main(project, test, client_types, vms_count, broker):
       gcloud_subscriber_count += vms_count
     elif client == 'gcloud_ruby':
       arg_list.append('--cps_gcloud_ruby_publisher_count=' + str(vms_count))
-      gcloud_subscriber_count += vms_count
+      arg_list.append('--cps_gcloud_ruby_subscriber_count=' + str(vms_count))
     elif client == 'gcloud_java':
       arg_list.append('--cps_gcloud_java_publisher_count=' + str(vms_count))
       gcloud_subscriber_count += vms_count

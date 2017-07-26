@@ -107,6 +107,12 @@ public class Driver {
   private int cpsGcloudRubyPublisherCount = 0;
 
   @Parameter(
+    names = {"--cps_gcloud_ruby_subscriber_count"},
+    description = "Number of CPS subscribers of this type to start."
+  )
+  private int cpsGcloudRubySubscriberCount = 0;
+
+  @Parameter(
     names = {"--cps_gcloud_go_publisher_count"},
     description = "Number of CPS publishers of this type to start."
   )
@@ -402,22 +408,26 @@ public class Driver {
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         if (cpsGcloudJavaSubscriberCount > 0) {
-          Preconditions.checkArgument(
-              cpsGcloudJavaPublisherCount
-                      + cpsGcloudPythonPublisherCount
-                      + cpsGcloudRubyPublisherCount
-                      + cpsGcloudGoPublisherCount
-                  > 0,
-              "--cps_gcloud_java_publisher, --cps_gcloud_go_publisher, --cps_gcloud_ruby_publisher or "
-                  + "--cps_gcloud_python_publisher must be > 0.");
+          Preconditions.checkArgument(cpsGcloudJavaPublisherCount
+              + cpsGcloudPythonPublisherCount > 0,
+              "--cps_gcloud_java_publisher or --cps_gcloud_python_publisher must be > 0.");
           clientParamsMap.put(
-              new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-subscription" + i),
+              new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-java-subscription" + i),
               cpsGcloudJavaSubscriberCount / cpsSubscriptionFanout);
         }
         if (cpsGcloudGoSubscriberCount > 0) {
+          Preconditions.checkArgument(cpsGcloudGoPublisherCount > 0,
+              "--cps_gcloud_go_publisher must be > 0.");
           clientParamsMap.put(
-              new ClientParams(ClientType.CPS_GCLOUD_GO_SUBSCRIBER, "gcloud-subscription" + i),
+              new ClientParams(ClientType.CPS_GCLOUD_GO_SUBSCRIBER, "gcloud-go-subscription" + i),
               cpsGcloudGoSubscriberCount / cpsSubscriptionFanout);
+        }
+        if (cpsGcloudRubySubscriberCount > 0) {
+          Preconditions.checkArgument(cpsGcloudRubyPublisherCount > 0,
+              "--cps_gcloud_ruby_publisher must be > 0.");
+          clientParamsMap.put(
+              new ClientParams(ClientType.CPS_GCLOUD_RUBY_SUBSCRIBER, "gcloud-ruby-subscription" + i),
+              cpsGcloudRubySubscriberCount / cpsSubscriptionFanout);
         }
       }
       // Set static variables.
