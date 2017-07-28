@@ -16,15 +16,16 @@
 
 package com.google.pubsub.clients.consumer;
 
-import com.google.common.base.Optional;
-import com.google.pubsub.clients.producer.PubsubProducerConfig;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.common.ChannelUtil;
 import com.google.pubsub.kafkastubs.TopicPartition;
+import com.google.pubsub.kafkastubs.common.KafkaException;
 import com.google.pubsub.kafkastubs.common.Metric;
 import com.google.pubsub.kafkastubs.common.MetricName;
 import com.google.pubsub.kafkastubs.common.PartitionInfo;
+import com.google.pubsub.kafkastubs.common.errors.InterruptException;
 import com.google.pubsub.kafkastubs.common.record.TimestampType;
-import com.google.pubsub.kafkastubs.common.serializatiom.Deserializer;
+import com.google.pubsub.kafkastubs.common.serialization.Deserializer;
 import com.google.pubsub.kafkastubs.consumer.*;
 import com.google.pubsub.kafkastubs.consumer.ConsumerRecords;
 import com.google.pubsub.v1.DeleteSubscriptionRequest;
@@ -37,12 +38,14 @@ import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberBlockingStub;
+import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.Subscription;
 
 import com.google.pubsub.v1.Topic;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import org.apache.commons.lang3.NotImplementedException;
 
@@ -56,6 +59,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 import com.google.pubsub.v1.SubscriberGrpc;
 
+//TODO concurrent, non-blocking queries wherever possible
 public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private static final String GOOGLE_CLOUD_PROJECT;
@@ -70,7 +74,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private static final String KEY_ATTRIBUTE = "key_attribute";
 
-  private ChannelUtil channelUtil;
+  private StubCreator stubCreator;
   private Map<String, Subscription> subscriptions = new HashMap<>();
 
   private final Deserializer<K> keyDeserializer;
@@ -108,26 +112,20 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         keyDeserializer, valueDeserializer);
   }
 
+
   private KafkaConsumer(ConsumerConfig configs, Deserializer<K> keyDeserializer,
       Deserializer<V> valueDeserializer) {
-    this.channelUtil = ChannelUtil.getInstance();
+    this(configs, keyDeserializer, valueDeserializer, new StubCreator(ChannelUtil.getInstance()));
+  }
 
+  KafkaConsumer(ConsumerConfig configs, Deserializer<K> keyDeserializer,
+      Deserializer<V> valueDeserializer, StubCreator stubCreator) {
+    this.stubCreator = stubCreator;
     this.keyDeserializer = handleDeserializer(configs,
         ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer, true);
     this.valueDeserializer = handleDeserializer(configs,
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer, false);
-
     this.maxPollRecords = configs.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG);
-  }
-
-  private SubscriberBlockingStub getSubscriberBlockingStub() {
-    return SubscriberGrpc.newBlockingStub(channelUtil.getChannel())
-        .withCallCredentials(channelUtil.getCallCredentials());
-  }
-
-  private PublisherBlockingStub getPublisherBlockingStub() {
-    return PublisherGrpc.newBlockingStub(channelUtil.getChannel())
-        .withCallCredentials(channelUtil.getCallCredentials());
   }
 
   private Deserializer handleDeserializer(ConsumerConfig configs,
@@ -154,7 +152,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   public void subscribe(Collection<String> topics, ConsumerRebalanceListener listener) {
     unsubscribe();
     Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-    SubscriberBlockingStub subscriberBlockingStub = getSubscriberBlockingStub();
+    SubscriberBlockingStub subscriberBlockingStub = stubCreator.getSubscriberBlockingStub();
     
     for(String topic: topics) {
       if(!subscriptions.containsKey(topic)) {
@@ -175,7 +173,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void subscribe(Pattern pattern, ConsumerRebalanceListener listener) {
-    PublisherBlockingStub publisherBlockingStub = getPublisherBlockingStub();
+    PublisherBlockingStub publisherBlockingStub = stubCreator.getPublisherBlockingStub();
 
     ListTopicsResponse listTopicsResponse = publisherBlockingStub
         .listTopics(ListTopicsRequest.newBuilder()
@@ -197,7 +195,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void unsubscribe() {
-    SubscriberBlockingStub subscriberBlockingStub = getSubscriberBlockingStub();
+    SubscriberBlockingStub subscriberBlockingStub = stubCreator.getSubscriberBlockingStub();
     
     for(Subscription s: subscriptions.values()) {
       subscriberBlockingStub.deleteSubscription(DeleteSubscriptionRequest.newBuilder()
@@ -209,32 +207,53 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   @Override
   public ConsumerRecords<K, V> poll(long timeout) {
 
-    //TODO asynch polling from separate subscriptions
+    //TODO concurrent request
     Map<TopicPartition, List<ConsumerRecord<K, V>>> pollRecords = new HashMap<>();
-    for(Subscription s: subscriptions.values()) {
-      List<ConsumerRecord<K, V>> subscriptionRecords = new ArrayList<>();
+    List<PollData> responsesFutures = new ArrayList<>(subscriptions.size());
 
-      String topic = s.getTopic().substring(TOPIC_PREFIX.length(), s.getTopic().length());
-      TopicPartition topicPartition = new TopicPartition(topic, DEFAULT_PARTITION);
+    for(Subscription s : subscriptions.values()) {
+      String topicName = s.getTopic().substring(TOPIC_PREFIX.length(), s.getTopic().length());
+        responsesFutures.add(new PollData(topicName, futurePubsubPull(s)));
+    }
 
-      PullResponse pulled = pubsubPull(s);
-      int receivedMessagesCount = pulled.getReceivedMessagesCount();
+    for(PollData pollData : responsesFutures) {
 
-      for(int i = 0; i < receivedMessagesCount; ++i) {
-        ReceivedMessage receivedMessage = pulled.getReceivedMessages(i);
-        ConsumerRecord<K, V> record = prepareKafkaRecord(receivedMessage, topic);
-        subscriptionRecords.add(record);
+      try {
+        TopicPartition topicPartition = new TopicPartition(pollData.getTopicName(),
+            DEFAULT_PARTITION);
+        List<ConsumerRecord<K, V>> subscriptionRecords = getConsumerRecords(pollData);
+
+        pollRecords.put(topicPartition, subscriptionRecords);
+      } catch (InterruptedException e) {
+        throw new InterruptException(e);
+      } catch (ExecutionException e) {
+        throw new KafkaException(e);
       }
-
-      pollRecords.put(topicPartition, subscriptionRecords);
     }
 
     return new ConsumerRecords<>(pollRecords);
   }
 
-  private PullResponse pubsubPull(Subscription s) {
-    SubscriberBlockingStub subscriberBlockingStub = getSubscriberBlockingStub();
-    return subscriberBlockingStub.pull(PullRequest.newBuilder()
+  private List<ConsumerRecord<K, V>> getConsumerRecords(PollData subscriptionResultFuture)
+      throws InterruptedException, ExecutionException {
+
+    List<ConsumerRecord<K, V>> subscriptionRecords = new ArrayList<>();
+    PullResponse pulled = subscriptionResultFuture.getRequestListenableFuture().get();
+
+    int receivedMessagesCount = pulled.getReceivedMessagesCount();
+    for(int i = 0; i < receivedMessagesCount; ++i) {
+      ReceivedMessage receivedMessage = pulled.getReceivedMessages(i);
+      ConsumerRecord<K, V> record = prepareKafkaRecord(receivedMessage,
+          subscriptionResultFuture.getTopicName());
+      subscriptionRecords.add(record);
+    }
+
+    return subscriptionRecords;
+  }
+
+  private ListenableFuture<PullResponse> futurePubsubPull(Subscription s) {
+    SubscriberFutureStub futureStub = stubCreator.getSubscriberFutureStub();
+    return futureStub.pull(PullRequest.newBuilder()
         .setSubscription(s.getName())
         .setMaxMessages(this.maxPollRecords)
         .setReturnImmediately(true).build());
@@ -368,4 +387,24 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   public void wakeup() {
     throw new NotImplementedException("Not yet implemented");
   }
+
+  class PollData {
+    private String topicName;
+    private ListenableFuture<PullResponse> requestListenableFuture;
+
+    public PollData(String topicName, ListenableFuture<PullResponse> requestListenableFuture) {
+      this.topicName = topicName;
+      this.requestListenableFuture = requestListenableFuture;
+    }
+
+    public String getTopicName() {
+      return topicName;
+    }
+
+    public ListenableFuture<PullResponse> getRequestListenableFuture() {
+      return requestListenableFuture;
+    }
+  }
 }
+
+
