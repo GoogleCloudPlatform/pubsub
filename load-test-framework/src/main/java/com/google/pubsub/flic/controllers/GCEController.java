@@ -373,7 +373,7 @@ public class GCEController extends Controller {
    * Adds a firewall rule to the default network so that we can connect to our clients externally.
    */
   private void createFirewall() throws IOException {
-    /*Firewall firewallRule = new Firewall()
+    Firewall firewallRule = new Firewall()
         .setName("cloud-loadtest-framework-firewall-rule")
         .setDescription("A firewall rule to allow the driver to coordinate load test instances.")
         .setAllowed(ImmutableList.of(
@@ -388,7 +388,7 @@ public class GCEController extends Controller {
       }
       compute.firewalls()
           .update(projectName, "cloud-loadtest-framework-firewall-rule", firewallRule).execute();
-    }*/
+    }
   }
 
   /**
