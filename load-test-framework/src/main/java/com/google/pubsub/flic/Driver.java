@@ -101,6 +101,12 @@ public class Driver {
   private int cpsGcloudPythonPublisherCount = 0;
 
   @Parameter(
+    names = {"--cps_gcloud_python_subscriber_count"},
+    description = "Number of CPS subscribers of this type to start."
+  )
+  private int cpsGcloudPythonSubscriberCount = 0;
+
+  @Parameter(
     names = {"--cps_gcloud_ruby_publisher_count"},
     description = "Number of CPS publishers of this type to start."
   )
@@ -408,9 +414,8 @@ public class Driver {
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         if (cpsGcloudJavaSubscriberCount > 0) {
-          Preconditions.checkArgument(cpsGcloudJavaPublisherCount
-              + cpsGcloudPythonPublisherCount > 0,
-              "--cps_gcloud_java_publisher or --cps_gcloud_python_publisher must be > 0.");
+          Preconditions.checkArgument(cpsGcloudJavaPublisherCount > 0,
+              "--cps_gcloud_java_publisher must be > 0.");
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-java-subscription" + i),
               cpsGcloudJavaSubscriberCount / cpsSubscriptionFanout);
@@ -421,6 +426,13 @@ public class Driver {
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_GO_SUBSCRIBER, "gcloud-go-subscription" + i),
               cpsGcloudGoSubscriberCount / cpsSubscriptionFanout);
+        }
+        if (cpsGcloudPythonSubscriberCount > 0) {
+          Preconditions.checkArgument(cpsGcloudPythonPublisherCount > 0,
+              "--cps_gcloud_python_publisher must be > 0.");
+          clientParamsMap.put(
+              new ClientParams(ClientType.CPS_GCLOUD_PYTHON_SUBSCRIBER, "gcloud-python-subscription" + i),
+              cpsGcloudPythonSubscriberCount / cpsSubscriptionFanout);
         }
         if (cpsGcloudRubySubscriberCount > 0) {
           Preconditions.checkArgument(cpsGcloudRubyPublisherCount > 0,

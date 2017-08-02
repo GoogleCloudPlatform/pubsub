@@ -198,7 +198,7 @@ public class GCEController extends Controller {
 
     try {
       createStorageBucket();
-      createFirewall();
+      // createFirewall();
 
       List<SettableFuture<Void>> filesRemaining = new ArrayList<>();
       Files.walk(Paths.get(resourceDirectory))
