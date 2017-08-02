@@ -16,8 +16,10 @@
 
 package com.google.pubsub.clients.consumer;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.common.ChannelUtil;
+import com.google.pubsub.common.StubCreator;
 import com.google.pubsub.kafkastubs.TopicPartition;
 import com.google.pubsub.kafkastubs.common.KafkaException;
 import com.google.pubsub.kafkastubs.common.Metric;
@@ -26,12 +28,17 @@ import com.google.pubsub.kafkastubs.common.PartitionInfo;
 import com.google.pubsub.kafkastubs.common.errors.InterruptException;
 import com.google.pubsub.kafkastubs.common.record.TimestampType;
 import com.google.pubsub.kafkastubs.common.serialization.Deserializer;
-import com.google.pubsub.kafkastubs.consumer.*;
+import com.google.pubsub.kafkastubs.consumer.Consumer;
+import com.google.pubsub.kafkastubs.consumer.ConsumerRebalanceListener;
+import com.google.pubsub.kafkastubs.consumer.ConsumerRecord;
 import com.google.pubsub.kafkastubs.consumer.ConsumerRecords;
+import com.google.pubsub.kafkastubs.consumer.OffsetAndMetadata;
+import com.google.pubsub.kafkastubs.consumer.OffsetAndTimestamp;
+import com.google.pubsub.kafkastubs.consumer.OffsetCommitCallback;
+import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.DeleteSubscriptionRequest;
 import com.google.pubsub.v1.ListTopicsRequest;
 import com.google.pubsub.v1.ListTopicsResponse;
-import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherBlockingStub;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
@@ -40,26 +47,22 @@ import com.google.pubsub.v1.ReceivedMessage;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberBlockingStub;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.Subscription;
-
 import com.google.pubsub.v1.Topic;
 import java.sql.Timestamp;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.concurrent.ExecutionException;
-import java.util.regex.Matcher;
-import org.apache.commons.lang3.NotImplementedException;
-
-
 import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import com.google.pubsub.v1.SubscriberGrpc;
+import org.apache.commons.lang3.NotImplementedException;
 
-//TODO concurrent, non-blocking queries wherever possible
 public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private static final String GOOGLE_CLOUD_PROJECT;
@@ -75,7 +78,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private static final String KEY_ATTRIBUTE = "key_attribute";
 
   private StubCreator stubCreator;
-  private Map<String, Subscription> subscriptions = new HashMap<>();
+  private ImmutableMap<String, Subscription> subscriptions = ImmutableMap.of();
 
   private final Deserializer<K> keyDeserializer;
   private final Deserializer<V> valueDeserializer;
@@ -101,7 +104,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   public KafkaConsumer(Properties properties) {
-      this(new ConsumerConfig(properties), null, null);
+    this(new ConsumerConfig(properties), null, null);
   }
 
   public KafkaConsumer(Properties properties,
@@ -118,14 +121,19 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     this(configs, keyDeserializer, valueDeserializer, new StubCreator(ChannelUtil.getInstance()));
   }
 
+  @SuppressWarnings("unchecked")
   KafkaConsumer(ConsumerConfig configs, Deserializer<K> keyDeserializer,
       Deserializer<V> valueDeserializer, StubCreator stubCreator) {
-    this.stubCreator = stubCreator;
-    this.keyDeserializer = handleDeserializer(configs,
-        ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer, true);
-    this.valueDeserializer = handleDeserializer(configs,
-        ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer, false);
-    this.maxPollRecords = configs.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG);
+    try {
+      this.stubCreator = stubCreator;
+      this.keyDeserializer = handleDeserializer(configs,
+          ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer, true);
+      this.valueDeserializer = handleDeserializer(configs,
+          ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer, false);
+      this.maxPollRecords = configs.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG);
+    } catch (Throwable t) {
+      throw new KafkaException("Failed to construct PubSub consumer", t);
+    }
   }
 
   private Deserializer handleDeserializer(ConsumerConfig configs,
@@ -150,19 +158,52 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   public void subscribe(Collection<String> topics, ConsumerRebalanceListener listener) {
+    checkSubscribePreconditions(topics);
+
     unsubscribe();
     Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-    SubscriberBlockingStub subscriberBlockingStub = stubCreator.getSubscriberBlockingStub();
-    
+    List<ResponseData<Subscription>> responseDatas = new ArrayList<>();
+    Set<String> usedNames = new HashSet<>();
+
     for(String topic: topics) {
-      if(!subscriptions.containsKey(topic)) {
-        Subscription subscription = subscriberBlockingStub.createSubscription(Subscription.newBuilder()
-            .setName(SUBSCRIPTION_PREFIX + topic + "_" + timestamp
+      if(!usedNames.contains(topic)) {
+        SubscriberFutureStub subscriberFutureStub = stubCreator.getSubscriberFutureStub();
+        ListenableFuture<Subscription> subscription = subscriberFutureStub
+            .createSubscription(Subscription.newBuilder()
+                .setName(SUBSCRIPTION_PREFIX + "_" + timestamp
                     .getTime())
-            .setTopic(TOPIC_PREFIX + topic)
-            .build());
-        subscriptions.put(topic, subscription);
+                .setTopic(TOPIC_PREFIX + topic)
+                .build());
+        responseDatas.add(new ResponseData<>(topic, subscription));
+        usedNames.add(topic);
       }
+    }
+
+    Map<String, Subscription> subscriptionMap = new HashMap<>();
+
+    for(ResponseData<Subscription> responseData: responseDatas) {
+      try {
+        Subscription s = responseData.getRequestListenableFuture().get();
+        subscriptionMap.put(responseData.getTopicName(), s);
+      } catch (InterruptedException e) {
+        throw new InterruptException(e);
+      } catch (ExecutionException e) {
+        throw new KafkaException(e);
+      }
+    }
+
+    subscriptions = ImmutableMap.copyOf(subscriptionMap);
+  }
+
+  private void checkSubscribePreconditions(Collection<String> topics) {
+    if(topics == null) {
+      throw new IllegalArgumentException("Topic collection to subscribe to cannot be null");
+    }
+
+    for(String topic: topics) {
+      if(topic == null || topic.trim().isEmpty())
+        throw new IllegalArgumentException(
+            "Topic collection to subscribe to cannot contain null or empty topic");
     }
   }
 
@@ -173,6 +214,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void subscribe(Pattern pattern, ConsumerRebalanceListener listener) {
+    checkPatternSubscribePreconditions(pattern);
+
     PublisherBlockingStub publisherBlockingStub = stubCreator.getPublisherBlockingStub();
 
     ListTopicsResponse listTopicsResponse = publisherBlockingStub
@@ -193,35 +236,42 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     subscribe(matchingTopics);
   }
 
+  private void checkPatternSubscribePreconditions(Pattern pattern) {
+    if(pattern == null) {
+      throw new IllegalArgumentException("Topic pattern to subscribe to cannot be null");
+    }
+  }
+
   @Override
   public void unsubscribe() {
-    SubscriberBlockingStub subscriberBlockingStub = stubCreator.getSubscriberBlockingStub();
+    SubscriberFutureStub subscriberFutureStub = stubCreator.getSubscriberFutureStub();
     
     for(Subscription s: subscriptions.values()) {
-      subscriberBlockingStub.deleteSubscription(DeleteSubscriptionRequest.newBuilder()
+      subscriberFutureStub.deleteSubscription(DeleteSubscriptionRequest.newBuilder()
           .setSubscription(s.getName()).build());
     }
-    subscriptions = new HashMap<>();
+
+    subscriptions = ImmutableMap.of();
   }
 
   @Override
   public ConsumerRecords<K, V> poll(long timeout) {
+    checkPollPreconditions(timeout);
 
-    //TODO concurrent request
     Map<TopicPartition, List<ConsumerRecord<K, V>>> pollRecords = new HashMap<>();
-    List<PollData> responsesFutures = new ArrayList<>(subscriptions.size());
+    List<ResponseData<PullResponse>> responsesFutures = buildFuturePubsubPulls(timeout);
 
-    for(Subscription s : subscriptions.values()) {
-      String topicName = s.getTopic().substring(TOPIC_PREFIX.length(), s.getTopic().length());
-        responsesFutures.add(new PollData(topicName, futurePubsubPull(s)));
-    }
+    List<String> ackIds = new ArrayList<>();
 
-    for(PollData pollData : responsesFutures) {
-
+    for(ResponseData<PullResponse> pollData : responsesFutures) {
       try {
         TopicPartition topicPartition = new TopicPartition(pollData.getTopicName(),
             DEFAULT_PARTITION);
-        List<ConsumerRecord<K, V>> subscriptionRecords = getConsumerRecords(pollData);
+
+        PullResponse pulled = pollData.getRequestListenableFuture().get();
+
+        List<ConsumerRecord<K, V>> subscriptionRecords = mapToConsumerRecords(ackIds, pollData,
+            pulled);
 
         pollRecords.put(topicPartition, subscriptionRecords);
       } catch (InterruptedException e) {
@@ -231,28 +281,58 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       }
     }
 
+    acknowledgeMessages(ackIds);
+
     return new ConsumerRecords<>(pollRecords);
   }
 
-  private List<ConsumerRecord<K, V>> getConsumerRecords(PollData subscriptionResultFuture)
-      throws InterruptedException, ExecutionException {
+  private List<ResponseData<PullResponse>> buildFuturePubsubPulls(long timeout) {
+    List<ResponseData<PullResponse>> responsesFutures = new ArrayList<>(subscriptions.size());
 
+    for(Subscription s : subscriptions.values()) {
+      String topicName = s.getTopic().substring(TOPIC_PREFIX.length(), s.getTopic().length());
+      responsesFutures.add(new ResponseData<>(topicName, futurePubsubPull(s, timeout)));
+    }
+    return responsesFutures;
+  }
+
+  private List<ConsumerRecord<K, V>> mapToConsumerRecords(List<String> ackIds,
+      ResponseData<PullResponse> pollData, PullResponse pulled) {
     List<ConsumerRecord<K, V>> subscriptionRecords = new ArrayList<>();
-    PullResponse pulled = subscriptionResultFuture.getRequestListenableFuture().get();
 
     int receivedMessagesCount = pulled.getReceivedMessagesCount();
     for(int i = 0; i < receivedMessagesCount; ++i) {
       ReceivedMessage receivedMessage = pulled.getReceivedMessages(i);
       ConsumerRecord<K, V> record = prepareKafkaRecord(receivedMessage,
-          subscriptionResultFuture.getTopicName());
+          pollData.getTopicName());
       subscriptionRecords.add(record);
+      ackIds.add(receivedMessage.getAckId());
     }
 
     return subscriptionRecords;
   }
 
-  private ListenableFuture<PullResponse> futurePubsubPull(Subscription s) {
-    SubscriberFutureStub futureStub = stubCreator.getSubscriberFutureStub();
+  private void acknowledgeMessages(List<String> ackIds) {
+    AcknowledgeRequest acknowledgeRequest = AcknowledgeRequest.newBuilder()
+        .addAllAckIds(ackIds).build();
+
+    SubscriberBlockingStub blockingStub = stubCreator.getSubscriberBlockingStub();
+
+    blockingStub.acknowledge(acknowledgeRequest);
+  }
+
+  private void checkPollPreconditions(long timeout) {
+    if (timeout < 0) {
+      throw new IllegalArgumentException("Timeout must not be negative");
+    }
+
+    if(subscriptions.isEmpty()) {
+      throw new IllegalStateException("Consumer is not subscribed to any topics");
+    }
+  }
+
+  private ListenableFuture<PullResponse> futurePubsubPull(Subscription s, long timeout) {
+    SubscriberFutureStub futureStub = stubCreator.getSubscriberFutureStub(timeout);
     return futureStub.pull(PullRequest.newBuilder()
         .setSubscription(s.getName())
         .setMaxMessages(this.maxPollRecords)
@@ -388,20 +468,20 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     throw new NotImplementedException("Not yet implemented");
   }
 
-  class PollData {
+  class ResponseData<T> {
     private String topicName;
-    private ListenableFuture<PullResponse> requestListenableFuture;
+    private ListenableFuture<T> requestListenableFuture;
 
-    public PollData(String topicName, ListenableFuture<PullResponse> requestListenableFuture) {
+    ResponseData(String topicName, ListenableFuture<T> requestListenableFuture) {
       this.topicName = topicName;
       this.requestListenableFuture = requestListenableFuture;
     }
 
-    public String getTopicName() {
+    String getTopicName() {
       return topicName;
     }
 
-    public ListenableFuture<PullResponse> getRequestListenableFuture() {
+    ListenableFuture<T> getRequestListenableFuture() {
       return requestListenableFuture;
     }
   }

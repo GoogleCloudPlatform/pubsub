@@ -10,9 +10,6 @@ import com.google.pubsub.kafkastubs.common.serialization.StringDeserializer;
 import java.util.Properties;
 import org.junit.Test;
 
-/**
- * Created by pietrzykp on 7/28/17.
- */
 public class ConsumerConfigTest {
 
   @Test
@@ -34,10 +31,10 @@ public class ConsumerConfigTest {
         .getConfiguredInstance(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, Deserializer.class);
 
     assertNotNull(keyDeserializer);
-    assertEquals(keyDeserializer.getClass(), StringDeserializer.class);
+    assertEquals(StringDeserializer.class, keyDeserializer.getClass());
 
     assertNotNull(valueDeserializer);
-    assertEquals(valueDeserializer.getClass(), IntegerDeserializer.class);
+    assertEquals(IntegerDeserializer.class, valueDeserializer.getClass());
   }
 
 }
