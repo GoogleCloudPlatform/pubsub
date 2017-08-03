@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.powermock.api.mockito.PowerMockito.when;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Timestamp;
@@ -51,7 +52,7 @@ import org.powermock.modules.junit4.PowerMockRunner;
 
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest({SubscriberGrpc.class, PublisherGrpc.class, ChannelUtil.class})
+@PrepareForTest({SubscriberGrpc.class, PublisherGrpc.class, Futures.class})
 @SuppressStaticInitializationFor("com.google.pubsub.common.ChannelUtil")
 public class KafkaConsumerTest {
 
@@ -71,6 +72,7 @@ public class KafkaConsumerTest {
     );
 
     PowerMockito.mockStatic(ChannelUtil.class);
+    PowerMockito.mockStatic(Futures.class);
     StubCreator stubCreator = mock(StubCreator.class);
     blockingStub = mock(SubscriberBlockingStub.class);
     futureStub = mock(SubscriberFutureStub.class);

@@ -38,7 +38,7 @@ class ConsumerConfig extends AbstractConfig {
      */
   /** <code>max.poll.records</code> */
   static final String MAX_POLL_RECORDS_CONFIG = "max.poll.records";
-  private static final String MAX_POLL_RECORDS_DOC = "The maximum number of records returned in a single call to poll().";
+  private static final String MAX_POLL_RECORDS_DOC = "The maximum number of records returned in a single call to poll() FOR SINGLE TOPIC.";
 
   /** <code>key.deserializer</code> */
   static final String KEY_DESERIALIZER_CLASS_CONFIG = "key.deserializer";
