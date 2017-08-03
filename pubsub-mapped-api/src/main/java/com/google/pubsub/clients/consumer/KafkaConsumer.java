@@ -1,21 +1,21 @@
-// Copyright 2017 Google Inc.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//      http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-////////////////////////////////////////////////////////////////////////////////
+/* Copyright 2017 Google Inc.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License. */
+
 
 package com.google.pubsub.clients.consumer;
 
+import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
@@ -67,16 +67,17 @@ import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
-import org.apache.commons.lang3.NotImplementedException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class KafkaConsumer<K, V> implements Consumer<K, V> {
+public final class KafkaConsumer<K, V> implements Consumer<K, V> {
 
+  private static final ConsumerRebalanceListener NO_REBALANCE_LISTENER = null;
   private static final Logger log = LoggerFactory.getLogger(KafkaConsumer.class);
-  private static final String GOOGLE_CLOUD_PROJECT;
-  private static final String SUBSCRIPTION_PREFIX;
-  private static final String TOPIC_PREFIX;
+  private static final String GOOGLE_CLOUD_PROJECT = "projects/" +
+      System.getenv("GOOGLE_CLOUD_PROJECT");
+  private static final String SUBSCRIPTION_PREFIX = GOOGLE_CLOUD_PROJECT + "/subscriptions/";
+  private static final String TOPIC_PREFIX = GOOGLE_CLOUD_PROJECT + "/topics/";
 
   //because of no partition concept, the partition number is constant
   private static final int DEFAULT_PARTITION = 0;
@@ -93,12 +94,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private final Deserializer<V> valueDeserializer;
 
   private final int maxPollRecords;
-
-  static {
-    GOOGLE_CLOUD_PROJECT = "projects/" + System.getenv("GOOGLE_CLOUD_PROJECT");
-    SUBSCRIPTION_PREFIX = GOOGLE_CLOUD_PROJECT + "/subscriptions/";
-    TOPIC_PREFIX = GOOGLE_CLOUD_PROJECT + "/topics/";
-  }
 
   public KafkaConsumer(Map<String, Object> configs) {
       this(new ConsumerConfig(configs), null, null);
@@ -136,6 +131,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     try {
       log.debug("Starting PubSub subscriber");
 
+      Preconditions.checkNotNull(stubCreator);
+
       this.stubCreator = stubCreator;
       this.keyDeserializer = handleDeserializer(configs,
           ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer, true);
@@ -165,7 +162,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   public Set<TopicPartition> assignment() {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public Set<String> subscription() {
@@ -227,36 +224,39 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     Map<String, Subscription> subscriptionMap = new HashMap<>();
 
     for(ResponseData<Subscription> responseData: responseDatas) {
+      boolean success = false;
       try {
         Subscription s = responseData.getRequestListenableFuture().get();
         subscriptionMap.put(responseData.getTopicName(), s);
+
+        success = true;
+
       } catch (InterruptedException e) {
         //if an error is thrown, attempt to delete subscriptions created in this loop
-        unsubscribe(subscriptionMap.values());
         throw new InterruptException(e);
       } catch (ExecutionException e) {
-        unsubscribe(subscriptionMap.values());
         throw new KafkaException(e);
+      } finally {
+        if(!success)
+          unsubscribe(subscriptionMap.values());
       }
     }
     return subscriptionMap;
   }
 
   private void checkSubscribePreconditions(Collection<String> topics) {
-    if(topics == null) {
-      throw new IllegalArgumentException("Topic collection to subscribe to cannot be null");
-    }
+    Preconditions.checkArgument(topics != null,
+        "Topic collection to subscribe to cannot be null");
 
     for(String topic: topics) {
-      if(topic == null || topic.trim().isEmpty())
-        throw new IllegalArgumentException(
-            "Topic collection to subscribe to cannot contain null or empty topic");
+      Preconditions.checkArgument(topic != null && !topic.trim().isEmpty(),
+          "Topic collection to subscribe to cannot contain null or empty topic");
     }
   }
 
   @Override
   public void subscribe(Collection<String> topics) {
-    subscribe(topics, null);
+    subscribe(topics, NO_REBALANCE_LISTENER);
   }
 
   /*
@@ -294,9 +294,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   private void checkPatternSubscribePreconditions(Pattern pattern) {
-    if(pattern == null) {
-      throw new IllegalArgumentException("Topic pattern to subscribe to cannot be null");
-    }
+    Preconditions.checkArgument(pattern != null,
+        "Topic pattern to subscribe to cannot be null");
   }
 
   @Override
@@ -420,9 +419,9 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   private void checkPollPreconditions(long timeout) {
-    if (timeout < 0) {
-      throw new IllegalArgumentException("Timeout must not be negative");
-    }
+
+    Preconditions.checkArgument(timeout >= 0,
+        "Timeout must not be negative");
 
     if(subscriptions.isEmpty()) {
       throw new IllegalStateException("Consumer is not subscribed to any topics");
@@ -455,91 +454,91 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void assign(Collection<TopicPartition> partitions) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   @Override
   public void commitSync() {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   @Override
   public void commitSync(final Map<TopicPartition, OffsetAndMetadata> offsets) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   @Override
   public void commitAsync() {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   @Override
   public void commitAsync(OffsetCommitCallback callback) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   @Override
   public void commitAsync(final Map<TopicPartition, OffsetAndMetadata> offsets,
       OffsetCommitCallback callback) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   @Override
   public void seek(TopicPartition partition, long offset) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public void seekToBeginning(Collection<TopicPartition> partitions) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public void seekToEnd(Collection<TopicPartition> partitions) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public long position(TopicPartition partition) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public OffsetAndMetadata committed(TopicPartition partition) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public Map<MetricName, ? extends Metric> metrics() {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public List<PartitionInfo> partitionsFor(String topic) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public Map<String, List<PartitionInfo>> listTopics() {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public void pause(Collection<TopicPartition> partitions) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public void resume(Collection<TopicPartition> partitions) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public Set<TopicPartition> paused() {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public Map<TopicPartition, OffsetAndTimestamp> offsetsForTimes(
       Map<TopicPartition, Long> timestampsToSearch) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public Map<TopicPartition, Long> beginningOffsets(Collection<TopicPartition> partitions) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   public Map<TopicPartition, Long> endOffsets(Collection<TopicPartition> partitions) {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   /*
@@ -560,7 +559,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   public void wakeup() {
-    throw new NotImplementedException("Not yet implemented");
+    throw new UnsupportedOperationException("Not yet implemented");
   }
 
   class ResponseData<T> {

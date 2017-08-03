@@ -29,7 +29,7 @@ import java.util.Set;
 /**
  * The consumer configuration keys
  */
-class ConsumerConfig extends AbstractConfig {
+public class ConsumerConfig extends AbstractConfig {
   private static final ConfigDef CONFIG;
 
     /*
@@ -37,17 +37,17 @@ class ConsumerConfig extends AbstractConfig {
      * THESE ARE PART OF THE PUBLIC API AND CHANGE WILL BREAK USER CODE.
      */
   /** <code>max.poll.records</code> */
-  static final String MAX_POLL_RECORDS_CONFIG = "max.poll.records";
+  public static final String MAX_POLL_RECORDS_CONFIG = "max.poll.records";
   private static final String MAX_POLL_RECORDS_DOC =
       "The maximum number of records returned in a single call to poll() FOR SINGLE TOPIC.";
 
   /** <code>key.deserializer</code> */
-  static final String KEY_DESERIALIZER_CLASS_CONFIG = "key.deserializer";
+  public static final String KEY_DESERIALIZER_CLASS_CONFIG = "key.deserializer";
   private static final String KEY_DESERIALIZER_CLASS_DOC =
       "Deserializer class for key that implements the <code>Deserializer</code> interface.";
 
   /** <code>value.deserializer</code> */
-  static final String VALUE_DESERIALIZER_CLASS_CONFIG = "value.deserializer";
+  public static final String VALUE_DESERIALIZER_CLASS_CONFIG = "value.deserializer";
   private static final String VALUE_DESERIALIZER_CLASS_DOC =
       "Deserializer class for value that implements the <code>Deserializer</code> interface.";
 
@@ -68,7 +68,7 @@ class ConsumerConfig extends AbstractConfig {
 
   }
 
-  static Map<String, Object> addDeserializerToConfig(Map<String, Object> configs,
+  public static Map<String, Object> addDeserializerToConfig(Map<String, Object> configs,
       Deserializer<?> keyDeserializer,
       Deserializer<?> valueDeserializer) {
     Map<String, Object> newConfigs = new HashMap<String, Object>();
@@ -80,7 +80,7 @@ class ConsumerConfig extends AbstractConfig {
     return newConfigs;
   }
 
-  static Properties addDeserializerToConfig(Properties properties,
+  public static Properties addDeserializerToConfig(Properties properties,
       Deserializer<?> keyDeserializer,
       Deserializer<?> valueDeserializer) {
     Properties newProperties = new Properties();
@@ -100,11 +100,11 @@ class ConsumerConfig extends AbstractConfig {
     super(CONFIG, props, doLog);
   }
 
-  static Set<String> configNames() {
+  public static Set<String> configNames() {
     return CONFIG.names();
   }
 
-  static void main(String[] args) {
+  public static void main(String[] args) {
     System.out.println(CONFIG.toHtmlTable());
   }
 
