@@ -529,7 +529,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     throw new NotImplementedException("Not yet implemented");
   }
 
-  public Map<TopicPartition, OffsetAndTimestamp> offsetsForTimes(Map<TopicPartition, Long> timestampsToSearch) {
+  public Map<TopicPartition, OffsetAndTimestamp> offsetsForTimes(
+      Map<TopicPartition, Long> timestampsToSearch) {
     throw new NotImplementedException("Not yet implemented");
   }
 
@@ -567,7 +568,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     private String subscriptionFullName;
     private ListenableFuture<T> requestListenableFuture;
 
-    ResponseData(String topicName, String subscriptionFullName, ListenableFuture<T> requestListenableFuture) {
+    ResponseData(String topicName, String subscriptionFullName,
+        ListenableFuture<T> requestListenableFuture) {
       this.topicName = topicName;
       this.subscriptionFullName = subscriptionFullName;
       this.requestListenableFuture = requestListenableFuture;

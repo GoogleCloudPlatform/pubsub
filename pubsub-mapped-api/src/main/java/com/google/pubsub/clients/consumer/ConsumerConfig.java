@@ -38,15 +38,18 @@ class ConsumerConfig extends AbstractConfig {
      */
   /** <code>max.poll.records</code> */
   static final String MAX_POLL_RECORDS_CONFIG = "max.poll.records";
-  private static final String MAX_POLL_RECORDS_DOC = "The maximum number of records returned in a single call to poll() FOR SINGLE TOPIC.";
+  private static final String MAX_POLL_RECORDS_DOC =
+      "The maximum number of records returned in a single call to poll() FOR SINGLE TOPIC.";
 
   /** <code>key.deserializer</code> */
   static final String KEY_DESERIALIZER_CLASS_CONFIG = "key.deserializer";
-  private static final String KEY_DESERIALIZER_CLASS_DOC = "Deserializer class for key that implements the <code>Deserializer</code> interface.";
+  private static final String KEY_DESERIALIZER_CLASS_DOC =
+      "Deserializer class for key that implements the <code>Deserializer</code> interface.";
 
   /** <code>value.deserializer</code> */
   static final String VALUE_DESERIALIZER_CLASS_CONFIG = "value.deserializer";
-  private static final String VALUE_DESERIALIZER_CLASS_DOC = "Deserializer class for value that implements the <code>Deserializer</code> interface.";
+  private static final String VALUE_DESERIALIZER_CLASS_DOC =
+      "Deserializer class for value that implements the <code>Deserializer</code> interface.";
 
   static {
     CONFIG = new ConfigDef()

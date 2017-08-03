@@ -16,8 +16,10 @@ public class ConsumerConfigTest {
   public void checkDeserializersConfiguration() {
     Properties properties = new Properties();
     properties.putAll(new ImmutableMap.Builder<>()
-        .put("key.deserializer", "com.google.pubsub.kafkastubs.common.serialization.StringDeserializer")
-        .put("value.deserializer", "com.google.pubsub.kafkastubs.common.serialization.IntegerDeserializer")
+        .put("key.deserializer",
+            "com.google.pubsub.kafkastubs.common.serialization.StringDeserializer")
+        .put("value.deserializer",
+            "com.google.pubsub.kafkastubs.common.serialization.IntegerDeserializer")
         .put("max.poll.records", 500)
         .build()
     );

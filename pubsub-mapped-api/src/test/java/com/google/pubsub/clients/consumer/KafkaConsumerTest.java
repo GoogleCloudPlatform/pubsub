@@ -65,8 +65,10 @@ public class KafkaConsumerTest {
   public void setUp() throws ExecutionException, InterruptedException {
     Properties properties = new Properties();
     properties.putAll(new ImmutableMap.Builder<>()
-        .put("key.deserializer", "com.google.pubsub.kafkastubs.common.serialization.IntegerDeserializer")
-        .put("value.deserializer", "com.google.pubsub.kafkastubs.common.serialization.StringDeserializer")
+        .put("key.deserializer",
+            "com.google.pubsub.kafkastubs.common.serialization.IntegerDeserializer")
+        .put("value.deserializer",
+            "com.google.pubsub.kafkastubs.common.serialization.StringDeserializer")
         .put("max.poll.records", 500)
         .build()
     );
@@ -78,7 +80,8 @@ public class KafkaConsumerTest {
     futureStub = mock(SubscriberFutureStub.class);
     publisherBlockingStub = mock(PublisherBlockingStub.class);
 
-    Subscription s = Subscription.newBuilder().setName("name").setTopic("projects/null/topics/topic").build();
+    Subscription s = Subscription.newBuilder().setName("name")
+        .setTopic("projects/null/topics/topic").build();
 
     ConsumerConfig config = new ConsumerConfig(
         ConsumerConfig.addDeserializerToConfig(properties, null, null));
@@ -152,7 +155,9 @@ public class KafkaConsumerTest {
 
   @Test
   public void testPatternSubscription() {
-    List<String> topicNames = new ArrayList<>(Arrays.asList("projects/null/topics/thisis123cat", "projects/null/topics/abc12345bad", "projects/null/topics/noWay1234", "projects/null/topics/funnycats000cat"));
+    List<String> topicNames = new ArrayList<>(Arrays.asList(
+        "projects/null/topics/thisis123cat", "projects/null/topics/abc12345bad",
+        "projects/null/topics/noWay1234", "projects/null/topics/funnycats000cat"));
     List<Topic> topics = new ArrayList<>();
 
     for(String topicName: topicNames) {
@@ -167,7 +172,8 @@ public class KafkaConsumerTest {
 
     consumer.subscribe(pattern, null);
     Set<String> subscribed = consumer.subscription();
-    Set<String> expectedTopics = new HashSet<>(Arrays.asList("thisis123cat", "funnycats000cat"));
+    Set<String> expectedTopics = new HashSet<>(Arrays.asList("thisis123cat",
+        "funnycats000cat"));
     assertEquals(expectedTopics, subscribed);
   }
 
@@ -200,7 +206,8 @@ public class KafkaConsumerTest {
       consumer.subscribe(topics);
       fail();
     } catch (IllegalArgumentException e) {
-      assertEquals("Topic collection to subscribe to cannot contain null or empty topic", e.getMessage());
+      assertEquals("Topic collection to subscribe to cannot contain null or empty topic",
+          e.getMessage());
     }
   }
 
@@ -244,7 +251,10 @@ public class KafkaConsumerTest {
         .setData(ByteString.copyFrom(serializedValueBytes))
         .build();
 
-    ReceivedMessage receivedMessage = ReceivedMessage.newBuilder().setMessage(pubsubMessage).build();
+    ReceivedMessage receivedMessage = ReceivedMessage.newBuilder()
+        .setMessage(pubsubMessage)
+        .build();
+
     PullResponse pullResponse = PullResponse.newBuilder()
         .addReceivedMessages(receivedMessage)
         .build();
@@ -256,7 +266,8 @@ public class KafkaConsumerTest {
     ConsumerRecords<Integer, String> consumerRecord = consumer.poll(100);
 
     assertEquals(consumerRecord.count(), 1);
-    Iterable<ConsumerRecord<Integer, String>> recordsForTopic = consumerRecord.records("topic");
+    Iterable<ConsumerRecord<Integer, String>> recordsForTopic =
+        consumerRecord.records("topic");
 
     ConsumerRecord<Integer, String> next = recordsForTopic.iterator().next();
 
