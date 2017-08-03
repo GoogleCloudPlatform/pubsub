@@ -38,7 +38,6 @@ import com.google.pubsub.kafkastubs.consumer.ConsumerRecords;
 import com.google.pubsub.kafkastubs.consumer.OffsetAndMetadata;
 import com.google.pubsub.kafkastubs.consumer.OffsetAndTimestamp;
 import com.google.pubsub.kafkastubs.consumer.OffsetCommitCallback;
-import com.google.pubsub.kafkastubs.utils.Utils;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.DeleteSubscriptionRequest;
 import com.google.pubsub.v1.ListTopicsRequest;
@@ -185,7 +184,6 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
     List<ResponseData<Subscription>> futureSubscriptions = deputePubsubSubscribes(topics);
     Map<String, Subscription> subscriptionMap = getNewSubscriptionMap(futureSubscriptions);
 
-    log.debug("Subscribed to topic(s): {}", Utils.join(subscriptionMap.keySet(), ", "));
     subscriptions = ImmutableMap.copyOf(subscriptionMap);
   }
 
