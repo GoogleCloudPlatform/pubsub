@@ -39,8 +39,4 @@ public class ChannelUtil {
   public CallCredentials getCallCredentials() {
     return callCredentials;
   }
-
-  public void closeChannel() {
-    channel.shutdown();
-  }
 }
