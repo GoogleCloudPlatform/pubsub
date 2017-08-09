@@ -33,7 +33,7 @@ public class Main {
         System.out.println("PUBLISHING FROM ALT THREAD");
         for (int i = 0; i < 10; i++) {
           producer.send(new ProducerRecord<>(
-              "wow2", 0, Integer.toString(i), "message" + Integer.toString(i)));
+              "wow1", 0, Integer.toString(i), "message" + Integer.toString(i)));
           System.out.println(Thread.currentThread().getName() + " " + i);
         }
       }
