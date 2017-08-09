@@ -31,7 +31,7 @@ import java.util.Set;
  * The consumer configuration keys
  */
 public class ConsumerConfig extends AbstractConfig {
-  private static final ConfigDef CONFIG;
+  private static final ConfigDef CONFIG = getInstance();
 
     /*
      * NOTE: DO NOT CHANGE EITHER CONFIG STRINGS OR THEIR JAVA VARIABLE NAMES AS
@@ -52,8 +52,8 @@ public class ConsumerConfig extends AbstractConfig {
   private static final String VALUE_DESERIALIZER_CLASS_DOC =
       "Deserializer class for value that implements the <code>Deserializer</code> interface.";
 
-  static {
-    CONFIG = new ConfigDef()
+  private static ConfigDef getInstance() {
+    return new ConfigDef()
         .define(MAX_POLL_RECORDS_CONFIG,
             Type.INT,
             Importance.MEDIUM,
@@ -66,7 +66,6 @@ public class ConsumerConfig extends AbstractConfig {
             Type.CLASS,
             Importance.HIGH,
             VALUE_DESERIALIZER_CLASS_DOC);
-
   }
 
   public static Map<String, Object> addDeserializerToConfig(Map<String, Object> configs,
