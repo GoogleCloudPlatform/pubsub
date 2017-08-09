@@ -124,25 +124,31 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private KafkaConsumer(ConsumerConfig configs, Deserializer<K> keyDeserializer,
       Deserializer<V> valueDeserializer) {
-    this(configs, keyDeserializer, valueDeserializer,
-        ChannelUtil.getInstance());
+    this(configs,
+        keyDeserializer,
+        valueDeserializer,
+        ChannelUtil.getInstance().getChannel(),
+        ChannelUtil.getInstance().getCallCredentials());
   }
 
   @SuppressWarnings("unchecked")
   KafkaConsumer(ConsumerConfig configs, Deserializer<K> keyDeserializer,
-      Deserializer<V> valueDeserializer, ChannelUtil channelUtil) {
+      Deserializer<V> valueDeserializer, Channel channel, CallCredentials callCredentials) {
     try {
       log.debug("Starting PubSub subscriber");
 
-      Preconditions.checkNotNull(channelUtil);
+      Preconditions.checkNotNull(channel);
 
-      Channel channel = channelUtil.getChannel();
-      CallCredentials callCredentials = channelUtil.getCallCredentials();
+      SubscriberFutureStub subscriberFutureStub = SubscriberGrpc.newFutureStub(channel);
+      PublisherBlockingStub publisherBlockingStub = PublisherGrpc.newBlockingStub(channel);
 
-      this.subscriberFutureStub = SubscriberGrpc.newFutureStub(channel)
-          .withCallCredentials(callCredentials);
-      this.publisherBlockingStub = PublisherGrpc.newBlockingStub(channel)
-          .withCallCredentials(callCredentials);
+      if(callCredentials != null) {
+        subscriberFutureStub = subscriberFutureStub.withCallCredentials(callCredentials);
+        publisherBlockingStub = publisherBlockingStub.withCallCredentials(callCredentials);
+      }
+
+      this.subscriberFutureStub = subscriberFutureStub;
+      this.publisherBlockingStub = publisherBlockingStub;
 
       this.keyDeserializer = handleDeserializer(configs,
           ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer, true);
