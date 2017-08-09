@@ -3,13 +3,10 @@ package com.google.pubsub.clients.consumer;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.mock;
 import static org.powermock.api.mockito.PowerMockito.when;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
@@ -49,17 +46,13 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.core.classloader.annotations.SuppressStaticInitializationFor;
 import org.powermock.modules.junit4.PowerMockRunner;
 
 
 @RunWith(PowerMockRunner.class)
-@PrepareForTest(Futures.class)
 @SuppressStaticInitializationFor("com.google.pubsub.common.ChannelUtil")
 public class KafkaConsumerTest {
-
 
   @Rule
   public final GrpcServerRule grpcServerRule = new GrpcServerRule().directExecutor();
@@ -68,12 +61,7 @@ public class KafkaConsumerTest {
 
   @Before
   public void setUp() throws ExecutionException, InterruptedException {
-    grpcServerRule.getServiceRegistry().addService(new SubscriberImpl());
-
     ConsumerConfig config = getConsumerConfig();
-
-    PowerMockito.mockStatic(Futures.class);
-    when(Futures.allAsList(any(ArrayList.class))).thenReturn(mock(ListenableFuture.class));
 
     ChannelUtil channelUtil = mock(ChannelUtil.class);
     when(channelUtil.getChannel()).thenReturn(grpcServerRule.getChannel());
@@ -275,6 +263,7 @@ public class KafkaConsumerTest {
 
     @Override
     public void deleteSubscription(DeleteSubscriptionRequest request, StreamObserver<Empty> responseObserver) {
+      responseObserver.onNext(Empty.getDefaultInstance());
       responseObserver.onCompleted();
     }
 
