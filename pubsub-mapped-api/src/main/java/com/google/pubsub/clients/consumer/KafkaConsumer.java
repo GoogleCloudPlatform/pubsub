@@ -22,7 +22,6 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
 import com.google.pubsub.common.ChannelUtil;
-import com.google.pubsub.common.StubCreator;
 import com.google.pubsub.kafkastubs.TopicPartition;
 import com.google.pubsub.kafkastubs.common.KafkaException;
 import com.google.pubsub.kafkastubs.common.Metric;
@@ -38,19 +37,23 @@ import com.google.pubsub.kafkastubs.consumer.ConsumerRecords;
 import com.google.pubsub.kafkastubs.consumer.OffsetAndMetadata;
 import com.google.pubsub.kafkastubs.consumer.OffsetAndTimestamp;
 import com.google.pubsub.kafkastubs.consumer.OffsetCommitCallback;
+import com.google.pubsub.kafkastubs.utils.Utils;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.DeleteSubscriptionRequest;
 import com.google.pubsub.v1.ListTopicsRequest;
 import com.google.pubsub.v1.ListTopicsResponse;
+import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherBlockingStub;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-import com.google.pubsub.v1.SubscriberGrpc.SubscriberBlockingStub;
+import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.Subscription;
 import com.google.pubsub.v1.Topic;
+import io.grpc.CallCredentials;
+import io.grpc.Channel;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -69,7 +72,7 @@ import javax.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public final class KafkaConsumer<K, V> implements Consumer<K, V> {
+public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private static final ConsumerRebalanceListener NO_REBALANCE_LISTENER = null;
   private static final Logger log = LoggerFactory.getLogger(KafkaConsumer.class);
@@ -86,7 +89,9 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private static final String KEY_ATTRIBUTE = "key_attribute";
 
-  private StubCreator stubCreator;
+  private final SubscriberFutureStub subscriberFutureStub;
+  private final PublisherBlockingStub publisherBlockingStub;
+
   private ImmutableMap<String, Subscription> subscriptions = ImmutableMap.of();
 
   private final Deserializer<K> keyDeserializer;
@@ -121,18 +126,26 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private KafkaConsumer(ConsumerConfig configs, Deserializer<K> keyDeserializer,
       Deserializer<V> valueDeserializer) {
-    this(configs, keyDeserializer, valueDeserializer, new StubCreator(ChannelUtil.getInstance()));
+    this(configs, keyDeserializer, valueDeserializer,
+        ChannelUtil.getInstance());
   }
 
   @SuppressWarnings("unchecked")
   KafkaConsumer(ConsumerConfig configs, Deserializer<K> keyDeserializer,
-      Deserializer<V> valueDeserializer, StubCreator stubCreator) {
+      Deserializer<V> valueDeserializer, ChannelUtil channelUtil) {
     try {
       log.debug("Starting PubSub subscriber");
 
-      Preconditions.checkNotNull(stubCreator);
+      Preconditions.checkNotNull(channelUtil);
 
-      this.stubCreator = stubCreator;
+      Channel channel = channelUtil.getChannel();
+      CallCredentials callCredentials = channelUtil.getCallCredentials();
+
+      this.subscriberFutureStub = SubscriberGrpc.newFutureStub(channel)
+          .withCallCredentials(callCredentials);
+      this.publisherBlockingStub = PublisherGrpc.newBlockingStub(channel)
+          .withCallCredentials(callCredentials);
+
       this.keyDeserializer = handleDeserializer(configs,
           ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer, true);
       this.valueDeserializer = handleDeserializer(configs,
@@ -150,7 +163,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
   private Deserializer handleDeserializer(ConsumerConfig configs,
       String configString, Deserializer providedDeserializer, boolean isKey) {
     Deserializer deserializer;
-    if(providedDeserializer == null) {
+    if (providedDeserializer == null) {
       deserializer = configs.getConfiguredInstance(configString, Deserializer.class);
       deserializer.configure(configs.originals(), isKey);
     } else {
@@ -160,15 +173,17 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
     return deserializer;
   }
 
+  @Override
   public Set<TopicPartition> assignment() {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public Set<String> subscription() {
     return subscriptions.keySet();
   }
 
-  /*
+  /**
   For every new consumer, a temporary subscription is created. After "unsubscribe" operation
   temporary subscriptions are removed. After an error while creating subscriptions the attempt
   is made to delete all temporary subscriptions made in this call to "subscribe".
@@ -177,6 +192,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   Temporary subscription names are built as a combination of timestamp and randomly generated UUID.
    */
+  @Override
   public void subscribe(Collection<String> topics, ConsumerRebalanceListener listener) {
     checkSubscribePreconditions(topics);
 
@@ -185,6 +201,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
     Map<String, Subscription> subscriptionMap = getNewSubscriptionMap(futureSubscriptions);
 
     subscriptions = ImmutableMap.copyOf(subscriptionMap);
+    log.debug("Subscribed to topic(s): {}", Utils.join(topics, ", "));
   }
 
   private List<ResponseData<Subscription>> deputePubsubSubscribes(Collection<String> topics) {
@@ -193,14 +210,14 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
     List<ResponseData<Subscription>> responseDatas = new ArrayList<>();
     Set<String> usedNames = new HashSet<>();
 
-    for(String topic: topics) {
-      if(!usedNames.contains(topic)) {
+    for (String topic: topics) {
+      if (!usedNames.contains(topic)) {
         String subscriptionString = SUBSCRIPTION_PREFIX + topic + "_" + timestamp.getTime()
             + "_" + UUID.randomUUID();
-        ListenableFuture<Subscription> deputedsubscription =
+        ListenableFuture<Subscription> deputedSubscription =
             deputeSinglePubsubSubscription(subscriptionString, topic);
 
-        responseDatas.add(new ResponseData<>(topic, subscriptionString, deputedsubscription));
+        responseDatas.add(new ResponseData<>(topic, subscriptionString, deputedSubscription));
         usedNames.add(topic);
       }
     }
@@ -209,7 +226,6 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private ListenableFuture<Subscription> deputeSinglePubsubSubscription(String subscriptionString,
       String topicName) {
-    SubscriberFutureStub subscriberFutureStub = stubCreator.getSubscriberFutureStub();
     return subscriberFutureStub
         .createSubscription(Subscription.newBuilder()
             .setName(subscriptionString)
@@ -221,7 +237,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
       List<ResponseData<Subscription>> responseDatas) {
     Map<String, Subscription> subscriptionMap = new HashMap<>();
 
-    for(ResponseData<Subscription> responseData: responseDatas) {
+    for (ResponseData<Subscription> responseData: responseDatas) {
       boolean success = false;
       try {
         Subscription s = responseData.getRequestListenableFuture().get();
@@ -235,7 +251,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
       } catch (ExecutionException e) {
         throw new KafkaException(e);
       } finally {
-        if(!success)
+        if (!success)
           unsubscribe(subscriptionMap.values());
       }
     }
@@ -246,7 +262,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
     Preconditions.checkArgument(topics != null,
         "Topic collection to subscribe to cannot be null");
 
-    for(String topic: topics) {
+    for (String topic: topics) {
       Preconditions.checkArgument(topic != null && !topic.trim().isEmpty(),
           "Topic collection to subscribe to cannot contain null or empty topic");
     }
@@ -257,7 +273,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
     subscribe(topics, NO_REBALANCE_LISTENER);
   }
 
-  /*
+  /**
   Subscribe is pulling all topics from PubSub project and subscribing to ones matching provided
   pattern.
    */
@@ -269,10 +285,10 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     List<String> matchingTopics = new ArrayList<>();
 
-    for(Topic topic: existingTopics) {
+    for (Topic topic: existingTopics) {
       String topicName = topic.getName().substring(TOPIC_PREFIX.length(), topic.getName().length());
       Matcher m = pattern.matcher(topicName);
-      if(m.matches())
+      if (m.matches())
         matchingTopics.add(topicName);
     }
     subscribe(matchingTopics);
@@ -281,8 +297,6 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   private List<Topic> getPubsubExistionTopics() {
-    PublisherBlockingStub publisherBlockingStub = stubCreator.getPublisherBlockingStub();
-
     ListTopicsResponse listTopicsResponse = publisherBlockingStub
         .listTopics(ListTopicsRequest.newBuilder()
             .setProject(GOOGLE_CLOUD_PROJECT)
@@ -303,26 +317,17 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   private void unsubscribe(Collection<Subscription> subscriptions) {
-    for(Subscription s: subscriptions) {
-      SubscriberFutureStub subscriberFutureStub = stubCreator.getSubscriberFutureStub();
+    List<ListenableFuture<Empty>> listenableFutures = new ArrayList<>();
+    for (Subscription s: subscriptions) {
       ListenableFuture<Empty> emptyListenableFuture = subscriberFutureStub
           .deleteSubscription(DeleteSubscriptionRequest.newBuilder()
               .setSubscription(s.getName()).build());
 
-      Futures.addCallback(emptyListenableFuture,
-          new FutureCallback<Empty>() {
-            @Override
-            public void onSuccess(@Nullable Empty empties) {
-              log.debug("Unsubscribed to " + s.getTopic());
-            }
-
-            @Override
-            public void onFailure(Throwable throwable) {
-              //TODO retry unsubscribe?
-              log.warn("Failed to unsubscribe to " + s.getTopic(), throwable);
-            }
-          });
+      listenableFutures.add(emptyListenableFuture);
     }
+
+    ListenableFuture<List<Empty>> listListenableFuture = Futures.allAsList(listenableFutures);
+    Futures.addCallback(listListenableFuture, new SubscribeCallback());
   }
 
   @Override
@@ -334,7 +339,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     List<AcknowledgeRequest> acknowledgeRequests = new ArrayList<>();
 
-    for(ResponseData<PullResponse> pollData : responsesFutures) {
+    for (ResponseData<PullResponse> pollData : responsesFutures) {
       try {
         TopicPartition topicPartition = new TopicPartition(pollData.getTopicName(),
             DEFAULT_PARTITION);
@@ -344,13 +349,16 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
         List<ConsumerRecord<K, V>> subscriptionRecords = mapToConsumerRecords(pollData,
             pulled);
 
-        if(!pulled.getReceivedMessagesList().isEmpty()) {
+        if (!pulled.getReceivedMessagesList().isEmpty()) {
           AcknowledgeRequest acknowledgeRequest = getAcknowledgeRequest(
               pollData.getSubscriptionFullName(), pulled);
           acknowledgeRequests.add(acknowledgeRequest);
         }
 
         pollRecords.put(topicPartition, subscriptionRecords);
+
+        //if all messages were pulled correctly, send ACK
+        acknowledgeMessages(acknowledgeRequests);
       } catch (InterruptedException e) {
         throw new InterruptException(e);
       } catch (ExecutionException e) {
@@ -358,16 +366,13 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
       }
     }
 
-    //if all messages were pulled correctly, send ACK
-    acknowledgeMessages(acknowledgeRequests);
-
     return new ConsumerRecords<>(pollRecords);
   }
 
   private AcknowledgeRequest getAcknowledgeRequest(String subscription,
       PullResponse pulled) {
     List<String> ackIds = new ArrayList<>();
-    for(ReceivedMessage receivedMessage : pulled.getReceivedMessagesList()) {
+    for (ReceivedMessage receivedMessage : pulled.getReceivedMessagesList()) {
       ackIds.add(receivedMessage.getAckId());
     }
 
@@ -379,7 +384,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
   private List<ResponseData<PullResponse>> deputePubsubPulls(long timeout) {
     List<ResponseData<PullResponse>> responsesFutures = new ArrayList<>(subscriptions.size());
 
-    for(Subscription s : subscriptions.values()) {
+    for (Subscription s : subscriptions.values()) {
       String topicName = s.getTopic().substring(TOPIC_PREFIX.length(), s.getTopic().length());
       ListenableFuture<PullResponse> deputedPull = deputeSinglePubsubPull(s, timeout);
       responsesFutures.add(new ResponseData<>(topicName, s.getName(), deputedPull));
@@ -388,8 +393,10 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   private ListenableFuture<PullResponse> deputeSinglePubsubPull(Subscription s, long timeout) {
-    SubscriberFutureStub futureStub = stubCreator.getSubscriberFutureStub(timeout);
-    return futureStub.pull(PullRequest.newBuilder()
+    SubscriberFutureStub deadlineFutureStub =
+        subscriberFutureStub.withDeadlineAfter(timeout, TimeUnit.MILLISECONDS);
+
+    return deadlineFutureStub.pull(PullRequest.newBuilder()
         .setSubscription(s.getName())
         .setMaxMessages(this.maxPollRecords)
         .setReturnImmediately(true).build());
@@ -400,7 +407,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     List<ConsumerRecord<K, V>> subscriptionRecords = new ArrayList<>();
 
-    for(ReceivedMessage receivedMessage : pulled.getReceivedMessagesList()) {
+    for (ReceivedMessage receivedMessage : pulled.getReceivedMessagesList()) {
       ConsumerRecord<K, V> record = prepareKafkaRecord(receivedMessage,
           pollData.getTopicName());
       subscriptionRecords.add(record);
@@ -409,11 +416,16 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
     return subscriptionRecords;
   }
 
-  private void acknowledgeMessages(List<AcknowledgeRequest> acknowledgeRequests) {
-    for(AcknowledgeRequest acknowledgeRequest : acknowledgeRequests) {
-      SubscriberBlockingStub blockingStub = stubCreator.getSubscriberBlockingStub();
-      blockingStub.acknowledge(acknowledgeRequest);
+  private void acknowledgeMessages(List<AcknowledgeRequest> acknowledgeRequests)
+      throws ExecutionException, InterruptedException {
+    List<ListenableFuture<Empty>> acknowledgeFutures = new ArrayList<>();
+    for (AcknowledgeRequest acknowledgeRequest : acknowledgeRequests) {
+      ListenableFuture<Empty> acknowledge = subscriberFutureStub.acknowledge(acknowledgeRequest);
+      acknowledgeFutures.add(acknowledge);
     }
+
+    ListenableFuture<List<Empty>> listListenableFuture = Futures.allAsList(acknowledgeFutures);
+    listListenableFuture.get();
   }
 
   private void checkPollPreconditions(long timeout) {
@@ -421,7 +433,7 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
     Preconditions.checkArgument(timeout >= 0,
         "Timeout must not be negative");
 
-    if(subscriptions.isEmpty()) {
+    if (subscriptions.isEmpty()) {
       throw new IllegalStateException("Consumer is not subscribed to any topics");
     }
   }
@@ -486,64 +498,78 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public void seekToBeginning(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public void seekToEnd(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public long position(TopicPartition partition) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public OffsetAndMetadata committed(TopicPartition partition) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public Map<MetricName, ? extends Metric> metrics() {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public List<PartitionInfo> partitionsFor(String topic) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public Map<String, List<PartitionInfo>> listTopics() {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public void pause(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public void resume(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public Set<TopicPartition> paused() {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public Map<TopicPartition, OffsetAndTimestamp> offsetsForTimes(
       Map<TopicPartition, Long> timestampsToSearch) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public Map<TopicPartition, Long> beginningOffsets(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  @Override
   public Map<TopicPartition, Long> endOffsets(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
-  /*
+  /**
   Temporary subscriptions are being created on subscribe and deleted on replacing subscriptions or
   on close.
   Closing is necessary to delete any remaining temporary subscriptions from Google Cloud Project.
    */
+  @Override
   public void close() {
     log.debug("Closing PubSub subscriber");
     unsubscribe();
@@ -552,10 +578,12 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
     log.debug("PubSub subscriber has been closed");
   }
 
+  @Override
   public void close(long timeout, TimeUnit timeUnit) {
     close();
   }
 
+  @Override
   public void wakeup() {
     throw new UnsupportedOperationException("Not yet implemented");
   }
@@ -584,6 +612,20 @@ public final class KafkaConsumer<K, V> implements Consumer<K, V> {
       return requestListenableFuture;
     }
   }
+
+  class SubscribeCallback implements FutureCallback<List<Empty>> {
+    @Override
+    public void onSuccess(@Nullable List<Empty> empties) {
+
+    }
+
+    @Override
+    public void onFailure(Throwable throwable) {
+      //TODO retry unsubscribe?
+      log.warn("Failed to unsubscribe to topic", throwable);
+    }
+  }
+
 }
 
 

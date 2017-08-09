@@ -26,6 +26,7 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+//TODO Rewrite config file to suit our needs if possible
 /**
  * The consumer configuration keys
  */
