@@ -3,14 +3,11 @@ package com.google.pubsub.clients.consumer;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
-import static org.mockito.Mockito.mock;
-import static org.powermock.api.mockito.PowerMockito.when;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
-import com.google.pubsub.common.ChannelUtil;
 import com.google.pubsub.kafkastubs.common.KafkaException;
 import com.google.pubsub.kafkastubs.common.serialization.IntegerSerializer;
 import com.google.pubsub.kafkastubs.common.serialization.StringSerializer;
@@ -46,11 +43,11 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.runner.RunWith;
+import org.junit.runners.JUnit4;
 import org.powermock.core.classloader.annotations.SuppressStaticInitializationFor;
-import org.powermock.modules.junit4.PowerMockRunner;
 
 
-@RunWith(PowerMockRunner.class)
+@RunWith(JUnit4.class)
 @SuppressStaticInitializationFor("com.google.pubsub.common.ChannelUtil")
 public class KafkaConsumerTest {
 
@@ -62,13 +59,8 @@ public class KafkaConsumerTest {
   @Before
   public void setUp() throws ExecutionException, InterruptedException {
     ConsumerConfig config = getConsumerConfig();
-
-    ChannelUtil channelUtil = mock(ChannelUtil.class);
-    when(channelUtil.getChannel()).thenReturn(grpcServerRule.getChannel());
-    when(channelUtil.getCallCredentials()).thenReturn(null);
-
     consumer = new KafkaConsumer<>(config, null,
-        null, channelUtil);
+        null, grpcServerRule.getChannel(), null);
   }
 
   @Test
