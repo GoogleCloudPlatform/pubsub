@@ -103,8 +103,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       this(new ConsumerConfig(configs), null, null);
   }
 
-  public KafkaConsumer(Map<String, Object> configs,
-      Deserializer<K> keyDeserializer,
+  public KafkaConsumer(Map<String, Object> configs, Deserializer<K> keyDeserializer,
       Deserializer<V> valueDeserializer) {
       this(new ConsumerConfig(
           ConsumerConfig.addDeserializerToConfig(configs, keyDeserializer, valueDeserializer)),
@@ -115,8 +114,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     this(new ConsumerConfig(properties), null, null);
   }
 
-  public KafkaConsumer(Properties properties,
-      Deserializer<K> keyDeserializer,
+  public KafkaConsumer(Properties properties, Deserializer<K> keyDeserializer,
       Deserializer<V> valueDeserializer) {
     this(new ConsumerConfig(
             ConsumerConfig.addDeserializerToConfig(properties, keyDeserializer, valueDeserializer)),
@@ -160,8 +158,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     }
   }
 
-  private Deserializer handleDeserializer(ConsumerConfig configs,
-      String configString, Deserializer providedDeserializer, boolean isKey) {
+  private Deserializer handleDeserializer(ConsumerConfig configs, String configString,
+      Deserializer providedDeserializer, boolean isKey) {
     Deserializer deserializer;
     if (providedDeserializer == null) {
       deserializer = configs.getConfiguredInstance(configString, Deserializer.class);
@@ -369,8 +367,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     return new ConsumerRecords<>(pollRecords);
   }
 
-  private AcknowledgeRequest getAcknowledgeRequest(String subscription,
-      PullResponse pulled) {
+  private AcknowledgeRequest getAcknowledgeRequest(String subscription, PullResponse pulled) {
     List<String> ackIds = new ArrayList<>();
     for (ReceivedMessage receivedMessage : pulled.getReceivedMessagesList()) {
       ackIds.add(receivedMessage.getAckId());
@@ -404,7 +401,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private List<ConsumerRecord<K, V>> mapToConsumerRecords(ResponseData<PullResponse> pollData,
       PullResponse pulled) {
-
     List<ConsumerRecord<K, V>> subscriptionRecords = new ArrayList<>();
 
     for (ReceivedMessage receivedMessage : pulled.getReceivedMessagesList()) {

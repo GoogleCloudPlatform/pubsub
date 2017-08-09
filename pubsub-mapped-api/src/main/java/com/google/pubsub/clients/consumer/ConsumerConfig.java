@@ -69,8 +69,7 @@ public class ConsumerConfig extends AbstractConfig {
   }
 
   public static Map<String, Object> addDeserializerToConfig(Map<String, Object> configs,
-      Deserializer<?> keyDeserializer,
-      Deserializer<?> valueDeserializer) {
+      Deserializer<?> keyDeserializer, Deserializer<?> valueDeserializer) {
     Map<String, Object> newConfigs = new HashMap<String, Object>();
     newConfigs.putAll(configs);
     if (keyDeserializer != null)
@@ -81,8 +80,7 @@ public class ConsumerConfig extends AbstractConfig {
   }
 
   public static Properties addDeserializerToConfig(Properties properties,
-      Deserializer<?> keyDeserializer,
-      Deserializer<?> valueDeserializer) {
+      Deserializer<?> keyDeserializer, Deserializer<?> valueDeserializer) {
     Properties newProperties = new Properties();
     newProperties.putAll(properties);
     if (keyDeserializer != null)
