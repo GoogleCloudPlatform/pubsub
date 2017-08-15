@@ -16,15 +16,15 @@
  */
 package com.google.pubsub.clients.consumer;
 
-import com.google.pubsub.kafkastubs.common.config.AbstractConfig;
-import com.google.pubsub.kafkastubs.common.config.ConfigDef;
-import com.google.pubsub.kafkastubs.common.config.ConfigDef.Importance;
-import com.google.pubsub.kafkastubs.common.config.ConfigDef.Type;
-import com.google.pubsub.kafkastubs.common.serialization.Deserializer;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import org.apache.kafka.common.config.AbstractConfig;
+import org.apache.kafka.common.config.ConfigDef;
+import org.apache.kafka.common.config.ConfigDef.Importance;
+import org.apache.kafka.common.config.ConfigDef.Type;
+import org.apache.kafka.common.serialization.Deserializer;
 
 //TODO Rewrite config file to suit our needs if possible
 /**
@@ -32,6 +32,14 @@ import java.util.Set;
  */
 public class ConsumerConfig extends AbstractConfig {
   private static final ConfigDef CONFIG = getInstance();
+
+  /**
+   * <code>group.id</code>
+   */
+  public static final String GROUP_ID_CONFIG = "group.id";
+  private static final String GROUP_ID_DOC = "A unique string that identifies the consumer group this consumer "
+      + "belongs to. This property is required if the consumer uses either the group management functionality by using"
+      + " <code>subscribe(topic)</code> or the Kafka-based offset management strategy.";
 
     /*
      * NOTE: DO NOT CHANGE EITHER CONFIG STRINGS OR THEIR JAVA VARIABLE NAMES AS
@@ -52,12 +60,27 @@ public class ConsumerConfig extends AbstractConfig {
   private static final String VALUE_DESERIALIZER_CLASS_DOC =
       "Deserializer class for value that implements the <code>Deserializer</code> interface.";
 
+  /** <code>subscription.allow.create</code> */
+  public static final String SUBSCRIPTION_ALLOW_CREATE_CONFIG = "subscription.allow.create";
+  private static final String SUBSCRIPTION_ALLOW_CREATE_DOC =
+      "Determines if subscriptions for non-existing groups should be created";
+
   private static ConfigDef getInstance() {
     return new ConfigDef()
+        .define(GROUP_ID_CONFIG,
+            Type.STRING,
+            "",
+            Importance.HIGH,
+            GROUP_ID_DOC)
         .define(MAX_POLL_RECORDS_CONFIG,
             Type.INT,
             Importance.MEDIUM,
             MAX_POLL_RECORDS_DOC)
+        .define(SUBSCRIPTION_ALLOW_CREATE_CONFIG,
+            Type.BOOLEAN,
+            false,
+            Importance.MEDIUM,
+            SUBSCRIPTION_ALLOW_CREATE_DOC)
         .define(KEY_DESERIALIZER_CLASS_CONFIG,
             Type.CLASS,
             Importance.HIGH,

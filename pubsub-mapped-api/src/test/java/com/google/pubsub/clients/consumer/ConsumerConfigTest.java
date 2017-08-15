@@ -4,10 +4,10 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.pubsub.kafkastubs.common.serialization.Deserializer;
-import com.google.pubsub.kafkastubs.common.serialization.IntegerDeserializer;
-import com.google.pubsub.kafkastubs.common.serialization.StringDeserializer;
 import java.util.Properties;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.IntegerDeserializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.junit.Test;
 
 public class ConsumerConfigTest {
@@ -17,9 +17,9 @@ public class ConsumerConfigTest {
     Properties properties = new Properties();
     properties.putAll(new ImmutableMap.Builder<>()
         .put("key.deserializer",
-            "com.google.pubsub.kafkastubs.common.serialization.StringDeserializer")
+            "org.apache.kafka.common.serialization.StringDeserializer")
         .put("value.deserializer",
-            "com.google.pubsub.kafkastubs.common.serialization.IntegerDeserializer")
+            "org.apache.kafka.common.serialization.IntegerDeserializer")
         .put("max.poll.records", 500)
         .build()
     );

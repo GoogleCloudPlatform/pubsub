@@ -13,31 +13,31 @@ public final class ChannelUtil {
 
   private static final ChannelUtil INSTANCE = buildInstance();
 
-  private ManagedChannel channel;
-  private CallCredentials callCredentials;
+  private final ManagedChannel channel;
+  private final CallCredentials callCredentials;
 
-  private ChannelUtil(){}
+  private ChannelUtil() throws IOException {
+    this.callCredentials = MoreCallCredentials.from(GoogleCredentials.getApplicationDefault());
+    this.channel = ManagedChannelBuilder.forTarget(ENDPOINT).build();
+  }
 
-  private static ChannelUtil buildInstance() {
+  private static synchronized ChannelUtil buildInstance() {
     try {
-      ChannelUtil channelUtil = new ChannelUtil();
-      channelUtil.callCredentials = MoreCallCredentials.from(GoogleCredentials.getApplicationDefault());
-      channelUtil.channel = ManagedChannelBuilder.forTarget(ENDPOINT).build();
-      return channelUtil;
+      return new ChannelUtil();
     } catch (IOException e) {
-      throw new RuntimeException("Exception while authorising with cloud: " + e.getMessage());
+      throw new RuntimeException("Exception while authorising with cloud", e);
     }
   }
 
-  public static ChannelUtil getInstance() {
+  public static synchronized ChannelUtil getInstance() {
     return INSTANCE;
   }
 
-  public Channel getChannel() {
+  public synchronized Channel getChannel() {
     return channel;
   }
 
-  public CallCredentials getCallCredentials() {
+  public synchronized CallCredentials getCallCredentials() {
     return callCredentials;
   }
 }

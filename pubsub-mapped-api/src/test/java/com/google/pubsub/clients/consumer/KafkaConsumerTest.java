@@ -8,15 +8,11 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
-import com.google.pubsub.kafkastubs.common.KafkaException;
-import com.google.pubsub.kafkastubs.common.serialization.IntegerSerializer;
-import com.google.pubsub.kafkastubs.common.serialization.StringSerializer;
-import com.google.pubsub.kafkastubs.consumer.ConsumerRecord;
-import com.google.pubsub.kafkastubs.consumer.ConsumerRecords;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.DeleteSubscriptionRequest;
 import com.google.pubsub.v1.ListTopicsRequest;
 import com.google.pubsub.v1.ListTopicsResponse;
+import com.google.pubsub.v1.ListTopicsResponse.Builder;
 import com.google.pubsub.v1.PublisherGrpc.PublisherImplBase;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
@@ -26,7 +22,6 @@ import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberImplBase;
 import com.google.pubsub.v1.Subscription;
-import com.google.pubsub.v1.Topic;
 import io.grpc.stub.StreamObserver;
 import io.grpc.testing.GrpcServerRule;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +34,11 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.serialization.IntegerSerializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -64,22 +64,21 @@ public class KafkaConsumerTest {
   }
 
   @Test
-  public void testSubscribe() {
+  public void subscribe() {
     grpcServerRule.getServiceRegistry().addService(new SubscriberImpl());
 
-    SubscriberFutureStub subscriberFutureStub = SubscriberGrpc
-        .newFutureStub(grpcServerRule.getChannel());
+    SubscriberFutureStub subscriberFutureStub = SubscriberGrpc.newFutureStub(grpcServerRule.getChannel());
 
     subscriberFutureStub.createSubscription(Subscription.newBuilder().build());
     Set<String> topics = new HashSet<>(Arrays.asList("topic1", "topic2"));
     consumer.subscribe(Arrays.asList("topic2", "topic1"));
 
     Set<String> subscribed = consumer.subscription();
-    assertTrue(topics.equals(subscribed));
+    assertEquals(topics, subscribed);
   }
 
   @Test
-  public void testUnsubscribe() {
+  public void unsubscribe() {
     grpcServerRule.getServiceRegistry().addService(new SubscriberImpl());
 
     consumer.subscribe(Arrays.asList("topic2", "topic1"));
@@ -89,7 +88,7 @@ public class KafkaConsumerTest {
   }
 
   @Test
-  public void testResubscribe() {
+  public void resubscribe() {
     grpcServerRule.getServiceRegistry().addService(new SubscriberImpl());
 
     Set<String> topics = new HashSet<>(Arrays.asList("topic4", "topic3"));
@@ -98,11 +97,11 @@ public class KafkaConsumerTest {
     consumer.subscribe(Arrays.asList("topic3", "topic4"));
 
     Set<String> subscribed = consumer.subscription();
-    assertTrue(topics.equals(subscribed));
+    assertEquals(topics, subscribed);
   }
 
   @Test
-  public void testSubscribeWithRecurringTopics() {
+  public void subscribeWithRecurringTopics() {
     grpcServerRule.getServiceRegistry().addService(new SubscriberImpl());
 
     Set<String> topics = new HashSet<>(Arrays.asList("topic", "topic1"));
@@ -110,11 +109,11 @@ public class KafkaConsumerTest {
     consumer.subscribe(Arrays.asList("topic", "topic1", "topic"));
 
     Set<String> subscribed = consumer.subscription();
-    assertTrue(topics.equals(subscribed));
+    assertEquals(topics, subscribed);
   }
 
   @Test
-  public void testUnsubscribeSubscriptionDeleted() {
+  public void unsubscribeSubscriptionDeleted() {
     grpcServerRule.getServiceRegistry().addService(new SubscriberImpl());
 
     Set<String> topics = new HashSet<>(Arrays.asList("topic", "topic1"));
@@ -122,11 +121,11 @@ public class KafkaConsumerTest {
     consumer.subscribe(Arrays.asList("topic", "topic1", "topic"));
 
     Set<String> subscribed = consumer.subscription();
-    assertTrue(topics.equals(subscribed));
+    assertEquals(topics, subscribed);
   }
 
   @Test
-  public void testPatternSubscription() {
+  public void patternSubscription() {
     grpcServerRule.getServiceRegistry().addService(new SubscriberImpl());
     grpcServerRule.getServiceRegistry().addService(new PublisherImpl());
 
@@ -134,8 +133,7 @@ public class KafkaConsumerTest {
 
     consumer.subscribe(pattern, null);
     Set<String> subscribed = consumer.subscription();
-    Set<String> expectedTopics = new HashSet<>(Arrays.asList("thisis123cat",
-        "funnycats000cat"));
+    Set<String> expectedTopics = new HashSet<>(Arrays.asList("thisis123cat", "funnycats000cat"));
     assertEquals(expectedTopics, subscribed);
   }
 
@@ -168,8 +166,7 @@ public class KafkaConsumerTest {
       consumer.subscribe(topics);
       fail();
     } catch (IllegalArgumentException e) {
-      assertEquals("Topic collection to subscribe to cannot contain null or empty topic",
-          e.getMessage());
+      assertEquals("Topic collection to subscribe to cannot contain null or empty topic", e.getMessage());
     }
   }
 
@@ -195,7 +192,7 @@ public class KafkaConsumerTest {
 
 
   @Test
-  public void testDeserializeProperly() throws ExecutionException, InterruptedException {
+  public void deserializeProperly() throws ExecutionException, InterruptedException {
     grpcServerRule.getServiceRegistry().addService(new SubscriberImpl());
 
     String topic = "topic";
@@ -205,18 +202,18 @@ public class KafkaConsumerTest {
 
     ConsumerRecords<Integer, String> consumerRecord = consumer.poll(100);
 
-    assertEquals(consumerRecord.count(), 1);
     Iterable<ConsumerRecord<Integer, String>> recordsForTopic =
         consumerRecord.records("topic");
 
     ConsumerRecord<Integer, String> next = recordsForTopic.iterator().next();
 
+    assertEquals(consumerRecord.count(), 1);
     assertEquals(value, next.value());
     assertEquals(key, next.key());
   }
 
   @Test
-  public void testPollExecutionException() throws ExecutionException, InterruptedException {
+  public void pollExecutionException() throws ExecutionException, InterruptedException {
     grpcServerRule.getServiceRegistry().addService(new ErrorSubscriberImpl());
 
     String topic = "topic";
@@ -225,6 +222,7 @@ public class KafkaConsumerTest {
       consumer.poll(100);
       fail();
     } catch (KafkaException e) {
+      //expected
     }
   }
 
@@ -232,23 +230,23 @@ public class KafkaConsumerTest {
     Properties properties = new Properties();
     properties.putAll(new ImmutableMap.Builder<>()
         .put("key.deserializer",
-            "com.google.pubsub.kafkastubs.common.serialization.IntegerDeserializer")
+            "org.apache.kafka.common.serialization.IntegerDeserializer")
         .put("value.deserializer",
-            "com.google.pubsub.kafkastubs.common.serialization.StringDeserializer")
+            "org.apache.kafka.common.serialization.StringDeserializer")
         .put("max.poll.records", 500)
+        .put("group.id", "groupId")
+        .put("subscription.allow.create", false)
         .build()
     );
 
-    return new ConsumerConfig(
-        ConsumerConfig.addDeserializerToConfig(properties, null, null));
+    return new ConsumerConfig(ConsumerConfig.addDeserializerToConfig(properties, null, null));
   }
 
   static class SubscriberImpl extends SubscriberImplBase {
 
     @Override
     public void createSubscription(Subscription request, StreamObserver<Subscription> responseObserver) {
-      Subscription s = Subscription.newBuilder().setName("name")
-          .setTopic("projects/null/topics/topic").build();
+      Subscription s = Subscription.newBuilder().setName("name").setTopic("projects/null/topics/topic").build();
       responseObserver.onNext(s);
       responseObserver.onCompleted();
     }
@@ -272,7 +270,7 @@ public class KafkaConsumerTest {
 
       PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
           .setPublishTime(timestamp)
-          .putAttributes("key_attribute", serializedKey)
+          .putAttributes("key", serializedKey)
           .setData(ByteString.copyFrom(serializedValueBytes))
           .build();
 
@@ -290,8 +288,7 @@ public class KafkaConsumerTest {
 
     @Override
     public void acknowledge(AcknowledgeRequest request, StreamObserver<Empty> responseObserver) {
-      Empty empty = Empty.getDefaultInstance();
-      responseObserver.onNext(empty);
+      responseObserver.onNext(Empty.getDefaultInstance());
       responseObserver.onCompleted();
     }
   }
@@ -300,19 +297,16 @@ public class KafkaConsumerTest {
 
     @Override
     public void listTopics(ListTopicsRequest request, StreamObserver<ListTopicsResponse> responseObserver) {
+      String project = "projects/" + System.getenv("GOOGLE_CLOUD_PROJECT") + "/topics/";
       List<String> topicNames = new ArrayList<>(Arrays.asList(
-        "projects/null/topics/thisis123cat", "projects/null/topics/abc12345bad",
-        "projects/null/topics/noWay1234", "projects/null/topics/funnycats000cat"));
-      List<Topic> topics = new ArrayList<>();
+        project + "thisis123cat", project + "abc12345bad", project + "noWay1234", project + "funnycats000cat"));
 
+      Builder listTopicsResponseBuilder = ListTopicsResponse.newBuilder();
       for (String topicName: topicNames) {
-        topics.add(Topic.newBuilder().setName(topicName).build());
+        listTopicsResponseBuilder.addTopicsBuilder().setName(topicName);
       }
 
-      ListTopicsResponse listTopicsResponse = ListTopicsResponse.newBuilder()
-          .addAllTopics(topics).build();
-
-      responseObserver.onNext(listTopicsResponse);
+      responseObserver.onNext(listTopicsResponseBuilder.build());
       responseObserver.onCompleted();
     }
   }
