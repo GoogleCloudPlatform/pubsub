@@ -69,7 +69,7 @@ public class ProducerConfig extends AbstractConfig {
 
   public static final String RETRY_BACKOFF_MS_CONFIG = "retry.backoff.ms";
   private static final String RETRY_BACKOFF_MS_DOC = "The amount of time to wait before attempting to"
-      + " retry a failed request to a given topic partition. This avoids repeatedly sending requests"
+      + " retry a failed request to a given topic. This avoids repeatedly sending requests"
       + " in a tight loop under some failure scenarios.";
 
   public static final String AUTO_CREATE_CONFIG = "auto.create.topics.enable";
@@ -97,7 +97,7 @@ public class ProducerConfig extends AbstractConfig {
         .define(ACKS_CONFIG,
             Type.STRING,
             "1",
-            ValidString.in("0", "1", "all"),
+            ValidString.in("-1", "0", "1", "all"),
             Importance.MEDIUM, ACKS_DOC)
         .define(LINGER_MS_CONFIG,
             Type.LONG,
@@ -132,23 +132,31 @@ public class ProducerConfig extends AbstractConfig {
 
   static Map<String, Object> addSerializerToConfig(Map<String, Object> configs,
       Serializer<?> keySerializer, Serializer<?> valueSerializer) {
+
     Map<String, Object> newConfigs = new HashMap<>();
     newConfigs.putAll(configs);
+
     if (keySerializer != null)
       newConfigs.put(KEY_SERIALIZER_CLASS_CONFIG, keySerializer.getClass());
+
     if (valueSerializer != null)
       newConfigs.put(VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer.getClass());
+
     return newConfigs;
   }
 
   static Properties addSerializerToConfig(Properties properties,
       Serializer<?> keySerializer, Serializer<?> valueSerializer) {
+
     Properties newProperties = new Properties();
     newProperties.putAll(properties);
+
     if (keySerializer != null)
       newProperties.put(KEY_SERIALIZER_CLASS_CONFIG, keySerializer.getClass().getName());
+
     if (valueSerializer != null)
       newProperties.put(VALUE_SERIALIZER_CLASS_CONFIG, valueSerializer.getClass().getName());
+
     return newProperties;
   }
 

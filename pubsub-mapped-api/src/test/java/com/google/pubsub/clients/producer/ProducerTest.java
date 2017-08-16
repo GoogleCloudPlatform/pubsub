@@ -1,7 +1,21 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 package com.google.pubsub.clients.producer;
 
-import java.util.concurrent.TimeUnit;
-import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Test;
 import org.junit.Before;
 import org.junit.Assert;
@@ -26,12 +40,14 @@ import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.IntegerDeserializer;
 
 import java.io.IOException;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import com.google.api.core.ApiFuture;
 
 import org.mockito.Mockito;
@@ -39,10 +55,6 @@ import org.powermock.api.mockito.PowerMockito;
 import org.powermock.modules.junit4.PowerMockRunner;
 import static org.powermock.api.mockito.PowerMockito.when;
 import org.powermock.core.classloader.annotations.PrepareForTest;
-
-/**
- * Created by gewillovic on 8/1/17.
- */
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({Publisher.class, TopicAdminClient.class})
@@ -62,7 +74,7 @@ public class ProducerTest {
   public void setUp() throws IOException {
     Properties properties = new Properties();
     properties.putAll(new ImmutableMap.Builder<>()
-        .put("acks", "0")
+        .put("acks", "1")
         .put("project", "project")
         .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("value.serializer", "org.apache.kafka.common.serialization.IntegerSerializer")
@@ -82,18 +94,12 @@ public class ProducerTest {
     PowerMockito.mockStatic(Publisher.class);
     PowerMockito.mockStatic(TopicAdminClient.class);
 
-    when(stubBuilder.build()).
-        thenReturn(stub);
-    when(TopicAdminClient.create()).
-        thenReturn(topicAdmin);
-    when(stub.publish(captor.capture())).
-        thenReturn(lf);
-    when(Publisher.defaultBuilder(Matchers.<TopicName>any())).
-        thenReturn(stubBuilder);
-    when(stubBuilder.setRetrySettings(Matchers.<RetrySettings>any())).
-        thenReturn(stubBuilder);
-    when(stubBuilder.setBatchingSettings(Matchers.<BatchingSettings>any())).
-        thenReturn(stubBuilder);
+    when(stubBuilder.build()).thenReturn(stub);
+    when(stub.publish(captor.capture())).thenReturn(lf);
+    when(TopicAdminClient.create()).thenReturn(topicAdmin);
+    when(Publisher.defaultBuilder(Matchers.<TopicName>any())).thenReturn(stubBuilder);
+    when(stubBuilder.setRetrySettings(Matchers.<RetrySettings>any())).thenReturn(stubBuilder);
+    when(stubBuilder.setBatchingSettings(Matchers.<BatchingSettings>any())).thenReturn(stubBuilder);
 
     publisher = new KafkaProducer<String, Integer>(config, null, null);
   }
@@ -107,12 +113,12 @@ public class ProducerTest {
     publisher.send(new ProducerRecord<String, Integer>("topic", 456));
 
     try {
-      Mockito.verify(stub, Mockito.times(1)).
-          shutdown();
-      Mockito.verify(stub, Mockito.times(2)).
-          publish(Matchers.<PubsubMessage>any());
-      Mockito.verify(stubBuilder, Mockito.times(2)).
-          build();
+      Mockito.verify(stub, Mockito.times(1)).shutdown();
+
+      Mockito.verify(stub, Mockito.times(2))
+          .publish(Matchers.<PubsubMessage>any());
+
+      Mockito.verify(stubBuilder, Mockito.times(2)).build();
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage());
     }
@@ -121,15 +127,19 @@ public class ProducerTest {
   @Test
   public void testCallback() {
     serializer = new IntegerSerializer();
+
     Callback cb = new Callback() {
       @Override
       public void onCompletion(RecordMetadata metadata, Exception exception) {
         Assert.assertEquals(metadata.topic(), "topic");
+
         Assert.assertEquals(metadata.serializedKeySize(), 0);
+
         Assert.assertEquals(metadata.serializedValueSize(),
             serializer.serialize("topic", 123).length);
       }
     };
+
     publisher.send(new ProducerRecord<String, Integer>("topic", 123), cb);
   }
 
@@ -171,11 +181,10 @@ public class ProducerTest {
     } catch (Exception e) {}
 
     try {
-      Mockito.verify(stub, Mockito.times(1)).
-          shutdown();
-      Mockito.verify(stub, Mockito.times(1)).
-          publish(Matchers.<PubsubMessage>any());
+      Mockito.verify(stub, Mockito.times(1)).shutdown();
 
+      Mockito.verify(stub, Mockito.times(1))
+          .publish(Matchers.<PubsubMessage>any());
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage());
     }
@@ -197,13 +206,13 @@ public class ProducerTest {
   public void testNumberOfPublishIssued() {
     publisher.send(new ProducerRecord<String, Integer>("topic", 123));
 
-    Mockito.verify(stub, Mockito.times(1)).
-        publish(Matchers.<PubsubMessage>any());
+    Mockito.verify(stub, Mockito.times(1))
+        .publish(Matchers.<PubsubMessage>any());
 
     publisher.send(new ProducerRecord<String, Integer>("topic", 456));
 
-    Mockito.verify(stub, Mockito.times(2)).
-        publish(Matchers.<PubsubMessage>any());
+    Mockito.verify(stub, Mockito.times(2))
+        .publish(Matchers.<PubsubMessage>any());
   }
 
   @Test (expected = RuntimeException.class)
