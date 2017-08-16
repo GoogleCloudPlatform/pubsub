@@ -21,6 +21,7 @@ import java.util.Set;
 import java.util.HashMap;
 import java.util.Properties;
 
+import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -76,6 +77,12 @@ public class ProducerConfig extends AbstractConfig {
   private static final String AUTO_CREATE_DOC = "A flag, when true topics are automatically created"
       + " if they don't exist.";
 
+  public static final String REQUEST_TIMEOUT_MS_CONFIG = "request.timeout.ms";
+  private static final String REQUEST_TIMEOUT_MS_DOC = "The configuration controls the maximum"
+      + " amount of time the client will wait for the response of a request. If the response is not"
+      + " received before the timeout elapses the client will resend the request if necessary or"
+      + " fail the request if retries are exhausted.";
+
   static {
     CONFIG = new ConfigDef()
         .define(PROJECT_CONFIG,
@@ -127,7 +134,13 @@ public class ProducerConfig extends AbstractConfig {
             100L,
             Range.atLeast(0L),
             Importance.LOW,
-            RETRY_BACKOFF_MS_DOC);
+            RETRY_BACKOFF_MS_DOC)
+        .define(REQUEST_TIMEOUT_MS_CONFIG,
+            Type.INT,
+            30 * 1000,
+            Range.atLeast(0),
+            Importance.MEDIUM,
+            REQUEST_TIMEOUT_MS_DOC);
   }
 
   static Map<String, Object> addSerializerToConfig(Map<String, Object> configs,

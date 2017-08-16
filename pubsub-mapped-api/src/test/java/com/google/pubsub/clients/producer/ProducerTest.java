@@ -105,7 +105,7 @@ public class ProducerTest {
   }
 
   @Test
-  public void testFlush() {
+  public void flush() {
     publisher.send(new ProducerRecord<String, Integer>("topic", 123));
 
     publisher.flush();
@@ -125,7 +125,7 @@ public class ProducerTest {
   }
 
   @Test
-  public void testCallback() {
+  public void callback() {
     serializer = new IntegerSerializer();
 
     Callback cb = new Callback() {
@@ -144,7 +144,7 @@ public class ProducerTest {
   }
 
   @Test
-  public void testSerializers() {
+  public void serializers() {
     publisher.send(new ProducerRecord<String, Integer>("topic", 123));
 
     deserializer = new StringDeserializer();
@@ -161,17 +161,17 @@ public class ProducerTest {
   }
 
   @Test (expected = NullPointerException.class)
-  public void testPublishNull() {
+  public void publishNull() {
     publisher.send(new ProducerRecord<String, Integer>("topic", null));
   }
 
   @Test (expected = IllegalArgumentException.class)
-  public void testNegativeTimeout() {
+  public void negativeTimeout() {
     publisher.close(-1, TimeUnit.SECONDS);
   }
 
   @Test
-  public void testCloseOnCompletion() {
+  public void closeOnCompletion() {
     publisher.send(new ProducerRecord<String, Integer>("topic", 123));
 
     publisher.close();
@@ -191,19 +191,19 @@ public class ProducerTest {
   }
 
   @Test (expected = NullPointerException.class)
-  public void testEmptyRecordPublish() {
+  public void emptyRecordPublish() {
     publisher.send(null);
   }
 
   @Test (expected = NullPointerException.class)
-  public void testPublishEmptyMessage() {
+  public void publishEmptyMessage() {
     KafkaProducer<String, String> pub = new KafkaProducer<String, String>(config,
         null, new StringSerializer());
     pub.send(new ProducerRecord<String, String>("topic", ""));
   }
 
   @Test
-  public void testNumberOfPublishIssued() {
+  public void numberOfPublishIssued() {
     publisher.send(new ProducerRecord<String, Integer>("topic", 123));
 
     Mockito.verify(stub, Mockito.times(1))
@@ -216,7 +216,7 @@ public class ProducerTest {
   }
 
   @Test (expected = RuntimeException.class)
-  public void testPublishToClosedPublisher() {
+  public void publishToClosedPublisher() {
     publisher.close();
 
     publisher.send(new ProducerRecord<String, Integer>("topic", 123));

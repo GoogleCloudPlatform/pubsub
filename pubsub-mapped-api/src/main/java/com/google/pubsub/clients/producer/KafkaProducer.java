@@ -55,7 +55,6 @@ import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.BufferExhaustedException;
 
 import java.util.Map;
 import java.util.List;
@@ -74,7 +73,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class KafkaProducer<K, V> implements Producer<K, V> {
 
-  private static final long TOTAL_DELAY = 60L;
   private static final double MULTIPLIER = 1.0;
 
   private ProducerConfig producerConfig;
@@ -85,6 +83,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private final Serializer<V> valueSerializer;
 
   private final int retries;
+  private final int timeout;
   private final long retriesMs;
   private final int batchSize;
   private final long lingerMs;
@@ -149,6 +148,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     lock = new Semaphore(1, true);
     closed = new AtomicBoolean(false);
     retries = configs.getInt(ProducerConfig.RETRIES_CONFIG);
+    timeout = configs.getInt(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG);
     retriesMs = configs.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);
     lingerMs = configs.getLong(ProducerConfig.LINGER_MS_CONFIG);
     batchSize = configs.getInt(ProducerConfig.BATCH_SIZE_CONFIG);
@@ -158,6 +158,8 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
     publishers = Collections.synchronizedMap(new HashMap<String, Publisher>());
   }
+
+  //TODO: deal with these magic numbers
 
   private Publisher createPublisher(String topic) {
     Publisher pub = null;
@@ -188,10 +190,12 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
               .setRetryDelayMultiplier(MULTIPLIER)
               .setInitialRetryDelay(Duration.ofMillis(retriesMs))
               .setMaxRetryDelay(Duration.ofMillis((retries + 1) * retriesMs))
+
               .setRpcTimeoutMultiplier(MULTIPLIER)
-              .setInitialRpcTimeout(Duration.ofSeconds(TOTAL_DELAY))
-              .setMaxRpcTimeout(Duration.ofSeconds(TOTAL_DELAY))
-              .setTotalTimeout(Duration.ofSeconds(TOTAL_DELAY))
+              .setInitialRpcTimeout(Duration.ofMillis(timeout))
+              .setMaxRpcTimeout(Duration.ofMillis((retries + 1) * timeout))
+
+              .setTotalTimeout(Duration.ofMillis((retries + 2) * timeout))
               .build())
           .build();
     } catch (IOException e) {
@@ -364,6 +368,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       }
 
       lock.release();
+
+      keySerializer.close();
+      valueSerializer.close();
     } catch (Exception e) {
       throw new KafkaException("Failed to close kafka producer", e);
     }

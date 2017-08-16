@@ -35,7 +35,7 @@ public class ConfigTest {
   public final ExpectedException exception = ExpectedException.none();
 
   @Test
-  public void testSuccessAllConfigsProvided() {
+  public void successAllConfigsProvided() {
     Properties props = new Properties();
     props.putAll(new ImmutableMap.Builder<>()
         .put("acks", "-1")
@@ -66,7 +66,7 @@ public class ConfigTest {
   }
 
   @Test
-  public void testNoSerializerProvided() {
+  public void noSerializerProvided() {
     Properties props = new Properties();
     props.putAll(new ImmutableMap.Builder<>()
         .put("topic", "unit-test-topic")
@@ -79,7 +79,7 @@ public class ConfigTest {
   }
 
   @Test
-  public void testNoTopicProvided() {
+  public void noTopicProvided() {
     Properties props = new Properties();
     props.putAll(new ImmutableMap.Builder<>()
         .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
