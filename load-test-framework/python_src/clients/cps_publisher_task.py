@@ -47,9 +47,9 @@ class LoadtestWorkerServicer(loadtest_pb2.LoadtestWorkerServicer):
     def OnPublishDone(self, start, future):
         if future.exception() is not None:
             return
-        end = time.clock()
+        end = time.time()
         self.lock.acquire()
-        self.latencies.append(int((end - start) * 1000000))
+        self.latencies.append(int((end - start) * 1000))
         self.lock.release()
 
     def Execute(self, request, context):
@@ -59,7 +59,7 @@ class LoadtestWorkerServicer(loadtest_pb2.LoadtestWorkerServicer):
         latencies = self.latencies
         self.latencies = []
         self.lock.release()
-        start = time.clock()
+        start = time.time()
         for i in range(0, self.batch_size):
             self.client.publish(self.topic, ("A" * self.message_size).encode(),
                                 sendTime=str(int(time.time() * 1000)),
