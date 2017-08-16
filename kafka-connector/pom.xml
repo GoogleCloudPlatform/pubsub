@@ -106,6 +106,7 @@
               <artifactSet>
                 <excludes>
                   <exclude>com.fasterxml.jackson.core:jackson-core:jar:*</exclude>
+		  <exclude>com.google.guava:*</exclude>
                 </excludes>
               </artifactSet>
               <transformers>
