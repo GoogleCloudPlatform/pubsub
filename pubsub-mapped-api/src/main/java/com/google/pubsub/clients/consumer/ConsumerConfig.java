@@ -26,7 +26,7 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.serialization.Deserializer;
 
-//TODO Rewrite config file to suit our needs if possible
+//TODO Use builder pattern using Kafka's ConsumerConfig class
 /**
  * The consumer configuration keys
  */
@@ -65,6 +65,11 @@ public class ConsumerConfig extends AbstractConfig {
   private static final String SUBSCRIPTION_ALLOW_CREATE_DOC =
       "Determines if subscriptions for non-existing groups should be created";
 
+  /** <code>subscription.allow.delete</code> */
+  public static final String SUBSCRIPTION_ALLOW_DELETE_CONFIG = "subscription.allow.delete";
+  private static final String SUBSCRIPTION_ALLOW_DELETE_DOC =
+      "Determines if subscriptions for non-existing groups should be created";
+
   private static ConfigDef getInstance() {
     return new ConfigDef()
         .define(GROUP_ID_CONFIG,
@@ -81,6 +86,11 @@ public class ConsumerConfig extends AbstractConfig {
             false,
             Importance.MEDIUM,
             SUBSCRIPTION_ALLOW_CREATE_DOC)
+        .define(SUBSCRIPTION_ALLOW_DELETE_CONFIG,
+            Type.BOOLEAN,
+            false,
+            Importance.MEDIUM,
+            SUBSCRIPTION_ALLOW_DELETE_DOC)
         .define(KEY_DESERIALIZER_CLASS_CONFIG,
             Type.CLASS,
             Importance.HIGH,
