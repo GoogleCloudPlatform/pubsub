@@ -12,9 +12,9 @@
   </properties>
   <dependencies>
     <dependency>
-      <groupId>com.google.api.grpc</groupId>
-      <artifactId>grpc-google-cloud-pubsub-v1</artifactId>
-      <version>0.1.13</version>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-pubsub</artifactId>
+      <version>0.9.4-alpha</version>
     </dependency>
     <dependency>
       <groupId>com.google.auth</groupId>

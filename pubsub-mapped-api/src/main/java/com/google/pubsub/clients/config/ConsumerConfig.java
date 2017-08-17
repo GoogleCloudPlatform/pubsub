@@ -14,7 +14,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package com.google.pubsub.clients.consumer;
+package com.google.pubsub.clients.config;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -123,7 +123,7 @@ public class ConsumerConfig extends AbstractConfig {
     return newProperties;
   }
 
-  ConsumerConfig(Map<?, ?> props) {
+  public ConsumerConfig(Map<?, ?> props) {
     super(CONFIG, props);
   }
 

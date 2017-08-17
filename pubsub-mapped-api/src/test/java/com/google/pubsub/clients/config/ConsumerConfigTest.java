@@ -1,4 +1,4 @@
-package com.google.pubsub.clients.consumer;
+package com.google.pubsub.clients.config;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;

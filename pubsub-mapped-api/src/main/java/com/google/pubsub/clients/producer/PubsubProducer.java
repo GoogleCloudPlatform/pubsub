@@ -25,9 +25,16 @@ import com.google.cloud.pubsub.spi.v1.Publisher;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.common.PubsubChannelUtil;
 import com.google.pubsub.v1.TopicName;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.kafka.clients.producer.Callback;
@@ -45,15 +52,6 @@ import org.apache.kafka.common.serialization.Serializer;
 import org.joda.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.Future;
-import java.util.concurrent.TimeUnit;
 
 /**
  * A Kafka client that publishes records to Google Cloud Pub/Sub.
@@ -197,7 +195,7 @@ public class PubsubProducer<K, V> implements Producer<K, V> {
     if (record.key() != null) {
       serializedKey = this.keySerializer.serialize(topic, record.key());
       attributes
-          .put(PubsubChannelUtil.KEY_ATTRIBUTE, new String(serializedKey, StandardCharsets.ISO_8859_1));
+          .put("key", new String(serializedKey, StandardCharsets.ISO_8859_1));
     }
 
     byte[] valueBytes = ByteString.EMPTY.toByteArray();
