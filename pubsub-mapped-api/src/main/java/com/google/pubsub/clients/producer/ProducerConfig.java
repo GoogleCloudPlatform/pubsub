@@ -21,7 +21,6 @@ import java.util.Set;
 import java.util.HashMap;
 import java.util.Properties;
 
-import org.apache.kafka.clients.CommonClientConfigs;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef.Type;
@@ -177,10 +176,16 @@ public class ProducerConfig extends AbstractConfig {
     super(CONFIG, props);
   }
 
-  ProducerConfig(Map<?, ?> props, boolean doLog) { super(CONFIG, props, doLog); }
+  ProducerConfig(Map<?, ?> props, boolean doLog) {
+    super(CONFIG, props, doLog);
+  }
 
-  public static Set<String> configNames() { return CONFIG.names(); }
+  public static Set<String> configNames() {
+    return CONFIG.names();
+  }
 
-  public static void main(String[] args) { System.out.println(CONFIG.toHtmlTable()); }
+  public static void main(String[] args) {
+    System.out.println(CONFIG.toHtmlTable());
+  }
 
 }

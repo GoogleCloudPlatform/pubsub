@@ -16,9 +16,9 @@
 
 package com.google.pubsub.clients.producer;
 
-import com.google.api.client.util.Base64;
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
+import com.google.api.client.util.Base64;
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.batching.BatchingSettings;
@@ -28,7 +28,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
 
 import com.google.protobuf.ByteString;
-import com.google.pubsub.v1.Topic;
 import com.google.pubsub.v1.TopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.cloud.pubsub.v1.Publisher;
@@ -36,15 +35,14 @@ import com.google.cloud.pubsub.v1.Publisher;
 import java.io.IOException;
 
 import java.util.Map.Entry;
-import java.util.Collections;
+import java.util.concurrent.ConcurrentHashMap;
+
 import org.threeten.bp.Duration;
 
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
 import org.apache.kafka.common.PartitionInfo;
-import org.apache.kafka.common.record.Record;
-import org.apache.kafka.common.record.Records;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.Serializer;
@@ -64,7 +62,6 @@ import java.util.Properties;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.Semaphore;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -91,7 +88,6 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private final boolean isAcks;
   private final Boolean autoCreate;
 
-  private final Semaphore lock;
   private final AtomicBoolean closed;
 
   public KafkaProducer(Map<String, Object> configs) {
@@ -145,7 +141,6 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       this.valueSerializer = valueSerializer;
     }
 
-    lock = new Semaphore(1, true);
     closed = new AtomicBoolean(false);
     retries = configs.getInt(ProducerConfig.RETRIES_CONFIG);
     timeout = configs.getInt(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG);
@@ -156,10 +151,10 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     elementCount = configs.getLong(ProducerConfig.ELEMENTS_COUNT_CONFIG);
     isAcks = configs.getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
 
-    publishers = Collections.synchronizedMap(new HashMap<String, Publisher>());
+    publishers = new HashMap<>();
   }
 
-  //TODO: deal with these magic numbers
+  //TODO: deal with these magic numbers.
 
   private Publisher createPublisher(String topic) {
     Publisher pub = null;
@@ -211,7 +206,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     return send(record, null);
   }
 
-  //TODO: there maybe a race condition/starvation between flush and send.
+  //TODO: there maybe a race condition/starvation between flush/send - when an exception is thrown.
   //TODO: mimic all kafka's exceptions.
 
   /**
@@ -264,17 +259,11 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
     ApiFuture<String> messageIdFuture = null;
 
-    try {
-      lock.acquire();
-
+    synchronized (publishers) {
       if (!publishers.containsKey(record.topic()))
         publishers.put(record.topic(), createPublisher(record.topic()));
 
       messageIdFuture = publishers.get(record.topic()).publish(msg);
-
-      lock.release();
-    } catch (InterruptedException e) {
-      throw new InterruptException(e);
     }
 
     final String topic = record.topic();
@@ -321,14 +310,12 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
    */
   public void flush() {
     try {
-      lock.acquire();
-
-      for (Entry<String, Publisher> pub : publishers.entrySet()) {
-        pub.getValue().shutdown();
-        publishers.put(pub.getKey(), createPublisher(pub.getKey()));
+      synchronized (publishers) {
+        for (Entry<String, Publisher> pub : publishers.entrySet()) {
+          pub.getValue().shutdown();
+          publishers.put(pub.getKey(), createPublisher(pub.getKey()));
+        }
       }
-
-      lock.release();
     } catch (Exception e) {
       throw new InterruptException("Flush interrupted.", (InterruptedException) e);
     }
@@ -361,13 +348,11 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       throw new IllegalStateException("Cannot close a producer if already closed.");
 
     try {
-      lock.acquire();
-
-      for (Entry<String, Publisher> pub : publishers.entrySet()) {
-        pub.getValue().shutdown();
+      synchronized (publishers) {
+        for (Entry<String, Publisher> pub : publishers.entrySet()) {
+          pub.getValue().shutdown();
+        }
       }
-
-      lock.release();
 
       keySerializer.close();
       valueSerializer.close();
