@@ -34,8 +34,6 @@ import com.google.cloud.pubsub.v1.Publisher;
 
 import java.io.IOException;
 
-import java.util.Map.Entry;
-import java.util.concurrent.ConcurrentHashMap;
 
 import org.threeten.bp.Duration;
 
@@ -58,10 +56,12 @@ import java.util.Map;
 import java.util.List;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Map.Entry;
 import java.util.Properties;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -151,7 +151,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     elementCount = configs.getLong(ProducerConfig.ELEMENTS_COUNT_CONFIG);
     isAcks = configs.getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
 
-    publishers = new HashMap<>();
+    publishers = new ConcurrentHashMap<>();
   }
 
   //TODO: deal with these magic numbers.
@@ -206,7 +206,6 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     return send(record, null);
   }
 
-  //TODO: there maybe a race condition/starvation between flush/send - when an exception is thrown.
   //TODO: mimic all kafka's exceptions.
 
   /**
@@ -259,12 +258,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
     ApiFuture<String> messageIdFuture = null;
 
-    synchronized (publishers) {
-      if (!publishers.containsKey(record.topic()))
-        publishers.put(record.topic(), createPublisher(record.topic()));
-
-      messageIdFuture = publishers.get(record.topic()).publish(msg);
-    }
+    messageIdFuture =
+        publishers.computeIfAbsent(
+            record.topic(), K -> createPublisher(record.topic())).publish(msg);
 
     final String topic = record.topic();
     final int keySize = keyBytes == null ? 0 : keyBytes.length, valueSize = valueBytes.length;
