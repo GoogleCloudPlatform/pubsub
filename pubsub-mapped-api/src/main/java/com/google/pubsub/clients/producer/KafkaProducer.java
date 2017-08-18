@@ -34,6 +34,7 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.cloud.pubsub.v1.Publisher;
 
 import java.io.IOException;
+import java.util.concurrent.atomic.AtomicReference;
 import org.threeten.bp.Duration;
 
 import java.util.concurrent.atomic.AtomicInteger;
@@ -77,7 +78,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private static final AtomicInteger CLIENT_ID = new AtomicInteger(1);
 
   private ProducerConfig producerConfig;
-  private Map<String, Publisher> publishers;
+  private Map<String, AtomicReference<Publisher>> publishers;
 
   private final String project;
   private final Serializer<K> keySerializer;
@@ -295,7 +296,8 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
     messageIdFuture =
         publishers.computeIfAbsent(
-            record.topic(), K -> createPublisher(record.topic())).publish(msg);
+            record.topic(), K -> new AtomicReference<>(createPublisher(record.topic())))
+            .get().publish(msg);
 
     final String topic = record.topic();
     final int keySize = keyBytes == null ? 0 : keyBytes.length, valueSize = valueBytes.length;
@@ -347,11 +349,8 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
    */
   public void flush() {
     try {
-      synchronized (publishers) {
-        for (Entry<String, Publisher> pub : publishers.entrySet()) {
-          pub.getValue().shutdown();
-          publishers.put(pub.getKey(), createPublisher(pub.getKey()));
-        }
+      for (Entry<String, AtomicReference<Publisher>> pub : publishers.entrySet()) {
+        pub.getValue().getAndSet(createPublisher(pub.getKey())).shutdown();
       }
     } catch (Exception e) {
       throw new InterruptException("Flush interrupted.", (InterruptedException) e);
@@ -385,10 +384,8 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       throw new IllegalStateException("Cannot close a producer if already closed.");
 
     try {
-      synchronized (publishers) {
-        for (Entry<String, Publisher> pub : publishers.entrySet()) {
-          pub.getValue().shutdown();
-        }
+      for (Entry<String, AtomicReference<Publisher>> pub : publishers.entrySet()) {
+        pub.getValue().get().shutdown();
       }
 
       if (interceptors != null)
