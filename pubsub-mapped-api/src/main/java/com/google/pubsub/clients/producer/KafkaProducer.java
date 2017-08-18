@@ -20,9 +20,9 @@ import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
 import com.google.api.client.util.Base64;
 import com.google.api.core.ApiFutureCallback;
-import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.batching.BatchingSettings;
+import com.google.api.gax.batching.FlowControlSettings;
 
 import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.common.annotations.VisibleForTesting;
@@ -34,9 +34,12 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.cloud.pubsub.v1.Publisher;
 
 import java.io.IOException;
-
-
+import java.util.concurrent.Semaphore;
 import org.threeten.bp.Duration;
+
+import java.util.concurrent.atomic.AtomicInteger;
+import org.apache.kafka.clients.producer.ProducerInterceptor;
+import org.apache.kafka.clients.producer.internals.ProducerInterceptors;
 
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.Metric;
@@ -72,6 +75,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class KafkaProducer<K, V> implements Producer<K, V> {
 
   private static final double MULTIPLIER = 1.0;
+  private static final AtomicInteger CLIENT_ID = new AtomicInteger(1);
 
   private ProducerConfig producerConfig;
   private Map<String, Publisher> publishers;
@@ -89,7 +93,8 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private final long bufferMemorySize;
   private final boolean isAcks;
   private final Boolean autoCreate;
-  private final String clientID;
+  private final String clientId;
+  private final ProducerInterceptors<K, V> interceptors;
 
   private final AtomicBoolean closed;
 
@@ -153,9 +158,21 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     autoCreate = configs.getBoolean(ProducerConfig.AUTO_CREATE_CONFIG);
     elementCount = configs.getLong(ProducerConfig.ELEMENTS_COUNT_CONFIG);
     isAcks = configs.getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
-    clientID = configs.getString(ProducerConfig.CLIENT_ID_CONFIG);
     bufferMemorySize = configs.getLong(ProducerConfig.BUFFER_MEMORY_CONFIG);
 
+    String Id = configs.getString(ProducerConfig.CLIENT_ID_CONFIG);
+    if (Id.length() <= 0)
+      clientId = "producer-" + CLIENT_ID.getAndIncrement();
+    else 
+      clientId = Id;
+
+    configs.originals().put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
+    List<ProducerInterceptor<K, V>> interceptorList =
+        (List) (new ProducerConfig(configs.originals())).getConfiguredInstances(
+            ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, ProducerInterceptor.class);
+    this.interceptors =
+        interceptorList.isEmpty() ? null : new ProducerInterceptors<>(interceptorList);
+    
     publishers = new ConcurrentHashMap<>();
   }
 
@@ -215,19 +232,23 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   /**
    * Sends the given record.
    */
-  public Future<RecordMetadata> send(ProducerRecord<K, V> record) {
-    return send(record, null);
+  public Future<RecordMetadata> send(ProducerRecord<K, V> originalRecord) {
+    return send(originalRecord, null);
   }
 
   //TODO: mimic all kafka's exceptions.
+  //TODO: there is an onSendError() in the interceptors, while there are no errors.
 
   /**
    * Sends the given record and invokes the specified callback.
    * The given record must have the same topic as the producer.
    */
-  public Future<RecordMetadata> send(ProducerRecord<K, V> record, Callback callback) {
+  public Future<RecordMetadata> send(ProducerRecord<K, V> originalRecord, Callback callback) {
     if (closed.get())
       throw new IllegalStateException("Cannot send after the producer is closed.");
+
+    ProducerRecord<K, V> record =
+        this.interceptors == null ? originalRecord : this.interceptors.onSend(originalRecord);
 
     if (record == null)
       throw new NullPointerException();
@@ -251,7 +272,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
     Map<String, String> attributes = new HashMap<>();
 
-    attributes.put("id", clientID);
+    attributes.put("id", clientId);
 
     byte[] keyBytes = null;
     if (record.key() != null) {
@@ -290,25 +311,31 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
           @Override
           public void onFailure(Throwable t) {
-            cb.onCompletion(recordMetadata, new ExecutionException(t));
+            callbackOnCompletion(cb, recordMetadata, new ExecutionException(t));
             future.set(recordMetadata);
           }
 
           @Override
           public void onSuccess(String result) {
-            cb.onCompletion(recordMetadata, null);
+            callbackOnCompletion(cb, recordMetadata, null);
             future.set(recordMetadata);
           }
         });
       } else {
         RecordMetadata recordMetadata =
             getRecordMetadata(topic, -1L, keySize, valueSize);
-        callback.onCompletion(recordMetadata, null);
+        callbackOnCompletion(cb, recordMetadata, null);
         future.set(recordMetadata);
       }
     }
 
     return future;
+  }
+
+  private void callbackOnCompletion(Callback cb, RecordMetadata m, Exception e) {
+    if (interceptors != null)
+      interceptors.onAcknowledgement(m, e);
+    cb.onCompletion(m, e);
   }
 
   private RecordMetadata getRecordMetadata(String topic, long offset, int keySize, int valueSize) {
@@ -364,6 +391,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
           pub.getValue().shutdown();
         }
       }
+
+      if (interceptors != null)
+        interceptors.close();
 
       keySerializer.close();
       valueSerializer.close();

@@ -92,6 +92,13 @@ public class ProducerConfig extends AbstractConfig {
   private static final String BUFFER_MEMORY_DOC = "The total bytes of memory the producer can use to"
       + " buffer records waiting to be sent to the server.";
 
+  public static final String INTERCEPTOR_CLASSES_CONFIG = "interceptor.classes";
+  public static final String INTERCEPTOR_CLASSES_DOC = "A list of classes to use as interceptors."
+      + " Implementing the ProducerInterceptor interface allows you to intercept"
+      + " (and possibly mutate) the records received by the producer before they are published."
+      + " By default, there are no interceptors.";
+
+
   static {
     CONFIG = new ConfigDef()
         .define(PROJECT_CONFIG,
@@ -161,6 +168,11 @@ public class ProducerConfig extends AbstractConfig {
             Range.atLeast(0L),
             Importance.HIGH,
             BUFFER_MEMORY_DOC)
+        .define(INTERCEPTOR_CLASSES_CONFIG,
+            Type.LIST,
+            null,
+            Importance.LOW,
+            INTERCEPTOR_CLASSES_DOC)
         ;
   }
 
