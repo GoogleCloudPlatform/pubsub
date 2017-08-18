@@ -16,6 +16,7 @@
 
 package com.google.pubsub.clients.producer;
 
+import com.google.pubsub.clients.config.ProducerConfig;
 import org.junit.Test;
 import org.junit.Before;
 import org.junit.Assert;

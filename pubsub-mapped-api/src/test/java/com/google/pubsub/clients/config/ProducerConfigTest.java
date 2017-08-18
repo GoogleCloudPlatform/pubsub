@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-package com.google.pubsub.clients.producer;
+package com.google.pubsub.clients.config;
 
 import org.junit.Rule;
 import org.junit.Test;
