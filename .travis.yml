@@ -15,4 +15,6 @@ script:
   - mvn -q -B -f client/pom.xml clean verify -Dmaven.javadoc.skip=true -Dgpg.skip=true -Dmaven.test.skip=true -Djava.util.logging.config.file=client/src/test/resources/logging.properties
   - jdk_switcher use oraclejdk8
   - mvn -q -B -f pubsub-mapped-api/pom.xml clean verify
-  - mvn -q -B -f load-test-framework/pom.xml clean verify
+  - mvn -q -B -f load-test-framework/pom.xml clean install
+  - mvn -q -B -f load-test-framework/pom.xml verify
+
