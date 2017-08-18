@@ -82,6 +82,13 @@ public class ProducerConfig extends AbstractConfig {
       + " received before the timeout elapses the client will resend the request if necessary or"
       + " fail the request if retries are exhausted.";
 
+  public static final String CLIENT_ID_CONFIG = "client.id";
+  private static final String CLIENT_ID_DOC = "An id string to pass to the server when making"
+      + " requests. The purpose of this is to be able to track the source of requests beyond"
+      + " just ip/port by allowing a logical application name to be included in server-side"
+      + " request logging.";
+
+
   static {
     CONFIG = new ConfigDef()
         .define(PROJECT_CONFIG,
@@ -139,7 +146,13 @@ public class ProducerConfig extends AbstractConfig {
             30 * 1000,
             Range.atLeast(0),
             Importance.MEDIUM,
-            REQUEST_TIMEOUT_MS_DOC);
+            REQUEST_TIMEOUT_MS_DOC)
+        .define(CLIENT_ID_CONFIG,
+            Type.STRING,
+            "",
+            Importance.MEDIUM,
+            CLIENT_ID_DOC)
+        ;
   }
 
   static Map<String, Object> addSerializerToConfig(Map<String, Object> configs,

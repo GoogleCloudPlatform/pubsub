@@ -81,12 +81,13 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
   private final int retries;
   private final int timeout;
-  private final long retriesMs;
   private final int batchSize;
   private final long lingerMs;
+  private final long retriesMs;
   private final long elementCount;
   private final boolean isAcks;
   private final Boolean autoCreate;
+  private final String clientID;
 
   private final AtomicBoolean closed;
 
@@ -150,6 +151,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     autoCreate = configs.getBoolean(ProducerConfig.AUTO_CREATE_CONFIG);
     elementCount = configs.getLong(ProducerConfig.ELEMENTS_COUNT_CONFIG);
     isAcks = configs.getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
+    clientID = configs.getString(ProducerConfig.CLIENT_ID_CONFIG);
 
     publishers = new ConcurrentHashMap<>();
   }
@@ -237,6 +239,8 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       throw new NullPointerException("Value cannot be null or an empty string.");
 
     Map<String, String> attributes = new HashMap<>();
+
+    attributes.put("id", clientID);
 
     byte[] keyBytes = null;
     if (record.key() != null) {
