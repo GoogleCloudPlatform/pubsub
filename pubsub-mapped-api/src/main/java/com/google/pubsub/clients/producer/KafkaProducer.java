@@ -20,6 +20,7 @@ import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
 import com.google.api.client.util.Base64;
 import com.google.api.core.ApiFutureCallback;
+import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.batching.BatchingSettings;
 
@@ -85,6 +86,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private final long lingerMs;
   private final long retriesMs;
   private final long elementCount;
+  private final long bufferMemorySize;
   private final boolean isAcks;
   private final Boolean autoCreate;
   private final String clientID;
@@ -152,6 +154,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     elementCount = configs.getLong(ProducerConfig.ELEMENTS_COUNT_CONFIG);
     isAcks = configs.getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
     clientID = configs.getString(ProducerConfig.CLIENT_ID_CONFIG);
+    bufferMemorySize = configs.getLong(ProducerConfig.BUFFER_MEMORY_CONFIG);
 
     publishers = new ConcurrentHashMap<>();
   }
@@ -177,11 +180,18 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
     try {
       pub = Publisher.defaultBuilder(topicName)
+
           .setBatchingSettings(BatchingSettings.newBuilder()
               .setElementCountThreshold(elementCount)
               .setRequestByteThreshold((long) batchSize)
               .setDelayThreshold(Duration.ofMillis(lingerMs))
+
+              .setFlowControlSettings(FlowControlSettings.newBuilder()
+                  .setMaxOutstandingRequestBytes(bufferMemorySize)
+                  .build())
+
               .build())
+
           .setRetrySettings(RetrySettings.newBuilder()
               .setMaxAttempts(retries)
               .setRetryDelayMultiplier(MULTIPLIER)
@@ -194,6 +204,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
               .setTotalTimeout(Duration.ofMillis((retries + 2) * timeout))
               .build())
+
           .build();
     } catch (IOException e) {
       throw new KafkaException("Failed to construct kafka producer", e);

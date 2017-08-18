@@ -88,6 +88,9 @@ public class ProducerConfig extends AbstractConfig {
       + " just ip/port by allowing a logical application name to be included in server-side"
       + " request logging.";
 
+  public static final String BUFFER_MEMORY_CONFIG = "buffer.memory";
+  private static final String BUFFER_MEMORY_DOC = "The total bytes of memory the producer can use to"
+      + " buffer records waiting to be sent to the server.";
 
   static {
     CONFIG = new ConfigDef()
@@ -119,7 +122,7 @@ public class ProducerConfig extends AbstractConfig {
             Importance.MEDIUM, LINGER_MS_DOC)
         .define(BATCH_SIZE_CONFIG,
             Type.INT,
-            16384,
+            16 * 1024,
             Range.atLeast(1),
             Importance.MEDIUM,
             BATCH_SIZE_DOC)
@@ -152,6 +155,12 @@ public class ProducerConfig extends AbstractConfig {
             "",
             Importance.MEDIUM,
             CLIENT_ID_DOC)
+        .define(BUFFER_MEMORY_CONFIG,
+            Type.LONG,
+            32 * 1024 * 1024L,
+            Range.atLeast(0L),
+            Importance.HIGH,
+            BUFFER_MEMORY_DOC)
         ;
   }
 
