@@ -34,7 +34,6 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.cloud.pubsub.v1.Publisher;
 
 import java.io.IOException;
-import java.util.concurrent.Semaphore;
 import org.threeten.bp.Duration;
 
 import java.util.concurrent.atomic.AtomicInteger;
