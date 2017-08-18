@@ -29,7 +29,7 @@ import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
-public class ConfigTest {
+public class ProducerConfigTest {
 
   @Rule
   public final ExpectedException exception = ExpectedException.none();

@@ -24,6 +24,7 @@ import com.google.api.gax.retrying.RetrySettings;
 import com.google.api.gax.batching.BatchingSettings;
 import com.google.api.gax.batching.FlowControlSettings;
 
+import com.google.cloud.pubsub.v1.Publisher;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.SettableFuture;
@@ -31,13 +32,13 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.TopicName;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.cloud.pubsub.v1.Publisher;
+import com.google.pubsub.clients.config.ProducerConfig;
 
 import java.io.IOException;
-import java.util.concurrent.atomic.AtomicReference;
 import org.threeten.bp.Duration;
 
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.producer.ProducerInterceptor;
 import org.apache.kafka.clients.producer.internals.ProducerInterceptors;
 

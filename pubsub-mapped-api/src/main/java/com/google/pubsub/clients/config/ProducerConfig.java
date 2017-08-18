@@ -14,8 +14,9 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-package com.google.pubsub.clients.producer;
+package com.google.pubsub.clients.config;
 
+import com.google.common.annotations.VisibleForTesting;
 import java.util.Map;
 import java.util.Set;
 import java.util.HashMap;
@@ -176,7 +177,7 @@ public class ProducerConfig extends AbstractConfig {
         ;
   }
 
-  static Map<String, Object> addSerializerToConfig(Map<String, Object> configs,
+  public static Map<String, Object> addSerializerToConfig(Map<String, Object> configs,
       Serializer<?> keySerializer, Serializer<?> valueSerializer) {
 
     Map<String, Object> newConfigs = new HashMap<>();
@@ -191,7 +192,7 @@ public class ProducerConfig extends AbstractConfig {
     return newConfigs;
   }
 
-  static Properties addSerializerToConfig(Properties properties,
+  public static Properties addSerializerToConfig(Properties properties,
       Serializer<?> keySerializer, Serializer<?> valueSerializer) {
 
     Properties newProperties = new Properties();
@@ -206,7 +207,8 @@ public class ProducerConfig extends AbstractConfig {
     return newProperties;
   }
 
-  ProducerConfig(Map<?, ?> props) {
+  @VisibleForTesting
+  public ProducerConfig(Map<?, ?> props) {
     super(CONFIG, props);
   }
 

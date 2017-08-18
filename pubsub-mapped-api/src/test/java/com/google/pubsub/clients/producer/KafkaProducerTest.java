@@ -16,7 +16,8 @@
 
 package com.google.pubsub.clients.producer;
 
-import com.google.pubsub.clients.config.ProducerConfig;
+import static org.powermock.api.mockito.PowerMockito.when;
+
 import org.junit.Test;
 import org.junit.Before;
 import org.junit.Assert;
@@ -27,6 +28,8 @@ import org.mockito.ArgumentCaptor;
 
 import com.google.pubsub.v1.TopicName;
 import com.google.pubsub.v1.PubsubMessage;
+import com.google.pubsub.clients.config.ProducerConfig;
+
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.cloud.pubsub.v1.Publisher.Builder;
@@ -54,12 +57,12 @@ import com.google.api.core.ApiFuture;
 import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
 import org.powermock.modules.junit4.PowerMockRunner;
-import static org.powermock.api.mockito.PowerMockito.when;
+
 import org.powermock.core.classloader.annotations.PrepareForTest;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({Publisher.class, TopicAdminClient.class})
-public class ProducerTest {
+public class KafkaProducerTest {
 
   private ApiFuture lf;
   private Publisher stub;
