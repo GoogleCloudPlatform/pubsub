@@ -23,7 +23,6 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
-import com.google.pubsub.clients.config.ConsumerConfig;
 import com.google.pubsub.common.ChannelUtil;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.DeleteSubscriptionRequest;
@@ -95,57 +94,42 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private static final String KEY_ATTRIBUTE = "key";
 
+  private final Config<K, V> config;
   private final SubscriberFutureStub subscriberFutureStub;
   private final PublisherFutureStub publisherFutureStub;
-  private final Boolean allowSubscriptionCreation;
-  private final Boolean allowSubscriptionDeletion;
-
-  private final String groupId;
-  private final int maxPollRecords;
 
   private ImmutableMap<String, Subscription> topicNameToSubscription = ImmutableMap.of();
   private ImmutableList<String> topicNames = ImmutableList.of();
 
-  private final Deserializer<K> keyDeserializer;
-  private final Deserializer<V> valueDeserializer;
-
   private int currentPoolIndex;
 
   public KafkaConsumer(Map<String, Object> configs) {
-      this(new ConsumerConfig(configs), null, null);
+    this(new Config<>(configs));
   }
 
   public KafkaConsumer(Map<String, Object> configs, Deserializer<K> keyDeserializer,
       Deserializer<V> valueDeserializer) {
-      this(new ConsumerConfig(
-          ConsumerConfig.addDeserializerToConfig(configs, keyDeserializer, valueDeserializer)),
-          keyDeserializer, valueDeserializer);
+    this(new Config<>(configs, keyDeserializer, valueDeserializer));
   }
 
   public KafkaConsumer(Properties properties) {
-    this(new ConsumerConfig(properties), null, null);
+    this(new Config<>(properties));
   }
 
   public KafkaConsumer(Properties properties, Deserializer<K> keyDeserializer,
       Deserializer<V> valueDeserializer) {
-    this(new ConsumerConfig(
-            ConsumerConfig.addDeserializerToConfig(properties, keyDeserializer, valueDeserializer)),
-        keyDeserializer, valueDeserializer);
+    this(new Config<>(properties, keyDeserializer, valueDeserializer));
   }
 
 
-  private KafkaConsumer(ConsumerConfig configs, Deserializer<K> keyDeserializer,
-      Deserializer<V> valueDeserializer) {
-    this(configs,
-        keyDeserializer,
-        valueDeserializer,
+  private KafkaConsumer(Config configOptions) {
+    this(configOptions,
         ChannelUtil.getInstance().getChannel(),
         ChannelUtil.getInstance().getCallCredentials());
   }
 
   @SuppressWarnings("unchecked")
-  KafkaConsumer(ConsumerConfig configs, Deserializer<K> keyDeserializer,
-      Deserializer<V> valueDeserializer, Channel channel, CallCredentials callCredentials) {
+  KafkaConsumer(Config config, Channel channel, CallCredentials callCredentials) {
     try {
       log.debug("Starting PubSub subscriber");
 
@@ -162,38 +146,13 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       this.subscriberFutureStub = subscriberFutureStub;
       this.publisherFutureStub = publisherFutureStub;
 
-      this.keyDeserializer = handleDeserializer(configs,
-          ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer, true);
-      this.valueDeserializer = handleDeserializer(configs,
-          ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer, false);
-      this.allowSubscriptionCreation = configs.getBoolean(ConsumerConfig.SUBSCRIPTION_ALLOW_CREATE_CONFIG);
-      this.allowSubscriptionDeletion = configs.getBoolean(ConsumerConfig.SUBSCRIPTION_ALLOW_DELETE_CONFIG);
-      this.groupId = configs.getString(ConsumerConfig.GROUP_ID_CONFIG);
-      //this is a limit on each poll for each topic
-      this.maxPollRecords = configs.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG);
-
-      Preconditions.checkNotNull(this.allowSubscriptionCreation);
-      Preconditions.checkNotNull(this.allowSubscriptionDeletion);
-      Preconditions.checkNotNull(this.groupId);
-      Preconditions.checkArgument(!this.groupId.isEmpty());
+      //Kafka-specific options
+      this.config = config;
 
       log.debug("PubSub subscriber created");
     } catch (Throwable t) {
       throw new KafkaException("Failed to construct PubSub subscriber", t);
     }
-  }
-
-  private Deserializer handleDeserializer(ConsumerConfig configs, String configString,
-      Deserializer providedDeserializer, boolean isKey) {
-    Deserializer deserializer;
-    if (providedDeserializer == null) {
-      deserializer = configs.getConfiguredInstance(configString, Deserializer.class);
-      deserializer.configure(configs.originals(), isKey);
-    } else {
-      configs.ignore(configString);
-      deserializer = providedDeserializer;
-    }
-    return deserializer;
   }
 
   @Override
@@ -233,7 +192,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     for (String topic: topics) {
       if (!usedNames.contains(topic)) {
-        String subscriptionString = SUBSCRIPTION_PREFIX + topic + "_" + this.groupId;
+        String subscriptionString = SUBSCRIPTION_PREFIX + topic + "_" + config.getGroupId();
         ListenableFuture<Subscription> deputedSubscription =
             deputeSinglePubsubSubscriptionGet(subscriptionString);
 
@@ -296,7 +255,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   private boolean shouldTryToCreateSubscription(ExecutionException e) {
-    return this.allowSubscriptionCreation && e.getCause() instanceof StatusRuntimeException
+    return config.getAllowSubscriptionCreation() && e.getCause() instanceof StatusRuntimeException
         && ((StatusRuntimeException)e.getCause()).getStatus().getCode().equals(Code.NOT_FOUND);
   }
 
@@ -396,7 +355,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   }
 
   private void deleteSubscriptionsIfAllowed(Collection<Subscription> subscriptions) {
-    if(!allowSubscriptionDeletion)
+    if(!config.getAllowSubscriptionDeletion())
       return;
 
     List<ListenableFuture<Empty>> listenableFutures = new ArrayList<>();
@@ -479,7 +438,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     return deadlineFutureStub.pull(PullRequest.newBuilder()
         .setSubscription(s.getName())
-        .setMaxMessages(this.maxPollRecords)
+        .setMaxMessages(config.getMaxPollRecords())
         .setReturnImmediately(true).build());
   }
 
@@ -530,8 +489,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     int serializedValueSize = message.getData().toByteArray().length;
     int serializedKeySize = key != null ? deserializedKeyBytes.length : 0;
 
-    V deserializedValue = valueDeserializer.deserialize(topic, message.getData().toByteArray());
-    K deserializedKey = key != null ? keyDeserializer.deserialize(topic, deserializedKeyBytes) : null;
+    V deserializedValue = config.getValueDeserializer().deserialize(topic, message.getData().toByteArray());
+    K deserializedKey = key != null ? config.getKeyDeserializer().deserialize(topic, deserializedKeyBytes) : null;
 
     return new ConsumerRecord<>(topic, DEFAULT_PARTITION, offset, timestamp, timestampType,
         DEFAULT_CHECKSUM, serializedKeySize, serializedValueSize, deserializedKey,
@@ -649,8 +608,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   public void close() {
     log.debug("Closing PubSub subscriber");
     unsubscribe();
-    keyDeserializer.close();
-    valueDeserializer.close();
+    config.getKeyDeserializer().close();
+    config.getValueDeserializer().close();
     log.debug("PubSub subscriber has been closed");
   }
 
