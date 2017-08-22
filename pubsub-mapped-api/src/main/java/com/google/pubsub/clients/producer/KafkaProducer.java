@@ -103,8 +103,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     this(new ProducerConfig(configs), null, null);
   }
 
-  public KafkaProducer(Map<String, Object> configs, Serializer<K> keySerializer,
-      Serializer<V> valueSerializer) {
+  public KafkaProducer(Map<String, Object> configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
     this(new ProducerConfig(ProducerConfig.addSerializerToConfig(
         configs, keySerializer, valueSerializer)), keySerializer, valueSerializer);
   }
@@ -113,8 +112,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     this(new ProducerConfig(properties), null, null);
   }
 
-  public KafkaProducer(Properties properties, Serializer<K> keySerializer,
-      Serializer<V> valueSerializer) {
+  public KafkaProducer(Properties properties, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
     this(new ProducerConfig(ProducerConfig.addSerializerToConfig(
         properties, keySerializer, valueSerializer)), keySerializer, valueSerializer);
   }
@@ -123,8 +121,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
   @VisibleForTesting
   @SuppressWarnings("unchecked")
-  public KafkaProducer(ProducerConfig configs, Serializer<K> keySerializer,
-      Serializer<V> valueSerializer) {
+  public KafkaProducer(ProducerConfig configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
 
     producerConfig = configs;
 
