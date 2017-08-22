@@ -17,6 +17,11 @@ package org.apache.kafka.clients.consumer;
 import java.util.Map;
 import java.util.Properties;
 
+/**
+ * This class is the result of Apache Kafka's ConsumerConfig constructors being package-private. It provides
+ * a way to instantiate ConsumerConfig objects. Also, it propagates the configuration with options required by
+ * ConsumerConfig class that are irrelevant for PubSub.
+ */
 public class ConsumerConfigCreator {
 
   public static ConsumerConfig getConsumerConfig(Properties properties) {

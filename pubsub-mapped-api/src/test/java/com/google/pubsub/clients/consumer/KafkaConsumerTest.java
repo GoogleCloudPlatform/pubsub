@@ -105,7 +105,6 @@ public class KafkaConsumerTest {
     }
   }
 
-
   @Test
   public void unsubscribe() {
     KafkaConsumer<Integer, String> consumer = getConsumer(false);
@@ -143,6 +142,7 @@ public class KafkaConsumerTest {
     Set<String> subscribed = consumer.subscription();
     assertEquals(topics, subscribed);
   }
+
   @Test
   public void patternSubscription() {
     KafkaConsumer<Integer, String> consumer = getConsumer(false);
@@ -215,7 +215,6 @@ public class KafkaConsumerTest {
     }
   }
 
-
   @Test
   public void deserializeProperly() throws ExecutionException, InterruptedException {
     KafkaConsumer<Integer, String> consumer = getConsumer(false);
@@ -274,7 +273,6 @@ public class KafkaConsumerTest {
     );
     return properties;
   }
-
 
   static class SubscriberGetImpl extends SubscriberImplBase {
 
