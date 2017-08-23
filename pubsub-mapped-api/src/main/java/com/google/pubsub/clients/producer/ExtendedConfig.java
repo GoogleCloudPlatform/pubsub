@@ -29,7 +29,7 @@ import org.apache.kafka.common.config.ConfigDef.Range;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 
 /**
- * Provides the configurations for a KafkaProducer instance.
+ * Provides the configurations for a Kafka Producer instance.
  */
 @VisibleForTesting
 public class ExtendedConfig {

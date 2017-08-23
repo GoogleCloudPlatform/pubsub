@@ -232,7 +232,7 @@ public class KafkaProducerTest {
 
   @Test
   public void interceptRecords() {
-    int key = 12345;
+    int key = 123;
 
     PrintStream original = System.out;
     OutputStream os = new ByteArrayOutputStream(100);
@@ -254,7 +254,7 @@ public class KafkaProducerTest {
   //This one is supposed to work as the previous but log an exception.
   @Test
   public void interceptRecordsWithException() {
-    int key = 12345;
+    int key = 123;
 
     PrintStream original = System.out;
     OutputStream os = new ByteArrayOutputStream();

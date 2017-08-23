@@ -78,6 +78,7 @@ public class ProducerConfigTest {
     );
 
     exception.expect(ConfigException.class);
+
     new ExtendedConfig(props);
   }
 
@@ -91,6 +92,7 @@ public class ProducerConfigTest {
     );
 
     exception.expect(ConfigException.class);
+
     new ExtendedConfig(props);
   }
 }
