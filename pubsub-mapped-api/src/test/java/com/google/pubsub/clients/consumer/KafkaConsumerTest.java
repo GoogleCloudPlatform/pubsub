@@ -1,3 +1,17 @@
+/* Copyright 2017 Google Inc.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License. */
+
 package com.google.pubsub.clients.consumer;
 
 import static org.junit.Assert.assertEquals;
@@ -9,7 +23,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.protobuf.Timestamp;
-import com.google.pubsub.clients.config.ConsumerConfig;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.DeleteSubscriptionRequest;
 import com.google.pubsub.v1.GetSubscriptionRequest;
@@ -92,7 +105,6 @@ public class KafkaConsumerTest {
     }
   }
 
-
   @Test
   public void unsubscribe() {
     KafkaConsumer<Integer, String> consumer = getConsumer(false);
@@ -130,6 +142,7 @@ public class KafkaConsumerTest {
     Set<String> subscribed = consumer.subscription();
     assertEquals(topics, subscribed);
   }
+
   @Test
   public void patternSubscription() {
     KafkaConsumer<Integer, String> consumer = getConsumer(false);
@@ -202,7 +215,6 @@ public class KafkaConsumerTest {
     }
   }
 
-
   @Test
   public void deserializeProperly() throws ExecutionException, InterruptedException {
     KafkaConsumer<Integer, String> consumer = getConsumer(false);
@@ -241,12 +253,12 @@ public class KafkaConsumerTest {
   }
 
   private KafkaConsumer<Integer, String> getConsumer(boolean allowesCreation) {
-    ConsumerConfig consumerConfig = getConsumerConfig(allowesCreation);
-    return new KafkaConsumer<>(consumerConfig, null,
-        null, grpcServerRule.getChannel(), null);
+    Properties properties = getTestProperties(allowesCreation);
+    Config configOptions = new Config(properties);
+    return new KafkaConsumer<>(configOptions, grpcServerRule.getChannel(), null);
   }
 
-  private ConsumerConfig getConsumerConfig(boolean allowesCreation) {
+  private Properties getTestProperties(boolean allowesCreation) {
     Properties properties = new Properties();
     properties.putAll(new ImmutableMap.Builder<>()
         .put("key.deserializer",
@@ -259,8 +271,7 @@ public class KafkaConsumerTest {
         .put("subscription.allow.delete", false)
         .build()
     );
-
-    return new ConsumerConfig(ConsumerConfig.addDeserializerToConfig(properties, null, null));
+    return properties;
   }
 
   static class SubscriberGetImpl extends SubscriberImplBase {
