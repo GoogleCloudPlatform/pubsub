@@ -35,8 +35,15 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.clients.config.ProducerConfig;
 
 import java.io.IOException;
+
+import org.joda.time.DateTime;
 import org.threeten.bp.Duration;
 
+import java.util.Map;
+import java.util.List;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.apache.kafka.clients.producer.ProducerInterceptor;
@@ -57,12 +64,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
-import java.util.Map;
-import java.util.List;
-import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map.Entry;
-import java.util.Properties;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -75,6 +77,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public class KafkaProducer<K, V> implements Producer<K, V> {
 
+  private static final long VERSION = 1L;
   private static final double MULTIPLIER = 1.0;
   private static final AtomicInteger CLIENT_ID = new AtomicInteger(1);
 
@@ -93,7 +96,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private final long elementCount;
   private final long bufferMemorySize;
   private final boolean isAcks;
-  private final Boolean autoCreate;
+  private final boolean autoCreate;
   private final String clientId;
   private final ProducerInterceptors<K, V> interceptors;
 
@@ -159,10 +162,11 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     bufferMemorySize = configs.getLong(ProducerConfig.BUFFER_MEMORY_CONFIG);
 
     String Id = configs.getString(ProducerConfig.CLIENT_ID_CONFIG);
-    if (Id.length() <= 0)
+    if (Id.length() <= 0) {
       clientId = "producer-" + CLIENT_ID.getAndIncrement();
-    else 
+    } else {
       clientId = Id;
+    }
 
     configs.originals().put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
     List<ProducerInterceptor<K, V>> interceptorList =
@@ -186,9 +190,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       topicAdmin = TopicAdminClient.create();
       topicAdmin.getTopic(topicName);
     } catch (Exception e) {
-      if (autoCreate)
+      if (e.getMessage().contains("NOT_FOUND") && autoCreate) {
         topicAdmin.createTopic(topicName);
-      else {
+      } else {
         throw new KafkaException("Failed to construct kafka producer, Topic not found.", e);
       }
     }
@@ -242,16 +246,18 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
    * The given record must have the same topic as the producer.
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> originalRecord, Callback callback) {
-    if (closed.get())
+    if (closed.get()) {
       throw new IllegalStateException("Cannot send after the producer is closed.");
+    }
 
     ProducerRecord<K, V> record =
         this.interceptors == null ? originalRecord : this.interceptors.onSend(originalRecord);
 
-    if (record == null)
+    if (record == null) {
       throw new NullPointerException();
+    }
 
-    final Callback cb = callback;
+    DateTime dateTime = new DateTime();
 
     byte[] valueBytes = null;
     if (record.value() != null) {
@@ -259,18 +265,15 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         valueBytes = valueSerializer.serialize(record.topic(), record.value());
       } catch (ClassCastException e) {
         throw new SerializationException("Can't convert value of class " +
-            record.value().getClass().getName() + " to class " +
-            producerConfig.getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG).getName() +
-            " specified in value.serializer");
+                record.value().getClass().getName() + " to class " +
+                producerConfig.getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG).getName() +
+                " specified in value.serializer");
       }
     }
 
-    if (valueBytes == null || valueBytes.length == 0)
+    if (valueBytes == null || valueBytes.length == 0) {
       throw new NullPointerException("Value cannot be null or an empty string.");
-
-    Map<String, String> attributes = new HashMap<>();
-
-    attributes.put("id", clientId);
+    }
 
     byte[] keyBytes = null;
     if (record.key() != null) {
@@ -278,25 +281,19 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         keyBytes = keySerializer.serialize(record.topic(), record.key());
       } catch (ClassCastException cce) {
         throw new SerializationException("Can't convert key of class " +
-            record.key().getClass().getName() + " to class " +
-            producerConfig.getClass(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG).getName() +
-            " specified in key.serializer");
+                record.key().getClass().getName() + " to class " +
+                producerConfig.getClass(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG).getName() +
+                " specified in key.serializer");
       }
     }
-    attributes.put("key", keyBytes == null ? "" : new String(Base64.encodeBase64(keyBytes)));
 
-    PubsubMessage msg = PubsubMessage.newBuilder()
-        .setData(ByteString.copyFrom(valueBytes))
-        .putAllAttributes(attributes)
-        .build();
+    PubsubMessage msg = createMessage(record, dateTime.toString(), keyBytes, valueBytes);
 
-    ApiFuture<String> messageIdFuture = null;
-
-    messageIdFuture =
-        publishers.computeIfAbsent(
-            record.topic(), K -> new AtomicReference<>(createPublisher(record.topic())))
+    ApiFuture<String> messageIdFuture = publishers.computeIfAbsent(
+            record.topic(), topic -> new AtomicReference<>(createPublisher(topic)))
             .get().publish(msg);
 
+    final Callback cb = callback;
     final String topic = record.topic();
     final int keySize = keyBytes == null ? 0 : keyBytes.length, valueSize = valueBytes.length;
 
@@ -306,12 +303,12 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       if (isAcks) {
         ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
           private RecordMetadata recordMetadata =
-              getRecordMetadata(topic, 0L, keySize, valueSize);
+              getRecordMetadata(topic, dateTime.getMillis(), keySize, valueSize);
 
           @Override
           public void onFailure(Throwable t) {
             callbackOnCompletion(cb, recordMetadata, new ExecutionException(t));
-            future.set(recordMetadata);
+            future.setException(t);
           }
 
           @Override
@@ -331,9 +328,29 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     return future;
   }
 
+  // Attribute's value's size shouldn't exceed 1024 bytes (256 for key)
+  private PubsubMessage createMessage(ProducerRecord<K, V> record, String dateTime, byte[] key, byte[] value) {
+    Map<String, String> attributes = new HashMap<>();
+
+    attributes.put("id", clientId);
+
+    attributes.put("timestamp", dateTime);
+
+    attributes.put("version", Long.toString(VERSION));
+
+    attributes.put("key", key == null ? "" : new String(Base64.encodeBase64(key)));
+
+    if (attributes.get("key").getBytes().length > 1024) {
+      throw new SerializationException("Key size should be at most 1024 bytes.");
+    }
+
+    return PubsubMessage.newBuilder().setData(ByteString.copyFrom(value)).putAllAttributes(attributes).build();
+  }
+
   private void callbackOnCompletion(Callback cb, RecordMetadata m, Exception e) {
-    if (interceptors != null)
+    if (interceptors != null) {
       interceptors.onAcknowledgement(m, e);
+    }
     cb.onCompletion(m, e);
   }
 
@@ -375,19 +392,22 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
    * Closes the producer with the given timeout.
    */
   public void close(long timeout, TimeUnit unit) {
-    if (timeout < 0)
+    if (timeout < 0) {
       throw new IllegalArgumentException("The timeout cannot be negative.");
+    }
 
-    if (closed.getAndSet(true))
+    if (closed.getAndSet(true)) {
       throw new IllegalStateException("Cannot close a producer if already closed.");
+    }
 
     try {
       for (Entry<String, AtomicReference<Publisher>> pub : publishers.entrySet()) {
         pub.getValue().get().shutdown();
       }
 
-      if (interceptors != null)
+      if (interceptors != null) {
         interceptors.close();
+      }
 
       keySerializer.close();
       valueSerializer.close();
