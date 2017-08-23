@@ -179,8 +179,6 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     publishers = new ConcurrentHashMap<>();
   }
 
-  //TODO: deal with these magic numbers.
-
   private Publisher createPublisher(String topic) {
     Publisher pub = null;
     TopicName topicName = null;
@@ -239,7 +237,6 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     return send(originalRecord, null);
   }
 
-  //TODO: mimic all kafka's exceptions.
   //TODO: there is an onSendError() in the interceptors, while there are no errors.
 
   /**
@@ -304,12 +301,12 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       if (isAcks) {
         ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
           private RecordMetadata recordMetadata =
-              getRecordMetadata(topic, 0L, keySize, valueSize);
+              getRecordMetadata(topic, dateTime.getMillis(), keySize, valueSize);
 
           @Override
           public void onFailure(Throwable t) {
             callbackOnCompletion(cb, recordMetadata, new ExecutionException(t));
-            future.set(recordMetadata);
+            future.setException(t);
           }
 
           @Override
