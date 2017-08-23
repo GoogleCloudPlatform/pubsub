@@ -32,14 +32,17 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.TopicName;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.clients.config.ProducerConfig;
+import com.google.pubsub.clients.producer.ExtendedConfig.PubSubConfig;
 
 import java.io.IOException;
+
 import org.threeten.bp.Duration;
 
+import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
-import org.apache.kafka.clients.producer.ProducerInterceptor;
+
+import org.apache.kafka.clients.producer.*;
 import org.apache.kafka.clients.producer.internals.ProducerInterceptors;
 
 import org.apache.kafka.common.Node;
@@ -52,11 +55,6 @@ import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.errors.InterruptException;
 import org.apache.kafka.common.errors.SerializationException;
 
-import org.apache.kafka.clients.producer.Callback;
-import org.apache.kafka.clients.producer.Producer;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.clients.producer.ProducerRecord;
-
 import java.util.Map;
 import java.util.List;
 import java.util.Arrays;
@@ -64,7 +62,6 @@ import java.util.HashMap;
 import java.util.Map.Entry;
 import java.util.Properties;
 
-import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
@@ -78,7 +75,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private static final double MULTIPLIER = 1.0;
   private static final AtomicInteger CLIENT_ID = new AtomicInteger(1);
 
-  private ProducerConfig producerConfig;
+  private ExtendedConfig producerConfig;
   private Map<String, AtomicReference<Publisher>> publishers;
 
   private final String project;
@@ -100,81 +97,80 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private final AtomicBoolean closed;
 
   public KafkaProducer(Map<String, Object> configs) {
-    this(new ProducerConfig(configs), null, null);
+    this(new ExtendedConfig(configs), null, null);
   }
 
   public KafkaProducer(Map<String, Object> configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
-    this(new ProducerConfig(ProducerConfig.addSerializerToConfig(
+    this(new ExtendedConfig(ProducerConfig.addSerializerToConfig(
         configs, keySerializer, valueSerializer)), keySerializer, valueSerializer);
   }
 
   public KafkaProducer(Properties properties) {
-    this(new ProducerConfig(properties), null, null);
+    this(new ExtendedConfig(properties), null, null);
   }
 
   public KafkaProducer(Properties properties, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
-    this(new ProducerConfig(ProducerConfig.addSerializerToConfig(
+    this(new ExtendedConfig(ProducerConfig.addSerializerToConfig(
         properties, keySerializer, valueSerializer)), keySerializer, valueSerializer);
   }
 
-  //TODO: Kafka's implementation throws a KafkaException upon failure, it doesn't apply here.
-
   @VisibleForTesting
   @SuppressWarnings("unchecked")
-  public KafkaProducer(ProducerConfig configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
+  public KafkaProducer(ExtendedConfig configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
 
     producerConfig = configs;
 
-    project = configs.getString(ProducerConfig.PROJECT_CONFIG);
+    // CPS's configs
+    project = configs.getAdditionalConfigs().getString(PubSubConfig.PROJECT_CONFIG);
+    autoCreate = configs.getAdditionalConfigs().getBoolean(PubSubConfig.AUTO_CREATE_CONFIG);
+    elementCount = configs.getAdditionalConfigs().getLong(PubSubConfig.ELEMENTS_COUNT_CONFIG);
 
+    // Kafka's configs
     if (keySerializer == null) {
-      this.keySerializer = configs.getConfiguredInstance(
+      this.keySerializer = configs.getKafkaConfigs().getConfiguredInstance(
           ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, Serializer.class);
 
-      this.keySerializer.configure(configs.originals(), true);
+      this.keySerializer.configure(configs.getKafkaConfigs().originals(), true);
     } else {
-      configs.ignore(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG);
+      configs.getKafkaConfigs().ignore(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG);
       this.keySerializer = keySerializer;
     }
 
     if (valueSerializer == null) {
-      this.valueSerializer = configs.getConfiguredInstance(
+      this.valueSerializer = configs.getKafkaConfigs().getConfiguredInstance(
           ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, Serializer.class);
 
-      this.valueSerializer.configure(configs.originals(), false);
+      this.valueSerializer.configure(configs.getKafkaConfigs().originals(), false);
     } else {
-      configs.ignore(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
+      configs.getKafkaConfigs().ignore(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
       this.valueSerializer = valueSerializer;
     }
 
     closed = new AtomicBoolean(false);
-    retries = configs.getInt(ProducerConfig.RETRIES_CONFIG);
-    timeout = configs.getInt(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG);
-    retriesMs = configs.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);
-    lingerMs = configs.getLong(ProducerConfig.LINGER_MS_CONFIG);
-    batchSize = configs.getInt(ProducerConfig.BATCH_SIZE_CONFIG);
-    autoCreate = configs.getBoolean(ProducerConfig.AUTO_CREATE_CONFIG);
-    elementCount = configs.getLong(ProducerConfig.ELEMENTS_COUNT_CONFIG);
-    isAcks = configs.getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
-    bufferMemorySize = configs.getLong(ProducerConfig.BUFFER_MEMORY_CONFIG);
+    retries = configs.getKafkaConfigs().getInt(ProducerConfig.RETRIES_CONFIG);
+    timeout = configs.getKafkaConfigs().getInt(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG);
+    retriesMs = configs.getKafkaConfigs().getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);
+    lingerMs = configs.getKafkaConfigs().getLong(ProducerConfig.LINGER_MS_CONFIG);
+    batchSize = configs.getKafkaConfigs().getInt(ProducerConfig.BATCH_SIZE_CONFIG);
+    isAcks = configs.getKafkaConfigs().getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
+    bufferMemorySize = configs.getKafkaConfigs().getLong(ProducerConfig.BUFFER_MEMORY_CONFIG);
 
-    String Id = configs.getString(ProducerConfig.CLIENT_ID_CONFIG);
-    if (Id.length() <= 0)
+    String Id = configs.getKafkaConfigs().getString(ProducerConfig.CLIENT_ID_CONFIG);
+    if (Id.length() <= 0) {
       clientId = "producer-" + CLIENT_ID.getAndIncrement();
-    else 
+    } else {
       clientId = Id;
+    }
 
-    configs.originals().put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
+    configs.getKafkaConfigs().originals().put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
     List<ProducerInterceptor<K, V>> interceptorList =
-        (List) (new ProducerConfig(configs.originals())).getConfiguredInstances(
+        (List) (ProducerConfigAdapter.getConsumerConfig(configs.getKafkaConfigs().originals())).getConfiguredInstances(
             ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, ProducerInterceptor.class);
     this.interceptors =
         interceptorList.isEmpty() ? null : new ProducerInterceptors<>(interceptorList);
-    
+
     publishers = new ConcurrentHashMap<>();
   }
-
-  //TODO: deal with these magic numbers.
 
   private Publisher createPublisher(String topic) {
     Publisher pub = null;
@@ -186,9 +182,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       topicAdmin = TopicAdminClient.create();
       topicAdmin.getTopic(topicName);
     } catch (Exception e) {
-      if (autoCreate)
+      if (autoCreate) {
         topicAdmin.createTopic(topicName);
-      else {
+      } else {
         throw new KafkaException("Failed to construct kafka producer, Topic not found.", e);
       }
     }
@@ -242,14 +238,16 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
    * The given record must have the same topic as the producer.
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> originalRecord, Callback callback) {
-    if (closed.get())
+    if (closed.get()) {
       throw new IllegalStateException("Cannot send after the producer is closed.");
+    }
 
     ProducerRecord<K, V> record =
         this.interceptors == null ? originalRecord : this.interceptors.onSend(originalRecord);
 
-    if (record == null)
+    if (record == null) {
       throw new NullPointerException();
+    }
 
     final Callback cb = callback;
 
@@ -260,13 +258,14 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       } catch (ClassCastException e) {
         throw new SerializationException("Can't convert value of class " +
             record.value().getClass().getName() + " to class " +
-            producerConfig.getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG).getName() +
+            producerConfig.getKafkaConfigs().getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG).getName() +
             " specified in value.serializer");
       }
     }
 
-    if (valueBytes == null || valueBytes.length == 0)
+    if (valueBytes == null || valueBytes.length == 0) {
       throw new NullPointerException("Value cannot be null or an empty string.");
+    }
 
     Map<String, String> attributes = new HashMap<>();
 
@@ -279,7 +278,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       } catch (ClassCastException cce) {
         throw new SerializationException("Can't convert key of class " +
             record.key().getClass().getName() + " to class " +
-            producerConfig.getClass(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG).getName() +
+            producerConfig.getKafkaConfigs().getClass(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG).getName() +
             " specified in key.serializer");
       }
     }
@@ -332,8 +331,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   }
 
   private void callbackOnCompletion(Callback cb, RecordMetadata m, Exception e) {
-    if (interceptors != null)
+    if (interceptors != null) {
       interceptors.onAcknowledgement(m, e);
+    }
     cb.onCompletion(m, e);
   }
 
@@ -375,19 +375,22 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
    * Closes the producer with the given timeout.
    */
   public void close(long timeout, TimeUnit unit) {
-    if (timeout < 0)
+    if (timeout < 0) {
       throw new IllegalArgumentException("The timeout cannot be negative.");
+    }
 
-    if (closed.getAndSet(true))
+    if (closed.getAndSet(true)) {
       throw new IllegalStateException("Cannot close a producer if already closed.");
+    }
 
     try {
       for (Entry<String, AtomicReference<Publisher>> pub : publishers.entrySet()) {
         pub.getValue().get().shutdown();
       }
 
-      if (interceptors != null)
+      if (interceptors != null) {
         interceptors.close();
+      }
 
       keySerializer.close();
       valueSerializer.close();

@@ -24,8 +24,11 @@ import org.junit.rules.ExpectedException;
 import java.util.Properties;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.pubsub.clients.producer.ExtendedConfig;
+import com.google.pubsub.clients.producer.ExtendedConfig.PubSubConfig;
 
 import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
@@ -45,24 +48,24 @@ public class ProducerConfigTest {
         .build()
     );
 
-    ProducerConfig testConfig = new ProducerConfig(props);
+    ExtendedConfig testConfig = new ExtendedConfig(props);
 
     Assert.assertEquals("Project config equals unit-test-project.",
-        "unit-test-project", testConfig.getString(ProducerConfig.PROJECT_CONFIG));
+        "unit-test-project", testConfig.getAdditionalConfigs().getString(PubSubConfig.PROJECT_CONFIG));
 
     Assert.assertNotNull(
-        "Key serializer must not be null.", testConfig
+        "Key serializer must not be null.", testConfig.getKafkaConfigs()
             .getConfiguredInstance(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, Serializer.class));
     Assert.assertEquals(
         "Key serializer config must equal StringSerializer.", StringSerializer.class,
-        testConfig.getClass(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG));
+        testConfig.getKafkaConfigs().getClass(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG));
 
     Assert.assertNotNull(
-        "Value serializer must not be null.", testConfig.
+        "Value serializer must not be null.", testConfig.getKafkaConfigs().
             getConfiguredInstance(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, Serializer.class));
     Assert.assertEquals(
         "Value serializer config must equal StringSerializer.", StringSerializer.class,
-        testConfig.getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG));
+        testConfig.getKafkaConfigs().getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG));
   }
 
   @Test
@@ -75,7 +78,7 @@ public class ProducerConfigTest {
     );
 
     exception.expect(ConfigException.class);
-    new ProducerConfig(props);
+    new ExtendedConfig(props);
   }
 
   @Test
@@ -88,6 +91,6 @@ public class ProducerConfigTest {
     );
 
     exception.expect(ConfigException.class);
-    new ProducerConfig(props);
+    new ExtendedConfig(props);
   }
 }
