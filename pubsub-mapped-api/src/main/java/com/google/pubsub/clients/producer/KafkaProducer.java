@@ -71,7 +71,6 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * A Kafka client that publishes records to Google Cloud Pub/Sub.
@@ -83,7 +82,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private static final AtomicInteger CLIENT_ID = new AtomicInteger(1);
 
   private ExtendedConfig producerConfig;
-  private Map<String, AtomicReference<Publisher>> publishers;
+  private Map<String, Publisher> publishers;
 
   private final String project;
   private final Serializer<K> keySerializer;
@@ -180,6 +179,10 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   }
 
   private Publisher createPublisher(String topic) {
+    if (closed.get()) {
+      throw new IllegalStateException("Cannot send after the producer is closed.");
+    }
+
     Publisher pub = null;
     TopicName topicName = null;
     TopicAdminClient topicAdmin = null;
@@ -288,8 +291,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     PubsubMessage msg = createMessage(record, dateTime.toString(), keyBytes, valueBytes);
 
     ApiFuture<String> messageIdFuture = publishers.computeIfAbsent(
-            record.topic(), topic -> new AtomicReference<>(createPublisher(topic)))
-            .get().publish(msg);
+            record.topic(), topic -> createPublisher(topic)).publish(msg);
 
     final Callback cb = callback;
     final String topic = record.topic();
@@ -361,9 +363,12 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
    * Flushes records that have accumulated.
    */
   public void flush() {
+    Map<String, Publisher> tempPublishers = publishers;
+    publishers = new ConcurrentHashMap<>();
+
     try {
-      for (Entry<String, AtomicReference<Publisher>> pub : publishers.entrySet()) {
-        pub.getValue().getAndSet(createPublisher(pub.getKey())).shutdown();
+      for (Entry<String, Publisher> pub : tempPublishers.entrySet()) {
+        pub.getValue().shutdown();
       }
     } catch (Exception e) {
       throw new InterruptException("Flush interrupted.", (InterruptedException) e);
@@ -398,9 +403,12 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       throw new IllegalStateException("Cannot close a producer if already closed.");
     }
 
+    Map<String, Publisher> tempPublishers = publishers;
+    publishers = new ConcurrentHashMap<>();
+
     try {
-      for (Entry<String, AtomicReference<Publisher>> pub : publishers.entrySet()) {
-        pub.getValue().get().shutdown();
+      for (Entry<String, Publisher> pub : tempPublishers.entrySet()) {
+        pub.getValue().shutdown();
       }
 
       if (interceptors != null) {
