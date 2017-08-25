@@ -137,8 +137,8 @@ public class Driver {
   private int kafkaSubscriberCount = 0;
 
   @Parameter(
-      names = {"--cps_mapped_java_publisher_count"},
-      description = "Number of cps mapped publishers to start."
+    names = {"--cps_mapped_java_publisher_count"},
+    description = "Number of cps mapped publishers to start."
   )
   private int cpsMappedJavaPublisherCount = 0;
 
@@ -171,9 +171,9 @@ public class Driver {
   private int publishBatchSize = 10;
 
   @Parameter(
-      names = {"--publish_batch_duration"},
-      description = "The maximum duration to wait for more messages to batch together.",
-      converter = DurationConverter.class
+    names = {"--publish_batch_duration"},
+    description = "The maximum duration to wait for more messages to batch together.",
+    converter = DurationConverter.class
   )
   private Duration publishBatchDuration = Durations.fromMillis(0);
 
