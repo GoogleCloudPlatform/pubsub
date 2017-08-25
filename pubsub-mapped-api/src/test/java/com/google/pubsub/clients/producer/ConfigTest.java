@@ -14,7 +14,7 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-package com.google.pubsub.clients.config;
+package com.google.pubsub.clients.producer;
 
 import org.junit.Rule;
 import org.junit.Test;
@@ -24,15 +24,14 @@ import org.junit.rules.ExpectedException;
 import java.util.Properties;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.pubsub.clients.producer.ExtendedConfig;
-import com.google.pubsub.clients.producer.ExtendedConfig.PubSubConfig;
+import com.google.pubsub.clients.producer.Config.PubSubProducerConfig;
 
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 
-public class ProducerConfigTest {
+public class ConfigTest {
 
   @Rule
   public final ExpectedException exception = ExpectedException.none();
@@ -48,10 +47,10 @@ public class ProducerConfigTest {
         .build()
     );
 
-    ExtendedConfig testConfig = new ExtendedConfig(props);
+    Config testConfig = new Config(props);
 
     Assert.assertEquals("Project config equals unit-test-project.",
-        "unit-test-project", testConfig.getAdditionalConfigs().getString(PubSubConfig.PROJECT_CONFIG));
+        "unit-test-project", testConfig.getAdditionalConfigs().getString(PubSubProducerConfig.PROJECT_CONFIG));
 
     Assert.assertNotNull(
         "Key serializer must not be null.", testConfig.getKafkaConfigs()
@@ -79,7 +78,7 @@ public class ProducerConfigTest {
 
     exception.expect(ConfigException.class);
 
-    new ExtendedConfig(props);
+    new Config(props);
   }
 
   @Test
@@ -93,6 +92,6 @@ public class ProducerConfigTest {
 
     exception.expect(ConfigException.class);
 
-    new ExtendedConfig(props);
+    new Config(props);
   }
 }

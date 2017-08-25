@@ -31,26 +31,25 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 /**
  * Provides the configurations for a Kafka Producer instance.
  */
-@VisibleForTesting
-public class ExtendedConfig {
+public class Config {
 
   private ProducerConfig kafkaConfigs;
-  private PubSubConfig additionalConfigs;
+  private PubSubProducerConfig additionalConfigs;
 
-  public ExtendedConfig(Map configs) {
-    additionalConfigs = new PubSubConfig(configs);
+  Config(Map configs) {
+    additionalConfigs = new PubSubProducerConfig(configs);
     kafkaConfigs = ProducerConfigAdapter.getConsumerConfig(configs);
   }
 
-  public ProducerConfig getKafkaConfigs() {
+  ProducerConfig getKafkaConfigs() {
     return kafkaConfigs;
   }
 
-  public PubSubConfig getAdditionalConfigs() {
+  PubSubProducerConfig getAdditionalConfigs() {
     return additionalConfigs;
   }
 
-  public static class PubSubConfig extends AbstractConfig {
+  public static class PubSubProducerConfig extends AbstractConfig {
 
     public static final String PROJECT_CONFIG = "project";
     private static final String PROJECT_DOC = "GCP project that we will connect to.";
@@ -59,23 +58,21 @@ public class ExtendedConfig {
     private static final String ELEMENTS_COUNT_DOC = "This configuration controls the default count of"
             + " elements in a batch.";
 
-    public static final String AUTO_CREATE_CONFIG = "auto.create.topics.enable";
-    private static final String AUTO_CREATE_DOC = "A flag, when true topics are automatically created"
+    public static final String AUTO_CREATE_TOPICS_CONFIG = "auto.create.topics.enable";
+    private static final String AUTO_CREATE_TOPICS_DOC = "When true topics are automatically created"
             + " if they don't exist.";
-
 
     private static final ConfigDef CONFIG = new ConfigDef()
             .define(PROJECT_CONFIG, Type.STRING, Importance.HIGH, PROJECT_DOC)
-            .define(AUTO_CREATE_CONFIG, Type.BOOLEAN, true, Importance.MEDIUM, AUTO_CREATE_DOC)
+            .define(AUTO_CREATE_TOPICS_CONFIG, Type.BOOLEAN, true, Importance.MEDIUM, AUTO_CREATE_TOPICS_DOC)
             .define(ELEMENTS_COUNT_CONFIG, Type.LONG, 1000L, Range.atLeast(1L), Importance.MEDIUM, ELEMENTS_COUNT_DOC);
 
-    PubSubConfig(Map<?, ?> originals, boolean doLog) {
+    PubSubProducerConfig(Map<?, ?> originals, boolean doLog) {
       super(CONFIG, originals, doLog);
     }
 
-    PubSubConfig(Map<?, ?> originals) {
+    PubSubProducerConfig(Map<?, ?> originals) {
       super(CONFIG, originals);
     }
-
   }
 }

@@ -32,7 +32,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.TopicName;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.clients.producer.ExtendedConfig.PubSubConfig;
+import com.google.pubsub.clients.producer.Config.PubSubProducerConfig;
 
 import java.io.IOException;
 
@@ -81,7 +81,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private static final double MULTIPLIER = 1.0;
   private static final AtomicInteger CLIENT_ID = new AtomicInteger(1);
 
-  private ExtendedConfig producerConfig;
+  private Config producerConfig;
   private Map<String, Publisher> publishers;
 
   private final String project;
@@ -103,33 +103,33 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   private final AtomicBoolean closed;
 
   public KafkaProducer(Map<String, Object> configs) {
-    this(new ExtendedConfig(configs), null, null);
+    this(new Config(configs), null, null);
   }
 
   public KafkaProducer(Map<String, Object> configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
-    this(new ExtendedConfig(ProducerConfig.addSerializerToConfig(
+    this(new Config(ProducerConfig.addSerializerToConfig(
         configs, keySerializer, valueSerializer)), keySerializer, valueSerializer);
   }
 
   public KafkaProducer(Properties properties) {
-    this(new ExtendedConfig(properties), null, null);
+    this(new Config(properties), null, null);
   }
 
   public KafkaProducer(Properties properties, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
-    this(new ExtendedConfig(ProducerConfig.addSerializerToConfig(
+    this(new Config(ProducerConfig.addSerializerToConfig(
         properties, keySerializer, valueSerializer)), keySerializer, valueSerializer);
   }
 
   @VisibleForTesting
   @SuppressWarnings("unchecked")
-  public KafkaProducer(ExtendedConfig configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
+  public KafkaProducer(Config configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
 
     producerConfig = configs;
 
     // CPS's configs
-    project = configs.getAdditionalConfigs().getString(PubSubConfig.PROJECT_CONFIG);
-    autoCreate = configs.getAdditionalConfigs().getBoolean(PubSubConfig.AUTO_CREATE_CONFIG);
-    elementCount = configs.getAdditionalConfigs().getLong(PubSubConfig.ELEMENTS_COUNT_CONFIG);
+    project = configs.getAdditionalConfigs().getString(PubSubProducerConfig.PROJECT_CONFIG);
+    autoCreate = configs.getAdditionalConfigs().getBoolean(PubSubProducerConfig.AUTO_CREATE_TOPICS_CONFIG);
+    elementCount = configs.getAdditionalConfigs().getLong(PubSubProducerConfig.ELEMENTS_COUNT_CONFIG);
 
     // Kafka's configs
     if (keySerializer == null) {
@@ -288,7 +288,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       }
     }
 
-    PubsubMessage msg = createMessage(record, dateTime.toString(), keyBytes, valueBytes);
+    PubsubMessage msg = createMessage(record, dateTime.getMillis(), keyBytes, valueBytes);
 
     ApiFuture<String> messageIdFuture = publishers.computeIfAbsent(
             record.topic(), topic -> createPublisher(topic)).publish(msg);
@@ -329,18 +329,18 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   }
 
   // Attribute's value's size shouldn't exceed 1024 bytes (256 for key)
-  private PubsubMessage createMessage(ProducerRecord<K, V> record, String dateTime, byte[] key, byte[] value) {
+  private PubsubMessage createMessage(ProducerRecord<K, V> record, Long dateTime, byte[] key, byte[] value) {
     Map<String, String> attributes = new HashMap<>();
 
     attributes.put("id", clientId);
 
-    attributes.put("timestamp", dateTime);
+    attributes.put("offset", Long.toString(dateTime));
 
     attributes.put("version", Long.toString(VERSION));
 
     attributes.put("key", key == null ? "" : new String(Base64.encodeBase64(key)));
 
-    if (attributes.get("key").getBytes().length > 1024) {
+    if (attributes.get("key").length() > 1024) {
       throw new SerializationException("Key size should be at most 1024 bytes.");
     }
 
