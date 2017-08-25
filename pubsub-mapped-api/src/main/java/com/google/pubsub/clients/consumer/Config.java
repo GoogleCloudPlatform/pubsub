@@ -15,11 +15,12 @@
 package com.google.pubsub.clients.consumer;
 
 import com.google.common.base.Preconditions;
-import java.util.Map;
-import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfigCreator;
 import org.apache.kafka.common.serialization.Deserializer;
+
+import java.util.Map;
+import java.util.Properties;
 
 class Config<K, V> {
 
@@ -31,6 +32,7 @@ class Config<K, V> {
 
   private final Deserializer<K> keyDeserializer;
   private final Deserializer<V> valueDeserializer;
+  private final Boolean enableAutoCommit;
 
   Config(Map<String, Object> configs) {
     this(ConsumerConfigCreator.getConsumerConfig(configs),
@@ -81,6 +83,8 @@ class Config<K, V> {
     //this is a limit on each poll for each topic
     this.maxPollRecords = consumerConfig.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG);
 
+    this.enableAutoCommit = consumerConfig.getBoolean(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG);
+
     //PubSub-specific options
     this.allowSubscriptionCreation =
         pubSubConsumerConfig.getBoolean(PubSubConsumerConfig.SUBSCRIPTION_ALLOW_CREATE_CONFIG);
@@ -115,6 +119,10 @@ class Config<K, V> {
 
   Deserializer<V> getValueDeserializer() {
     return valueDeserializer;
+  }
+
+  Boolean getEnableAutoCommit() {
+    return enableAutoCommit;
   }
 
   private Deserializer handleDeserializer(ConsumerConfig configs, String configString,
