@@ -27,12 +27,16 @@ class Config<K, V> {
   private final Boolean allowSubscriptionCreation;
   private final Boolean allowSubscriptionDeletion;
 
+  private final Integer ackExpirationMillis;
+
   private final String groupId;
   private final int maxPollRecords;
 
   private final Deserializer<K> keyDeserializer;
   private final Deserializer<V> valueDeserializer;
   private final Boolean enableAutoCommit;
+
+  private final Integer autoCommitIntervalMs;
 
   Config(Map<String, Object> configs) {
     this(ConsumerConfigCreator.getConsumerConfig(configs),
@@ -84,12 +88,17 @@ class Config<K, V> {
     this.maxPollRecords = consumerConfig.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG);
 
     this.enableAutoCommit = consumerConfig.getBoolean(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG);
+    this.autoCommitIntervalMs = consumerConfig.getInt(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG);
 
     //PubSub-specific options
     this.allowSubscriptionCreation =
         pubSubConsumerConfig.getBoolean(PubSubConsumerConfig.SUBSCRIPTION_ALLOW_CREATE_CONFIG);
     this.allowSubscriptionDeletion =
         pubSubConsumerConfig.getBoolean(PubSubConsumerConfig.SUBSCRIPTION_ALLOW_DELETE_CONFIG);
+    this.ackExpirationMillis =
+        pubSubConsumerConfig.getInt(PubSubConsumerConfig.ACK_EXPIRATION_MILLIS_CONFIG);
+
+
 
     Preconditions.checkNotNull(this.allowSubscriptionCreation);
     Preconditions.checkNotNull(this.allowSubscriptionDeletion);
@@ -103,6 +112,10 @@ class Config<K, V> {
 
   Boolean getAllowSubscriptionDeletion() {
     return allowSubscriptionDeletion;
+  }
+
+  Integer getAckExpirationMillis() {
+    return ackExpirationMillis;
   }
 
   String getGroupId() {
@@ -123,6 +136,10 @@ class Config<K, V> {
 
   Boolean getEnableAutoCommit() {
     return enableAutoCommit;
+  }
+
+  public Integer getAutoCommitIntervalMs() {
+    return autoCommitIntervalMs;
   }
 
   private Deserializer handleDeserializer(ConsumerConfig configs, String configString,

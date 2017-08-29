@@ -80,6 +80,7 @@ class MessageDispatcher {
 
   // To keep track of number of seconds the receiver takes to process messages.
   private final Distribution ackLatencyDistribution;
+  private final List<AckHandler> pendingAckHandlers = new ArrayList<>();
 
   // ExtensionJob represents a group of {@code AckHandler}s that shares the same expiration.
   //
@@ -187,7 +188,6 @@ class MessageDispatcher {
       synchronized (pendingNacks) {
         pendingNacks.add(ackId);
       }
-      setupPendingAcksAlarm();
       flowController.release(1, outstandingBytes);
       messagesWaiter.incrementPendingMessages(-1);
       processOutstandingBatches();
@@ -195,7 +195,8 @@ class MessageDispatcher {
 
     @Override
     public void onSuccess(AckReply reply) {
-      acked.getAndSet(true);
+      //acked.getAndSet(true);
+      pendingAckHandlers.add(this);
       switch (reply) {
         case ACK:
           synchronized (pendingAcks) {
@@ -214,7 +215,6 @@ class MessageDispatcher {
         default:
           throw new IllegalArgumentException(String.format("AckReply: %s not supported", reply));
       }
-      setupPendingAcksAlarm();
       flowController.release(1, outstandingBytes);
       messagesWaiter.incrementPendingMessages(-1);
       processOutstandingBatches();
@@ -266,7 +266,7 @@ class MessageDispatcher {
     } finally {
       alarmsLock.unlock();
     }
-    processOutstandingAckOperations();
+    acknowledgePendingMessages();
   }
 
   public void setMessageDeadlineSeconds(int messageDeadlineSeconds) {
@@ -412,35 +412,6 @@ class MessageDispatcher {
     }
   }
 
-  private void setupPendingAcksAlarm() {
-    alarmsLock.lock();
-    try {
-      if (pendingAcksAlarm == null) {
-        pendingAcksAlarm =
-            systemExecutor.schedule(
-                new Runnable() {
-                  @Override
-                  public void run() {
-                    alarmsLock.lock();
-                    try {
-                      pendingAcksAlarm = null;
-                    } finally {
-                      alarmsLock.unlock();
-                    }
-                    processOutstandingAckOperations();
-                  }
-                },
-                PENDING_ACKS_SEND_DELAY.toMillis(),
-                TimeUnit.MILLISECONDS);
-      }
-    } finally {
-      alarmsLock.unlock();
-    }
-  }
-
-  /*
-  alarm dedlajnowy. chyba po prostu puszcza watki do extension i ack - wywoluje processOutstandingAckOperations
-   */
   private class AckDeadlineAlarm implements Runnable {
     @Override
     public void run() {
@@ -520,7 +491,7 @@ class MessageDispatcher {
         }
       }
 
-      processOutstandingAckOperations(modifyAckDeadlinesToSend);
+      extendAckDeadlines(modifyAckDeadlinesToSend);
 
       if (nextScheduleExpiration != null) {
         logger.log(
@@ -560,27 +531,28 @@ class MessageDispatcher {
     }
   }
 
-  public void processOutstandingAckOperations() {
-    processOutstandingAckOperations(Collections.<PendingModifyAckDeadline>emptyList());
-  }
-
-  private void processOutstandingAckOperations(
-      List<PendingModifyAckDeadline> ackDeadlineExtensions) {
-    List<PendingModifyAckDeadline> modifyAckDeadlinesToSend =
-        Lists.newArrayList(ackDeadlineExtensions);
+  public void acknowledgePendingMessages() {
     List<String> acksToSend = new ArrayList<>(pendingAcks.size());
-    if(this.autoAckEnabled) {
-      synchronized (pendingAcks) {
-        if (!pendingAcks.isEmpty()) {
-          try {
-            acksToSend = new ArrayList<>(pendingAcks);
-            logger.log(Level.FINER, "Sending {0} acks", acksToSend.size());
-          } finally {
-            pendingAcks.clear();
-          }
+    synchronized (pendingAcks) {
+      if (!pendingAcks.isEmpty()) {
+        try {
+          acksToSend = new ArrayList<>(pendingAcks);
+          logger.log(Level.FINER, "Sending {0} acks", acksToSend.size());
+        } finally {
+          pendingAcks.clear();
         }
       }
     }
+    ackProcessor.sendAckOperations(acksToSend, Collections.<PendingModifyAckDeadline>emptyList());
+    synchronized (pendingAckHandlers) {
+      for(AckHandler handler: pendingAckHandlers)
+        handler.acked.getAndSet(true);
+    }
+  }
+
+  private void extendAckDeadlines(List<PendingModifyAckDeadline> ackDeadlineExtensions) {
+    List<PendingModifyAckDeadline> modifyAckDeadlinesToSend =
+        Lists.newArrayList(ackDeadlineExtensions);
 
     PendingModifyAckDeadline nacksToSend = new PendingModifyAckDeadline(0);
     synchronized (pendingNacks) {
@@ -596,6 +568,7 @@ class MessageDispatcher {
         modifyAckDeadlinesToSend.add(nacksToSend);
       }
     }
-    ackProcessor.sendAckOperations(acksToSend, modifyAckDeadlinesToSend);
+    ackProcessor.sendAckOperations(Collections.<String>emptyList(), modifyAckDeadlinesToSend);
+
   }
 }

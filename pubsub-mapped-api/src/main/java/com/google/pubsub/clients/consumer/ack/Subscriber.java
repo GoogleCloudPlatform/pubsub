@@ -23,15 +23,21 @@ import com.google.api.core.CurrentMillisClock;
 import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.batching.FlowController;
 import com.google.api.gax.batching.FlowController.LimitExceededBehavior;
-import com.google.api.gax.core.*;
+import com.google.api.gax.core.Distribution;
+import com.google.api.gax.core.ExecutorProvider;
+import com.google.api.gax.core.FixedExecutorProvider;
+import com.google.api.gax.core.InstantiatingExecutorProvider;
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.primitives.Ints;
 import com.google.pubsub.common.ChannelUtil;
-import com.google.pubsub.v1.*;
+import com.google.pubsub.v1.PullResponse;
+import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
+import com.google.pubsub.v1.Subscription;
+import com.google.pubsub.v1.SubscriptionName;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import org.threeten.bp.Duration;
@@ -39,6 +45,7 @@ import org.threeten.bp.Duration;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -89,8 +96,9 @@ public class Subscriber extends AbstractApiService {
 
   private static final Logger logger = Logger.getLogger(Subscriber.class.getName());
 
-  private final SubscriptionName subscriptionName;
-  private final String cachedSubscriptionNameString;
+  /*private final SubscriptionName subscriptionName;
+  private final String cachedSubscriptionNameString;*/
+  private final Subscription subscription;
   private final FlowControlSettings flowControlSettings;
   private final Duration ackExpirationPadding;
   private final Duration maxAckExtensionPeriod;
@@ -103,25 +111,36 @@ public class Subscriber extends AbstractApiService {
   private final CallCredentials callCredentials;
   private final Channel channel;
   private final MessageReceiver receiver;
-  private final List<PollingSubscriberConnection> pollingSubscriberConnections;
+  private final PollingSubscriberConnection pollingSubscriberConnection;
   private final ApiClock clock;
   private final List<AutoCloseable> closeables = new ArrayList<>();
   private ScheduledFuture<?> ackDeadlineUpdater;
   private int streamAckDeadlineSeconds;
+  private Long maxPullRecords;
+  private long nextCommitTime;
+  private Boolean autoCommit;
+  private final Integer autoCommitInterval;
+  
 
   private Subscriber(Builder builder) {
     receiver = builder.receiver;
     flowControlSettings = builder.flowControlSettings;
-    subscriptionName = builder.subscriptionName;
-    cachedSubscriptionNameString = subscriptionName.toString();
+    subscription = builder.subscription;
     ackExpirationPadding = builder.ackExpirationPadding;
     maxAckExtensionPeriod = builder.maxAckExtensionPeriod;
+    maxPullRecords = builder.maxPullRecords;
     long streamAckDeadlineMillis = ackExpirationPadding.toMillis();
     streamAckDeadlineSeconds =
         Math.max(
             INITIAL_ACK_DEADLINE_SECONDS,
             Ints.saturatedCast(TimeUnit.MILLISECONDS.toSeconds(streamAckDeadlineMillis)));
     clock = builder.clock.isPresent() ? builder.clock.get() : CurrentMillisClock.getDefaultClock();
+    this.autoCommitInterval = builder.autoCommitInterval;
+    this.autoCommit = builder.autoCommit;
+
+    if(this.autoCommit) {
+      this.nextCommitTime = clock.millisTime() + autoCommitInterval;
+    }
 
     flowController =
         new FlowController(
@@ -152,13 +171,30 @@ public class Subscriber extends AbstractApiService {
           });
     }
 
-    /*channelProvider = builder.channelProvider;*/
     this.callCredentials = ChannelUtil.getInstance().getCallCredentials();
     this.channel = ChannelUtil.getInstance().getChannel();
 
-    numChannels = builder.parallelPullCount;/*
-    streamingSubscriberConnections = new ArrayList<StreamingSubscriberConnection>(numChannels);*/
-    pollingSubscriberConnections = new ArrayList<PollingSubscriberConnection>(1);
+    numChannels = builder.parallelPullCount;
+
+    SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(channel);
+    if (callCredentials != null) {
+      stub = stub.withCallCredentials(callCredentials);
+    }
+
+    this.pollingSubscriberConnection = new PollingSubscriberConnection(
+        subscription,
+        receiver,
+        ackExpirationPadding,
+        maxAckExtensionPeriod,
+        ackLatencyDistribution,
+        stub,
+        flowController,
+        maxPullRecords,
+        executor,
+        alarmsExecutor,
+        clock);
+
+    pollingSubscriberConnection.startAsync();
   }
 
   /**
@@ -177,7 +213,7 @@ public class Subscriber extends AbstractApiService {
 
   /** Subscription which the subscriber is subscribed to. */
   public SubscriptionName getSubscriptionName() {
-    return subscriptionName;
+    return subscription.getNameAsSubscriptionName();
   }
 
   /** Acknowledgement expiration padding. See {@link Builder#setAckExpirationPadding}. */
@@ -216,60 +252,22 @@ public class Subscriber extends AbstractApiService {
   }
 
   public void commit() {
-    pollingSubscriberConnections.get(0).commit();
+    pollingSubscriberConnection.commit();
   }
 
   @Override
   protected void doStart() {
+
     logger.log(Level.FINE, "Starting subscriber group.");
 
-    /*try {
-      for (int i = 0; i < numChannels; i++) {
-        if (channelProvider.shouldAutoClose()) {
-          closeables.add(
-              new AutoCloseable() {
-                @Override
-                public void close() {
-                  channel.shutdown();
-                }
-              });
-        }
-      }
-    } catch (IOException e) {
-      // doesn't matter what we throw, the Service will just catch it and fail to start.
-      throw new IllegalStateException(e);
-    }*/
-
-    // When started, connections submit tasks to the executor.
-    // These tasks must finish before the connections can declare themselves running.
-    // If we have a single-thread executor and call startStreamingConnections from the
-    // same executor, it will deadlock: the thread will be stuck waiting for connections
-    // to start but cannot start the connections.
-    // For this reason, we spawn a dedicated thread. Starting subscriber should be rare.
-    /*new Thread(
-        new Runnable() {
-          @Override
-          public void run() {
-            try {
-              if (useStreaming) {
-                startStreamingConnections();
-              } else {
-                startPollingConnections();
-              }
-              notifyStarted();
-            } catch (Throwable t) {
-              notifyFailed(t);
-            }
-          }
-        })
-        .start();*/
+    if(!pollingSubscriberConnection.isRunning())
+      pollingSubscriberConnection.doStart();
   }
 
   @Override
   protected void doStop() {
     // stop connection is no-op if connections haven't been started.
     stopAllPollingConnections();
-    stopAllStreamingConnections();
     try {
       for (AutoCloseable closeable : closeables) {
         closeable.close();
@@ -281,139 +279,19 @@ public class Subscriber extends AbstractApiService {
   }
 
   public PullResponse pull() throws IOException, ExecutionException, InterruptedException {
-    synchronized (pollingSubscriberConnections) {
-      SubscriberGrpc.SubscriberBlockingStub getSubStub =
-          SubscriberGrpc.newBlockingStub(channel)
-              .withCallCredentials(callCredentials)
-              .withDeadlineAfter(PollingSubscriberConnection.DEFAULT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS); //TODO - deadline is a config
-
-
-
-      Subscription subscriptionInfo =
-          getSubStub.getSubscription(
-              GetSubscriptionRequest.newBuilder()
-                  .setSubscription(cachedSubscriptionNameString)
-                  .build());
-
-      if (callCredentials != null) {
-        getSubStub = getSubStub.withCallCredentials(callCredentials);
+    long now = clock.millisTime();
+    synchronized (pollingSubscriberConnection) {
+      PullResponse pullResponse = pollingSubscriberConnection.pullMessages(100);
+      if(this.autoCommit && this.nextCommitTime <= now) {
+        pollingSubscriberConnection.commit();
+        this.nextCommitTime = now + this.autoCommitInterval;
       }
-
-
-      SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(channel).withCallCredentials(callCredentials);
-      if (callCredentials != null) {
-        stub = stub.withCallCredentials(callCredentials);
-      }
-
-      pollingSubscriberConnections.add(
-          new PollingSubscriberConnection(
-              subscriptionInfo,
-              receiver,
-              ackExpirationPadding,
-              maxAckExtensionPeriod,
-              ackLatencyDistribution,
-              stub,
-              flowController,
-              flowControlSettings.getMaxOutstandingElementCount(),
-              executor,
-              alarmsExecutor,
-              clock));
-
-      if(!pollingSubscriberConnections.get(0).isRunning())
-        pollingSubscriberConnections.get(0).doStart();
-
-      return pollingSubscriberConnections.get(0).pullMessages(100);
-    }
-  }
-
-  private void startStreamingConnections() throws IOException {
-    /*synchronized (streamingSubscriberConnections) {
-            Credentials credentials = credentialsProvider.getCredentials();
-            CallCredentials callCredentials =
-                credentials == null ? null : MoreCallCredentials.from(credentials);
-
-      for (Channel channel : channels) {
-              SubscriberStub stub = SubscriberGrpc.newStub(channel);
-              if (callCredentials != null) {
-                stub = stub.withCallCredentials(callCredentials);
-              }
-              streamingSubscriberConnections.add(
-                  new StreamingSubscriberConnection(
-                      cachedSubscriptionNameString,
-                      receiver,
-                      ackExpirationPadding,
-                      maxAckExtensionPeriod,
-                      streamAckDeadlineSeconds,
-                      ackLatencyDistribution,
-                      stub,
-                      flowController,
-                      executor,
-                      alarmsExecutor,
-                      clock));
-            }
-            startConnections(
-                streamingSubscriberConnections,
-          new Listener() {
-            @Override
-            public void failed(State from, Throwable failure) {
-              // If a connection failed is because of a fatal error, we should fail the
-              // whole subscriber.
-              stopAllStreamingConnections();
-              try {
-                notifyFailed(failure);
-              } catch (IllegalStateException e) {
-                if (isRunning()) {
-                  throw e;
-                }
-                // It could happen that we are shutting down while some channels fail.
-              }
-            }
-          });
-    }*/
-
-    ackDeadlineUpdater =
-        executor.scheduleAtFixedRate(
-            new Runnable() {
-              @Override
-              public void run() {
-                updateAckDeadline();
-              }
-            },
-            ACK_DEADLINE_UPDATE_PERIOD.toMillis(),
-            ACK_DEADLINE_UPDATE_PERIOD.toMillis(),
-            TimeUnit.MILLISECONDS);
-  }
-
-  private void updateAckDeadline() {
-    // It is guaranteed this will be <= MAX_ACK_DEADLINE_SECONDS, the max of the API.
-    long ackLatency = ackLatencyDistribution.getNthPercentile(PERCENTILE_FOR_ACK_DEADLINE_UPDATES);
-    if (ackLatency > 0) {
-      int possibleStreamAckDeadlineSeconds =
-          Math.max(
-              MIN_ACK_DEADLINE_SECONDS,
-              Ints.saturatedCast(Math.max(ackLatency, ackExpirationPadding.getSeconds())));
-      if (streamAckDeadlineSeconds != possibleStreamAckDeadlineSeconds) {
-        streamAckDeadlineSeconds = possibleStreamAckDeadlineSeconds;
-        logger.log(
-            Level.FINER, "Updating stream deadline to {0} seconds.", streamAckDeadlineSeconds);
-        /*for (StreamingSubscriberConnection subscriberConnection : streamingSubscriberConnections) {
-          subscriberConnection.updateStreamAckDeadline(streamAckDeadlineSeconds);
-        }*/
-      }
+      return pullResponse;
     }
   }
 
   private void stopAllPollingConnections() {
-    stopConnections(pollingSubscriberConnections);
-  }
-
-  private void stopAllStreamingConnections() {
-/*
-    stopConnections(streamingSubscriberConnections);
-*/
-    if (ackDeadlineUpdater != null) {
-      ackDeadlineUpdater.cancel(true);
-    }
+    stopConnections(Arrays.asList(pollingSubscriberConnection));
   }
 
   private void startConnections(
@@ -476,15 +354,12 @@ public class Subscriber extends AbstractApiService {
 
     ExecutorProvider executorProvider = DEFAULT_EXECUTOR_PROVIDER;
     ExecutorProvider systemExecutorProvider = FixedExecutorProvider.create(SHARED_SYSTEM_EXECUTOR);
-    /*ChannelProvider channelProvider =
-        SubscriptionAdminSettings.defaultGrpcChannelProviderBuilder()
-            .setMaxInboundMessageSize(MAX_INBOUND_MESSAGE_SIZE)
-            .build();
-    CredentialsProvider credentialsProvider =
-        SubscriptionAdminSettings.defaultCredentialsProviderBuilder().build();*/
     Optional<ApiClock> clock = Optional.absent();
-    boolean useStreaming = true;
     int parallelPullCount = Runtime.getRuntime().availableProcessors() * CHANNELS_PER_CORE;
+    private Subscription subscription;
+    private Long maxPullRecords;
+    private Boolean autoCommit;
+    private Integer autoCommitInterval;
 
     Builder(SubscriptionName subscriptionName, MessageReceiver receiver) {
       this.subscriptionName = subscriptionName;
@@ -561,14 +436,29 @@ public class Subscriber extends AbstractApiService {
       return this;
     }
 
+    public Builder setSubscription(Subscription subscription) {
+      this.subscription = subscription;
+      return this;
+    }
+    
+    public Builder setAutoCommit(Boolean autoCommit) {
+      this.autoCommit = autoCommit;
+      return this;
+    }
+
     /** Gives the ability to set a custom clock. */
     Builder setClock(ApiClock clock) {
       this.clock = Optional.of(clock);
       return this;
     }
 
-    Builder setUseStreaming(boolean useStreaming) {
-      this.useStreaming = useStreaming;
+    public Builder setMaxPullRecords(Long maxPullRecords) {
+      this.maxPullRecords = maxPullRecords;
+      return this;
+    }
+
+    public Builder setAutoCommitIterval(Integer autoCommitIterval) {
+      this.autoCommitInterval = autoCommitIterval;
       return this;
     }
 

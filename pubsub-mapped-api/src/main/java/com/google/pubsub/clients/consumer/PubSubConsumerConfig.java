@@ -14,11 +14,12 @@
 
 package com.google.pubsub.clients.consumer;
 
-import java.util.Map;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
+
+import java.util.Map;
 
 //TODO Use builder pattern using Kafka's ConsumerConfig class
 /**
@@ -37,6 +38,11 @@ public class PubSubConsumerConfig extends AbstractConfig {
   private static final String SUBSCRIPTION_ALLOW_DELETE_DOC =
       "Determines if subscriptions for non-existing groups should be created";
 
+  /** <code>ack.expiration.millis</code> */
+  public static final String ACK_EXPIRATION_MILLIS_CONFIG = "ack.expiration.millis";
+  private static final String ACK_EXPIRATION_MILLIS_DOC =
+      "Acknowledge deadline for PubSub";
+
   private static synchronized ConfigDef getInstance() {
     return new ConfigDef()
         .define(SUBSCRIPTION_ALLOW_CREATE_CONFIG,
@@ -48,7 +54,12 @@ public class PubSubConsumerConfig extends AbstractConfig {
             Type.BOOLEAN,
             false,
             Importance.MEDIUM,
-            SUBSCRIPTION_ALLOW_DELETE_DOC);
+            SUBSCRIPTION_ALLOW_DELETE_DOC)
+        .define(ACK_EXPIRATION_MILLIS_CONFIG,
+            Type.INT,
+            600000,
+            Importance.MEDIUM,
+            ACK_EXPIRATION_MILLIS_DOC);
   }
 
   PubSubConsumerConfig(Map<?, ?> props) {

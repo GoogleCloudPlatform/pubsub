@@ -48,7 +48,6 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
       Logger.getLogger(PollingSubscriberConnection.class.getName());
 
   private final Subscription subscription;
-  private final ScheduledExecutorService pollingExecutor;
   private final SubscriberFutureStub stub;
   private final MessageDispatcher messageDispatcher;
   private final int maxDesiredPulledMessages;
@@ -66,7 +65,6 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
       ScheduledExecutorService systemExecutor,
       ApiClock clock) {
     this.subscription = subscription;
-    this.pollingExecutor = systemExecutor;
     this.stub = stub;
     messageDispatcher =
         new MessageDispatcher(
@@ -84,7 +82,6 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
         maxDesiredPulledMessages != null
             ? Ints.saturatedCast(maxDesiredPulledMessages)
             : DEFAULT_MAX_MESSAGES;
-    this.startAsync();
   }
 
   public PullResponse pullMessages(final long timeout) throws ExecutionException, InterruptedException {
@@ -103,12 +100,7 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
 
     PullResponse response = pullResult.get();
 
-    messageDispatcher.processReceivedMessages(response.getReceivedMessagesList(), new Runnable() {
-      @Override
-      public void run() {
-
-      }
-    });
+    messageDispatcher.processReceivedMessages(response.getReceivedMessagesList(), () -> {});
 
     //on non-retry-fail - stop dispatcher?
     return response;
@@ -121,7 +113,7 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
   }
 
   public void commit() {
-    messageDispatcher.processOutstandingAckOperations();
+    messageDispatcher.acknowledgePendingMessages();
   }
 
   @Override
