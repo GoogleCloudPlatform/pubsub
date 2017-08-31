@@ -136,11 +136,19 @@ public class Driver {
   )
   private int kafkaSubscriberCount = 0;
 
+  //new changes
+
   @Parameter(
-    names = {"--cps_mapped_java_publisher_count"},
-    description = "Number of cps mapped publishers to start."
+          names = {"--kafka_mapped_java_publisher_count"},
+          description = "Number of mapped publishers to start."
   )
-  private int cpsMappedJavaPublisherCount = 0;
+  private int kafkaMappedJavaPublisherCount = 0;
+
+  @Parameter(
+          names = {"--kafka_mapped_java_subscriber_count"},
+          description = "Number of mapped subscribers to start."
+  )
+  private int kafkaMappedJavaSubscriberCount = 0;
 
   @Parameter(
     names = {"--message_size", "-m"},
@@ -389,10 +397,10 @@ public class Driver {
         clientParamsMap.put(
             new ClientParams(ClientType.CPS_VTK_JAVA_PUBLISHER, null), cpsVtkJavaPublisherCount);
       }
-      if (cpsMappedJavaPublisherCount > 0) {
+      if (kafkaMappedJavaPublisherCount > 0) {
         clientParamsMap.put(
-            new ClientParams(ClientType.CPS_MAPPED_JAVA_PUBLISHER, null),
-            cpsMappedJavaPublisherCount);
+            new ClientParams(ClientType.KAFKA_MAPPED_JAVA_PUBLISHER, null),
+            kafkaMappedJavaPublisherCount);
       }
       if (kafkaPublisherCount > 0) {
         clientParamsMap.put(
@@ -419,13 +427,16 @@ public class Driver {
             clientParamsMap.size() == 1,
             "If max_publish_latency is specified, there must be one type of publisher.");
       }
+
+      //TODO: here
+
       // Each type of client will have its own topic, so each topic will get
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         if (cpsGcloudJavaSubscriberCount > 0) {
           Preconditions.checkArgument(
               cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount +
-                  cpsVtkJavaPublisherCount + cpsGcloudGoPublisherCount + cpsMappedJavaPublisherCount
+                  cpsVtkJavaPublisherCount + cpsGcloudGoPublisherCount + kafkaMappedJavaPublisherCount
                   > 0,
               "--cps_gcloud_java_publisher, --cps_gcloud_go_publisher, --cps_gcloud_python_publisher,"
                   + "or --cps_mapped_java_publisher must be > 0.");
@@ -508,7 +519,8 @@ public class Driver {
             cpsGcloudJavaPublisherCount
                 + cpsExperimentalJavaPublisherCount
                 + cpsVtkJavaPublisherCount
-                + cpsGcloudPythonPublisherCount);
+                + cpsGcloudPythonPublisherCount
+                + kafkaMappedJavaPublisherCount);
     controller.startClients(messageTracker);
     if (whileRunning != null) {
       whileRunning.run();

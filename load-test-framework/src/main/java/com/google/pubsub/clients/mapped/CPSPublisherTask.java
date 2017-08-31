@@ -20,8 +20,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Runs a task that publishes messages utilizing Pub/Sub's implementation of the Kafka Producer<K,V>
- * interface
+ * Runs a task that publishes messages utilizing Pub/Sub's implementation of the Kafka Producer<K,V> Interface.
  */
 public class CPSPublisherTask extends Task {
 
@@ -29,6 +28,7 @@ public class CPSPublisherTask extends Task {
 
   private final String topic;
   private final String payload;
+
   private final int batchSize;
   private final KafkaProducer<String, String> publisher;
 

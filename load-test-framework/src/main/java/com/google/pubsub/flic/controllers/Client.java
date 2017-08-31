@@ -38,6 +38,8 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+//TODO: add mapped subscriber support
+
 /**
  * Manages remote clients by starting, performing health checks, and collecting statistics
  * on running clients.
@@ -117,7 +119,7 @@ public class Client {
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
         return "kafka";
-      case CPS_MAPPED_JAVA_PUBLISHER:
+      case KAFKA_MAPPED_JAVA_PUBLISHER:
         return "mapped";
     }
     return null;
@@ -200,7 +202,7 @@ public class Client {
       case CPS_GCLOUD_PYTHON_PUBLISHER:
       case CPS_GCLOUD_GO_PUBLISHER:
       case CPS_VTK_JAVA_PUBLISHER:
-      case CPS_MAPPED_JAVA_PUBLISHER:
+      case KAFKA_MAPPED_JAVA_PUBLISHER:
         break;
     }
     StartRequest request = requestBuilder.build();
@@ -308,7 +310,7 @@ public class Client {
     CPS_VTK_JAVA_PUBLISHER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER,
-    CPS_MAPPED_JAVA_PUBLISHER;
+    KAFKA_MAPPED_JAVA_PUBLISHER;
 
     public boolean isCpsPublisher() {
       switch (this) {
@@ -317,7 +319,7 @@ public class Client {
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
-        case CPS_MAPPED_JAVA_PUBLISHER:
+        case KAFKA_MAPPED_JAVA_PUBLISHER:
           return true;
         default:
           return false;
@@ -341,12 +343,14 @@ public class Client {
         case CPS_GCLOUD_GO_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
         case KAFKA_PUBLISHER:
-        case CPS_MAPPED_JAVA_PUBLISHER:
+        case KAFKA_MAPPED_JAVA_PUBLISHER:
           return true;
         default:
           return false;
       }
     }
+
+    //TODO: here
 
     public ClientType getSubscriberType() {
       switch (this) {
@@ -356,7 +360,7 @@ public class Client {
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
         case CPS_VTK_JAVA_PUBLISHER:
-        case CPS_MAPPED_JAVA_PUBLISHER:
+        case KAFKA_MAPPED_JAVA_PUBLISHER:
           return CPS_GCLOUD_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;
