@@ -48,7 +48,7 @@ import java.util.logging.Logger;
 class MessageDispatcher {
   private static final Logger logger = Logger.getLogger(MessageDispatcher.class.getName());
 
-  private static final int INITIAL_ACK_DEADLINE_EXTENSION_SECONDS = 2;
+  private static final int INITIAL_ACK_DEADLINE_EXTENSION_SECONDS = 10;
   @VisibleForTesting static final Duration PENDING_ACKS_SEND_DELAY = Duration.ofMillis(100);
   private static final int MAX_ACK_DEADLINE_EXTENSION_SECS = 10; // 10m
 
@@ -266,7 +266,7 @@ class MessageDispatcher {
     } finally {
       alarmsLock.unlock();
     }
-    acknowledgePendingMessages();
+    //acknowledgePendingMessages(); TODO nieeeeeeeeeeeeeeeee
   }
 
   public void setMessageDeadlineSeconds(int messageDeadlineSeconds) {

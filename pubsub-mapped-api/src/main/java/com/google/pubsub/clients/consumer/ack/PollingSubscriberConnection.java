@@ -151,6 +151,7 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
 
   @Override
   protected void doStop() {
+    messageDispatcher.stop();
     notifyStopped();
   }
 }

@@ -294,17 +294,6 @@ public class Subscriber extends AbstractApiService {
     stopConnections(Arrays.asList(pollingSubscriberConnection));
   }
 
-  private void startConnections(
-      List<? extends ApiService> connections, final ApiService.Listener connectionsListener) {
-    for (ApiService subscriber : connections) {
-      subscriber.addListener(connectionsListener, executor);
-      subscriber.startAsync();
-    }
-    for (ApiService subscriber : connections) {
-      subscriber.awaitRunning();
-    }
-  }
-
   private void stopConnections(List<? extends ApiService> connections) {
     ArrayList<ApiService> liveConnections;
     synchronized (connections) {
