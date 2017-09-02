@@ -193,8 +193,6 @@ public class Subscriber extends AbstractApiService {
         executor,
         alarmsExecutor,
         clock);
-
-    pollingSubscriberConnection.startAsync();
   }
 
   /**
@@ -256,16 +254,15 @@ public class Subscriber extends AbstractApiService {
   }
 
   @Override
-  protected void doStart() {
-
+  public void doStart() {
     logger.log(Level.FINE, "Starting subscriber group.");
-
+    pollingSubscriberConnection.startAsync();
     if(!pollingSubscriberConnection.isRunning())
       pollingSubscriberConnection.doStart();
   }
 
   @Override
-  protected void doStop() {
+  public void doStop() {
     // stop connection is no-op if connections haven't been started.
     stopAllPollingConnections();
     try {
@@ -281,17 +278,16 @@ public class Subscriber extends AbstractApiService {
   public PullResponse pull() throws IOException, ExecutionException, InterruptedException {
     long now = clock.millisTime();
     synchronized (pollingSubscriberConnection) {
-      PullResponse pullResponse = pollingSubscriberConnection.pullMessages(100);
       if(this.autoCommit && this.nextCommitTime <= now) {
         pollingSubscriberConnection.commit();
         this.nextCommitTime = now + this.autoCommitInterval;
       }
-      return pullResponse;
+      return pollingSubscriberConnection.pullMessages(100);
     }
   }
 
   private void stopAllPollingConnections() {
-    stopConnections(Arrays.asList(pollingSubscriberConnection));
+    stopConnections(new ArrayList<>(Arrays.asList(pollingSubscriberConnection)));
   }
 
   private void stopConnections(List<? extends ApiService> connections) {
@@ -355,19 +351,6 @@ public class Subscriber extends AbstractApiService {
       this.receiver = receiver;
     }
 
-    /**
-     * {@code ChannelProvider} to use to create Channels, which must point at Cloud Pub/Sub
-     * endpoint.
-     *
-     * <p>For performance, this client benefits from having multiple channels open at once. Users
-     * are encouraged to provide instances of {@code ChannelProvider} that creates new channels
-     * instead of returning pre-initialized ones.
-     */
-    /*public Builder setChannelProvider(ChannelProvider channelProvider) {
-      this.channelProvider = Preconditions.checkNotNull(channelProvider);
-      return this;
-    }*/
-
     /** Sets the flow control settings. */
     public Builder setFlowControlSettings(FlowControlSettings flowControlSettings) {
       this.flowControlSettings = Preconditions.checkNotNull(flowControlSettings);
@@ -413,15 +396,6 @@ public class Subscriber extends AbstractApiService {
      */
     public Builder setSystemExecutorProvider(ExecutorProvider executorProvider) {
       this.systemExecutorProvider = Preconditions.checkNotNull(executorProvider);
-      return this;
-    }
-
-    /**
-     * Sets the number of pullers used to pull messages from the subscription. Defaults to the
-     * number of available processors.
-     */
-    public Builder setParallelPullCount(int parallelPullCount) {
-      this.parallelPullCount = parallelPullCount;
       return this;
     }
 

@@ -123,7 +123,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       this.subscriberFutureStub = subscriberFutureStub;
       this.publisherFutureStub = publisherFutureStub;
 
-      //Kafka-specific options
       this.config = config;
 
       log.debug("PubSub subscriber created");
@@ -165,8 +164,10 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
           .setSubscription(entry.getValue())
           .setAutoCommit(config.getEnableAutoCommit())
           .setAutoCommitIterval(config.getAutoCommitIntervalMs())
+          .setMaxPullRecords((long) config.getMaxPollRecords())
           .build();
       tempSubscribersMap.put(entry.getKey(), subscriber);
+      subscriber.startAsync();
     }
 
     topicNameToSubscriber = ImmutableMap.copyOf(tempSubscribersMap);
@@ -275,7 +276,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         .createSubscription(Subscription.newBuilder()
             .setName(subscriptionString)
             .setTopic(TOPIC_PREFIX + topicName)
-                .setAckDeadlineSeconds(DEFAULT_SUBSCRIPTION_DEADLINE)
+            .setAckDeadlineSeconds(DEFAULT_SUBSCRIPTION_DEADLINE)
             .build());
   }
 
@@ -340,6 +341,10 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   @Override
   public void unsubscribe() {
     deleteSubscriptionsIfAllowed(topicNameToSubscriber.values());
+    for(Subscriber s: topicNameToSubscriber.values()) {
+      s.stopAsync();
+      s.doStop();
+    }
     topicNameToSubscriber = ImmutableMap.of();
     topicNames = ImmutableList.of();
     currentPoolIndex = 0;
@@ -375,7 +380,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         PullResponse pullResponse = subscriber.pull();
 
         List<ConsumerRecord<K, V>> subscriptionRecords = mapToConsumerRecords(topicName, pullResponse);
-
         this.currentPoolIndex = (this.currentPoolIndex + 1) % topicNameToSubscriber.size();
 
         if (!pullResponse.getReceivedMessagesList().isEmpty()) {

@@ -20,7 +20,6 @@ import com.google.api.core.ApiClock;
 import com.google.api.gax.batching.FlowController;
 import com.google.api.gax.batching.FlowController.FlowControlException;
 import com.google.api.gax.core.Distribution;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.FutureCallback;
@@ -28,10 +27,15 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.ReceivedMessage;
-import org.threeten.bp.Duration;
-import org.threeten.bp.Instant;
-
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Deque;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.PriorityQueue;
+import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +44,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.threeten.bp.Duration;
+import org.threeten.bp.Instant;
 
 /**
  * Dispatches messages to a message receiver while handling the messages acking and lease
@@ -48,9 +54,8 @@ import java.util.logging.Logger;
 class MessageDispatcher {
   private static final Logger logger = Logger.getLogger(MessageDispatcher.class.getName());
 
-  private static final int INITIAL_ACK_DEADLINE_EXTENSION_SECONDS = 10;
-  @VisibleForTesting static final Duration PENDING_ACKS_SEND_DELAY = Duration.ofMillis(100);
-  private static final int MAX_ACK_DEADLINE_EXTENSION_SECS = 10; // 10m
+  private static final int INITIAL_ACK_DEADLINE_EXTENSION_SECONDS = 2;
+  private static final int MAX_ACK_DEADLINE_EXTENSION_SECS = 10 * 60; // 10m
 
   private final ScheduledExecutorService executor;
   private final ScheduledExecutorService systemExecutor;
@@ -65,7 +70,7 @@ class MessageDispatcher {
   private final MessageWaiter messagesWaiter;
 
   private final PriorityQueue<ExtensionJob> outstandingAckHandlers;
-  private final Set<String> pendingAcks;
+  private final HashMap<String, AckHandler> pendingAcks;
   private final Set<String> pendingNacks;
 
   private final Lock alarmsLock;
@@ -75,8 +80,6 @@ class MessageDispatcher {
   private ScheduledFuture<?> pendingAcksAlarm;
 
   private final Deque<OutstandingMessagesBatch> outstandingMessageBatches;
-
-  private final boolean autoAckEnabled = true;
 
   // To keep track of number of seconds the receiver takes to process messages.
   private final Distribution ackLatencyDistribution;
@@ -195,12 +198,10 @@ class MessageDispatcher {
 
     @Override
     public void onSuccess(AckReply reply) {
-      //acked.getAndSet(true);
-      pendingAckHandlers.add(this);
       switch (reply) {
         case ACK:
           synchronized (pendingAcks) {
-            pendingAcks.add(ackId);
+            pendingAcks.put(ackId, this);
           }
           // Record the latency rounded to the next closest integer.
           ackLatencyDistribution.record(
@@ -245,7 +246,7 @@ class MessageDispatcher {
     this.flowController = flowController;
     outstandingMessageBatches = new LinkedList<>();
     outstandingAckHandlers = new PriorityQueue<>();
-    pendingAcks = new HashSet<>();
+    pendingAcks = new HashMap<>();
     pendingNacks = new HashSet<>();
     // 601 buckets of 1s resolution from 0s to MAX_ACK_DEADLINE_SECONDS
     this.ackLatencyDistribution = ackLatencyDistribution;
@@ -266,7 +267,7 @@ class MessageDispatcher {
     } finally {
       alarmsLock.unlock();
     }
-    //acknowledgePendingMessages(); TODO nieeeeeeeeeeeeeeeee
+    //acknowledgePendingMessages(); TODO no no no
   }
 
   public void setMessageDeadlineSeconds(int messageDeadlineSeconds) {
@@ -415,6 +416,7 @@ class MessageDispatcher {
   private class AckDeadlineAlarm implements Runnable {
     @Override
     public void run() {
+      System.out.println("AckDeadlineAlarm");
       alarmsLock.lock();
       try {
         nextAckDeadlineExtensionAlarmTime = Instant.ofEpochMilli(Long.MAX_VALUE);
@@ -485,6 +487,7 @@ class MessageDispatcher {
         }
         for (ExtensionJob job : renewJobs) {
           outstandingAckHandlers.add(job);
+          System.out.println(job.nextExtensionSeconds);
         }
         if (!outstandingAckHandlers.isEmpty()) {
           nextScheduleExpiration = outstandingAckHandlers.peek().expiration;
@@ -536,21 +539,21 @@ class MessageDispatcher {
     synchronized (pendingAcks) {
       if (!pendingAcks.isEmpty()) {
         try {
-          acksToSend = new ArrayList<>(pendingAcks);
+          acksToSend = new ArrayList<>(pendingAcks.keySet());
           logger.log(Level.FINER, "Sending {0} acks", acksToSend.size());
         } finally {
+          for(AckHandler ackHandler: pendingAckHandlers) {
+            ackHandler.acked.getAndSet(true);
+          }
           pendingAcks.clear();
         }
       }
     }
     ackProcessor.sendAckOperations(acksToSend, Collections.<PendingModifyAckDeadline>emptyList());
-    synchronized (pendingAckHandlers) {
-      for(AckHandler handler: pendingAckHandlers)
-        handler.acked.getAndSet(true);
-    }
   }
 
   private void extendAckDeadlines(List<PendingModifyAckDeadline> ackDeadlineExtensions) {
+    System.out.println("EXT " + ackDeadlineExtensions.get(0).deadlineExtensionSeconds);
     List<PendingModifyAckDeadline> modifyAckDeadlinesToSend =
         Lists.newArrayList(ackDeadlineExtensions);
 

@@ -85,13 +85,12 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
   }
 
   public PullResponse pullMessages(final long timeout) throws ExecutionException, InterruptedException {
-
     if (!isAlive()) {
       throw new KafkaException("Is not alive");
     }
 
     ListenableFuture<PullResponse> pullResult =
-        stub.pull(
+        stub.withDeadlineAfter(3, TimeUnit.SECONDS).pull(
             PullRequest.newBuilder()
                 .setSubscription(subscription.getName())
                 .setMaxMessages(maxDesiredPulledMessages)
