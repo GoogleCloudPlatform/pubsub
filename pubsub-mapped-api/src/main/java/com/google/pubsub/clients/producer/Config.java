@@ -16,63 +16,154 @@
 
 package com.google.pubsub.clients.producer;
 
+import java.util.List;
 import java.util.Map;
-import com.google.common.annotations.VisibleForTesting;
-
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerConfigAdapter;
-
-import org.apache.kafka.common.config.ConfigDef;
-import org.apache.kafka.common.config.AbstractConfig;
-import org.apache.kafka.common.config.ConfigDef.Type;
-import org.apache.kafka.common.config.ConfigDef.Range;
-import org.apache.kafka.common.config.ConfigDef.Importance;
+import org.apache.kafka.clients.producer.ProducerInterceptor;
+import org.apache.kafka.clients.producer.internals.ProducerInterceptors;
+import org.apache.kafka.common.serialization.Serializer;
 
 /**
- * Provides the configurations for a Kafka Producer instance.
+ * Provides the configurations for a Kafka Mapped Producer instance.
  */
-public class Config {
+public class Config<K, V> {
 
-  private ProducerConfig kafkaConfigs;
-  private PubSubProducerConfig additionalConfigs;
+  private final String project;
+  private final long elementCount;
+  private final boolean autoCreate;
 
-  Config(Map configs) {
+  private final int retries;
+  private final int timeout;
+  private final int batchSize;
+  private final long lingerMs;
+  private final long retriesMs;
+  private final long bufferMemorySize;
+  private final boolean acks;
+  private final String clientId;
+
+  private final Serializer<K> keySerializer;
+  private final Serializer<V> valueSerializer;
+  private final ProducerInterceptors<K, V> interceptors;
+
+  private static final AtomicInteger CLIENT_ID = new AtomicInteger(1);
+
+  private final ProducerConfig kafkaConfigs;
+  private final PubSubProducerConfig additionalConfigs;
+
+  Config(Map configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
     additionalConfigs = new PubSubProducerConfig(configs);
-    kafkaConfigs = ProducerConfigAdapter.getConsumerConfig(configs);
-  }
 
-  ProducerConfig getKafkaConfigs() {
-    return kafkaConfigs;
-  }
-
-  PubSubProducerConfig getAdditionalConfigs() {
-    return additionalConfigs;
-  }
-
-  public static class PubSubProducerConfig extends AbstractConfig {
-
-    public static final String PROJECT_CONFIG = "project";
-    private static final String PROJECT_DOC = "GCP project that we will connect to.";
-
-    public static final String ELEMENTS_COUNT_CONFIG = "element.count";
-    private static final String ELEMENTS_COUNT_DOC = "This configuration controls the default count of"
-            + " elements in a batch.";
-
-    public static final String AUTO_CREATE_TOPICS_CONFIG = "auto.create.topics.enable";
-    private static final String AUTO_CREATE_TOPICS_DOC = "When true topics are automatically created"
-            + " if they don't exist.";
-
-    private static final ConfigDef CONFIG = new ConfigDef()
-            .define(PROJECT_CONFIG, Type.STRING, Importance.HIGH, PROJECT_DOC)
-            .define(AUTO_CREATE_TOPICS_CONFIG, Type.BOOLEAN, true, Importance.MEDIUM, AUTO_CREATE_TOPICS_DOC)
-            .define(ELEMENTS_COUNT_CONFIG, Type.LONG, 1000L, Range.atLeast(1L), Importance.MEDIUM, ELEMENTS_COUNT_DOC);
-
-    PubSubProducerConfig(Map<?, ?> originals, boolean doLog) {
-      super(CONFIG, originals, doLog);
+    if (keySerializer == null && valueSerializer == null) {
+      kafkaConfigs = ProducerConfigAdapter.getProducerConfig(
+          ProducerConfig.addSerializerToConfig(configs, keySerializer, valueSerializer));
+    } else {
+      kafkaConfigs = ProducerConfigAdapter.getProducerConfig(configs);
     }
 
-    PubSubProducerConfig(Map<?, ?> originals) {
-      super(CONFIG, originals);
+    // CPS's configs
+    project = additionalConfigs.getString(PubSubProducerConfig.PROJECT_CONFIG);
+    elementCount = additionalConfigs.getLong(PubSubProducerConfig.ELEMENTS_COUNT_CONFIG);
+    autoCreate = additionalConfigs.getBoolean(PubSubProducerConfig.AUTO_CREATE_TOPICS_CONFIG);
+
+    // Kafka's configs
+    if (keySerializer == null) {
+      this.keySerializer = kafkaConfigs.getConfiguredInstance(
+          ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, Serializer.class);
+
+      this.keySerializer.configure(kafkaConfigs.originals(), true);
+    } else {
+      kafkaConfigs.ignore(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG);
+      this.keySerializer = keySerializer;
     }
+
+    if (valueSerializer == null) {
+      this.valueSerializer = kafkaConfigs.getConfiguredInstance(
+          ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, Serializer.class);
+
+      this.valueSerializer.configure(kafkaConfigs.originals(), false);
+    } else {
+      kafkaConfigs.ignore(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
+      this.valueSerializer = valueSerializer;
+    }
+
+    retries = kafkaConfigs.getInt(ProducerConfig.RETRIES_CONFIG);
+    timeout = kafkaConfigs.getInt(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG);
+    retriesMs = kafkaConfigs.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);
+    lingerMs = kafkaConfigs.getLong(ProducerConfig.LINGER_MS_CONFIG);
+    batchSize = kafkaConfigs.getInt(ProducerConfig.BATCH_SIZE_CONFIG);
+    acks = kafkaConfigs.getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
+    bufferMemorySize = kafkaConfigs.getLong(ProducerConfig.BUFFER_MEMORY_CONFIG);
+
+    String Id = kafkaConfigs.getString(ProducerConfig.CLIENT_ID_CONFIG);
+    if (Id.length() <= 0) {
+      clientId = "producer-" + CLIENT_ID.getAndIncrement();
+    } else {
+      clientId = Id;
+    }
+
+    kafkaConfigs.originals().put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
+    List<ProducerInterceptor<K, V>> interceptorList =
+        (List) (ProducerConfigAdapter.getProducerConfig(kafkaConfigs.originals())).getConfiguredInstances(
+            ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, ProducerInterceptor.class);
+    this.interceptors =
+        interceptorList.isEmpty() ? null : new ProducerInterceptors<>(interceptorList);
+  }
+
+  String getProject() {
+    return project;
+  }
+
+  boolean getAutoCreate() {
+    return autoCreate;
+  }
+
+  long getElementCount() {
+    return elementCount;
+  }
+
+  int getBatchSize() {
+    return batchSize;
+  }
+
+  long getLingerMs() {
+    return lingerMs;
+  }
+
+  long getBufferMemorySize() {
+    return bufferMemorySize;
+  }
+
+  int getRetries() {
+    return retries;
+  }
+
+  long getRetriesMs() {
+    return retriesMs;
+  }
+
+  int getTimeout() {
+    return timeout;
+  }
+
+  ProducerInterceptors<K,V> getInterceptors() {
+    return interceptors;
+  }
+
+  Serializer<K> getKeySerializer() {
+    return keySerializer;
+  }
+
+  Serializer<V> getValueSerializer() {
+    return valueSerializer;
+  }
+
+  boolean getAcks() {
+    return acks;
+  }
+
+  String getClientId() {
+    return clientId;
   }
 }

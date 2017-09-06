@@ -16,56 +16,46 @@
 
 package com.google.pubsub.clients.producer;
 
-import org.junit.Test;
-import org.junit.Before;
-import org.junit.Assert;
-import org.junit.runner.RunWith;
-
-import org.mockito.Matchers;
-import org.mockito.ArgumentCaptor;
-
-import com.google.pubsub.v1.TopicName;
-import com.google.pubsub.v1.PubsubMessage;
-
-import com.google.cloud.pubsub.v1.Publisher;
-import com.google.cloud.pubsub.v1.TopicAdminClient;
-import com.google.cloud.pubsub.v1.Publisher.Builder;
-
-import com.google.api.gax.retrying.RetrySettings;
-import com.google.api.gax.batching.BatchingSettings;
-
-import com.google.common.collect.ImmutableMap;
-
-import org.apache.kafka.clients.producer.Callback;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.clients.producer.ProducerInterceptor;
-
-import org.apache.kafka.common.serialization.Serializer;
-import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.StringSerializer;
-import org.apache.kafka.common.serialization.IntegerSerializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
-import org.apache.kafka.common.serialization.IntegerDeserializer;
-
-import java.io.PrintStream;
-import java.io.IOException;
-import java.io.OutputStream;
-import java.io.ByteArrayOutputStream;
-
-import java.util.Map;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Properties;
-import java.util.concurrent.TimeUnit;
+import static org.powermock.api.mockito.PowerMockito.when;
 
 import com.google.api.core.ApiFuture;
-
+import com.google.api.gax.batching.BatchingSettings;
+import com.google.api.gax.retrying.RetrySettings;
+import com.google.cloud.pubsub.v1.Publisher;
+import com.google.cloud.pubsub.v1.Publisher.Builder;
+import com.google.cloud.pubsub.v1.TopicAdminClient;
+import com.google.common.collect.ImmutableMap;
+import com.google.pubsub.v1.PubsubMessage;
+import com.google.pubsub.v1.TopicName;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+import org.apache.kafka.clients.producer.Callback;
+import org.apache.kafka.clients.producer.ProducerInterceptor;
+import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.clients.producer.RecordMetadata;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.IntegerDeserializer;
+import org.apache.kafka.common.serialization.IntegerSerializer;
+import org.apache.kafka.common.serialization.Serializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.Assert;
+import org.junit.Before;
+import org.junit.Test;
+import org.junit.runner.RunWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Matchers;
 import org.mockito.Mockito;
 import org.powermock.api.mockito.PowerMockito;
-import org.powermock.modules.junit4.PowerMockRunner;
-import static org.powermock.api.mockito.PowerMockito.when;
 import org.powermock.core.classloader.annotations.PrepareForTest;
+import org.powermock.modules.junit4.PowerMockRunner;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({Publisher.class, TopicAdminClient.class})

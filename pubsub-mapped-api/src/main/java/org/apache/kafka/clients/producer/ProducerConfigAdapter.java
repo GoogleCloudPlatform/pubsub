@@ -24,11 +24,11 @@ import java.util.Properties;
  */
 public class ProducerConfigAdapter {
   
-  public static ProducerConfig getConsumerConfig(Properties properties) {
-    return getConsumerConfig(properties);
+  public static ProducerConfig getProducerConfig(Properties properties) {
+    return getProducerConfig(properties);
   }
 
-  public static ProducerConfig getConsumerConfig(Map<String, Object> configurations) {
+  public static ProducerConfig getProducerConfig(Map<String, Object> configurations) {
     addDefaultKafkaRequiredConfigs(configurations);
     return new ProducerConfig(configurations);
   }
@@ -38,7 +38,8 @@ public class ProducerConfigAdapter {
       map.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:8080");
     }
 
-    if (!map.containsKey(ProducerConfig.LINGER_MS_CONFIG)) {
+    if (!map.containsKey(ProducerConfig.LINGER_MS_CONFIG)
+        || (int) map.get(ProducerConfig.LINGER_MS_CONFIG) == 0) {
       map.put(ProducerConfig.LINGER_MS_CONFIG, 1);
     }
   }

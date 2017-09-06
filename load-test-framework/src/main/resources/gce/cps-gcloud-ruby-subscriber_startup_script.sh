@@ -20,30 +20,29 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 
 [[ "${TMP}" != "" ]] || error mktemp failed
 
-# Download the loadtest binary to this machine and install Java 8.
+# Download the loadtest binary to this machine and install Ruby
 /usr/bin/apt-get update
-/usr/bin/apt-get install -y openjdk-8-jre-headless unzip python3-pip git & PIDAPT=$!
+/usr/bin/curl -sSL https://get.rvm.io | bash -s stable
+source /etc/profile.d/rvm.sh
+rvm install ruby-2.4.0
+rvm use ruby-2.4.0
+gem install bundler & PIDRVM=$1
+/usr/bin/apt-get install -y openjdk-8-jre-headless unzip & PIDAPT=$1
 /usr/bin/gsutil cp "gs://${BUCKET}/driver.jar" "${TMP}" & PIDDRIV=$1
-/usr/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}" & PIDPY=$1
+/usr/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}" & PIDRB=$1
 
 wait $PIDAPT
+wait $PIDRVM
 wait $PIDDRIV
-wait $PIDPY
-
-pip3 install --upgrade pip
-pip3 install --upgrade setuptools
+wait $PIDRB
 
 cd ${TMP}
 unzip cps.zip
-cd python_src/clients/
-pip3 install -r requirements.txt
-git clone https://github.com/GoogleCloudPlatform/google-cloud-python.git
-cd google-cloud-python/pubsub/
-git checkout --track -b pubsub-subscriber origin/pubsub-subscriber
-pip3 install .
-cd ../../
-python3 cps_publisher_task.py &
-cd ../../
+
+cd ./ruby_src
+/usr/local/rvm/gems/ruby-2.4.0/bin/bundle install
+/usr/local/rvm/gems/ruby-2.4.0/bin/bundle exec ruby cps_subscriber_task.rb &
+cd ..
 
 # Run the loadtest binary
-java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.PublisherAdapterTask
+java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.SubscriberAdapterTask

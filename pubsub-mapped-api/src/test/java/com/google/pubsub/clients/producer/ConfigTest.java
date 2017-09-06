@@ -16,20 +16,14 @@
 
 package com.google.pubsub.clients.producer;
 
+import com.google.common.collect.ImmutableMap;
+import java.util.Properties;
+import org.apache.kafka.common.config.ConfigException;
+import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.Assert;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.Assert;
 import org.junit.rules.ExpectedException;
-
-import java.util.Properties;
-
-import com.google.common.collect.ImmutableMap;
-import com.google.pubsub.clients.producer.Config.PubSubProducerConfig;
-
-import org.apache.kafka.common.config.ConfigException;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.common.serialization.Serializer;
-import org.apache.kafka.common.serialization.StringSerializer;
 
 public class ConfigTest {
 
@@ -47,24 +41,22 @@ public class ConfigTest {
         .build()
     );
 
-    Config testConfig = new Config(props);
+    Config testConfig = new Config(props, null, null);
 
     Assert.assertEquals("Project config equals unit-test-project.",
-        "unit-test-project", testConfig.getAdditionalConfigs().getString(PubSubProducerConfig.PROJECT_CONFIG));
+        "unit-test-project", testConfig.getProject());
 
     Assert.assertNotNull(
-        "Key serializer must not be null.", testConfig.getKafkaConfigs()
-            .getConfiguredInstance(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, Serializer.class));
+        "Key serializer must not be null.", testConfig.getKeySerializer());
     Assert.assertEquals(
         "Key serializer config must equal StringSerializer.", StringSerializer.class,
-        testConfig.getKafkaConfigs().getClass(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG));
+        testConfig.getKeySerializer().getClass());
 
     Assert.assertNotNull(
-        "Value serializer must not be null.", testConfig.getKafkaConfigs().
-            getConfiguredInstance(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, Serializer.class));
+        "Value serializer must not be null.", testConfig.getValueSerializer());
     Assert.assertEquals(
         "Value serializer config must equal StringSerializer.", StringSerializer.class,
-        testConfig.getKafkaConfigs().getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG));
+        testConfig.getValueSerializer().getClass());
   }
 
   @Test
@@ -78,7 +70,7 @@ public class ConfigTest {
 
     exception.expect(ConfigException.class);
 
-    new Config(props);
+    new Config(props, null, null);
   }
 
   @Test
@@ -92,6 +84,6 @@ public class ConfigTest {
 
     exception.expect(ConfigException.class);
 
-    new Config(props);
+    new Config(props, null, null);
   }
 }
