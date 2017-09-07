@@ -23,17 +23,20 @@ import com.google.api.gax.core.Distribution;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.pubsub.v1.*;
+import com.google.pubsub.v1.AcknowledgeRequest;
+import com.google.pubsub.v1.ModifyAckDeadlineRequest;
+import com.google.pubsub.v1.PullRequest;
+import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
-import kafka.common.KafkaException;
-import org.threeten.bp.Duration;
-
-import javax.annotation.Nullable;
+import com.google.pubsub.v1.Subscription;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
+import kafka.common.KafkaException;
+import org.threeten.bp.Duration;
 
 /**
  * Implementation of {@link MessageDispatcher.AckProcessor} based on Cloud Pub/Sub pull and acknowledge operations.
@@ -52,7 +55,7 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
   private final MessageDispatcher messageDispatcher;
   private final int maxDesiredPulledMessages;
 
-  public PollingSubscriberConnection(
+  PollingSubscriberConnection(
       Subscription subscription,
       MessageReceiver receiver,
       Duration ackExpirationPadding,
@@ -84,13 +87,13 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
             : DEFAULT_MAX_MESSAGES;
   }
 
-  public PullResponse pullMessages(final long timeout) throws ExecutionException, InterruptedException {
+  PullResponse pullMessages(final long timeout) throws ExecutionException, InterruptedException {
     if (!isAlive()) {
       throw new KafkaException("Is not alive");
     }
 
     ListenableFuture<PullResponse> pullResult =
-        stub.withDeadlineAfter(3, TimeUnit.SECONDS).pull(
+        stub.withDeadlineAfter(timeout, TimeUnit.MILLISECONDS).pull(
             PullRequest.newBuilder()
                 .setSubscription(subscription.getName())
                 .setMaxMessages(maxDesiredPulledMessages)

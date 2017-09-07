@@ -31,28 +31,21 @@ import com.google.auth.oauth2.GoogleCredentials;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
-import com.google.common.primitives.Ints;
-import com.google.pubsub.common.ChannelUtil;
 import com.google.pubsub.v1.PullResponse;
-import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.Subscription;
 import com.google.pubsub.v1.SubscriptionName;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
-import org.threeten.bp.Duration;
-
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
+import org.threeten.bp.Duration;
 
 /**
  * A Cloud Pub/Sub <a href="https://cloud.google.com/pubsub/docs/subscriber">subscriber</a> that is
@@ -114,12 +107,10 @@ public class Subscriber extends AbstractApiService {
   private final PollingSubscriberConnection pollingSubscriberConnection;
   private final ApiClock clock;
   private final List<AutoCloseable> closeables = new ArrayList<>();
-  private ScheduledFuture<?> ackDeadlineUpdater;
-  private int streamAckDeadlineSeconds;
   private Long maxPullRecords;
   private long nextCommitTime;
   private Boolean autoCommit;
-  private final Integer autoCommitInterval;
+  private final Integer autoCommitIntervalMs;
   
 
   private Subscriber(Builder builder) {
@@ -129,17 +120,12 @@ public class Subscriber extends AbstractApiService {
     ackExpirationPadding = builder.ackExpirationPadding;
     maxAckExtensionPeriod = builder.maxAckExtensionPeriod;
     maxPullRecords = builder.maxPullRecords;
-    long streamAckDeadlineMillis = ackExpirationPadding.toMillis();
-    streamAckDeadlineSeconds =
-        Math.max(
-            INITIAL_ACK_DEADLINE_SECONDS,
-            Ints.saturatedCast(TimeUnit.MILLISECONDS.toSeconds(streamAckDeadlineMillis)));
     clock = builder.clock.isPresent() ? builder.clock.get() : CurrentMillisClock.getDefaultClock();
-    this.autoCommitInterval = builder.autoCommitInterval;
+    this.autoCommitIntervalMs = builder.autoCommitIntervalMs;
     this.autoCommit = builder.autoCommit;
 
     if(this.autoCommit) {
-      this.nextCommitTime = clock.millisTime() + autoCommitInterval;
+      this.nextCommitTime = clock.millisTime() + autoCommitIntervalMs;
     }
 
     flowController =
@@ -171,15 +157,12 @@ public class Subscriber extends AbstractApiService {
           });
     }
 
-    this.callCredentials = ChannelUtil.getInstance().getCallCredentials();
-    this.channel = ChannelUtil.getInstance().getChannel();
+    this.callCredentials = builder.callCredentials;
+    this.channel = builder.channel;
 
     numChannels = builder.parallelPullCount;
 
-    SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(channel);
-    if (callCredentials != null) {
-      stub = stub.withCallCredentials(callCredentials);
-    }
+    SubscriberFutureStub stub = builder.subscriberFutureStub;
 
     this.pollingSubscriberConnection = new PollingSubscriberConnection(
         subscription,
@@ -256,15 +239,14 @@ public class Subscriber extends AbstractApiService {
   @Override
   public void doStart() {
     logger.log(Level.FINE, "Starting subscriber group.");
-    pollingSubscriberConnection.startAsync();
-    if(!pollingSubscriberConnection.isRunning())
-      pollingSubscriberConnection.doStart();
+    pollingSubscriberConnection.startAsync().awaitRunning();
+    notifyStarted();
   }
 
   @Override
   public void doStop() {
     // stop connection is no-op if connections haven't been started.
-    stopAllPollingConnections();
+    stopAllPollingConnection();
     try {
       for (AutoCloseable closeable : closeables) {
         closeable.close();
@@ -275,39 +257,19 @@ public class Subscriber extends AbstractApiService {
     }
   }
 
-  public PullResponse pull() throws IOException, ExecutionException, InterruptedException {
+  public PullResponse pull(final long timeout) throws IOException, ExecutionException, InterruptedException {
     long now = clock.millisTime();
     synchronized (pollingSubscriberConnection) {
       if(this.autoCommit && this.nextCommitTime <= now) {
         pollingSubscriberConnection.commit();
-        this.nextCommitTime = now + this.autoCommitInterval;
+        this.nextCommitTime = now + this.autoCommitIntervalMs;
       }
-      return pollingSubscriberConnection.pullMessages(100);
+      return pollingSubscriberConnection.pullMessages(timeout);
     }
   }
 
-  private void stopAllPollingConnections() {
-    stopConnections(new ArrayList<>(Arrays.asList(pollingSubscriberConnection)));
-  }
-
-  private void stopConnections(List<? extends ApiService> connections) {
-    ArrayList<ApiService> liveConnections;
-    synchronized (connections) {
-      liveConnections = new ArrayList<ApiService>(connections);
-      connections.clear();
-    }
-    for (ApiService subscriber : liveConnections) {
-      subscriber.stopAsync();
-    }
-    for (ApiService subscriber : liveConnections) {
-      try {
-        subscriber.awaitTerminated();
-      } catch (IllegalStateException e) {
-        // If the service fails, awaitTerminated will throw an exception.
-        // However, we could be stopping services because at least one
-        // has already failed, so we just ignore this exception.
-      }
-    }
+  private void stopAllPollingConnection() {
+    pollingSubscriberConnection.stopAsync().awaitTerminated();
   }
 
   /** Builder of {@link Subscriber Subscribers}. */
@@ -343,8 +305,11 @@ public class Subscriber extends AbstractApiService {
     int parallelPullCount = Runtime.getRuntime().availableProcessors() * CHANNELS_PER_CORE;
     private Subscription subscription;
     private Long maxPullRecords;
-    private Boolean autoCommit;
-    private Integer autoCommitInterval;
+    private Boolean autoCommit = true;
+    private Integer autoCommitIntervalMs = 5000;
+    private SubscriberFutureStub subscriberFutureStub;
+    private Channel channel;
+    private CallCredentials callCredentials;
 
     Builder(SubscriptionName subscriptionName, MessageReceiver receiver) {
       this.subscriptionName = subscriptionName;
@@ -420,8 +385,23 @@ public class Subscriber extends AbstractApiService {
       return this;
     }
 
-    public Builder setAutoCommitIterval(Integer autoCommitIterval) {
-      this.autoCommitInterval = autoCommitIterval;
+    public Builder setAutoCommitIntervalMs(Integer autoCommitIterval) {
+      this.autoCommitIntervalMs = autoCommitIterval;
+      return this;
+    }
+
+    public Builder setSubscriberFutureStub(SubscriberFutureStub subscriberFutureStub) {
+      this.subscriberFutureStub = subscriberFutureStub;
+      return this;
+    }
+
+    public Builder setChannel(Channel channel) {
+      this.channel = channel;
+      return this;
+    }
+
+    public Builder setCallCredentials(CallCredentials callCredentials) {
+      this.callCredentials = callCredentials;
       return this;
     }
 

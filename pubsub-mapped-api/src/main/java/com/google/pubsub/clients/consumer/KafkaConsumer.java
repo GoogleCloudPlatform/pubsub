@@ -27,29 +27,54 @@ import com.google.protobuf.Empty;
 import com.google.pubsub.clients.consumer.ack.MappedApiMessageReceiver;
 import com.google.pubsub.clients.consumer.ack.Subscriber;
 import com.google.pubsub.common.ChannelUtil;
-import com.google.pubsub.v1.*;
+import com.google.pubsub.v1.DeleteSubscriptionRequest;
+import com.google.pubsub.v1.GetSubscriptionRequest;
+import com.google.pubsub.v1.ListTopicsRequest;
+import com.google.pubsub.v1.ListTopicsResponse;
+import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
+import com.google.pubsub.v1.PubsubMessage;
+import com.google.pubsub.v1.PullResponse;
+import com.google.pubsub.v1.ReceivedMessage;
+import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
+import com.google.pubsub.v1.Subscription;
+import com.google.pubsub.v1.Topic;
 import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
-import org.apache.kafka.clients.consumer.*;
-import org.apache.kafka.common.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
+import java.util.concurrent.ExecutionException;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import javax.annotation.Nullable;
+import org.apache.kafka.clients.consumer.Consumer;
+import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
+import org.apache.kafka.clients.consumer.OffsetCommitCallback;
+import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.Metric;
+import org.apache.kafka.common.MetricName;
+import org.apache.kafka.common.PartitionInfo;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.InterruptException;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.utils.Utils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
-import java.io.IOException;
-import java.sql.Timestamp;
-import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
@@ -72,6 +97,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private final Config<K, V> config;
   private final SubscriberFutureStub subscriberFutureStub;
   private final PublisherFutureStub publisherFutureStub;
+  private final Channel channel;
+  private final CallCredentials callCredentials;
 
   private ImmutableList<String> topicNames = ImmutableList.of();
 
@@ -122,6 +149,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
       this.subscriberFutureStub = subscriberFutureStub;
       this.publisherFutureStub = publisherFutureStub;
+      this.callCredentials = callCredentials;
+      this.channel = channel;
 
       this.config = config;
 
@@ -163,11 +192,14 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
           .setFlowControlSettings(FlowControlSettings.getDefaultInstance())
           .setSubscription(entry.getValue())
           .setAutoCommit(config.getEnableAutoCommit())
-          .setAutoCommitIterval(config.getAutoCommitIntervalMs())
+          .setAutoCommitIntervalMs(config.getAutoCommitIntervalMs())
           .setMaxPullRecords((long) config.getMaxPollRecords())
+          .setSubscriberFutureStub(this.subscriberFutureStub)
+          .setCallCredentials(this.callCredentials)
+          .setChannel(this.channel)
           .build();
       tempSubscribersMap.put(entry.getKey(), subscriber);
-      subscriber.startAsync();
+      subscriber.startAsync().awaitRunning();
     }
 
     topicNameToSubscriber = ImmutableMap.copyOf(tempSubscribersMap);
@@ -250,26 +282,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         && ((StatusRuntimeException)e.getCause()).getStatus().getCode().equals(Code.NOT_FOUND);
   }
 
-  private List<ResponseData<Subscription>> deputePubsubSubscribes(Collection<String> topics) {
-    Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-
-    List<ResponseData<Subscription>> responseDatas = new ArrayList<>();
-    Set<String> usedNames = new HashSet<>();
-
-    for (String topic: topics) {
-      if (!usedNames.contains(topic)) {
-        String subscriptionString = SUBSCRIPTION_PREFIX + topic + "_" + timestamp.getTime()
-            + "_" + UUID.randomUUID();
-        ListenableFuture<Subscription> deputedSubscription =
-            deputeSinglePubsubSubscription(subscriptionString, topic);
-
-        responseDatas.add(new ResponseData<>(topic, subscriptionString, deputedSubscription));
-        usedNames.add(topic);
-      }
-    }
-    return responseDatas;
-  }
-
   private ListenableFuture<Subscription> deputeSinglePubsubSubscription(String subscriptionString,
       String topicName) {
     return subscriberFutureStub
@@ -342,8 +354,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   public void unsubscribe() {
     deleteSubscriptionsIfAllowed(topicNameToSubscriber.values());
     for(Subscriber s: topicNameToSubscriber.values()) {
-      s.stopAsync();
-      s.doStop();
+      s.stopAsync().awaitTerminated();
     }
     topicNameToSubscriber = ImmutableMap.of();
     topicNames = ImmutableList.of();
@@ -377,7 +388,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         String topicName = topicNames.get(this.currentPoolIndex % topicNameToSubscriber.size());
         Subscriber subscriber = topicNameToSubscriber.get(topicName);
 
-        PullResponse pullResponse = subscriber.pull();
+        PullResponse pullResponse = subscriber.pull(timeout);
 
         List<ConsumerRecord<K, V>> subscriptionRecords = mapToConsumerRecords(topicName, pullResponse);
         this.currentPoolIndex = (this.currentPoolIndex + 1) % topicNameToSubscriber.size();

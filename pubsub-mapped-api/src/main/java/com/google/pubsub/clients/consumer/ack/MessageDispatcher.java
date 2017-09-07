@@ -83,7 +83,6 @@ class MessageDispatcher {
 
   // To keep track of number of seconds the receiver takes to process messages.
   private final Distribution ackLatencyDistribution;
-  private final List<AckHandler> pendingAckHandlers = new ArrayList<>();
 
   // ExtensionJob represents a group of {@code AckHandler}s that shares the same expiration.
   //
@@ -267,7 +266,8 @@ class MessageDispatcher {
     } finally {
       alarmsLock.unlock();
     }
-    //acknowledgePendingMessages(); TODO no no no
+
+    extendAckDeadlines(new ArrayList<>());// TODO no no no
   }
 
   public void setMessageDeadlineSeconds(int messageDeadlineSeconds) {
@@ -396,17 +396,13 @@ class MessageDispatcher {
             }
           };
       Futures.addCallback(response, ackHandler);
-      executor.submit(
-          new Runnable() {
-            @Override
-            public void run() {
-              try {
-                receiver.receiveMessage(message, consumer);
-              } catch (Exception e) {
-                response.setException(e);
-              }
-            }
-          });
+
+      try {
+        receiver.receiveMessage(message, consumer);
+      } catch (Exception e) {
+        response.setException(e);
+      }
+
       if (batchDone) {
         batchCallback.run();
       }
@@ -416,7 +412,6 @@ class MessageDispatcher {
   private class AckDeadlineAlarm implements Runnable {
     @Override
     public void run() {
-      System.out.println("AckDeadlineAlarm");
       alarmsLock.lock();
       try {
         nextAckDeadlineExtensionAlarmTime = Instant.ofEpochMilli(Long.MAX_VALUE);
@@ -487,7 +482,6 @@ class MessageDispatcher {
         }
         for (ExtensionJob job : renewJobs) {
           outstandingAckHandlers.add(job);
-          System.out.println(job.nextExtensionSeconds);
         }
         if (!outstandingAckHandlers.isEmpty()) {
           nextScheduleExpiration = outstandingAckHandlers.peek().expiration;
@@ -542,22 +536,22 @@ class MessageDispatcher {
           acksToSend = new ArrayList<>(pendingAcks.keySet());
           logger.log(Level.FINER, "Sending {0} acks", acksToSend.size());
         } finally {
-          for(AckHandler ackHandler: pendingAckHandlers) {
+          for(AckHandler ackHandler: pendingAcks.values()) {
             ackHandler.acked.getAndSet(true);
           }
           pendingAcks.clear();
         }
+        System.out.println("ACKED");
       }
     }
     ackProcessor.sendAckOperations(acksToSend, Collections.<PendingModifyAckDeadline>emptyList());
   }
 
   private void extendAckDeadlines(List<PendingModifyAckDeadline> ackDeadlineExtensions) {
-    System.out.println("EXT " + ackDeadlineExtensions.get(0).deadlineExtensionSeconds);
     List<PendingModifyAckDeadline> modifyAckDeadlinesToSend =
         Lists.newArrayList(ackDeadlineExtensions);
-
     PendingModifyAckDeadline nacksToSend = new PendingModifyAckDeadline(0);
+    System.out.println("EXTEND");
     synchronized (pendingNacks) {
       if (!pendingNacks.isEmpty()) {
         try {
