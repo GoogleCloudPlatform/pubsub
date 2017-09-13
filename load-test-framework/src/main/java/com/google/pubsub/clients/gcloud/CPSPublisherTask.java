@@ -15,34 +15,11 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.gcloud;
 
-import com.beust.jcommander.JCommander;
-import com.google.api.gax.core.RpcFutureCallback;
-import com.google.api.gax.grpc.BundlingSettings;
-import com.google.api.gax.grpc.FlowControlSettings;
-import com.google.cloud.pubsub.spi.v1.Publisher;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
-import com.google.protobuf.ByteString;
-import com.google.protobuf.util.Durations;
-import com.google.pubsub.clients.common.LoadTestRunner;
-import com.google.pubsub.clients.common.MetricsHandler;
-import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.clients.common.Task.RunResult;
-import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
-import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.v1.TopicName;
-import java.util.Random;
-import java.util.concurrent.atomic.AtomicInteger;
-import org.joda.time.Duration;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 /**
  * Runs a task that publishes messages to a Cloud Pub/Sub topic.
  */
-class CPSPublisherTask extends Task {
-  private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
+class CPSPublisherTask /*extends Task*/ {
+  /*private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
   private final Publisher publisher;
   private final ByteString payload;
   private final int batchSize;
@@ -54,7 +31,7 @@ class CPSPublisherTask extends Task {
     try {
       this.publisher =
           Publisher.newBuilder(TopicName.create(request.getProject(), request.getTopic()))
-              .setBundlingSettings(
+              *//*.setBundlingSettings(
                   BundlingSettings.newBuilder()
                       .setDelayThreshold(
                           Duration.millis(Durations.toMillis(request.getPublishBatchDuration())))
@@ -64,7 +41,7 @@ class CPSPublisherTask extends Task {
               .setFlowControlSettings(
                   FlowControlSettings.newBuilder()
                       .setMaxOutstandingRequestBytes(1000000000)
-                      .build()) // 1 GB
+                      .build()) // 1 GB*//*
               .build();
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -96,7 +73,7 @@ class CPSPublisherTask extends Task {
                     .putAttributes(
                         "sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement()))
                     .build())
-            .addCallback(
+            *//*.addCallback(
                 new RpcFutureCallback<String>() {
                   @Override
                   public void onSuccess(String s) {
@@ -109,7 +86,7 @@ class CPSPublisherTask extends Task {
                   public void onFailure(Throwable t) {
                     done.setException(t);
                   }
-                });
+                })*//*;
       }
       return done;
     } catch (Throwable t) {
@@ -125,5 +102,5 @@ class CPSPublisherTask extends Task {
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
-  }
+  }*/
 }

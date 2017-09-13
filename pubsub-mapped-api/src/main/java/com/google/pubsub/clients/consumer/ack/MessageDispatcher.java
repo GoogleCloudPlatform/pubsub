@@ -50,7 +50,7 @@ import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
-import kafka.common.KafkaException;
+import org.apache.kafka.common.KafkaException;
 import org.threeten.bp.Duration;
 import org.threeten.bp.Instant;
 

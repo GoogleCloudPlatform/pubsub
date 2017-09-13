@@ -134,7 +134,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   @SuppressWarnings("unchecked")
   KafkaConsumer(Config config, Channel channel, CallCredentials callCredentials) {
     try {
-
       log.debug("Starting PubSub subscriber");
 
       Preconditions.checkNotNull(channel);
@@ -155,7 +154,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       this.config = config;
 
       log.debug("PubSub subscriber created");
-
     } catch (Throwable t) {
       throw new KafkaException("Failed to construct PubSub subscriber", t);
     }
@@ -401,11 +399,10 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     } catch (InterruptedException e) {
       throw new InterruptException(e);
-    } catch (ExecutionException e) {
+    } catch (ExecutionException | IOException e) {
       throw new KafkaException(e);
-    } catch (IOException e) {
-      e.printStackTrace();
     }
+
     return new ConsumerRecords<>(new HashMap<>());
   }
 

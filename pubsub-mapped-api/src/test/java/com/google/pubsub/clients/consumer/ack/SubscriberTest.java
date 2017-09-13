@@ -189,7 +189,7 @@ public class SubscriberTest {
     sendMessages(testAckIds);
     subscriber.pull(10000);
 
-    subscriber.commit();
+    subscriber.commit(true);
     subscriber.stopAsync();
 
     assertEquivalent(testAckIds, fakeSubscriberServiceImpl.waitAndConsumeReceivedAcks(1));
@@ -253,7 +253,7 @@ public class SubscriberTest {
     sendMessages(testAckIdsBatch1);
     subscriber.pull(10000);
 
-    subscriber.commit();
+    subscriber.commit(true);
 
     assertEquivalent(testAckIdsBatch1, fakeSubscriberServiceImpl.waitAndConsumeReceivedAcks(3));
 
@@ -262,7 +262,7 @@ public class SubscriberTest {
     sendMessages(testAckIdsBatch2);
     subscriber.pull(10000);
 
-    subscriber.commit();
+    subscriber.commit(true);
 
     assertEquivalent(testAckIdsBatch2, fakeSubscriberServiceImpl.waitAndConsumeReceivedAcks(2));
 
@@ -318,7 +318,7 @@ public class SubscriberTest {
     sendMessages(testAckIdsBatch2);
     subscriber.pull(10000);
 
-    subscriber.commit();
+    subscriber.commit(true);
 
     subscriber.stopAsync().awaitTerminated();
 

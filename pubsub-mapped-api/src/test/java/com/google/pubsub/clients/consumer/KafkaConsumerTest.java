@@ -263,7 +263,6 @@ public class KafkaConsumerTest {
     } catch (KafkaException e) {
       //expected
     }
-    consumer.close();
   }
 
   private KafkaConsumer<Integer, String> getConsumer(boolean allowesCreation) {
