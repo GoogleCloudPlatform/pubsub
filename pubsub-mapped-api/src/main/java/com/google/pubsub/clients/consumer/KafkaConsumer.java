@@ -193,8 +193,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
           .setAutoCommitIntervalMs(config.getAutoCommitIntervalMs())
           .setMaxPullRecords((long) config.getMaxPollRecords())
           .setSubscriberFutureStub(this.subscriberFutureStub)
-          .setCallCredentials(this.callCredentials)
-          .setChannel(this.channel)
           .setRetryBackoffMs(config.getRetryBackoffMs())
           .build();
       tempSubscribersMap.put(entry.getKey(), subscriber);

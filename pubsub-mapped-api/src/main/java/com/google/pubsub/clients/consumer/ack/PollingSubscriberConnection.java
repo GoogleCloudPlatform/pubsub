@@ -47,7 +47,7 @@ import org.threeten.bp.Duration;
  * Implementation of {@link MessageDispatcher.AckProcessor} based on Cloud Pub/Sub pull and acknowledge operations.
  */
 final class PollingSubscriberConnection extends AbstractApiService implements MessageDispatcher.AckProcessor {
-  static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
+  private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
 
   private static final int MAX_PER_REQUEST_CHANGES = 1000;
   private static final int DEFAULT_MAX_MESSAGES = 1000;
@@ -69,7 +69,6 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
       SubscriberFutureStub stub,
       FlowController flowController,
       @Nullable Long maxDesiredPulledMessages,
-      ScheduledExecutorService executor,
       ScheduledExecutorService systemExecutor,
       ApiClock clock,
       Long retryBackoffMs) {
@@ -83,7 +82,6 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
             maxAckExtensionPeriod,
             ackLatencyDistribution,
             flowController,
-            executor,
             systemExecutor,
             clock,
             retryBackoffMs);
@@ -96,7 +94,7 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
 
   PullResponse pullMessages(final long timeout) throws ExecutionException, InterruptedException {
     if (!isAlive()) {
-      throw new KafkaException("Is not alive");
+      throw new KafkaException("Subscriber is not alive");
     }
 
     ListenableFuture<PullResponse> pullResult =
@@ -121,7 +119,7 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
     return state == State.RUNNING || state == State.STARTING;
   }
 
-  public void commit(boolean sync, OffsetCommitCallback callback) {
+  void commit(boolean sync, OffsetCommitCallback callback) {
     messageDispatcher.acknowledgePendingMessages(sync);
   }
 

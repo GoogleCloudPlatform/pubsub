@@ -64,7 +64,6 @@ class MessageDispatcher {
   private static final int INITIAL_ACK_DEADLINE_EXTENSION_SECONDS = 2;
   private static final int MAX_ACK_DEADLINE_EXTENSION_SECS = 10 * 60; // 10m
 
-  private final ScheduledExecutorService executor;
   private final ScheduledExecutorService systemExecutor;
   private final ApiClock clock;
 
@@ -146,14 +145,14 @@ class MessageDispatcher {
     final int deadlineExtensionSeconds;
 
     PendingModifyAckDeadline(int deadlineExtensionSeconds, String... ackIds) {
-      this.ackIds = new ArrayList<String>();
+      this.ackIds = new ArrayList<>();
       this.deadlineExtensionSeconds = deadlineExtensionSeconds;
       for (String ackId : ackIds) {
         addAckId(ackId);
       }
     }
 
-    public void addAckId(String ackId) {
+    void addAckId(String ackId) {
       ackIds.add(ackId);
     }
 
@@ -241,11 +240,9 @@ class MessageDispatcher {
       Duration maxAckExtensionPeriod,
       Distribution ackLatencyDistribution,
       FlowController flowController,
-      ScheduledExecutorService executor,
       ScheduledExecutorService systemExecutor,
       ApiClock clock,
       Long retryBackoffMs) {
-    this.executor = executor;
     this.systemExecutor = systemExecutor;
     this.ackExpirationPadding = ackExpirationPadding;
     this.maxAckExtensionPeriod = maxAckExtensionPeriod;
@@ -265,7 +262,7 @@ class MessageDispatcher {
     this.clock = clock;
   }
 
-  public void stop() {
+  void stop() {
     messagesWaiter.waitNoMessages();
     alarmsLock.lock();
     try {
@@ -280,12 +277,8 @@ class MessageDispatcher {
     extendAckDeadlines(new ArrayList<>());
   }
 
-  public void setMessageDeadlineSeconds(int messageDeadlineSeconds) {
+  void setMessageDeadlineSeconds(int messageDeadlineSeconds) {
     this.messageDeadlineSeconds = messageDeadlineSeconds;
-  }
-
-  public int getMessageDeadlineSeconds() {
-    return messageDeadlineSeconds;
   }
 
   static class OutstandingMessagesBatch {
@@ -296,26 +289,26 @@ class MessageDispatcher {
       private final ReceivedMessage receivedMessage;
       private final AckHandler ackHandler;
 
-      public OutstandingMessage(ReceivedMessage receivedMessage, AckHandler ackHandler) {
+      OutstandingMessage(ReceivedMessage receivedMessage, AckHandler ackHandler) {
         this.receivedMessage = receivedMessage;
         this.ackHandler = ackHandler;
       }
 
-      public ReceivedMessage receivedMessage() {
+      ReceivedMessage receivedMessage() {
         return receivedMessage;
       }
 
-      public AckHandler ackHandler() {
+      AckHandler ackHandler() {
         return ackHandler;
       }
     }
 
-    public OutstandingMessagesBatch(Runnable doneCallback) {
+    OutstandingMessagesBatch(Runnable doneCallback) {
       this.messages = new LinkedList<>();
       this.doneCallback = doneCallback;
     }
 
-    public void addMessage(ReceivedMessage receivedMessage, AckHandler ackHandler) {
+    void addMessage(ReceivedMessage receivedMessage, AckHandler ackHandler) {
       this.messages.add(new OutstandingMessage(receivedMessage, ackHandler));
     }
 
@@ -324,7 +317,7 @@ class MessageDispatcher {
     }
   }
 
-  public void processReceivedMessages(List<ReceivedMessage> messages, Runnable doneCallback) {
+  void processReceivedMessages(List<ReceivedMessage> messages, Runnable doneCallback) {
     if (messages.isEmpty()) {
       doneCallback.run();
       return;
@@ -358,7 +351,7 @@ class MessageDispatcher {
     processOutstandingBatches();
   }
 
-  public void processOutstandingBatches() {
+  void processOutstandingBatches() {
     while (true) {
       boolean batchDone = false;
       Runnable batchCallback = null;
@@ -537,7 +530,7 @@ class MessageDispatcher {
     }
   }
 
-  public void acknowledgePendingMessages(boolean sync) {
+  void acknowledgePendingMessages(boolean sync) {
     Map<String, AckHandler> acksToSend = new HashMap<>();
     synchronized (pendingAcks) {
       if (!pendingAcks.isEmpty()) {
@@ -567,7 +560,7 @@ class MessageDispatcher {
 
       @Override
       public void onFailure(Throwable throwable) {
-        logger.log(Level.SEVERE, "Failed to commit async", throwable);
+        logger.log(Level.WARNING, "Failed to commit async", throwable);
       }
     });
   }

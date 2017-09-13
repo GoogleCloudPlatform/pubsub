@@ -35,8 +35,6 @@ import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.Subscription;
 import com.google.pubsub.v1.SubscriptionName;
-import io.grpc.CallCredentials;
-import io.grpc.Channel;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -89,64 +87,41 @@ public class Subscriber extends AbstractApiService {
 
   private static final Logger logger = Logger.getLogger(Subscriber.class.getName());
 
-  /*private final SubscriptionName subscriptionName;
-  private final String cachedSubscriptionNameString;*/
   private final Subscription subscription;
   private final FlowControlSettings flowControlSettings;
   private final Duration ackExpirationPadding;
-  private final Duration maxAckExtensionPeriod;
-  private final ScheduledExecutorService executor;
   @Nullable private final ScheduledExecutorService alarmsExecutor;
-  private final Distribution ackLatencyDistribution =
-      new Distribution(MAX_ACK_DEADLINE_SECONDS + 1);
-  private final int numChannels;
-  private final FlowController flowController;
-  private final CallCredentials callCredentials;
-  private final Channel channel;
-  private final MessageReceiver receiver;
   private final PollingSubscriberConnection pollingSubscriberConnection;
   private final ApiClock clock;
   private final List<AutoCloseable> closeables = new ArrayList<>();
-  private Long maxPullRecords;
   private long nextCommitTime;
   private Boolean autoCommit;
   private final Integer autoCommitIntervalMs;
-  private final Long retryBackoffMs;
 
   private Subscriber(Builder builder) {
-    receiver = builder.receiver;
+    MessageReceiver receiver = builder.receiver;
+    Duration maxAckExtensionPeriod = builder.maxAckExtensionPeriod;
+    Long maxPullRecords = builder.maxPullRecords;
+    Long retryBackoffMs = builder.retryBackoffMs;
+
     flowControlSettings = builder.flowControlSettings;
     subscription = builder.subscription;
     ackExpirationPadding = builder.ackExpirationPadding;
-    maxAckExtensionPeriod = builder.maxAckExtensionPeriod;
-    maxPullRecords = builder.maxPullRecords;
     clock = builder.clock.isPresent() ? builder.clock.get() : CurrentMillisClock.getDefaultClock();
-    this.autoCommitIntervalMs = builder.autoCommitIntervalMs;
-    this.autoCommit = builder.autoCommit;
-    this.retryBackoffMs = builder.retryBackoffMs;
+    autoCommitIntervalMs = builder.autoCommitIntervalMs;
+    autoCommit = builder.autoCommit;
 
     if(this.autoCommit) {
       this.nextCommitTime = clock.millisTime() + autoCommitIntervalMs;
     }
 
-    flowController =
-        new FlowController(
-            builder
-                .flowControlSettings
-                .toBuilder()
-                .setLimitExceededBehavior(LimitExceededBehavior.ThrowException)
-                .build());
+    FlowController flowController = new FlowController(
+        builder
+            .flowControlSettings
+            .toBuilder()
+            .setLimitExceededBehavior(LimitExceededBehavior.ThrowException)
+            .build());
 
-    executor = builder.executorProvider.getExecutor();
-    if (builder.executorProvider.shouldAutoClose()) {
-      closeables.add(
-          new AutoCloseable() {
-            @Override
-            public void close() throws IOException {
-              executor.shutdown();
-            }
-          });
-    }
     alarmsExecutor = builder.systemExecutorProvider.getExecutor();
     if (builder.systemExecutorProvider.shouldAutoClose()) {
       closeables.add(
@@ -158,13 +133,9 @@ public class Subscriber extends AbstractApiService {
           });
     }
 
-    this.callCredentials = builder.callCredentials;
-    this.channel = builder.channel;
-
-    numChannels = builder.parallelPullCount;
-
     SubscriberFutureStub stub = builder.subscriberFutureStub;
 
+    Distribution ackLatencyDistribution = new Distribution(MAX_ACK_DEADLINE_SECONDS + 1);
     this.pollingSubscriberConnection = new PollingSubscriberConnection(
         subscription,
         receiver,
@@ -174,7 +145,6 @@ public class Subscriber extends AbstractApiService {
         stub,
         flowController,
         maxPullRecords,
-        executor,
         alarmsExecutor,
         clock,
         retryBackoffMs);
@@ -305,14 +275,11 @@ public class Subscriber extends AbstractApiService {
     ExecutorProvider executorProvider = DEFAULT_EXECUTOR_PROVIDER;
     ExecutorProvider systemExecutorProvider = FixedExecutorProvider.create(SHARED_SYSTEM_EXECUTOR);
     Optional<ApiClock> clock = Optional.absent();
-    int parallelPullCount = Runtime.getRuntime().availableProcessors() * CHANNELS_PER_CORE;
     private Subscription subscription;
     private Long maxPullRecords;
     private Boolean autoCommit = true;
     private Integer autoCommitIntervalMs = 5000;
     private SubscriberFutureStub subscriberFutureStub;
-    private Channel channel;
-    private CallCredentials callCredentials;
     private Long retryBackoffMs;
 
     Builder(SubscriptionName subscriptionName, MessageReceiver receiver) {
@@ -379,7 +346,7 @@ public class Subscriber extends AbstractApiService {
     }
 
     /** Gives the ability to set a custom clock. */
-    Builder setClock(ApiClock clock) {
+    public Builder setClock(ApiClock clock) {
       this.clock = Optional.of(clock);
       return this;
     }
@@ -396,16 +363,6 @@ public class Subscriber extends AbstractApiService {
 
     public Builder setSubscriberFutureStub(SubscriberFutureStub subscriberFutureStub) {
       this.subscriberFutureStub = subscriberFutureStub;
-      return this;
-    }
-
-    public Builder setChannel(Channel channel) {
-      this.channel = channel;
-      return this;
-    }
-
-    public Builder setCallCredentials(CallCredentials callCredentials) {
-      this.callCredentials = callCredentials;
       return this;
     }
     

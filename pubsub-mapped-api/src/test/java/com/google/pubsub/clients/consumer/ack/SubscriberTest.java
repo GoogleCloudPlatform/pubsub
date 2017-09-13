@@ -29,7 +29,6 @@ import com.google.pubsub.clients.consumer.ack.Subscriber.Builder;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-import com.google.pubsub.v1.StreamingPullResponse;
 import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.Subscription;
@@ -40,7 +39,6 @@ import io.grpc.inprocess.InProcessServerBuilder;
 import io.grpc.internal.ServerImpl;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
@@ -51,13 +49,9 @@ import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TestName;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
 import org.threeten.bp.Duration;
 
 /** Tests for {@link Subscriber}. */
-@RunWith(Parameterized.class)
 public class SubscriberTest {
 
   private static final SubscriptionName TEST_SUBSCRIPTION =
@@ -68,19 +62,12 @@ public class SubscriberTest {
 
   private static final int INITIAL_ACK_DEADLINE_EXTENSION_SECS = 2;
 
-  private final boolean isStreamingTest;
-
   private ManagedChannel testChannel;
   private FakeScheduledExecutorService fakeExecutor;
   private FakeSubscriberServiceImpl fakeSubscriberServiceImpl;
   private ServerImpl testServer;
 
   private TestReceiver testReceiver;
-
-  @Parameters
-  public static Collection<Object[]> data() {
-    return Arrays.asList(new Object[][] {{false}});
-  }
 
   static class TestReceiver implements MessageReceiver {
     private final LinkedBlockingQueue<AckReplyConsumer> outstandingMessageReplies =
@@ -89,10 +76,6 @@ public class SubscriberTest {
     private Optional<CountDownLatch> messageCountLatch = Optional.absent();
     private Optional<RuntimeException> error = Optional.absent();
     private boolean explicitAckReplies;
-
-    void setAckReply() {
-      this.shouldAck = true;
-    }
 
     void setNackReply() {
       this.shouldAck = false;
@@ -108,12 +91,6 @@ public class SubscriberTest {
 
     void setExpectedMessages(int expected) {
       this.messageCountLatch = Optional.of(new CountDownLatch(expected));
-    }
-
-    void waitForExpectedMessages() throws InterruptedException {
-      if (messageCountLatch.isPresent()) {
-        messageCountLatch.get().await();
-      }
     }
 
     @Override
@@ -156,10 +133,6 @@ public class SubscriberTest {
     }
   }
 
-  public SubscriberTest(boolean streamingTest) {
-    this.isStreamingTest = false;
-  }
-
   @Rule public TestName testName = new TestName();
 
   @Before
@@ -197,10 +170,6 @@ public class SubscriberTest {
 
   @Test
   public void testGetSubscriptionZeroTimes() throws Exception {
-    if (isStreamingTest) {
-      // Only applicable to polling.
-      return;
-    }
     Subscriber subscriber = startSubscriber(getTestSubscriberBuilder(testReceiver));
 
     sendMessages(ImmutableList.of("A"));
@@ -451,13 +420,8 @@ public class SubscriberTest {
       messages.add(ReceivedMessage.newBuilder().setAckId(ackId).setMessage(TEST_MESSAGE).build());
     }
     testReceiver.setExpectedMessages(messages.size());
-    if (isStreamingTest) {
-      fakeSubscriberServiceImpl.sendStreamingResponse(
-          StreamingPullResponse.newBuilder().addAllReceivedMessages(messages).build());
-    } else {
-      fakeSubscriberServiceImpl.enqueuePullResponse(
-          PullResponse.newBuilder().addAllReceivedMessages(messages).build());
-    }
+    fakeSubscriberServiceImpl.enqueuePullResponse(
+        PullResponse.newBuilder().addAllReceivedMessages(messages).build());
   }
 
   private Builder getTestSubscriberBuilder(MessageReceiver receiver) {
@@ -469,9 +433,7 @@ public class SubscriberTest {
     SubscriberFutureStub subscriberFutureStub = SubscriberGrpc.newFutureStub(testChannel);
     return Subscriber.defaultBuilder(TEST_SUBSCRIPTION, receiver)
         .setSystemExecutorProvider(FixedExecutorProvider.create(fakeExecutor))
-        .setChannel(testChannel)
         .setSubscriberFutureStub(subscriberFutureStub)
-        .setCallCredentials(null)
         .setAutoCommit(false)
         .setSubscription(subscription)
         .setClock(fakeExecutor.getClock());
