@@ -111,7 +111,7 @@ public class Subscriber extends AbstractApiService {
   private long nextCommitTime;
   private Boolean autoCommit;
   private final Integer autoCommitIntervalMs;
-  
+  private final Long retryBackoffMs;
 
   private Subscriber(Builder builder) {
     receiver = builder.receiver;
@@ -123,6 +123,7 @@ public class Subscriber extends AbstractApiService {
     clock = builder.clock.isPresent() ? builder.clock.get() : CurrentMillisClock.getDefaultClock();
     this.autoCommitIntervalMs = builder.autoCommitIntervalMs;
     this.autoCommit = builder.autoCommit;
+    this.retryBackoffMs = builder.retryBackoffMs;
 
     if(this.autoCommit) {
       this.nextCommitTime = clock.millisTime() + autoCommitIntervalMs;
@@ -175,7 +176,8 @@ public class Subscriber extends AbstractApiService {
         maxPullRecords,
         executor,
         alarmsExecutor,
-        clock);
+        clock,
+        retryBackoffMs);
   }
 
   /**
@@ -232,9 +234,10 @@ public class Subscriber extends AbstractApiService {
     return super.startAsync();
   }
 
-  public void commit() {
-    pollingSubscriberConnection.commit();
+  public void commit(boolean sync) {
+    pollingSubscriberConnection.commit(sync, null);
   }
+
 
   @Override
   public void doStart() {
@@ -261,7 +264,7 @@ public class Subscriber extends AbstractApiService {
     long now = clock.millisTime();
     synchronized (pollingSubscriberConnection) {
       if(this.autoCommit && this.nextCommitTime <= now) {
-        pollingSubscriberConnection.commit();
+        pollingSubscriberConnection.commit(false, null);
         this.nextCommitTime = now + this.autoCommitIntervalMs;
       }
       return pollingSubscriberConnection.pullMessages(timeout);
@@ -310,6 +313,7 @@ public class Subscriber extends AbstractApiService {
     private SubscriberFutureStub subscriberFutureStub;
     private Channel channel;
     private CallCredentials callCredentials;
+    private Long retryBackoffMs;
 
     Builder(SubscriptionName subscriptionName, MessageReceiver receiver) {
       this.subscriptionName = subscriptionName;
@@ -402,6 +406,11 @@ public class Subscriber extends AbstractApiService {
 
     public Builder setCallCredentials(CallCredentials callCredentials) {
       this.callCredentials = callCredentials;
+      return this;
+    }
+    
+    public Builder setRetryBackoffMs(Long retryBackoffMs) {
+      this.retryBackoffMs = retryBackoffMs;
       return this;
     }
 

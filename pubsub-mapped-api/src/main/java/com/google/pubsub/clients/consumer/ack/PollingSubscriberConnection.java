@@ -22,13 +22,17 @@ import com.google.api.gax.batching.FlowController;
 import com.google.api.gax.core.Distribution;
 import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.protobuf.Empty;
+import com.google.pubsub.clients.consumer.ack.MessageDispatcher.PendingModifyAckDeadline;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.ModifyAckDeadlineRequest;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.Subscription;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -36,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
 import kafka.common.KafkaException;
+import org.apache.kafka.clients.consumer.OffsetCommitCallback;
 import org.threeten.bp.Duration;
 
 /**
@@ -66,7 +71,8 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
       @Nullable Long maxDesiredPulledMessages,
       ScheduledExecutorService executor,
       ScheduledExecutorService systemExecutor,
-      ApiClock clock) {
+      ApiClock clock,
+      Long retryBackoffMs) {
     this.subscription = subscription;
     this.stub = stub;
     messageDispatcher =
@@ -79,7 +85,8 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
             flowController,
             executor,
             systemExecutor,
-            clock);
+            clock,
+            retryBackoffMs);
     messageDispatcher.setMessageDeadlineSeconds(subscription.getAckDeadlineSeconds());
     this.maxDesiredPulledMessages =
         maxDesiredPulledMessages != null
@@ -114,13 +121,13 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
     return state == State.RUNNING || state == State.STARTING;
   }
 
-  public void commit() {
-    messageDispatcher.acknowledgePendingMessages();
+  public void commit(boolean sync, OffsetCommitCallback callback) {
+    messageDispatcher.acknowledgePendingMessages(sync);
   }
 
   @Override
-  public void sendAckOperations(
-      List<String> acksToSend, List<MessageDispatcher.PendingModifyAckDeadline> ackDeadlineExtensions) {
+  public ListenableFuture<List<Empty>> sendAckOperations(
+      List<String> acksToSend, List<PendingModifyAckDeadline> ackDeadlineExtensions) {
     // Send the modify ack deadlines in batches as not to exceed the max request
     // size.
     for (MessageDispatcher.PendingModifyAckDeadline modifyAckDeadline : ackDeadlineExtensions) {
@@ -136,14 +143,19 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
       }
     }
 
+    List<ListenableFuture<Empty>> acknowledges = new ArrayList<>();
+
     for (List<String> ackChunk : Lists.partition(acksToSend, MAX_PER_REQUEST_CHANGES)) {
-      stub.withDeadlineAfter(DEFAULT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
+      ListenableFuture<Empty> acknowledge = stub.withDeadlineAfter(DEFAULT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
           .acknowledge(
               AcknowledgeRequest.newBuilder()
                   .setSubscription(subscription.getName())
                   .addAllAckIds(ackChunk)
                   .build());
+      acknowledges.add(acknowledge);
     }
+
+    return Futures.allAsList(acknowledges);
   }
 
   @Override

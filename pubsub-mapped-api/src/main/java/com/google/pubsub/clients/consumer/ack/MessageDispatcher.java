@@ -24,7 +24,9 @@ import com.google.common.collect.Lists;
 import com.google.common.primitives.Ints;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.Empty;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.ReceivedMessage;
 import java.util.ArrayList;
@@ -34,8 +36,11 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -44,6 +49,8 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.annotation.Nullable;
+import kafka.common.KafkaException;
 import org.threeten.bp.Duration;
 import org.threeten.bp.Instant;
 
@@ -74,6 +81,7 @@ class MessageDispatcher {
   private final Set<String> pendingNacks;
 
   private final Lock alarmsLock;
+  private final Long retryBackoffMs;
   private int messageDeadlineSeconds;
   private ScheduledFuture<?> ackDeadlineExtensionAlarm;
   private Instant nextAckDeadlineExtensionAlarmTime;
@@ -222,7 +230,7 @@ class MessageDispatcher {
   }
 
   public interface AckProcessor {
-    void sendAckOperations(
+    ListenableFuture<List<Empty>> sendAckOperations(
         List<String> acksToSend, List<PendingModifyAckDeadline> ackDeadlineExtensions);
   }
 
@@ -235,7 +243,8 @@ class MessageDispatcher {
       FlowController flowController,
       ScheduledExecutorService executor,
       ScheduledExecutorService systemExecutor,
-      ApiClock clock) {
+      ApiClock clock,
+      Long retryBackoffMs) {
     this.executor = executor;
     this.systemExecutor = systemExecutor;
     this.ackExpirationPadding = ackExpirationPadding;
@@ -243,6 +252,7 @@ class MessageDispatcher {
     this.receiver = receiver;
     this.ackProcessor = ackProcessor;
     this.flowController = flowController;
+    this.retryBackoffMs = retryBackoffMs;
     outstandingMessageBatches = new LinkedList<>();
     outstandingAckHandlers = new PriorityQueue<>();
     pendingAcks = new HashMap<>();
@@ -267,7 +277,7 @@ class MessageDispatcher {
       alarmsLock.unlock();
     }
 
-    extendAckDeadlines(new ArrayList<>());// TODO no no no
+    extendAckDeadlines(new ArrayList<>());
   }
 
   public void setMessageDeadlineSeconds(int messageDeadlineSeconds) {
@@ -480,9 +490,8 @@ class MessageDispatcher {
           modifyAckDeadlinesToSend.add(pendingModAckDeadline);
           renewJobs.add(job);
         }
-        for (ExtensionJob job : renewJobs) {
-          outstandingAckHandlers.add(job);
-        }
+        outstandingAckHandlers.addAll(renewJobs);
+
         if (!outstandingAckHandlers.isEmpty()) {
           nextScheduleExpiration = outstandingAckHandlers.peek().expiration;
         }
@@ -528,30 +537,80 @@ class MessageDispatcher {
     }
   }
 
-  public void acknowledgePendingMessages() {
-    List<String> acksToSend = new ArrayList<>(pendingAcks.size());
+  public void acknowledgePendingMessages(boolean sync) {
+    Map<String, AckHandler> acksToSend = new HashMap<>();
     synchronized (pendingAcks) {
       if (!pendingAcks.isEmpty()) {
-        try {
-          acksToSend = new ArrayList<>(pendingAcks.keySet());
-          logger.log(Level.FINER, "Sending {0} acks", acksToSend.size());
-        } finally {
-          for(AckHandler ackHandler: pendingAcks.values()) {
-            ackHandler.acked.getAndSet(true);
-          }
-          pendingAcks.clear();
+        for (Entry<String, AckHandler> pair : pendingAcks.entrySet()){
+          acksToSend.put(pair.getKey(), pair.getValue());
         }
-        System.out.println("ACKED");
+        logger.log(Level.FINER, "Sending {0} acks", acksToSend.size());
       }
     }
-    ackProcessor.sendAckOperations(acksToSend, Collections.<PendingModifyAckDeadline>emptyList());
+
+    if(sync) {
+      commitSync(acksToSend);
+    } else {
+      commitAsync(acksToSend);
+    }
+  }
+
+  private void commitAsync(Map<String, AckHandler> acksToSend) {
+    ListenableFuture<List<Empty>> listListenableFuture = ackProcessor
+        .sendAckOperations(new ArrayList<>(acksToSend.keySet()), Collections.<PendingModifyAckDeadline>emptyList());
+
+    Futures.addCallback(listListenableFuture, new FutureCallback<List<Empty>>() {
+      @Override
+      public void onSuccess(@Nullable List<Empty> empties) {
+        handleSuccessfulAck(acksToSend);
+      }
+
+      @Override
+      public void onFailure(Throwable throwable) {
+        logger.log(Level.SEVERE, "Failed to commit async", throwable);
+      }
+    });
+  }
+
+  private void commitSync(Map<String, AckHandler> acksToSend) {
+    ListenableFuture<List<Empty>> listListenableFuture = ackProcessor
+        .sendAckOperations(new ArrayList<>(acksToSend.keySet()), Collections.<PendingModifyAckDeadline>emptyList());
+
+    try {
+      listListenableFuture.get();
+      handleSuccessfulAck(acksToSend);
+    } catch (InterruptedException | ExecutionException e) {
+      if(StatusUtil.isRetryable(e)) {
+        sleep(this.retryBackoffMs);
+        commitSync(acksToSend);
+      } else {
+        throw new KafkaException(e);
+      }
+    }
+  }
+
+  private void handleSuccessfulAck(
+      Map<String, AckHandler> acksToSend) {
+    synchronized (pendingAcks) {
+      for(Entry<String, AckHandler> entry : acksToSend.entrySet()) {
+        entry.getValue().acked.getAndSet(true);
+        pendingAcks.remove(entry.getKey());
+      }
+    }
+  }
+
+  private void sleep(long ms) {
+    try {
+      Thread.sleep(ms);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
   }
 
   private void extendAckDeadlines(List<PendingModifyAckDeadline> ackDeadlineExtensions) {
     List<PendingModifyAckDeadline> modifyAckDeadlinesToSend =
         Lists.newArrayList(ackDeadlineExtensions);
     PendingModifyAckDeadline nacksToSend = new PendingModifyAckDeadline(0);
-    System.out.println("EXTEND");
     synchronized (pendingNacks) {
       if (!pendingNacks.isEmpty()) {
         try {

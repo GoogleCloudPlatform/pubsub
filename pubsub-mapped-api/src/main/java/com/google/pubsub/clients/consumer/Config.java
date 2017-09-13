@@ -35,8 +35,9 @@ class Config<K, V> {
   private final Deserializer<K> keyDeserializer;
   private final Deserializer<V> valueDeserializer;
   private final Boolean enableAutoCommit;
-
   private final Integer autoCommitIntervalMs;
+  private final Long retryBackoffMs;
+
 
   Config(Map<String, Object> configs) {
     this(ConsumerConfigCreator.getConsumerConfig(configs),
@@ -89,6 +90,7 @@ class Config<K, V> {
 
     this.enableAutoCommit = consumerConfig.getBoolean(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG);
     this.autoCommitIntervalMs = consumerConfig.getInt(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG);
+    this.retryBackoffMs = consumerConfig.getLong(ConsumerConfig.RETRY_BACKOFF_MS_CONFIG);
 
     //PubSub-specific options
     this.allowSubscriptionCreation =
@@ -142,6 +144,10 @@ class Config<K, V> {
     return autoCommitIntervalMs;
   }
 
+  public Long getRetryBackoffMs() {
+    return retryBackoffMs;
+  }
+
   private Deserializer handleDeserializer(ConsumerConfig configs, String configString,
       Deserializer providedDeserializer, boolean isKey) {
     Deserializer deserializer;
@@ -154,5 +160,4 @@ class Config<K, V> {
     }
     return deserializer;
   }
-
 }

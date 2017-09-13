@@ -197,6 +197,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
           .setSubscriberFutureStub(this.subscriberFutureStub)
           .setCallCredentials(this.callCredentials)
           .setChannel(this.channel)
+          .setRetryBackoffMs(config.getRetryBackoffMs())
           .build();
       tempSubscribersMap.put(entry.getKey(), subscriber);
       subscriber.startAsync().awaitRunning();
@@ -473,9 +474,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void commitSync() {
-    for(Map.Entry<String, Subscriber> entry: topicNameToSubscriber.entrySet()) {
-      entry.getValue().commit();
-    }
+    commit(true);
   }
 
   @Override
@@ -485,7 +484,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void commitAsync() {
-    throw new UnsupportedOperationException("Not yet implemented");
+    commit(false);
   }
 
   @Override
@@ -497,6 +496,12 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   public void commitAsync(final Map<TopicPartition, OffsetAndMetadata> offsets,
       OffsetCommitCallback callback) {
     throw new UnsupportedOperationException("Not yet implemented");
+  }
+
+  private void commit(boolean sync) {
+    for (Map.Entry<String, Subscriber> entry : topicNameToSubscriber.entrySet()) {
+      entry.getValue().commit(sync);
+    }
   }
 
   @Override
