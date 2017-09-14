@@ -234,7 +234,7 @@ public class Subscriber extends AbstractApiService {
     long now = clock.millisTime();
     synchronized (pollingSubscriberConnection) {
       if(this.autoCommit && this.nextCommitTime <= now) {
-        pollingSubscriberConnection.commit(false, null);
+        pollingSubscriberConnection.commit(true, null);
         this.nextCommitTime = now + this.autoCommitIntervalMs;
       }
       return pollingSubscriberConnection.pullMessages(timeout);
