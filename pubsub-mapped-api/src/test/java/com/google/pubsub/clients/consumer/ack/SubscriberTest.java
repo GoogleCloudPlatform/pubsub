@@ -19,7 +19,7 @@ package com.google.pubsub.clients.consumer.ack;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-import com.google.api.gax.core.FixedExecutorProvider;
+import com.google.api.gax.grpc.FixedExecutorProvider;
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
