@@ -252,17 +252,18 @@ public class SubscriberTest {
 
     assertTrue(fakeSubscriberServiceImpl.getAcks().isEmpty());
 
-    fakeExecutor.advanceTime(Duration.ofMinutes(20));
+    fakeExecutor.advanceTime(Duration.ofMinutes(6));
 
     sendMessages(ImmutableList.of("N"));
     subscriber.pull(10000);
+    fakeExecutor.advanceTime(Duration.ofMinutes(6));
 
     assertEquivalent(ImmutableList.of("A", "B", "C", "R"), fakeSubscriberServiceImpl.waitAndConsumeReceivedAcks(4));
     assertTrue(fakeSubscriberServiceImpl.getAcks().isEmpty());
 
     List<String> testAckIdsBatch2 = ImmutableList.of("D", "E");
     sendMessages(testAckIdsBatch2);
-    fakeExecutor.advanceTime(Duration.ofMinutes(20));
+    fakeExecutor.advanceTime(Duration.ofMinutes(6));
     subscriber.pull(10000);
 
     assertEquivalent(ImmutableList.of("N"), fakeSubscriberServiceImpl.waitAndConsumeReceivedAcks(1));
