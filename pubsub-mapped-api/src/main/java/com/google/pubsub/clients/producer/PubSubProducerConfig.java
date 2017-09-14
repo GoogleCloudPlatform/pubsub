@@ -16,7 +16,7 @@ public class PubSubProducerConfig extends AbstractConfig {
   public static final String PROJECT_CONFIG = "project";
   private static final String PROJECT_DOC = "GCP project that we will connect to.";
 
-  public static final String ELEMENTS_COUNT_CONFIG = "element.count";
+  public static final String ELEMENTS_COUNT_CONFIG = "elements.count";
   private static final String ELEMENTS_COUNT_DOC = "This configuration controls the default count of"
       + " elements in a batch.";
 

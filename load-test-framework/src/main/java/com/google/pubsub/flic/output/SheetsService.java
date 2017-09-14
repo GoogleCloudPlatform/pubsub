@@ -79,7 +79,7 @@ public class SheetsService {
           cpsPublisherCount += v;
         } else if (k.isKafkaPublisher()) {
           kafkaPublisherCount += v;
-        } else if (k.toString().startsWith("kafka")) {
+        } else if (k.toString().startsWith("kafka") && !k.toString().startsWith("kafka-mapped")) {
           kafkaSubscriberCount += v;
         } else {
           cpsSubscriberCount += v;
@@ -140,8 +140,8 @@ public class SheetsService {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_GCLOUD_RUBY_PUBLISHER:
-        case KAFKA_MAPPED_JAVA_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
+        case KAFKA_MAPPED_JAVA_PUBLISHER:
           if (cpsPublisherCount == 0) {
             return;
           }
@@ -153,6 +153,7 @@ public class SheetsService {
         case CPS_GCLOUD_GO_SUBSCRIBER:
         case CPS_GCLOUD_PYTHON_SUBSCRIBER:
         case CPS_GCLOUD_RUBY_SUBSCRIBER:
+        case KAFKA_MAPPED_JAVA_SUBSCRIBER:
           if (cpsSubscriberCount == 0) {
             return;
           }

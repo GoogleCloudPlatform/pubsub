@@ -38,8 +38,6 @@ import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-//TODO: add mapped subscriber support
-
 /**
  * Manages remote clients by starting, performing health checks, and collecting statistics
  * on running clients.
@@ -122,6 +120,7 @@ public class Client {
       case KAFKA_SUBSCRIBER:
         return "kafka";
       case KAFKA_MAPPED_JAVA_PUBLISHER:
+      case KAFKA_MAPPED_JAVA_SUBSCRIBER:
         return "mapped";
     }
     return null;
@@ -179,6 +178,7 @@ public class Client {
       case CPS_GCLOUD_GO_SUBSCRIBER:
       case CPS_GCLOUD_PYTHON_SUBSCRIBER:
       case CPS_GCLOUD_RUBY_SUBSCRIBER:
+      case KAFKA_MAPPED_JAVA_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder().setSubscription(subscription));
         break;
       case KAFKA_PUBLISHER:
@@ -309,7 +309,8 @@ public class Client {
     CPS_GCLOUD_GO_SUBSCRIBER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER,
-    KAFKA_MAPPED_JAVA_PUBLISHER;
+    KAFKA_MAPPED_JAVA_PUBLISHER,
+    KAFKA_MAPPED_JAVA_SUBSCRIBER;
 
     public boolean isCpsPublisher() {
       switch (this) {
@@ -347,13 +348,12 @@ public class Client {
       }
     }
 
-    //TODO: here
-
     public ClientType getSubscriberType() {
       switch (this) {
         case CPS_GCLOUD_JAVA_PUBLISHER:
-        case KAFKA_MAPPED_JAVA_PUBLISHER:
           return CPS_GCLOUD_JAVA_SUBSCRIBER;
+        case KAFKA_MAPPED_JAVA_PUBLISHER:
+          return KAFKA_MAPPED_JAVA_SUBSCRIBER;
         case KAFKA_PUBLISHER:
           return KAFKA_SUBSCRIBER;
         case CPS_GCLOUD_GO_PUBLISHER:

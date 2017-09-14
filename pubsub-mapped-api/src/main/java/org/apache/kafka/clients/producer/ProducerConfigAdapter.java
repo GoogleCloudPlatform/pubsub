@@ -39,8 +39,8 @@ public class ProducerConfigAdapter {
     }
 
     if (!map.containsKey(ProducerConfig.LINGER_MS_CONFIG)
-        || (int) map.get(ProducerConfig.LINGER_MS_CONFIG) == 0) {
-      map.put(ProducerConfig.LINGER_MS_CONFIG, 1);
+        || Integer.parseInt((String) map.get(ProducerConfig.LINGER_MS_CONFIG)) == 0) {
+      map.put(ProducerConfig.LINGER_MS_CONFIG, "1");
     }
   }
 }

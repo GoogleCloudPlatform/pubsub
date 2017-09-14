@@ -18,7 +18,8 @@ public final class ChannelUtil {
 
   private ChannelUtil() throws IOException {
     this.callCredentials = MoreCallCredentials.from(GoogleCredentials.getApplicationDefault());
-    this.channel = ManagedChannelBuilder.forTarget(ENDPOINT).build();
+    this.channel =
+        ManagedChannelBuilder.forTarget(ENDPOINT).maxInboundMessageSize(12582912).build();
   }
 
   private static synchronized ChannelUtil buildInstance() {

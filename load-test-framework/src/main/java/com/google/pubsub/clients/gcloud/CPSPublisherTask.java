@@ -117,7 +117,11 @@ class CPSPublisherTask extends Task {
   }
 
   @Override
-  protected void shutdown() {
-
+  public void shutdown() {
+    try {
+      publisher.shutdown();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 }

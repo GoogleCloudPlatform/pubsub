@@ -40,7 +40,8 @@ public class SheetsServiceTest {
     Map<ClientParams, Integer> paramsMap = new HashMap<>();
     for (ClientType type : ClientType.values()) {
       paramsMap.put(new ClientParams(type, ""), 1);
-      if (type.toString().startsWith("cps") || type.toString().startsWith("kafka-mapped")) {
+      if (type.toString().startsWith("cps")
+          || type.toString().startsWith("kafka-mapped")) {
         expectedCpsCount++;
       } else if (type.toString().startsWith("kafka")) {
         expectedKafkaCount++;

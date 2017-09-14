@@ -285,6 +285,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         .createSubscription(Subscription.newBuilder()
             .setName(subscriptionString)
             .setTopic(TOPIC_PREFIX + topicName)
+            .setAckDeadlineSeconds(600)
             .build());
   }
 

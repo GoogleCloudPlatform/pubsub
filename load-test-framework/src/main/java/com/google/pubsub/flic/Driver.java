@@ -142,8 +142,6 @@ public class Driver {
   )
   private int kafkaSubscriberCount = 0;
 
-  //new changes
-
   @Parameter(
           names = {"--kafka_mapped_java_publisher_count"},
           description = "Number of mapped publishers to start."
@@ -430,21 +428,12 @@ public class Driver {
             "If max_publish_latency is specified, there must be one type of publisher.");
       }
 
-      //TODO: here
-
       // Each type of client will have its own topic, so each topic will get
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         if (cpsGcloudJavaSubscriberCount > 0) {
-          Preconditions.checkArgument(
-              cpsGcloudJavaPublisherCount > 0 || kafkaMappedJavaPublisherCount > 0,
+          Preconditions.checkArgument(cpsGcloudJavaPublisherCount > 0,
               "--cps_gcloud_java_publisher must be > 0.");
-          Preconditions.checkArgument(
-              cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount +
-                  cpsGcloudGoPublisherCount + kafkaMappedJavaPublisherCount
-                  > 0,
-              "--cps_gcloud_java_publisher, --cps_gcloud_go_publisher, --cps_gcloud_python_publisher,"
-                  + "or --cps_mapped_java_publisher must be > 0.");
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-java-subscription" + i),
               cpsGcloudJavaSubscriberCount / cpsSubscriptionFanout);
@@ -469,6 +458,14 @@ public class Driver {
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_RUBY_SUBSCRIBER, "gcloud-ruby-subscription" + i),
               cpsGcloudRubySubscriberCount / cpsSubscriptionFanout);
+        }
+        if (kafkaMappedJavaSubscriberCount > 0) {
+          Preconditions.checkArgument(kafkaMappedJavaPublisherCount > 0,
+              "--kafka_mapped_java_publisher must be > 0.");
+          //TODO: fix the subscription name
+          clientParamsMap.put(
+              new ClientParams(ClientType.KAFKA_MAPPED_JAVA_SUBSCRIBER, "cloud-pubsub-loadtest-mapped_test"),
+              kafkaMappedJavaSubscriberCount / cpsSubscriptionFanout);
         }
       }
       // Set static variables.

@@ -19,11 +19,12 @@ package com.google.pubsub.clients.producer;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+
+import org.apache.kafka.common.serialization.Serializer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerConfigAdapter;
 import org.apache.kafka.clients.producer.ProducerInterceptor;
 import org.apache.kafka.clients.producer.internals.ProducerInterceptors;
-import org.apache.kafka.common.serialization.Serializer;
 
 /**
  * Provides the configurations for a Kafka Mapped Producer instance.
@@ -105,8 +106,10 @@ public class Config<K, V> {
 
     kafkaConfigs.originals().put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
     List<ProducerInterceptor<K, V>> interceptorList =
-        (List) (ProducerConfigAdapter.getProducerConfig(kafkaConfigs.originals())).getConfiguredInstances(
-            ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, ProducerInterceptor.class);
+        (List) (ProducerConfigAdapter
+            .getProducerConfig(kafkaConfigs.originals()))
+            .getConfiguredInstances(
+                ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, ProducerInterceptor.class);
     this.interceptors =
         interceptorList.isEmpty() ? null : new ProducerInterceptors<>(interceptorList);
   }

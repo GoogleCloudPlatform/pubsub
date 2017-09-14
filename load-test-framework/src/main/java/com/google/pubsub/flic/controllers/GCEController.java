@@ -72,7 +72,7 @@ import org.I0Itec.zkclient.exception.ZkNodeExistsException;
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
  */
 public class GCEController extends Controller {
-  private static final String MACHINE_TYPE = "n1-standard-"; // standard machine prefix
+  private static final String MACHINE_TYPE = "custom-"; // standard machine prefix
   private static final String SOURCE_FAMILY =
       "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
   private static final int ALREADY_EXISTS = 409;
@@ -117,6 +117,14 @@ public class GCEController extends Controller {
               return;
             }
             log.info("Topic already exists, reusing.");
+            try {
+              pubsub.projects().topics()
+                  .delete("projects/" + projectName + "/topics/" + topic).execute();
+              pubsub.projects().topics()
+                  .create("projects/" + projectName + "/topics/" + topic, new Topic()).execute();
+            } catch (IOException e1) {
+              log.info("Couldn't recreate topic.");
+            }
           } catch (IOException e) {
             pubsubFuture.setException(e);
             return;
@@ -131,11 +139,12 @@ public class GCEController extends Controller {
             } catch (IOException e) {
               log.debug("Error deleting subscription, assuming it has not yet been created.", e);
             }
+            //TODO: fix the AckDeadline
             try {
               pubsub.projects().subscriptions().create("projects/" + projectName
                   + "/subscriptions/" + subscription, new Subscription()
                   .setTopic("projects/" + projectName + "/topics/" + topic)
-                  .setAckDeadlineSeconds(10)).execute();
+                  .setAckDeadlineSeconds(subscription.startsWith("cloud") ? 600:10)).execute();
             } catch (IOException e) {
               pubsubFuture.setException(e);
             }
@@ -540,7 +549,7 @@ public class GCEController extends Controller {
     return new InstanceTemplate()
         .setName("cps-loadtest-" + type + "-" + cores)
         .setProperties(new InstanceProperties()
-            .setMachineType(MACHINE_TYPE + cores)
+            .setMachineType(MACHINE_TYPE + cores + "-" + cores * 6144)
             .setDisks(Collections.singletonList(new AttachedDisk()
                 .setBoot(true)
                 .setAutoDelete(true)
