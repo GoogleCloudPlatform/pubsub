@@ -93,7 +93,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private static final int DEFAULT_CHECKSUM = 1;
 
   private static final String KEY_ATTRIBUTE = "key";
-  private static final int DEFAULT_SUBSCRIPTION_DEADLINE = 10;
 
   private final Config<K, V> config;
   private final SubscriberFutureStub subscriberFutureStub;
