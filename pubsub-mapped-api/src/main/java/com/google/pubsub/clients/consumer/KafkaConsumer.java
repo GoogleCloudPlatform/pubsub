@@ -208,7 +208,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
             .setMaxPullRecords((long) config.getMaxPollRecords())
             .setSubscriberFutureStub(this.subscriberFutureStub)
             .setRetryBackoffMs(config.getRetryBackoffMs())
-            .setMaxAckExtensionPeriod(config.getCreatedSubscriptionDeadlineSeconds())
+            .setMaxAckExtensionPeriod(config.getMaxAckExtensionPeriod())
             .setMaxPerRequestChanges(config.getMaxPerRequestChanges())
             .setAckRequestTimeoutMs(config.getAckRequestTimeoutMs())
             .build();

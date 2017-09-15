@@ -298,7 +298,6 @@ public class SubscriberTest {
         fakeSubscriberServiceImpl.waitAndConsumeModifyAckDeadlines(2));
   }
 
-  //TODO
   @Test
   public void testModifyAckDeadline() throws Exception {
     Subscriber subscriber =

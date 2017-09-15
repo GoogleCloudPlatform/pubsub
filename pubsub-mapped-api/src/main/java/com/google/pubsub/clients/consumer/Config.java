@@ -15,12 +15,11 @@
 package com.google.pubsub.clients.consumer;
 
 import com.google.common.base.Preconditions;
+import java.util.Map;
+import java.util.Properties;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfigCreator;
 import org.apache.kafka.common.serialization.Deserializer;
-
-import java.util.Map;
-import java.util.Properties;
 
 class Config<K, V> {
 
@@ -37,6 +36,7 @@ class Config<K, V> {
   private final Integer maxPerRequestChanges;
   private final Integer createdSubscriptionDeadlineSeconds;
   private final Integer ackRequestTimeoutMs;
+  private final Integer maxAckExtensionPeriod;
 
 
   Config(Map<String, Object> configs) {
@@ -100,8 +100,8 @@ class Config<K, V> {
     this.maxPerRequestChanges = pubSubConsumerConfig.getInt(PubSubConsumerConfig.MAX_PER_REQUEST_CHANGES_CONFIG);
     this.createdSubscriptionDeadlineSeconds = pubSubConsumerConfig.getInt(
         PubSubConsumerConfig.CREATED_SUBSCRIPTION_DEADLINE_SECONDS_CONFIG);
-
     this.ackRequestTimeoutMs = pubSubConsumerConfig.getInt(PubSubConsumerConfig.ACK_REQUEST_TIMEOUT_MS_CONFIG);
+    this.maxAckExtensionPeriod = pubSubConsumerConfig.getInt(PubSubConsumerConfig.MAX_ACK_EXTENSION_PERIOD_SECONDS_CONFIG);
 
 
     Preconditions.checkNotNull(this.allowSubscriptionCreation);
@@ -156,6 +156,10 @@ class Config<K, V> {
 
   Integer getCreatedSubscriptionDeadlineSeconds() {
     return createdSubscriptionDeadlineSeconds;
+  }
+
+  Integer getMaxAckExtensionPeriod() {
+    return maxAckExtensionPeriod;
   }
 
   private Deserializer handleDeserializer(ConsumerConfig configs, String configString,
