@@ -21,7 +21,6 @@ import org.apache.kafka.common.config.ConfigDef.Type;
 
 import java.util.Map;
 
-//TODO Use builder pattern using Kafka's ConsumerConfig class
 /**
  * The consumer configuration keys
  */
@@ -31,12 +30,12 @@ public class PubSubConsumerConfig extends AbstractConfig {
   /** <code>subscription.allow.create</code> */
   public static final String SUBSCRIPTION_ALLOW_CREATE_CONFIG = "subscription.allow.create";
   private static final String SUBSCRIPTION_ALLOW_CREATE_DOC =
-      "Determines if subscriptions for non-existing groups should be created"; //DONE
+      "Determines if subscriptions for non-existing groups should be created";
 
   /** <code>subscription.allow.delete</code> */
   public static final String SUBSCRIPTION_ALLOW_DELETE_CONFIG = "subscription.allow.delete";
   private static final String SUBSCRIPTION_ALLOW_DELETE_DOC =
-      "Determines if subscriptions for non-existing groups should be created"; //DONE
+      "Determines if subscriptions for non-existing groups should be created";
 
   /** <code>max.per.request.changes</code> */
   public static final String MAX_PER_REQUEST_CHANGES_CONFIG = "max.per.request.changes";
@@ -45,7 +44,7 @@ public class PubSubConsumerConfig extends AbstractConfig {
 
   public static final String CREATED_SUBSCRIPTION_DEADLINE_SECONDS_CONFIG = "created.subscription.deadline.sec";
   private static final String CREATED_SUBSCRIPTION_DEADLINE_SECONDS_DOC =
-      "If creation of subscriptions is configured, this is the acknowledge deadline they are going to get"; //DONE
+      "If creation of subscriptions is configured, this is the acknowledge deadline they are going to get";
 
 
   public static final String MAX_ACK_EXTENSION_PERIOD_SECONDS_CONFIG = "max.ack.extension.period.sec";
