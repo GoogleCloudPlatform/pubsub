@@ -49,7 +49,7 @@ public class PubSubConsumerConfig extends AbstractConfig {
 
   public static final String MAX_ACK_EXTENSION_PERIOD_SECONDS_CONFIG = "max.ack.extension.period.sec";
   private static final String MAX_ACK_EXTENSION_PERIOD_SECONDS_DOC =
-    "The maximum period a message ack deadline will be extended"; //DONE
+    "The maximum period a message ack deadline will be extended";
 
   public static final String ACK_REQUEST_TIMEOUT_MS_CONFIG = "ack.request.timeout.ms";
   private static final String ACK_REQUEST_TIMEOUT_MS_DOC =
