@@ -51,6 +51,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -185,16 +186,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     Map<String, Subscriber> tempSubscribersMap = new HashMap<>();
 
     for(Map.Entry<String, Subscription> entry: subscriptionMap.entrySet()) {
-      Subscriber subscriber = Subscriber.defaultBuilder(entry.getValue().getNameAsSubscriptionName(),
-          new MappedApiMessageReceiver())
-          .setFlowControlSettings(FlowControlSettings.getDefaultInstance())
-          .setSubscription(entry.getValue())
-          .setAutoCommit(config.getEnableAutoCommit())
-          .setAutoCommitIntervalMs(config.getAutoCommitIntervalMs())
-          .setMaxPullRecords((long) config.getMaxPollRecords())
-          .setSubscriberFutureStub(this.subscriberFutureStub)
-          .setRetryBackoffMs(config.getRetryBackoffMs())
-          .build();
+      Subscriber subscriber = getSubscriberFromConfigs(entry);
+
       tempSubscribersMap.put(entry.getKey(), subscriber);
       subscriber.startAsync().awaitRunning();
     }
@@ -204,6 +197,21 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     currentPoolIndex = 0;
 
     log.debug("Subscribed to topic(s): {}", Utils.join(topics, ", "));
+  }
+
+  private Subscriber getSubscriberFromConfigs(Entry<String, Subscription> entry) {
+    return Subscriber.defaultBuilder(entry.getValue(),
+            new MappedApiMessageReceiver())
+            .setFlowControlSettings(FlowControlSettings.getDefaultInstance())
+            .setAutoCommit(config.getEnableAutoCommit())
+            .setAutoCommitIntervalMs(config.getAutoCommitIntervalMs())
+            .setMaxPullRecords((long) config.getMaxPollRecords())
+            .setSubscriberFutureStub(this.subscriberFutureStub)
+            .setRetryBackoffMs(config.getRetryBackoffMs())
+            .setMaxAckExtensionPeriod(config.getCreatedSubscriptionDeadlineSeconds())
+            .setMaxPerRequestChanges(config.getMaxPerRequestChanges())
+            .setAckRequestTimeoutMs(config.getAckRequestTimeoutMs())
+            .build();
   }
 
   private List<ResponseData<Subscription>> deputePubsubSubscribesGet(Collection<String> topics) {
@@ -285,7 +293,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         .createSubscription(Subscription.newBuilder()
             .setName(subscriptionString)
             .setTopic(TOPIC_PREFIX + topicName)
-            .setAckDeadlineSeconds(DEFAULT_SUBSCRIPTION_DEADLINE)
+            .setAckDeadlineSeconds(config.getCreatedSubscriptionDeadlineSeconds())
             .build());
   }
 

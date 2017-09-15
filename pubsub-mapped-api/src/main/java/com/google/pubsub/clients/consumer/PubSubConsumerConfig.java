@@ -31,17 +31,30 @@ public class PubSubConsumerConfig extends AbstractConfig {
   /** <code>subscription.allow.create</code> */
   public static final String SUBSCRIPTION_ALLOW_CREATE_CONFIG = "subscription.allow.create";
   private static final String SUBSCRIPTION_ALLOW_CREATE_DOC =
-      "Determines if subscriptions for non-existing groups should be created";
+      "Determines if subscriptions for non-existing groups should be created"; //DONE
 
   /** <code>subscription.allow.delete</code> */
   public static final String SUBSCRIPTION_ALLOW_DELETE_CONFIG = "subscription.allow.delete";
   private static final String SUBSCRIPTION_ALLOW_DELETE_DOC =
-      "Determines if subscriptions for non-existing groups should be created";
+      "Determines if subscriptions for non-existing groups should be created"; //DONE
 
-  /** <code>ack.expiration.millis</code> */
-  public static final String ACK_EXPIRATION_MILLIS_CONFIG = "ack.expiration.millis";
-  private static final String ACK_EXPIRATION_MILLIS_DOC =
-      "Acknowledge deadline for PubSub";
+  /** <code>max.per.request.changes</code> */
+  public static final String MAX_PER_REQUEST_CHANGES_CONFIG = "max.per.request.changes";
+  private static final String MAX_PER_REQUEST_CHANGES_DOC =
+      "Maximum of request changes sent in single message (acknowledge & extend deadline)";
+
+  public static final String CREATED_SUBSCRIPTION_DEADLINE_SECONDS_CONFIG = "created.subscription.deadline.sec";
+  private static final String CREATED_SUBSCRIPTION_DEADLINE_SECONDS_DOC =
+      "If creation of subscriptions is configured, this is the acknowledge deadline they are going to get"; //DONE
+
+
+  public static final String MAX_ACK_EXTENSION_PERIOD_SECONDS_CONFIG = "max.ack.extension.period.sec";
+  private static final String MAX_ACK_EXTENSION_PERIOD_SECONDS_DOC =
+    "The maximum period a message ack deadline will be extended"; //DONE
+
+  public static final String ACK_REQUEST_TIMEOUT_MS_CONFIG = "ack.request.timeout.ms";
+  private static final String ACK_REQUEST_TIMEOUT_MS_DOC =
+      "Timeout of acknowledge and acknowledge deadline extension requests";
 
   private static synchronized ConfigDef getInstance() {
     return new ConfigDef()
@@ -55,11 +68,26 @@ public class PubSubConsumerConfig extends AbstractConfig {
             false,
             Importance.MEDIUM,
             SUBSCRIPTION_ALLOW_DELETE_DOC)
-        .define(ACK_EXPIRATION_MILLIS_CONFIG,
+        .define(MAX_PER_REQUEST_CHANGES_CONFIG,
             Type.INT,
-            600000,
+            1000,
             Importance.MEDIUM,
-            ACK_EXPIRATION_MILLIS_DOC);
+            MAX_PER_REQUEST_CHANGES_DOC)
+        .define(CREATED_SUBSCRIPTION_DEADLINE_SECONDS_CONFIG,
+            Type.INT,
+            20,
+            Importance.MEDIUM,
+            CREATED_SUBSCRIPTION_DEADLINE_SECONDS_DOC)
+        .define(MAX_ACK_EXTENSION_PERIOD_SECONDS_CONFIG,
+            Type.INT,
+            3600, // 60 minutes
+            Importance.MEDIUM,
+            MAX_ACK_EXTENSION_PERIOD_SECONDS_DOC)
+        .define(ACK_REQUEST_TIMEOUT_MS_CONFIG,
+            Type.INT,
+            10000,
+            Importance.MEDIUM,
+            ACK_REQUEST_TIMEOUT_MS_DOC);
   }
 
   PubSubConsumerConfig(Map<?, ?> props) {

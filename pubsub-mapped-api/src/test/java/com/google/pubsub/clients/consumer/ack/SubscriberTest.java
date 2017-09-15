@@ -305,7 +305,7 @@ public class SubscriberTest {
         startSubscriber(
             getTestSubscriberBuilder(testReceiver)
                 .setAckExpirationPadding(Duration.ofSeconds(1))
-                .setMaxAckExtensionPeriod(Duration.ofSeconds(13)));
+                .setMaxAckExtensionPeriod(13));
     // Send messages to be acked
     List<String> testAckIdsBatch = ImmutableList.of("A", "B", "C");
     testReceiver.setExplicitAck(true);
@@ -432,11 +432,15 @@ public class SubscriberTest {
         .setAckDeadlineSeconds(10)
         .build();
     SubscriberFutureStub subscriberFutureStub = SubscriberGrpc.newFutureStub(testChannel);
-    return Subscriber.defaultBuilder(TEST_SUBSCRIPTION, receiver)
+    return Subscriber.defaultBuilder(subscription, receiver)
         .setSystemExecutorProvider(FixedExecutorProvider.create(fakeExecutor))
         .setSubscriberFutureStub(subscriberFutureStub)
         .setAutoCommit(false)
-        .setSubscription(subscription)
+        .setAutoCommitIntervalMs(5000)
+        .setMaxAckExtensionPeriod(3600)
+        .setMaxPerRequestChanges(1000)
+        .setMaxPullRecords(1000L)
+        .setAckRequestTimeoutMs(10000)
         .setClock(fakeExecutor.getClock());
   }
 

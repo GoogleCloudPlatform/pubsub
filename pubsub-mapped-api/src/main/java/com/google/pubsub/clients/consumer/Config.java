@@ -26,9 +26,6 @@ class Config<K, V> {
 
   private final Boolean allowSubscriptionCreation;
   private final Boolean allowSubscriptionDeletion;
-
-  private final Integer ackExpirationMillis;
-
   private final String groupId;
   private final int maxPollRecords;
 
@@ -37,6 +34,9 @@ class Config<K, V> {
   private final Boolean enableAutoCommit;
   private final Integer autoCommitIntervalMs;
   private final Long retryBackoffMs;
+  private final Integer maxPerRequestChanges;
+  private final Integer createdSubscriptionDeadlineSeconds;
+  private final Integer ackRequestTimeoutMs;
 
 
   Config(Map<String, Object> configs) {
@@ -97,9 +97,11 @@ class Config<K, V> {
         pubSubConsumerConfig.getBoolean(PubSubConsumerConfig.SUBSCRIPTION_ALLOW_CREATE_CONFIG);
     this.allowSubscriptionDeletion =
         pubSubConsumerConfig.getBoolean(PubSubConsumerConfig.SUBSCRIPTION_ALLOW_DELETE_CONFIG);
-    this.ackExpirationMillis =
-        pubSubConsumerConfig.getInt(PubSubConsumerConfig.ACK_EXPIRATION_MILLIS_CONFIG);
+    this.maxPerRequestChanges = pubSubConsumerConfig.getInt(PubSubConsumerConfig.MAX_PER_REQUEST_CHANGES_CONFIG);
+    this.createdSubscriptionDeadlineSeconds = pubSubConsumerConfig.getInt(
+        PubSubConsumerConfig.CREATED_SUBSCRIPTION_DEADLINE_SECONDS_CONFIG);
 
+    this.ackRequestTimeoutMs = pubSubConsumerConfig.getInt(PubSubConsumerConfig.ACK_REQUEST_TIMEOUT_MS_CONFIG);
 
 
     Preconditions.checkNotNull(this.allowSubscriptionCreation);
@@ -114,10 +116,6 @@ class Config<K, V> {
 
   Boolean getAllowSubscriptionDeletion() {
     return allowSubscriptionDeletion;
-  }
-
-  Integer getAckExpirationMillis() {
-    return ackExpirationMillis;
   }
 
   String getGroupId() {
@@ -140,12 +138,24 @@ class Config<K, V> {
     return enableAutoCommit;
   }
 
-  public Integer getAutoCommitIntervalMs() {
+  Integer getAutoCommitIntervalMs() {
     return autoCommitIntervalMs;
   }
 
-  public Long getRetryBackoffMs() {
+  Long getRetryBackoffMs() {
     return retryBackoffMs;
+  }
+
+  Integer getMaxPerRequestChanges() {
+    return maxPerRequestChanges;
+  }
+
+  Integer getAckRequestTimeoutMs() {
+    return ackRequestTimeoutMs;
+  }
+
+  Integer getCreatedSubscriptionDeadlineSeconds() {
+    return createdSubscriptionDeadlineSeconds;
   }
 
   private Deserializer handleDeserializer(ConsumerConfig configs, String configString,

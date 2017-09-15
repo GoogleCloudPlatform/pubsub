@@ -28,7 +28,6 @@ import com.google.api.gax.grpc.ExecutorProvider;
 import com.google.api.gax.grpc.FixedExecutorProvider;
 import com.google.api.gax.grpc.InstantiatingExecutorProvider;
 import com.google.auth.oauth2.GoogleCredentials;
-import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.pubsub.v1.PullResponse;
@@ -72,15 +71,7 @@ import org.threeten.bp.Duration;
  * credentials through {@link GoogleCredentials#getApplicationDefault} by default.
  */
 public class Subscriber extends AbstractApiService {
-  private static final int THREADS_PER_CHANNEL = 5;
-  @VisibleForTesting static final int CHANNELS_PER_CORE = 1;
-  private static final int MAX_INBOUND_MESSAGE_SIZE =
-      20 * 1024 * 1024; // 20MB API maximum message size.
-  private static final int INITIAL_ACK_DEADLINE_SECONDS = 10;
   private static final int MAX_ACK_DEADLINE_SECONDS = 600;
-  static final int MIN_ACK_DEADLINE_SECONDS = 10;
-  private static final Duration ACK_DEADLINE_UPDATE_PERIOD = Duration.ofMinutes(1);
-  private static final double PERCENTILE_FOR_ACK_DEADLINE_UPDATES = 99.9;
 
   private static final ScheduledExecutorService SHARED_SYSTEM_EXECUTOR =
       InstantiatingExecutorProvider.newBuilder().setExecutorThreadCount(6).build().getExecutor();
@@ -103,6 +94,8 @@ public class Subscriber extends AbstractApiService {
     Duration maxAckExtensionPeriod = builder.maxAckExtensionPeriod;
     Long maxPullRecords = builder.maxPullRecords;
     Long retryBackoffMs = builder.retryBackoffMs;
+    Integer maxPerRequestChanges = builder.maxPerRequestChanges;
+    Integer ackRequestTimeoutMs = builder.ackRequestTimeoutMs;
 
     flowControlSettings = builder.flowControlSettings;
     subscription = builder.subscription;
@@ -147,7 +140,9 @@ public class Subscriber extends AbstractApiService {
         maxPullRecords,
         alarmsExecutor,
         clock,
-        retryBackoffMs);
+        retryBackoffMs,
+        maxPerRequestChanges,
+        ackRequestTimeoutMs);
   }
 
   /**
@@ -160,7 +155,7 @@ public class Subscriber extends AbstractApiService {
    * @param receiver an implementation of {@link MessageReceiver} used to process the received
    *     messages
    */
-  public static Builder defaultBuilder(SubscriptionName subscription, MessageReceiver receiver) {
+  public static Builder defaultBuilder(Subscription subscription, MessageReceiver receiver) {
     return new Builder(subscription, receiver);
   }
 
@@ -249,22 +244,12 @@ public class Subscriber extends AbstractApiService {
   public static final class Builder {
     private static final Duration MIN_ACK_EXPIRATION_PADDING = Duration.ofMillis(100);
     private static final Duration DEFAULT_ACK_EXPIRATION_PADDING = Duration.ofMillis(500);
-    private static final Duration DEFAULT_MAX_ACK_EXTENSION_PERIOD = Duration.ofMinutes(60);
     private static final long DEFAULT_MEMORY_PERCENTAGE = 20;
 
-    static final ExecutorProvider DEFAULT_EXECUTOR_PROVIDER =
-        InstantiatingExecutorProvider.newBuilder()
-            .setExecutorThreadCount(
-                THREADS_PER_CHANNEL
-                    * CHANNELS_PER_CORE
-                    * Runtime.getRuntime().availableProcessors())
-            .build();
-
-    SubscriptionName subscriptionName;
     MessageReceiver receiver;
 
     Duration ackExpirationPadding = DEFAULT_ACK_EXPIRATION_PADDING;
-    Duration maxAckExtensionPeriod = DEFAULT_MAX_ACK_EXTENSION_PERIOD;
+    Duration maxAckExtensionPeriod;
 
     FlowControlSettings flowControlSettings =
         FlowControlSettings.newBuilder()
@@ -272,18 +257,19 @@ public class Subscriber extends AbstractApiService {
                 Runtime.getRuntime().maxMemory() * DEFAULT_MEMORY_PERCENTAGE / 100L)
             .build();
 
-    ExecutorProvider executorProvider = DEFAULT_EXECUTOR_PROVIDER;
     ExecutorProvider systemExecutorProvider = FixedExecutorProvider.create(SHARED_SYSTEM_EXECUTOR);
     Optional<ApiClock> clock = Optional.absent();
-    private Subscription subscription;
+    private final Subscription subscription;
     private Long maxPullRecords;
-    private Boolean autoCommit = true;
-    private Integer autoCommitIntervalMs = 5000;
+    private Boolean autoCommit;
+    private Integer autoCommitIntervalMs;
     private SubscriberFutureStub subscriberFutureStub;
     private Long retryBackoffMs;
+    private Integer maxPerRequestChanges;
+    private Integer ackRequestTimeoutMs;
 
-    Builder(SubscriptionName subscriptionName, MessageReceiver receiver) {
-      this.subscriptionName = subscriptionName;
+    Builder(Subscription subscription, MessageReceiver receiver) {
+      this.subscription = subscription;
       this.receiver = receiver;
     }
 
@@ -320,9 +306,9 @@ public class Subscriber extends AbstractApiService {
      *
      * <p>A zero duration effectively disables auto deadline extensions.
      */
-    public Builder setMaxAckExtensionPeriod(Duration maxAckExtensionPeriod) {
-      Preconditions.checkArgument(maxAckExtensionPeriod.toMillis() >= 0);
-      this.maxAckExtensionPeriod = maxAckExtensionPeriod;
+    public Builder setMaxAckExtensionPeriod(Integer maxAckExtensionPeriod) {
+      Preconditions.checkArgument(maxAckExtensionPeriod >= 0);
+      this.maxAckExtensionPeriod = Duration.ofSeconds(maxAckExtensionPeriod);
       return this;
     }
 
@@ -332,11 +318,6 @@ public class Subscriber extends AbstractApiService {
      */
     public Builder setSystemExecutorProvider(ExecutorProvider executorProvider) {
       this.systemExecutorProvider = Preconditions.checkNotNull(executorProvider);
-      return this;
-    }
-
-    public Builder setSubscription(Subscription subscription) {
-      this.subscription = subscription;
       return this;
     }
     
@@ -368,6 +349,16 @@ public class Subscriber extends AbstractApiService {
     
     public Builder setRetryBackoffMs(Long retryBackoffMs) {
       this.retryBackoffMs = retryBackoffMs;
+      return this;
+    }
+
+    public Builder setMaxPerRequestChanges(Integer maxPerRequestChanges) {
+      this.maxPerRequestChanges = maxPerRequestChanges;
+      return this;
+    }
+
+    public Builder setAckRequestTimeoutMs(Integer ackRequestTimeoutMs) {
+      this.ackRequestTimeoutMs = ackRequestTimeoutMs;
       return this;
     }
 

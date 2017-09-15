@@ -37,8 +37,6 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
-import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.OffsetCommitCallback;
 import org.apache.kafka.common.KafkaException;
 import org.threeten.bp.Duration;
@@ -47,18 +45,13 @@ import org.threeten.bp.Duration;
  * Implementation of {@link MessageDispatcher.AckProcessor} based on Cloud Pub/Sub pull and acknowledge operations.
  */
 final class PollingSubscriberConnection extends AbstractApiService implements MessageDispatcher.AckProcessor {
-  private static final Duration DEFAULT_TIMEOUT = Duration.ofSeconds(10);
-
-  private static final int MAX_PER_REQUEST_CHANGES = 1000;
-  private static final int DEFAULT_MAX_MESSAGES = 1000;
-
-  private static final Logger logger =
-      Logger.getLogger(PollingSubscriberConnection.class.getName());
 
   private final Subscription subscription;
   private final SubscriberFutureStub stub;
   private final MessageDispatcher messageDispatcher;
   private final int maxDesiredPulledMessages;
+  private final Integer maxPerRequestChanges;
+  private final Integer extensionAckTimeoutMs;
 
   PollingSubscriberConnection(
       Subscription subscription,
@@ -68,10 +61,12 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
       Distribution ackLatencyDistribution,
       SubscriberFutureStub stub,
       FlowController flowController,
-      @Nullable Long maxDesiredPulledMessages,
+      Long maxDesiredPulledMessages,
       ScheduledExecutorService systemExecutor,
       ApiClock clock,
-      Long retryBackoffMs) {
+      Long retryBackoffMs,
+      Integer maxPerRequestChanges,
+      Integer extensionAckTimeoutMs) {
     this.subscription = subscription;
     this.stub = stub;
     messageDispatcher =
@@ -85,11 +80,12 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
             systemExecutor,
             clock,
             retryBackoffMs);
+
+    this.maxPerRequestChanges = maxPerRequestChanges;
+
     messageDispatcher.setMessageDeadlineSeconds(subscription.getAckDeadlineSeconds());
-    this.maxDesiredPulledMessages =
-        maxDesiredPulledMessages != null
-            ? Ints.saturatedCast(maxDesiredPulledMessages)
-            : DEFAULT_MAX_MESSAGES;
+    this.maxDesiredPulledMessages = Ints.saturatedCast(maxDesiredPulledMessages);
+    this.extensionAckTimeoutMs = extensionAckTimeoutMs;
   }
 
   PullResponse pullMessages(final long timeout) throws ExecutionException, InterruptedException {
@@ -130,8 +126,8 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
     // size.
     for (MessageDispatcher.PendingModifyAckDeadline modifyAckDeadline : ackDeadlineExtensions) {
       for (List<String> ackIdChunk :
-          Lists.partition(modifyAckDeadline.ackIds, MAX_PER_REQUEST_CHANGES)) {
-        stub.withDeadlineAfter(DEFAULT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
+          Lists.partition(modifyAckDeadline.ackIds, maxPerRequestChanges)) {
+        stub.withDeadlineAfter(extensionAckTimeoutMs, TimeUnit.MILLISECONDS)
             .modifyAckDeadline(
                 ModifyAckDeadlineRequest.newBuilder()
                     .setSubscription(subscription.getName())
@@ -143,8 +139,8 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
 
     List<ListenableFuture<Empty>> acknowledges = new ArrayList<>();
 
-    for (List<String> ackChunk : Lists.partition(acksToSend, MAX_PER_REQUEST_CHANGES)) {
-      ListenableFuture<Empty> acknowledge = stub.withDeadlineAfter(DEFAULT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS)
+    for (List<String> ackChunk : Lists.partition(acksToSend, maxPerRequestChanges)) {
+      ListenableFuture<Empty> acknowledge = stub.withDeadlineAfter(extensionAckTimeoutMs, TimeUnit.MILLISECONDS)
           .acknowledge(
               AcknowledgeRequest.newBuilder()
                   .setSubscription(subscription.getName())
