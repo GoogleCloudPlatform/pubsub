@@ -47,9 +47,9 @@ def main(project, test, client_types, vms_count, broker):
   if not os.path.isfile('./target/classes/gce/cps.zip'):
     go_package = 'cloud.google.com/go/pubsub/loadtest/cmd'
     go_bin_location = './target/loadtest-go'
-    # return_code = subprocess.call(['go', 'build', '-o', go_bin_location, go_package])
-    # if return_code != 0:
-    #   sys.exit('cannot build Go load tester, maybe run `go get -u {}`?'.format(go_package))
+    return_code = subprocess.call(['go', 'build', '-o', go_bin_location, go_package])
+    if return_code != 0:
+      sys.exit('cannot build Go load tester, maybe run `go get -u {}`?'.format(go_package))
 
     subprocess.call([
         'zip', './target/classes/gce/cps.zip',
@@ -61,8 +61,8 @@ def main(project, test, client_types, vms_count, broker):
         './ruby_src/loadtest_pb.rb',
         './ruby_src/loadtest_services_pb.rb',
         './ruby_src/cps_publisher_task.rb',
-        './ruby_src/cps_subscriber_task.rb'# ,
-        # go_bin_location
+        './ruby_src/cps_subscriber_task.rb' ,
+        go_bin_location
     ])
   arg_list = ['java', '-jar', 'target/driver.jar', '--project', project]
   gcloud_subscriber_count = 0
