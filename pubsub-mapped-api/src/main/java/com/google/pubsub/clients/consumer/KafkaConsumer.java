@@ -57,7 +57,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
@@ -353,18 +352,24 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void unsubscribe() {
-
-    List<Subscription> subscriptions =
-        topicNameToSubscriber.values().stream().map(Subscriber::getSubscription).collect(Collectors.toList());
-
     for(Subscriber s: topicNameToSubscriber.values()) {
       s.stopAsync().awaitTerminated();
     }
 
-    deleteSubscriptionsIfAllowed(subscriptions);
+    List<Subscription> currentSubscriptions = getSubscriptionsFromSubcribers();
+    deleteSubscriptionsIfAllowed(currentSubscriptions);
+
     topicNameToSubscriber = ImmutableMap.of();
     topicNames = ImmutableList.of();
     currentPoolIndex = 0;
+  }
+
+  private List<Subscription> getSubscriptionsFromSubcribers() {
+    List<Subscription> subscriptions = new ArrayList<>(topicNameToSubscriber.size());
+    for(Subscriber s: topicNameToSubscriber.values()) {
+      subscriptions.add(s.getSubscription());
+    }
+    return subscriptions;
   }
 
   private void deleteSubscriptionsIfAllowed(Collection<Subscription> subscriptions) {
