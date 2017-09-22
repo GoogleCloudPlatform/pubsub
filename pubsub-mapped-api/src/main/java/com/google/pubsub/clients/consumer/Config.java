@@ -25,12 +25,19 @@ class Config<K, V> {
 
   private final Boolean allowSubscriptionCreation;
   private final Boolean allowSubscriptionDeletion;
-
   private final String groupId;
   private final int maxPollRecords;
 
   private final Deserializer<K> keyDeserializer;
   private final Deserializer<V> valueDeserializer;
+  private final Boolean enableAutoCommit;
+  private final Integer autoCommitIntervalMs;
+  private final Long retryBackoffMs;
+  private final Integer maxPerRequestChanges;
+  private final Integer createdSubscriptionDeadlineSeconds;
+  private final Integer requestTimeoutMs;
+  private final Integer maxAckExtensionPeriod;
+
 
   Config(Map<String, Object> configs) {
     this(ConsumerConfigCreator.getConsumerConfig(configs),
@@ -81,11 +88,21 @@ class Config<K, V> {
     //this is a limit on each poll for each topic
     this.maxPollRecords = consumerConfig.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG);
 
+    this.enableAutoCommit = consumerConfig.getBoolean(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG);
+    this.autoCommitIntervalMs = consumerConfig.getInt(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG);
+    this.retryBackoffMs = consumerConfig.getLong(ConsumerConfig.RETRY_BACKOFF_MS_CONFIG);
+    this.requestTimeoutMs = consumerConfig.getInt(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG);
+
     //PubSub-specific options
     this.allowSubscriptionCreation =
         pubSubConsumerConfig.getBoolean(PubSubConsumerConfig.SUBSCRIPTION_ALLOW_CREATE_CONFIG);
     this.allowSubscriptionDeletion =
         pubSubConsumerConfig.getBoolean(PubSubConsumerConfig.SUBSCRIPTION_ALLOW_DELETE_CONFIG);
+    this.maxPerRequestChanges = pubSubConsumerConfig.getInt(PubSubConsumerConfig.MAX_PER_REQUEST_CHANGES_CONFIG);
+    this.createdSubscriptionDeadlineSeconds = pubSubConsumerConfig.getInt(
+        PubSubConsumerConfig.CREATED_SUBSCRIPTION_DEADLINE_SECONDS_CONFIG);
+    this.maxAckExtensionPeriod = pubSubConsumerConfig.getInt(PubSubConsumerConfig.MAX_ACK_EXTENSION_PERIOD_SECONDS_CONFIG);
+
 
     Preconditions.checkNotNull(this.allowSubscriptionCreation);
     Preconditions.checkNotNull(this.allowSubscriptionDeletion);
@@ -117,6 +134,34 @@ class Config<K, V> {
     return valueDeserializer;
   }
 
+  Boolean getEnableAutoCommit() {
+    return enableAutoCommit;
+  }
+
+  Integer getAutoCommitIntervalMs() {
+    return autoCommitIntervalMs;
+  }
+
+  Long getRetryBackoffMs() {
+    return retryBackoffMs;
+  }
+
+  Integer getMaxPerRequestChanges() {
+    return maxPerRequestChanges;
+  }
+
+  Integer getRequestTimeoutMs() {
+    return requestTimeoutMs;
+  }
+
+  Integer getCreatedSubscriptionDeadlineSeconds() {
+    return createdSubscriptionDeadlineSeconds;
+  }
+
+  Integer getMaxAckExtensionPeriod() {
+    return maxAckExtensionPeriod;
+  }
+
   private Deserializer handleDeserializer(ConsumerConfig configs, String configString,
       Deserializer providedDeserializer, boolean isKey) {
     Deserializer deserializer;
@@ -129,5 +174,4 @@ class Config<K, V> {
     }
     return deserializer;
   }
-
 }

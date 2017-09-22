@@ -16,6 +16,7 @@
 package com.google.pubsub.clients.consumer;
 
 import com.google.api.client.util.Base64;
+import com.google.api.gax.batching.FlowControlSettings;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -23,8 +24,9 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
+import com.google.pubsub.clients.consumer.ack.MappedApiMessageReceiver;
+import com.google.pubsub.clients.consumer.ack.Subscriber;
 import com.google.pubsub.common.ChannelUtil;
-import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.DeleteSubscriptionRequest;
 import com.google.pubsub.v1.GetSubscriptionRequest;
 import com.google.pubsub.v1.ListTopicsRequest;
@@ -32,7 +34,6 @@ import com.google.pubsub.v1.ListTopicsResponse;
 import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
 import com.google.pubsub.v1.SubscriberGrpc;
@@ -43,18 +44,17 @@ import io.grpc.CallCredentials;
 import io.grpc.Channel;
 import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
-import java.sql.Timestamp;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Properties;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.annotation.Nullable;
@@ -98,8 +98,9 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private final SubscriberFutureStub subscriberFutureStub;
   private final PublisherFutureStub publisherFutureStub;
 
-  private ImmutableMap<String, Subscription> topicNameToSubscription = ImmutableMap.of();
   private ImmutableList<String> topicNames = ImmutableList.of();
+
+  private ImmutableMap<String, Subscriber> topicNameToSubscriber = ImmutableMap.of();
 
   private int currentPoolIndex;
 
@@ -146,7 +147,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       this.subscriberFutureStub = subscriberFutureStub;
       this.publisherFutureStub = publisherFutureStub;
 
-      //Kafka-specific options
       this.config = config;
 
       log.debug("PubSub subscriber created");
@@ -162,7 +162,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public Set<String> subscription() {
-    return topicNameToSubscription.keySet();
+    return topicNameToSubscriber.keySet();
   }
 
   /**
@@ -178,12 +178,35 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     unsubscribe();
     List<ResponseData<Subscription>> futureSubscriptions = deputePubsubSubscribesGet(topics);
     Map<String, Subscription> subscriptionMap = getSubscriptionsFromPubsub(futureSubscriptions);
+    Map<String, Subscriber> tempSubscribersMap = new HashMap<>();
 
-    topicNameToSubscription = ImmutableMap.copyOf(subscriptionMap);
+    for(Map.Entry<String, Subscription> entry: subscriptionMap.entrySet()) {
+      Subscriber subscriber = getSubscriberFromConfigs(entry);
+
+      tempSubscribersMap.put(entry.getKey(), subscriber);
+      subscriber.startAsync().awaitRunning();
+    }
+
+    topicNameToSubscriber = ImmutableMap.copyOf(tempSubscribersMap);
     topicNames = ImmutableList.copyOf(subscriptionMap.keySet());
     currentPoolIndex = 0;
 
     log.debug("Subscribed to topic(s): {}", Utils.join(topics, ", "));
+  }
+
+  private Subscriber getSubscriberFromConfigs(Entry<String, Subscription> entry) {
+    return Subscriber.defaultBuilder(entry.getValue(),
+            new MappedApiMessageReceiver())
+            .setFlowControlSettings(FlowControlSettings.getDefaultInstance())
+            .setAutoCommit(config.getEnableAutoCommit())
+            .setAutoCommitIntervalMs(config.getAutoCommitIntervalMs())
+            .setMaxPullRecords((long) config.getMaxPollRecords())
+            .setSubscriberFutureStub(this.subscriberFutureStub)
+            .setRetryBackoffMs(config.getRetryBackoffMs())
+            .setMaxAckExtensionPeriod(config.getMaxAckExtensionPeriod())
+            .setMaxPerRequestChanges(config.getMaxPerRequestChanges())
+            .setAckRequestTimeoutMs(config.getRequestTimeoutMs())
+            .build();
   }
 
   private List<ResponseData<Subscription>> deputePubsubSubscribesGet(Collection<String> topics) {
@@ -259,32 +282,13 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         && ((StatusRuntimeException)e.getCause()).getStatus().getCode().equals(Code.NOT_FOUND);
   }
 
-  private List<ResponseData<Subscription>> deputePubsubSubscribes(Collection<String> topics) {
-    Timestamp timestamp = new Timestamp(System.currentTimeMillis());
-
-    List<ResponseData<Subscription>> responseDatas = new ArrayList<>();
-    Set<String> usedNames = new HashSet<>();
-
-    for (String topic: topics) {
-      if (!usedNames.contains(topic)) {
-        String subscriptionString = SUBSCRIPTION_PREFIX + topic + "_" + timestamp.getTime()
-            + "_" + UUID.randomUUID();
-        ListenableFuture<Subscription> deputedSubscription =
-            deputeSinglePubsubSubscription(subscriptionString, topic);
-
-        responseDatas.add(new ResponseData<>(topic, subscriptionString, deputedSubscription));
-        usedNames.add(topic);
-      }
-    }
-    return responseDatas;
-  }
-
   private ListenableFuture<Subscription> deputeSinglePubsubSubscription(String subscriptionString,
       String topicName) {
     return subscriberFutureStub
         .createSubscription(Subscription.newBuilder()
             .setName(subscriptionString)
             .setTopic(TOPIC_PREFIX + topicName)
+            .setAckDeadlineSeconds(config.getCreatedSubscriptionDeadlineSeconds())
             .build());
   }
 
@@ -348,10 +352,24 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void unsubscribe() {
-    deleteSubscriptionsIfAllowed(topicNameToSubscription.values());
-    topicNameToSubscription = ImmutableMap.of();
+    for(Subscriber s: topicNameToSubscriber.values()) {
+      s.stopAsync().awaitTerminated();
+    }
+
+    List<Subscription> currentSubscriptions = getSubscriptionsFromSubcribers();
+    deleteSubscriptionsIfAllowed(currentSubscriptions);
+
+    topicNameToSubscriber = ImmutableMap.of();
     topicNames = ImmutableList.of();
     currentPoolIndex = 0;
+  }
+
+  private List<Subscription> getSubscriptionsFromSubcribers() {
+    List<Subscription> subscriptions = new ArrayList<>(topicNameToSubscriber.size());
+    for(Subscriber s: topicNameToSubscriber.values()) {
+      subscriptions.add(s.getSubscription());
+    }
+    return subscriptions;
   }
 
   private void deleteSubscriptionsIfAllowed(Collection<Subscription> subscriptions) {
@@ -377,88 +395,49 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     int startedAtIndex = this.currentPoolIndex;
     try {
       do {
-        ResponseData<PullResponse> pollData = getPullResponseResponseData(timeout);
-        PullResponse pullResponse = pollData.getRequestListenableFuture().get();
 
-        List<ConsumerRecord<K, V>> subscriptionRecords = mapToConsumerRecords(pollData, pullResponse);
+        String topicName = topicNames.get(this.currentPoolIndex % topicNameToSubscriber.size());
+        Subscriber subscriber = topicNameToSubscriber.get(topicName);
 
-        this.currentPoolIndex = (this.currentPoolIndex + 1) % topicNameToSubscription.size();
+        PullResponse pullResponse = subscriber.pull(timeout);
 
-        if (!subscriptionRecords.isEmpty()) {
-          AcknowledgeRequest acknowledgeRequest = getAcknowledgeRequest(pollData.getSubscriptionFullName(),
-              pullResponse);
-          //TODO depute acknowledge message with timeout rather than ack immediately
-          acknowledgeMessage(acknowledgeRequest);
+        List<ConsumerRecord<K, V>> subscriptionRecords = mapToConsumerRecords(topicName, pullResponse);
+        this.currentPoolIndex = (this.currentPoolIndex + 1) % topicNameToSubscriber.size();
 
-          return getConsumerRecords(pollData, subscriptionRecords);
+        if (!pullResponse.getReceivedMessagesList().isEmpty()) {
+          return getConsumerRecords(topicName, subscriptionRecords);
         }
       } while (this.currentPoolIndex != startedAtIndex);
 
     } catch (InterruptedException e) {
       throw new InterruptException(e);
-    } catch (ExecutionException e) {
+    } catch (ExecutionException | IOException e) {
       throw new KafkaException(e);
     }
 
     return new ConsumerRecords<>(new HashMap<>());
   }
 
-  private ConsumerRecords<K, V> getConsumerRecords(ResponseData<PullResponse> pollData,
+  private ConsumerRecords<K, V> getConsumerRecords(String topicName,
       List<ConsumerRecord<K, V>> subscriptionRecords) {
     Map<TopicPartition, List<ConsumerRecord<K, V>>> pollRecords = new HashMap<>();
 
-    TopicPartition topicPartition = new TopicPartition(pollData.getTopicName(), DEFAULT_PARTITION);
+    TopicPartition topicPartition = new TopicPartition(topicName, DEFAULT_PARTITION);
     pollRecords.put(topicPartition, subscriptionRecords);
 
     return new ConsumerRecords<>(pollRecords);
   }
 
-  private ResponseData<PullResponse> getPullResponseResponseData(long timeout) {
-    String topicName = topicNames.get(this.currentPoolIndex % topicNameToSubscription.size());
-
-    Subscription subscription = topicNameToSubscription.get(topicName);
-    ListenableFuture<PullResponse> deputedPull = deputeSinglePubsubPull(subscription, timeout);
-    return new ResponseData<>(topicName, subscription.getName(), deputedPull);
-  }
-
-  private AcknowledgeRequest getAcknowledgeRequest(String subscription, PullResponse pulled) {
-    List<String> ackIds = new ArrayList<>();
-    for (ReceivedMessage receivedMessage : pulled.getReceivedMessagesList()) {
-      ackIds.add(receivedMessage.getAckId());
-    }
-
-    return AcknowledgeRequest.newBuilder()
-        .addAllAckIds(ackIds)
-        .setSubscription(subscription).build();
-  }
-
-  private ListenableFuture<PullResponse> deputeSinglePubsubPull(Subscription s, long timeout) {
-    SubscriberFutureStub deadlineFutureStub =
-        subscriberFutureStub.withDeadlineAfter(timeout, TimeUnit.MILLISECONDS);
-
-    return deadlineFutureStub.pull(PullRequest.newBuilder()
-        .setSubscription(s.getName())
-        .setMaxMessages(config.getMaxPollRecords())
-        .setReturnImmediately(true).build());
-  }
-
-  private List<ConsumerRecord<K, V>> mapToConsumerRecords(ResponseData<PullResponse> pollData,
-      PullResponse pulled) {
+  private List<ConsumerRecord<K, V>> mapToConsumerRecords(String topicName, PullResponse pulled) {
     List<ConsumerRecord<K, V>> subscriptionRecords = new ArrayList<>();
 
     for (ReceivedMessage receivedMessage : pulled.getReceivedMessagesList()) {
       ConsumerRecord<K, V> record = prepareKafkaRecord(receivedMessage,
-          pollData.getTopicName());
+          topicName);
       subscriptionRecords.add(record);
     }
 
     return subscriptionRecords;
-  }
-
-  private void acknowledgeMessage(AcknowledgeRequest acknowledgeRequest)
-      throws ExecutionException, InterruptedException {
-    ListenableFuture<Empty> acknowledgeFuture = subscriberFutureStub.acknowledge(acknowledgeRequest);
-    acknowledgeFuture.get();
   }
 
   private void checkPollPreconditions(long timeout) {
@@ -466,7 +445,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     Preconditions.checkArgument(timeout >= 0,
         "Timeout must not be negative");
 
-    if (topicNameToSubscription.isEmpty()) {
+    if (topicNameToSubscriber.isEmpty()) {
       throw new IllegalStateException("Consumer is not subscribed to any topics");
     }
   }
@@ -483,7 +462,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     //key of Kafka-style message is stored in PubSub attributes (null possible)
     String key = message.getAttributesOrDefault(KEY_ATTRIBUTE, null);
 
-    byte [] deserializedKeyBytes = Base64.decodeBase64(key.getBytes());
+    byte [] deserializedKeyBytes = key != null ? Base64.decodeBase64(key.getBytes()) : null;
 
     //lengths of serialized value and serialized key
     int serializedValueSize = message.getData().toByteArray().length;
@@ -504,7 +483,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void commitSync() {
-    throw new UnsupportedOperationException("Not yet implemented");
+    commit(true);
   }
 
   @Override
@@ -514,7 +493,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void commitAsync() {
-    throw new UnsupportedOperationException("Not yet implemented");
+    commit(false);
   }
 
   @Override
@@ -526,6 +505,12 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   public void commitAsync(final Map<TopicPartition, OffsetAndMetadata> offsets,
       OffsetCommitCallback callback) {
     throw new UnsupportedOperationException("Not yet implemented");
+  }
+
+  private void commit(boolean sync) {
+    for (Map.Entry<String, Subscriber> entry : topicNameToSubscriber.entrySet()) {
+      entry.getValue().commit(sync);
+    }
   }
 
   @Override
