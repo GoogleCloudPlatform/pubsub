@@ -51,10 +51,6 @@ public class PubSubConsumerConfig extends AbstractConfig {
   private static final String MAX_ACK_EXTENSION_PERIOD_SECONDS_DOC =
     "The maximum period a message ack deadline will be extended";
 
-  public static final String ACK_REQUEST_TIMEOUT_MS_CONFIG = "ack.request.timeout.ms";
-  private static final String ACK_REQUEST_TIMEOUT_MS_DOC =
-      "Timeout of acknowledge and acknowledge deadline extension requests";
-
   private static synchronized ConfigDef getInstance() {
     return new ConfigDef()
         .define(SUBSCRIPTION_ALLOW_CREATE_CONFIG,
@@ -81,12 +77,7 @@ public class PubSubConsumerConfig extends AbstractConfig {
             Type.INT,
             3600, // 60 minutes
             Importance.MEDIUM,
-            MAX_ACK_EXTENSION_PERIOD_SECONDS_DOC)
-        .define(ACK_REQUEST_TIMEOUT_MS_CONFIG,
-            Type.INT,
-            10000,
-            Importance.MEDIUM,
-            ACK_REQUEST_TIMEOUT_MS_DOC);
+            MAX_ACK_EXTENSION_PERIOD_SECONDS_DOC);
   }
 
   PubSubConsumerConfig(Map<?, ?> props) {

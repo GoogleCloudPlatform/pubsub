@@ -35,7 +35,7 @@ class Config<K, V> {
   private final Long retryBackoffMs;
   private final Integer maxPerRequestChanges;
   private final Integer createdSubscriptionDeadlineSeconds;
-  private final Integer ackRequestTimeoutMs;
+  private final Integer requestTimeoutMs;
   private final Integer maxAckExtensionPeriod;
 
 
@@ -91,6 +91,7 @@ class Config<K, V> {
     this.enableAutoCommit = consumerConfig.getBoolean(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG);
     this.autoCommitIntervalMs = consumerConfig.getInt(ConsumerConfig.AUTO_COMMIT_INTERVAL_MS_CONFIG);
     this.retryBackoffMs = consumerConfig.getLong(ConsumerConfig.RETRY_BACKOFF_MS_CONFIG);
+    this.requestTimeoutMs = consumerConfig.getInt(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG);
 
     //PubSub-specific options
     this.allowSubscriptionCreation =
@@ -100,7 +101,6 @@ class Config<K, V> {
     this.maxPerRequestChanges = pubSubConsumerConfig.getInt(PubSubConsumerConfig.MAX_PER_REQUEST_CHANGES_CONFIG);
     this.createdSubscriptionDeadlineSeconds = pubSubConsumerConfig.getInt(
         PubSubConsumerConfig.CREATED_SUBSCRIPTION_DEADLINE_SECONDS_CONFIG);
-    this.ackRequestTimeoutMs = pubSubConsumerConfig.getInt(PubSubConsumerConfig.ACK_REQUEST_TIMEOUT_MS_CONFIG);
     this.maxAckExtensionPeriod = pubSubConsumerConfig.getInt(PubSubConsumerConfig.MAX_ACK_EXTENSION_PERIOD_SECONDS_CONFIG);
 
 
@@ -150,8 +150,8 @@ class Config<K, V> {
     return maxPerRequestChanges;
   }
 
-  Integer getAckRequestTimeoutMs() {
-    return ackRequestTimeoutMs;
+  Integer getRequestTimeoutMs() {
+    return requestTimeoutMs;
   }
 
   Integer getCreatedSubscriptionDeadlineSeconds() {

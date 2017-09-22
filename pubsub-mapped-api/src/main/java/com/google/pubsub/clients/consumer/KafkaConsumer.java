@@ -205,7 +205,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
             .setRetryBackoffMs(config.getRetryBackoffMs())
             .setMaxAckExtensionPeriod(config.getMaxAckExtensionPeriod())
             .setMaxPerRequestChanges(config.getMaxPerRequestChanges())
-            .setAckRequestTimeoutMs(config.getAckRequestTimeoutMs())
+            .setAckRequestTimeoutMs(config.getRequestTimeoutMs())
             .build();
   }
 
