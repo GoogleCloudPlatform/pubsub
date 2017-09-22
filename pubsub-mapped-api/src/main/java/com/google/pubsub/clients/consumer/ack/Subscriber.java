@@ -159,6 +159,10 @@ public class Subscriber extends AbstractApiService {
     return new Builder(subscription, receiver);
   }
 
+  public Subscription getSubscription() {
+    return this.subscription;
+  }
+
   /** Subscription which the subscriber is subscribed to. */
   public SubscriptionName getSubscriptionName() {
     return subscription.getNameAsSubscriptionName();

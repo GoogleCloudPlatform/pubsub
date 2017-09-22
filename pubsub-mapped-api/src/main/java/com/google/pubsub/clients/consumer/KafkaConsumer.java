@@ -57,6 +57,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
@@ -97,8 +98,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private final Config<K, V> config;
   private final SubscriberFutureStub subscriberFutureStub;
   private final PublisherFutureStub publisherFutureStub;
-  private final Channel channel;
-  private final CallCredentials callCredentials;
 
   private ImmutableList<String> topicNames = ImmutableList.of();
 
@@ -148,8 +147,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
       this.subscriberFutureStub = subscriberFutureStub;
       this.publisherFutureStub = publisherFutureStub;
-      this.callCredentials = callCredentials;
-      this.channel = channel;
 
       this.config = config;
 
@@ -263,7 +260,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       } finally {
         //if an error is thrown, attempt to delete subscriptions created in this loop
         if (!success)
-          deleteSubscriptionsIfAllowed(topicNameToSubscriber.values());
+          deleteSubscriptionsIfAllowed(subscriptionMap.values());
       }
     }
     return subscriptionMap;
@@ -356,24 +353,29 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void unsubscribe() {
-    deleteSubscriptionsIfAllowed(topicNameToSubscriber.values());
+
+    List<Subscription> subscriptions =
+        topicNameToSubscriber.values().stream().map(Subscriber::getSubscription).collect(Collectors.toList());
+
     for(Subscriber s: topicNameToSubscriber.values()) {
       s.stopAsync().awaitTerminated();
     }
+
+    deleteSubscriptionsIfAllowed(subscriptions);
     topicNameToSubscriber = ImmutableMap.of();
     topicNames = ImmutableList.of();
     currentPoolIndex = 0;
   }
 
-  private void deleteSubscriptionsIfAllowed(Collection<Subscriber> subscribers) {
+  private void deleteSubscriptionsIfAllowed(Collection<Subscription> subscriptions) {
     if(!config.getAllowSubscriptionDeletion())
       return;
 
     List<ListenableFuture<Empty>> listenableFutures = new ArrayList<>();
-    for (Subscriber s: subscribers) {
+    for (Subscription s: subscriptions) {
       ListenableFuture<Empty> emptyListenableFuture = subscriberFutureStub
           .deleteSubscription(DeleteSubscriptionRequest.newBuilder()
-              .setSubscription(s.getSubscriptionName().toString()).build());
+              .setSubscription(s.getName()).build());
 
       listenableFutures.add(emptyListenableFuture);
     }
