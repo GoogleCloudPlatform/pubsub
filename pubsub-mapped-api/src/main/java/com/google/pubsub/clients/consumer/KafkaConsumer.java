@@ -24,6 +24,7 @@ import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
+import com.google.protobuf.Timestamp;
 import com.google.pubsub.clients.consumer.ack.MappedApiMessageReceiver;
 import com.google.pubsub.clients.consumer.ack.Subscriber;
 import com.google.pubsub.common.ChannelUtil;
@@ -36,6 +37,8 @@ import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
+import com.google.pubsub.v1.SeekRequest;
+import com.google.pubsub.v1.SeekResponse;
 import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.Subscription;
@@ -47,6 +50,7 @@ import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -74,6 +78,7 @@ import org.apache.kafka.common.errors.InterruptException;
 import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.common.serialization.Deserializer;
 import org.apache.kafka.common.utils.Utils;
+import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -453,7 +458,9 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private ConsumerRecord<K,V> prepareKafkaRecord(ReceivedMessage receivedMessage, String topic) {
     PubsubMessage message = receivedMessage.getMessage();
 
-    long timestamp = message.getPublishTime().getSeconds();
+    long timestamp = message.getPublishTime().getSeconds() * 1000 + message.getPublishTime().getNanos() / 1000;
+    System.out.println("Published time: " + timestamp);
+
     TimestampType timestampType = TimestampType.CREATE_TIME;
 
     //because of no offset concept in PubSub, timestamp is treated as an offset
@@ -515,17 +522,46 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void seek(TopicPartition partition, long offset) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    seekToTimestamp(Collections.singletonList(partition), offset);
   }
 
   @Override
   public void seekToBeginning(Collection<TopicPartition> partitions) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    seekToTimestamp(partitions, 0);
   }
 
   @Override
   public void seekToEnd(Collection<TopicPartition> partitions) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    DateTime now = new DateTime();
+    seekToTimestamp(partitions, now.getMillis());
+  }
+
+  private void seekToTimestamp(Collection<TopicPartition> partitions, long timestamp) {
+    Timestamp protobufTimestamp = Timestamp.newBuilder().setSeconds(timestamp / 1000)
+        .setNanos((int) ((timestamp % 1000) * 1000000)).build();
+
+    List<ListenableFuture<SeekResponse>> seekResponses = new ArrayList<>();
+    for(TopicPartition partition: partitions) {
+      String topic = partition.topic();
+      String topicSubscription = topicNameToSubscriber.get(topic).getSubscription().getName();
+      ListenableFuture<SeekResponse> seek = subscriberFutureStub.seek(
+          SeekRequest.newBuilder()
+              .setSubscription(topicSubscription)
+              .setTime(protobufTimestamp)
+              .build()
+      );
+      seekResponses.add(seek);
+    }
+
+    ListenableFuture<List<SeekResponse>> listListenableFuture = Futures.allAsList(seekResponses);
+
+    try {
+      listListenableFuture.get();
+    } catch (InterruptedException e) {
+      throw new InterruptException(e);
+    } catch (ExecutionException e) {
+      throw new KafkaException(e);
+    }
   }
 
   @Override

@@ -34,6 +34,8 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
+import com.google.pubsub.v1.SeekRequest;
+import com.google.pubsub.v1.SeekResponse;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberImplBase;
 import com.google.pubsub.v1.Subscription;
 import io.grpc.Status;
@@ -52,6 +54,7 @@ import java.util.regex.Pattern;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Rule;
@@ -265,6 +268,39 @@ public class KafkaConsumerTest {
     }
   }
 
+  @Test
+  public void seekTimestamp() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    grpcServerRule.getServiceRegistry().addService(new SubscriberGetImpl());
+
+    String topic = "topic";
+    consumer.subscribe(Collections.singletonList(topic));
+
+    long offset = 12345678000L;
+    consumer.seek(new TopicPartition(topic, 0), offset);
+    ConsumerRecords<Integer, String> poll = consumer.poll(1000);
+
+    for(ConsumerRecord record : poll.records(topic)) {
+      assertEquals(record.offset(), offset);
+    }
+  }
+
+  @Test
+  public void seekToBeginning() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    grpcServerRule.getServiceRegistry().addService(new SubscriberGetImpl());
+
+    String topic = "topic";
+    consumer.subscribe(Collections.singletonList(topic));
+    consumer.seekToBeginning(Collections.singletonList(new TopicPartition(topic, 0)));
+
+    ConsumerRecords<Integer, String> poll = consumer.poll(1000);
+
+    for(ConsumerRecord record : poll.records(topic)) {
+      assertEquals(record.offset(), 0);
+    }
+  }
+
   private KafkaConsumer<Integer, String> getConsumer(boolean allowesCreation) {
     Properties properties = getTestProperties(allowesCreation);
     Config configOptions = new Config(properties);
@@ -293,6 +329,8 @@ public class KafkaConsumerTest {
 
   static class SubscriberGetImpl extends SubscriberImplBase {
 
+    private Timestamp keptOffset = Timestamp.newBuilder().setSeconds(1500).build();
+
     @Override
     public void createSubscription(Subscription request, StreamObserver<Subscription> responseObserver) {
       responseObserver.onError(new Throwable("This subscriber does not let creating subscriptions"));
@@ -319,10 +357,8 @@ public class KafkaConsumerTest {
       String serializedKey = new String(Base64.encodeBase64(serializedKeyBytes));
       byte[] serializedValueBytes = new StringSerializer().serialize(topic, value);
 
-      Timestamp timestamp = Timestamp.newBuilder().setSeconds(1500).build();
-
       PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
-          .setPublishTime(timestamp)
+          .setPublishTime(this.keptOffset)
           .putAttributes("key", serializedKey)
           .setData(ByteString.copyFrom(serializedValueBytes))
           .build();
@@ -344,6 +380,14 @@ public class KafkaConsumerTest {
       responseObserver.onNext(Empty.getDefaultInstance());
       responseObserver.onCompleted();
     }
+
+    @Override
+    public void seek(SeekRequest request, StreamObserver<SeekResponse> responseObserver) {
+      this.keptOffset = request.getTime();
+      responseObserver.onNext(SeekResponse.getDefaultInstance());
+      responseObserver.onCompleted();
+    }
+
   }
 
   static class SubscriberNoExistingSubscriptionsImpl extends SubscriberImplBase {
