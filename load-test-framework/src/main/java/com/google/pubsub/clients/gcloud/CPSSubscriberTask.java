@@ -39,10 +39,13 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
 
   private CPSSubscriberTask(StartRequest request) {
     super(request, "gcloud", MetricsHandler.MetricName.END_TO_END_LATENCY);
-    this.subscription = SubscriptionName.create(
-        request.getProject(), request.getPubsubOptions().getSubscription());
+    this.subscription =
+        SubscriptionName.create(request.getProject(), request.getPubsubOptions().getSubscription());
     try {
-      this.subscriber = Subscriber.defaultBuilder(this.subscription, this).build();
+      this.subscriber =
+          Subscriber.defaultBuilder(this.subscription, this)
+              .setParallelPullCount(Runtime.getRuntime().availableProcessors() * 5)
+              .build();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
