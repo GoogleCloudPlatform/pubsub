@@ -51,6 +51,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.common.KafkaException;
@@ -83,6 +84,24 @@ public class KafkaConsumerTest {
     assertEquals(topics, subscribed);
     consumer.close();
   }
+
+  @Test
+  public void assignment() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    grpcServerRule.getServiceRegistry().addService(new SubscriberGetImpl());
+
+    Set<String> topics = new HashSet<>(Arrays.asList("topic1", "topic2"));
+    consumer.assign(Arrays.asList(new TopicPartition("topic2", 0), new TopicPartition("topic1", 0)));
+
+    Set<TopicPartition> assignment = consumer.assignment();
+    Set<String> partitionTopics = assignment.stream().map(TopicPartition::topic).collect(Collectors.toSet());
+    List<Integer> partitionOffsets  = assignment.stream().map(TopicPartition::partition).collect(Collectors.toList());
+
+    assertEquals(topics, partitionTopics);
+    assertEquals(Arrays.asList(0, 0), partitionOffsets);
+    consumer.close();
+  }
+
 
   @Test
   public void subscribeNoExistingSubscriptionsAllowCreation() {

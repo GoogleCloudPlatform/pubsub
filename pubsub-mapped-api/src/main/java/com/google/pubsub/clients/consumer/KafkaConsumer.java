@@ -61,6 +61,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
@@ -162,7 +163,11 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public Set<TopicPartition> assignment() {
-    throw new UnsupportedOperationException("Not yet implemented");
+    Set<TopicPartition> partitions = new HashSet<>();
+    for(String topicName: topicNames) {
+      partitions.add(new TopicPartition(topicName, DEFAULT_PARTITION));
+    }
+    return partitions;
   }
 
   @Override
@@ -485,7 +490,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void assign(Collection<TopicPartition> partitions) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    Set<String> topics = partitions.stream().map(TopicPartition::topic).collect(Collectors.toSet());
+    subscribe(topics);
   }
 
   @Override
