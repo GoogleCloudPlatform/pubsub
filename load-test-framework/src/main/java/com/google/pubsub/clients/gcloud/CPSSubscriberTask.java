@@ -82,8 +82,6 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
 
   @Override
   public void shutdown() {
-    synchronized (this) {
-      subscriber.stopAsync().awaitTerminated();
-    }
+    subscriber.stopAsync().awaitTerminated();
   }
 }
