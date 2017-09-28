@@ -720,7 +720,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void wakeup() {
-    throw new UnsupportedOperationException("This method has ");
+    throw new UnsupportedOperationException("This method has no mapping in PubSub");
   }
 
   class ResponseData<T> {
