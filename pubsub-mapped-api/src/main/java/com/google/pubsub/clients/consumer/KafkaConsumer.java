@@ -549,8 +549,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     }
 
     /*We have no concept of offsets, so it is impossible to pass an argument to the interceptor that
-    makes any sense. If to be resolved in the future, the call should go somewhere here.*/
-    /*if (interceptors != null)
+    makes any sense. If to be resolved in the future, the call for sync call should go somewhere here.*/
+    /*if (sync && interceptors != null)
       interceptors.onCommit(offsets);*/
   }
 
