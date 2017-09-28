@@ -49,6 +49,7 @@ import io.grpc.Status.Code;
 import io.grpc.StatusRuntimeException;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -61,7 +62,6 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRebalanceListener;
@@ -73,6 +73,7 @@ import org.apache.kafka.clients.consumer.OffsetCommitCallback;
 import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.common.Metric;
 import org.apache.kafka.common.MetricName;
+import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.InterruptException;
@@ -99,14 +100,21 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private static final int DEFAULT_CHECKSUM = 1;
 
   private static final String KEY_ATTRIBUTE = "key";
+  private static final String OFFSET_ATTRIBUTE = "offset";
 
   private final Config<K, V> config;
   private final SubscriberFutureStub subscriberFutureStub;
   private final PublisherFutureStub publisherFutureStub;
 
   private ImmutableList<String> topicNames = ImmutableList.of();
-
   private ImmutableMap<String, Subscriber> topicNameToSubscriber = ImmutableMap.of();
+  private Set<String> pausedTopics = new HashSet<>();
+  private Map<String, Seek> lazySeeks = new HashMap<>();
+
+  enum Seek {
+    BEGINNING,
+    END
+  }
 
   private int currentPoolIndex;
 
@@ -371,6 +379,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     topicNameToSubscriber = ImmutableMap.of();
     topicNames = ImmutableList.of();
+    pausedTopics = new HashSet<>();
+    lazySeeks = new HashMap<>();
     currentPoolIndex = 0;
   }
 
@@ -402,21 +412,26 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   public ConsumerRecords<K, V> poll(long timeout) {
     checkPollPreconditions(timeout);
 
+    if(!lazySeeks.isEmpty()) {
+      performLazySeekCalls();
+    }
+
     int startedAtIndex = this.currentPoolIndex;
     try {
       do {
 
         String topicName = topicNames.get(this.currentPoolIndex % topicNameToSubscriber.size());
-        Subscriber subscriber = topicNameToSubscriber.get(topicName);
+        if(!pausedTopics.contains(topicName)) {
+          Subscriber subscriber = topicNameToSubscriber.get(topicName);
+          PullResponse pullResponse = subscriber.pull(timeout);
 
-        PullResponse pullResponse = subscriber.pull(timeout);
+          List<ConsumerRecord<K, V>> subscriptionRecords = mapToConsumerRecords(topicName, pullResponse);
 
-        List<ConsumerRecord<K, V>> subscriptionRecords = mapToConsumerRecords(topicName, pullResponse);
-        this.currentPoolIndex = (this.currentPoolIndex + 1) % topicNameToSubscriber.size();
-
-        if (!pullResponse.getReceivedMessagesList().isEmpty()) {
-          return getConsumerRecords(topicName, subscriptionRecords);
+          if (!pullResponse.getReceivedMessagesList().isEmpty()) {
+            return getConsumerRecords(topicName, subscriptionRecords);
+          }
         }
+        this.currentPoolIndex = (this.currentPoolIndex + 1) % topicNameToSubscriber.size();
       } while (this.currentPoolIndex != startedAtIndex);
 
     } catch (InterruptedException e) {
@@ -464,12 +479,12 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     PubsubMessage message = receivedMessage.getMessage();
 
     long timestamp = message.getPublishTime().getSeconds() * 1000 + message.getPublishTime().getNanos() / 1000;
-    System.out.println("Published time: " + timestamp);
 
     TimestampType timestampType = TimestampType.CREATE_TIME;
 
     //because of no offset concept in PubSub, timestamp is treated as an offset
-    long offset = timestamp;
+    String offsetString = message.getAttributesOrDefault(OFFSET_ATTRIBUTE, "0");
+    long offset = Long.parseLong(offsetString);
 
     //key of Kafka-style message is stored in PubSub attributes (null possible)
     String key = message.getAttributesOrDefault(KEY_ATTRIBUTE, null);
@@ -490,7 +505,10 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void assign(Collection<TopicPartition> partitions) {
-    Set<String> topics = partitions.stream().map(TopicPartition::topic).collect(Collectors.toSet());
+    Set<String> topics = new HashSet<>();
+    for(TopicPartition topicPartition: partitions) {
+      topics.add(topicPartition.topic());
+    }
     subscribe(topics);
   }
 
@@ -528,27 +546,55 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void seek(TopicPartition partition, long offset) {
-    seekToTimestamp(Collections.singletonList(partition), offset);
+    seekToTimestamp(Collections.singletonList(partition.topic()), offset);
   }
 
   @Override
   public void seekToBeginning(Collection<TopicPartition> partitions) {
-    seekToTimestamp(partitions, 0);
+    seekToPlace(partitions, Seek.BEGINNING);
   }
 
   @Override
   public void seekToEnd(Collection<TopicPartition> partitions) {
-    DateTime now = new DateTime();
-    seekToTimestamp(partitions, now.getMillis());
+    seekToPlace(partitions, Seek.END);
   }
 
-  private void seekToTimestamp(Collection<TopicPartition> partitions, long timestamp) {
+  private void seekToPlace(Collection<TopicPartition> partitions, Seek seek) {
+    if(partitions == null || partitions.isEmpty()) {
+      for(String topic: topicNames) {
+        lazySeeks.put(topic, seek);
+      }
+    } else {
+      for(TopicPartition partition: partitions) {
+        lazySeeks.put(partition.topic(), seek);
+      }
+    }
+  }
+
+  private void performLazySeekCalls() {
+    List<String> beginningTopics = new ArrayList<>();
+    List<String> endTopics = new ArrayList<>();
+
+    for(Map.Entry<String, Seek> entry: lazySeeks.entrySet()) {
+      if (Seek.BEGINNING.equals(entry.getValue())) {
+        beginningTopics.add(entry.getKey());
+      } else {
+        endTopics.add(entry.getKey());
+      }
+    }
+
+    seekToTimestamp(beginningTopics, 0);
+
+    long now = new DateTime().getMillis();
+    seekToTimestamp(endTopics, now);
+  }
+
+  private void seekToTimestamp(Collection<String> topics, long timestamp) {
     Timestamp protobufTimestamp = Timestamp.newBuilder().setSeconds(timestamp / 1000)
         .setNanos((int) ((timestamp % 1000) * 1000000)).build();
 
     List<ListenableFuture<SeekResponse>> seekResponses = new ArrayList<>();
-    for(TopicPartition partition: partitions) {
-      String topic = partition.topic();
+    for(String topic: topics) {
       String topicSubscription = topicNameToSubscriber.get(topic).getSubscription().getName();
       ListenableFuture<SeekResponse> seek = subscriberFutureStub.seek(
           SeekRequest.newBuilder()
@@ -572,58 +618,90 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public long position(TopicPartition partition) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    throw new UnsupportedOperationException("This method has no mapping in PubSub");
   }
 
   @Override
   public OffsetAndMetadata committed(TopicPartition partition) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    throw new UnsupportedOperationException("This method has no mapping in PubSub ");
   }
 
   @Override
   public Map<MetricName, ? extends Metric> metrics() {
-    throw new UnsupportedOperationException("Not yet implemented");
+    return new HashMap<>();
   }
 
   @Override
   public List<PartitionInfo> partitionsFor(String topic) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    Node[] dummy = {new Node(0, "", 0)};
+    return Arrays.asList(new PartitionInfo(topic, DEFAULT_PARTITION, dummy[0], dummy, dummy));
   }
 
   @Override
   public Map<String, List<PartitionInfo>> listTopics() {
-    throw new UnsupportedOperationException("Not yet implemented");
+    Map<String, List<PartitionInfo>> partitionTopicMap = new HashMap<>();
+
+    Node[] dummy = {new Node(0, "", 0)};
+    List<Topic> existingTopics = getPubsubExistingTopics();
+    for(Topic topic: existingTopics) {
+      partitionTopicMap.put(topic.getName(),
+          Arrays.asList(new PartitionInfo(topic.getName(), DEFAULT_PARTITION, dummy[0], dummy, dummy)));
+    }
+    return partitionTopicMap;
   }
 
   @Override
   public void pause(Collection<TopicPartition> partitions) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    for(TopicPartition partition: partitions) {
+      pausedTopics.add(partition.topic());
+    }
   }
 
   @Override
   public void resume(Collection<TopicPartition> partitions) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    for(TopicPartition partition: partitions) {
+      pausedTopics.remove(partition.topic());
+    }
   }
 
   @Override
   public Set<TopicPartition> paused() {
-    throw new UnsupportedOperationException("Not yet implemented");
+    Set<TopicPartition> paused = new HashSet<>();
+    for(String topic: pausedTopics) {
+      paused.add(new TopicPartition(topic, DEFAULT_PARTITION));
+    }
+    return paused;
   }
 
   @Override
   public Map<TopicPartition, OffsetAndTimestamp> offsetsForTimes(
       Map<TopicPartition, Long> timestampsToSearch) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    Map<TopicPartition, OffsetAndTimestamp> offsetsForTimes = new HashMap<>();
+    for(Map.Entry<TopicPartition, Long> entry: timestampsToSearch.entrySet()) {
+      Long timestamp = entry.getValue();
+      OffsetAndTimestamp offsetAndTimestamp = new OffsetAndTimestamp(timestamp, timestamp);
+      offsetsForTimes.put(entry.getKey(), offsetAndTimestamp);
+    }
+    return offsetsForTimes;
   }
 
   @Override
   public Map<TopicPartition, Long> beginningOffsets(Collection<TopicPartition> partitions) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    return getTopicPartitionOffsetMap(partitions, 0L);
   }
 
   @Override
   public Map<TopicPartition, Long> endOffsets(Collection<TopicPartition> partitions) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    long millis = new DateTime().getMillis();
+    return getTopicPartitionOffsetMap(partitions, millis);
+  }
+
+  private Map<TopicPartition, Long> getTopicPartitionOffsetMap(Collection<TopicPartition> partitions, long offset) {
+    Map<TopicPartition, Long> beginningOffsets = new HashMap<>();
+    for(TopicPartition topicPartition: partitions) {
+      beginningOffsets.put(topicPartition, offset);
+    }
+    return beginningOffsets;
   }
 
   /**
@@ -642,7 +720,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void wakeup() {
-    throw new UnsupportedOperationException("Not yet implemented");
+    throw new UnsupportedOperationException("This method has ");
   }
 
   class ResponseData<T> {

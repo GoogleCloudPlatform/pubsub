@@ -45,8 +45,10 @@ import io.grpc.testing.GrpcServerRule;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
@@ -54,7 +56,9 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -84,24 +88,6 @@ public class KafkaConsumerTest {
     assertEquals(topics, subscribed);
     consumer.close();
   }
-
-  @Test
-  public void assignment() {
-    KafkaConsumer<Integer, String> consumer = getConsumer(false);
-    grpcServerRule.getServiceRegistry().addService(new SubscriberGetImpl());
-
-    Set<String> topics = new HashSet<>(Arrays.asList("topic1", "topic2"));
-    consumer.assign(Arrays.asList(new TopicPartition("topic2", 0), new TopicPartition("topic1", 0)));
-
-    Set<TopicPartition> assignment = consumer.assignment();
-    Set<String> partitionTopics = assignment.stream().map(TopicPartition::topic).collect(Collectors.toSet());
-    List<Integer> partitionOffsets  = assignment.stream().map(TopicPartition::partition).collect(Collectors.toList());
-
-    assertEquals(topics, partitionTopics);
-    assertEquals(Arrays.asList(0, 0), partitionOffsets);
-    consumer.close();
-  }
-
 
   @Test
   public void subscribeNoExistingSubscriptionsAllowCreation() {
@@ -288,6 +274,23 @@ public class KafkaConsumerTest {
   }
 
   @Test
+  public void assignment() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    grpcServerRule.getServiceRegistry().addService(new SubscriberGetImpl());
+
+    Set<String> topics = new HashSet<>(Arrays.asList("topic1", "topic2"));
+    consumer.assign(Arrays.asList(new TopicPartition("topic2", 0), new TopicPartition("topic1", 0)));
+
+    Set<TopicPartition> assignment = consumer.assignment();
+    Set<String> partitionTopics = assignment.stream().map(TopicPartition::topic).collect(Collectors.toSet());
+    List<Integer> partitionOffsets  = assignment.stream().map(TopicPartition::partition).collect(Collectors.toList());
+
+    assertEquals(topics, partitionTopics);
+    assertEquals(Arrays.asList(0, 0), partitionOffsets);
+    consumer.close();
+  }
+
+  @Test
   public void seekTimestamp() {
     KafkaConsumer<Integer, String> consumer = getConsumer(false);
     grpcServerRule.getServiceRegistry().addService(new SubscriberGetImpl());
@@ -320,6 +323,107 @@ public class KafkaConsumerTest {
     }
   }
 
+  @Test
+  public void seekToBeginningEmptyList() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    grpcServerRule.getServiceRegistry().addService(new SubscriberGetImpl());
+
+    String topic = "topic";
+    consumer.subscribe(Collections.singletonList(topic));
+    consumer.seekToBeginning(new ArrayList<>());
+
+    ConsumerRecords<Integer, String> poll = consumer.poll(1000);
+
+    for(ConsumerRecord record : poll.records(topic)) {
+      assertEquals(record.offset(), 0);
+    }
+  }
+
+  @Test
+  public void checkBeginningOffsets() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    List<TopicPartition> partitions = Arrays.asList(new TopicPartition("topic1", 0),
+                                                    new TopicPartition("topic2", 0));
+    Map<TopicPartition, Long> offsetsMap = consumer.beginningOffsets(partitions);
+    for(Long offset: offsetsMap.values()) {
+      assertEquals(new Long(0), offset);
+    }
+  }
+
+  @Test
+  public void partitionsForTopic() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    List<PartitionInfo> topic1 = consumer.partitionsFor("topic1");
+    assertEquals(1, topic1.size());
+    assertEquals("topic1", topic1.get(0).topic());
+    assertEquals(0, topic1.get(0).partition());
+  }
+
+  @Test
+  public void partitionsForAllTopics() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    grpcServerRule.getServiceRegistry().addService(new PublisherImpl());
+
+    Map<String, List<PartitionInfo>> topicPartitionsMap = consumer.listTopics();
+    assertEquals(4, topicPartitionsMap.keySet().size());
+    for(List<PartitionInfo> partitions: topicPartitionsMap.values()) {
+      assertEquals(1, partitions.size());
+      assertEquals(0, partitions.get(0).partition());
+    }
+  }
+
+  @Test
+  public void paused() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    List<TopicPartition> topicPartitions = Arrays.asList(new TopicPartition("topic1", 0),
+        new TopicPartition("topic2", 0));
+
+    consumer.pause(topicPartitions);
+    assertEquals(2, consumer.paused().size());
+
+    consumer.pause(topicPartitions);
+    assertEquals(2, consumer.paused().size());
+
+    consumer.resume(Collections.singletonList(new TopicPartition("topic1", 0)));
+    assertEquals(1, consumer.paused().size());
+
+    consumer.resume(Collections.singletonList(new TopicPartition("topic2", 0)));
+    assertEquals(0, consumer.paused().size());
+  }
+
+  @Test
+  public void pausedDoesNotPoll() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    grpcServerRule.getServiceRegistry().addService(new SubscriberGetImpl());
+
+    String topic = "topic";
+    consumer.subscribe(Collections.singletonList(topic));
+    ConsumerRecords<Integer, String> poll = consumer.poll(1000);
+    assertEquals(1, poll.count());
+
+    consumer.pause(Collections.singletonList(new TopicPartition("topic", 0)));
+    poll = consumer.poll(1000);
+    assertEquals(0, poll.count());
+
+    consumer.resume(Collections.singletonList(new TopicPartition("topic", 0)));
+    poll = consumer.poll(1000);
+    assertEquals(1, poll.count());
+  }
+
+  @Test
+  public void offsetsForTimes() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    long millis = 150000000000L;
+    TopicPartition topicPartition = new TopicPartition("topic", 0);
+    Map<TopicPartition, Long> timestampsToSearch = new HashMap<>();
+
+    timestampsToSearch.put(topicPartition, millis);
+
+    Map<TopicPartition, OffsetAndTimestamp> result = consumer.offsetsForTimes(timestampsToSearch);
+    assertTrue(result.containsKey(topicPartition));
+    assertEquals(millis, result.get(topicPartition).offset());
+  }
+
   private KafkaConsumer<Integer, String> getConsumer(boolean allowesCreation) {
     Properties properties = getTestProperties(allowesCreation);
     Config configOptions = new Config(properties);
@@ -348,7 +452,8 @@ public class KafkaConsumerTest {
 
   static class SubscriberGetImpl extends SubscriberImplBase {
 
-    private Timestamp keptOffset = Timestamp.newBuilder().setSeconds(1500).build();
+    private Timestamp keptTimestamp = Timestamp.newBuilder().setSeconds(1500).build();
+    private Long keptOffset = 1234567891234L;
 
     @Override
     public void createSubscription(Subscription request, StreamObserver<Subscription> responseObserver) {
@@ -377,8 +482,9 @@ public class KafkaConsumerTest {
       byte[] serializedValueBytes = new StringSerializer().serialize(topic, value);
 
       PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
-          .setPublishTime(this.keptOffset)
+          .setPublishTime(keptTimestamp)
           .putAttributes("key", serializedKey)
+          .putAttributes("offset", keptOffset.toString())
           .setData(ByteString.copyFrom(serializedValueBytes))
           .build();
 
@@ -402,7 +508,7 @@ public class KafkaConsumerTest {
 
     @Override
     public void seek(SeekRequest request, StreamObserver<SeekResponse> responseObserver) {
-      this.keptOffset = request.getTime();
+      this.keptOffset =  request.getTime().getSeconds() * 1000 + request.getTime().getNanos() / 1000;
       responseObserver.onNext(SeekResponse.getDefaultInstance());
       responseObserver.onCompleted();
     }
