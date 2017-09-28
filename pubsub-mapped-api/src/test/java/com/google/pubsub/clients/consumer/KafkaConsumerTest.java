@@ -47,6 +47,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -54,6 +55,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
@@ -422,6 +424,36 @@ public class KafkaConsumerTest {
     Map<TopicPartition, OffsetAndTimestamp> result = consumer.offsetsForTimes(timestampsToSearch);
     assertTrue(result.containsKey(topicPartition));
     assertEquals(millis, result.get(topicPartition).offset());
+  }
+
+  @Test
+  public void interceptorsOnConsume() {
+    grpcServerRule.getServiceRegistry().addService(new SubscriberGetImpl());
+
+    Properties properties = new Properties();
+    properties.putAll(new ImmutableMap.Builder<>()
+        .put("key.deserializer",
+            "org.apache.kafka.common.serialization.IntegerDeserializer")
+        .put("value.deserializer",
+            "org.apache.kafka.common.serialization.StringDeserializer")
+        .put("max.poll.records", 500)
+        .put("group.id", "groupId")
+        .put("subscription.allow.create", false)
+        .put("subscription.allow.delete", false)
+        .put(ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG, "com.google.pubsub.clients.consumer.TestConsumerInterceptor")
+        .build()
+    );
+    Config configOptions = new Config(properties);
+    KafkaConsumer<Integer, String> consumer = new KafkaConsumer<>(configOptions, grpcServerRule.getChannel(), null);
+
+    consumer.subscribe(Collections.singletonList("topic"));
+    ConsumerRecords<Integer, String> poll = consumer.poll(1000);
+    Iterator<ConsumerRecord<Integer, String>> iterator = poll.iterator();
+    while(iterator.hasNext()) {
+      ConsumerRecord<Integer, String> next = iterator.next();
+      assertEquals(new Integer(-1), next.key());
+      assertEquals("_consumed_", next.value());
+    }
   }
 
   private KafkaConsumer<Integer, String> getConsumer(boolean allowesCreation) {

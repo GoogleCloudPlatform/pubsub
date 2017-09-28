@@ -417,6 +417,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     }
 
     int startedAtIndex = this.currentPoolIndex;
+    ConsumerRecords<K, V> consumerRecords = new ConsumerRecords<>(new HashMap<>());
     try {
       do {
 
@@ -428,7 +429,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
           List<ConsumerRecord<K, V>> subscriptionRecords = mapToConsumerRecords(topicName, pullResponse);
 
           if (!pullResponse.getReceivedMessagesList().isEmpty()) {
-            return getConsumerRecords(topicName, subscriptionRecords);
+            consumerRecords = getConsumerRecords(topicName, subscriptionRecords);
+            break;
           }
         }
         this.currentPoolIndex = (this.currentPoolIndex + 1) % topicNameToSubscriber.size();
@@ -440,7 +442,10 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       throw new KafkaException(e);
     }
 
-    return new ConsumerRecords<>(new HashMap<>());
+    if (config.getInterceptors() != null) {
+      consumerRecords = config.getInterceptors().onConsume(consumerRecords);
+    }
+    return consumerRecords;
   }
 
   private ConsumerRecords<K, V> getConsumerRecords(String topicName,
@@ -542,6 +547,11 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     for (Map.Entry<String, Subscriber> entry : topicNameToSubscriber.entrySet()) {
       entry.getValue().commit(sync);
     }
+
+    /*We have no concept of offsets, so it is impossible to pass an argument to the interceptor that
+    makes any sense. If to be resolved in the future, the call should go somewhere here.*/
+    /*if (interceptors != null)
+      interceptors.onCommit(offsets);*/
   }
 
   @Override
