@@ -203,7 +203,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     Map<String, Subscription> subscriptionMap = getSubscriptionsFromPubsub(futureSubscriptions);
     Map<String, Subscriber> tempSubscribersMap = new HashMap<>();
 
-    for(Map.Entry<String, Subscription> entry: subscriptionMap.entrySet()) {
+    for(Map.Entry<String, Subscription> entry : subscriptionMap.entrySet()) {
       Subscriber subscriber = getSubscriberFromConfigs(entry);
 
       tempSubscribersMap.put(entry.getKey(), subscriber);
@@ -236,7 +236,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     List<ResponseData<Subscription>> responseDatas = new ArrayList<>();
     Set<String> usedNames = new HashSet<>();
 
-    for (String topic: topics) {
+    for (String topic : topics) {
       if (!usedNames.contains(topic)) {
         String subscriptionString = SUBSCRIPTION_PREFIX + topic + "_" + config.getGroupId();
         ListenableFuture<Subscription> deputedSubscription =
@@ -260,7 +260,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       List<ResponseData<Subscription>> responseDatas) {
     Map<String, Subscription> subscriptionMap = new HashMap<>();
 
-    for (ResponseData<Subscription> responseData: responseDatas) {
+    for (ResponseData<Subscription> responseData : responseDatas) {
       boolean success = false;
       try {
         Subscription s = responseData.getRequestListenableFuture().get();
@@ -319,7 +319,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     Preconditions.checkArgument(topics != null,
         "Topic collection to subscribe to cannot be null");
 
-    for (String topic: topics) {
+    for (String topic : topics) {
       Preconditions.checkArgument(topic != null && !topic.trim().isEmpty(),
           "Topic collection to subscribe to cannot contain null or empty topic");
     }
@@ -342,7 +342,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     List<String> matchingTopics = new ArrayList<>();
 
-    for (Topic topic: existingTopics) {
+    for (Topic topic : existingTopics) {
       String topicName = topic.getName().substring(TOPIC_PREFIX.length(), topic.getName().length());
       Matcher m = pattern.matcher(topicName);
       if (m.matches())
@@ -375,7 +375,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void unsubscribe() {
-    for(Subscriber s: topicNameToSubscriber.values()) {
+    for(Subscriber s : topicNameToSubscriber.values()) {
       s.stopAsync().awaitTerminated();
     }
 
@@ -391,7 +391,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private List<Subscription> getSubscriptionsFromSubcribers() {
     List<Subscription> subscriptions = new ArrayList<>(topicNameToSubscriber.size());
-    for(Subscriber s: topicNameToSubscriber.values()) {
+    for(Subscriber s : topicNameToSubscriber.values()) {
       subscriptions.add(s.getSubscription());
     }
     return subscriptions;
@@ -402,7 +402,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       return;
 
     List<ListenableFuture<Empty>> listenableFutures = new ArrayList<>();
-    for (Subscription s: subscriptions) {
+    for (Subscription s : subscriptions) {
       ListenableFuture<Empty> emptyListenableFuture = subscriberFutureStub
           .deleteSubscription(DeleteSubscriptionRequest.newBuilder()
               .setSubscription(s.getName()).build());
@@ -499,7 +499,12 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     //because of no offset concept in PubSub, timestamp is treated as an offset
     String offsetString = message.getAttributesOrDefault(OFFSET_ATTRIBUTE, "0");
-    long offset = Long.parseLong(offsetString);
+    long offset;
+    try {
+      offset = Long.parseLong(offsetString);
+    } catch (NumberFormatException e) {
+      throw new KafkaException("Offset attribute in message in not parsable", e);
+    }
 
     //key of Kafka-style message is stored in PubSub attributes (null possible)
     String key = message.getAttributesOrDefault(KEY_ATTRIBUTE, null);
@@ -534,7 +539,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void commitSync(final Map<TopicPartition, OffsetAndMetadata> offsets) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    commitForTopicAndOffset(offsets, true);
   }
 
   @Override
@@ -544,13 +549,15 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void commitAsync(OffsetCommitCallback callback) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    log.warn("OffsetCommitCallback is not supported and will not be invoked");
+    commitAsync();
   }
 
   @Override
   public void commitAsync(final Map<TopicPartition, OffsetAndMetadata> offsets,
       OffsetCommitCallback callback) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    log.warn("OffsetCommitCallback is not supported and will not be invoked");
+    commitForTopicAndOffset(offsets, false);
   }
 
   private void commit(boolean sync) {
@@ -562,6 +569,19 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     makes any sense. If to be resolved in the future, the call for sync call should go somewhere here.*/
     /*if (sync && interceptors != null)
       interceptors.onCommit(offsets);*/
+  }
+
+  private void commitForTopicAndOffset(Map<TopicPartition, OffsetAndMetadata> offsets, boolean sync) {
+    for(Entry<TopicPartition, OffsetAndMetadata> commitOffsets : offsets.entrySet()) {
+      String topic = commitOffsets.getKey().topic();
+      long offset = commitOffsets.getValue().offset();
+      Subscriber subscriber = topicNameToSubscriber.get(topic);
+      if(subscriber != null) {
+        subscriber.commitBefore(sync, offset);
+      } else {
+        log.warn("Topic {} is not subscribed to", topic);
+      }
+    }
   }
 
   @Override
