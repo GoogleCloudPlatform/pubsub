@@ -290,7 +290,7 @@ public class KafkaConsumerTest {
 
     consumer.commitSync(topicOffsets);
 
-    assertEquals(4, subscriberCommitOffsetService.getNotAcknowledgedSize());
+    assertEquals(3, subscriberCommitOffsetService.getNotAcknowledgedSize());
   }
 
   private KafkaConsumer<Integer, String> getConsumer(boolean allowesCreation) {

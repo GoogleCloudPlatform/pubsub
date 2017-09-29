@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -329,7 +330,13 @@ class MessageDispatcher {
     OutstandingMessagesBatch outstandingBatch = new OutstandingMessagesBatch(doneCallback);
     final ArrayList<AckHandler> ackHandlers = new ArrayList<>(messages.size());
     for (ReceivedMessage message : messages) {
-      long offset = Long.parseLong(message.getMessage().getAttributesOrDefault("offset", "0"));
+      long offset;
+
+      try {
+        offset = Long.parseLong(message.getMessage().getAttributesOrDefault("offset", "0"));
+      } catch (NumberFormatException e) {
+        throw new KafkaException("Offset attribute in message in not parsable", e);
+      }
 
       AckHandler ackHandler =
           new AckHandler(message.getAckId(), message.getMessage().getSerializedSize(), offset);
@@ -547,7 +554,7 @@ class MessageDispatcher {
     }
 
     if(offset != null) {
-      acksToSend = filterAcksBeforeOffset(offset, acksToSend);
+      filterAcksBeforeOffset(offset, acksToSend);
     }
 
     if(sync) {
@@ -557,15 +564,14 @@ class MessageDispatcher {
     }
   }
 
-  private Map<String, AckHandler> filterAcksBeforeOffset(Long offset, Map<String, AckHandler> acksToSend) {
-    Map<String, AckHandler> filteredAcksToSend = new HashMap<>();
-    for(Entry<String, AckHandler> ackToSend: acksToSend.entrySet()) {
-      if(ackToSend.getValue().offset < offset) {
-        filteredAcksToSend.put(ackToSend.getKey(), ackToSend.getValue());
+  private void filterAcksBeforeOffset(Long offset, Map<String, AckHandler> acksToSend) {
+    Iterator<Map.Entry<String, AckHandler>> iter = acksToSend.entrySet().iterator();
+    while (iter.hasNext()) {
+      Map.Entry<String, AckHandler> entry = iter.next();
+      if(entry.getValue().offset > offset) {
+        iter.remove();
       }
     }
-    acksToSend = filteredAcksToSend;
-    return acksToSend;
   }
 
   private void commitAsync(Map<String, AckHandler> acksToSend) {
