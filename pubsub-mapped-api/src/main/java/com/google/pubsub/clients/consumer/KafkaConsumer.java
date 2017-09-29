@@ -155,19 +155,27 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     }
   }
 
+  /**
+   * Assignment returns a set of the topics it is subscribed to.
+   * Set contains every topic once, combined with partition number 0 (default value).
+   */
   @Override
   public Set<TopicPartition> assignment() {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Returns set of topic names the consumer is subscribed to.
+   */
   @Override
   public Set<String> subscription() {
     return topicNameToSubscriber.keySet();
   }
 
   /**
-   * Subscribe call tries to get existing subscriptions for groupId provided in configuration and topic names. If
-   * consumer was configured to create subscriptions if they don't exist, on failure with NOT_FOUND status it sends
+   * Subscribe call tries to get existing subscriptions for groupId provided in configuration and topic names.
+   * Subscription names are created with pattern topicName_groupId.
+   * If consumer was configured to create subscriptions if they don't exist, on failure with NOT_FOUND status it sends
    * "createSubscription" gRPC calls. If it was not configured to create subscriptions, throws KafkaException
    * if matching subscriptions do not exist.
    */
@@ -302,13 +310,17 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     }
   }
 
+  /**
+   * Subscribes to the collection of topics
+   * @param topics
+   */
   @Override
   public void subscribe(Collection<String> topics) {
     subscribe(topics, NO_REBALANCE_LISTENER);
   }
 
   /**
-  Subscribe is pulling all topics from PubSub project and subscribing to ones matching provided
+  This version of subscribe pulls all topics from PubSub project and subscribes to ones matching provided
   pattern.
    */
   @Override
@@ -350,6 +362,10 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         "Topic pattern to subscribe to cannot be null");
   }
 
+  /**
+   * Unsubscribe stops all subscriptions and threads extending deadlines. If configured, deletes subscriptions it
+   * was subscribed to. Resets all collections used to keep track of consumer's state.
+   */
   @Override
   public void unsubscribe() {
     for(Subscriber s: topicNameToSubscriber.values()) {
@@ -389,6 +405,24 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     Futures.addCallback(listListenableFuture, new DeleteSubscriptionCallback());
   }
 
+  /**
+   * First, poll checks if any calls of seekToBeginning or seekToEnd vere invoked, and if true, seeks on specific
+   * topics.
+   *
+   * Poll works in Round Robin fashion. On each call, poll is performed on specific topic. If any messages were returned,
+   * it returns ConsumerRecords containing all polled data. If no messages were returned it retries poll on next topic,
+   * as long as it polls some messages or gets though all topics.
+   *
+   * When polling, deadline extensions are scheduled. Deadline will be extended until commit call (manual config),
+   * until auto.commit.interval passes (auto config), or until max.ack.extension.period passes (maximum on deadline
+   * extensions).
+   *
+   * If auto commit configured, every time poll is called it will check if auto.commit.interval passed since last
+   * commit. If it did, it will perform a commit. If auto commit used, it is crucial to make sure all previously polled
+   * messages were processed before call to another poll.
+   *
+   * This method will perform onConsume interceptor method, if any interceptors were configured.
+   */
   public ConsumerRecords<K, V> poll(long timeout) {
     checkPollPreconditions(timeout);
 
@@ -476,31 +510,54 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
         deserializedValue);
   }
 
+  /**
+   * This method performs the same way as subscribe. It get set of topics from provided collection and performs
+   * subscribe on them. Partitions are ignored.
+   */
   @Override
   public void assign(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Commit previously polled messages in a synchronous way (blocking)
+   */
   @Override
   public void commitSync() {
     commit(true);
   }
 
+  /**
+   * For every topic in this collection, all currently not commited (but polled) messages which offset is smaller than
+   * one in OffsetAndMetadata object are being commited. This behavior is different with Kafka. Synchronous.
+   */
   @Override
   public void commitSync(final Map<TopicPartition, OffsetAndMetadata> offsets) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Commit previously polled messages in a asynchronous way (non-blocking)
+   */
   @Override
   public void commitAsync() {
     commit(false);
   }
 
+  /**
+   * OffsetCommitCallback has no meaning in Pub/Sub. This call works exactly the same as commitAsync() (no params)
+   */
   @Override
   public void commitAsync(OffsetCommitCallback callback) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * For every topic in this collection, all currently not commited (but polled) messages which offset is smaller than
+   * one in OffsetAndMetadata object are being commited. This behavior is different with Kafka. Asynchronous.
+   *
+   * OffsetCommitCallback has no meaning in Pub/Sub, so this parameter is ignored.
+   */
   @Override
   public void commitAsync(final Map<TopicPartition, OffsetAndMetadata> offsets,
       OffsetCommitCallback callback) {
@@ -513,81 +570,138 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     }
   }
 
+  /**
+   * Call to seek performs Pub/Sub seek on topic provided in TopicPartition object. Partition is ignored.
+   *
+   * This call results in marking all messages before this offset as ACKed, and all messages after this
+   * timestamp as NACKed. THIS CALL CHANGES MESSAGES STATE ON THE SERVER. This is not consistent with Kafka API.
+   */
   @Override
   public void seek(TopicPartition partition, long offset) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Call to seekToBeginning performs Pub/Sub seek on topic provided in TopicPartition object to the timestamp 0.
+   * Partition is ignored.
+   *
+   * This call results in marking all messages after offset 0 as NACKed. THIS CALL CHANGES MESSAGES STATE ON THE SERVER.
+   * This is not consistent with Kafka API.
+   *
+   * This call is evaluated in lazy way on nearest call to poll method.
+   */
   @Override
   public void seekToBeginning(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Call to seekToEnd performs Pub/Sub seek on topic provided in TopicPartition object to the current timestamp.
+   * Partition is ignored.
+   *
+   * This call results in marking all messages before current timestamp as ACKed. THIS CALL CHANGES MESSAGES STATE
+   * ON THE SERVER.
+   * This is not consistent with Kafka API.
+   *
+   * This call is evaluated in lazy way on nearest call to poll method (current timestamp will be timestamp of poll
+   * start).
+   */
   @Override
   public void seekToEnd(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * This method has absolutely no meaning in Pub/Sub. Throws exception.
+   */
   @Override
   public long position(TopicPartition partition) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * This method has absolutely no meaning in Pub/Sub. Throws exception.
+   */
   @Override
   public OffsetAndMetadata committed(TopicPartition partition) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Process metrics may be provided by Pub/Sub Stackdriver project. Returns empty map.
+   */
   @Override
   public Map<MetricName, ? extends Metric> metrics() {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Returns dummy partition with number 0 and dummy nodes.
+   */
   @Override
   public List<PartitionInfo> partitionsFor(String topic) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Returns list of topics available on the server, paired with dummy partition (number 0, dummy nodes).
+   */
   @Override
   public Map<String, List<PartitionInfo>> listTopics() {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Blocks messages polling from all topics contained in this collection.
+   */
   @Override
   public void pause(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Resumes messages polling from all topics contained in this collection.
+   */
   @Override
   public void resume(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * Returns set of topics for which polling is blocked, paired with dummy partition number equal to 0.
+   */
   @Override
   public Set<TopicPartition> paused() {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * As in our implementation timestamp is the offset, it just changes data format.
+   */
   @Override
   public Map<TopicPartition, OffsetAndTimestamp> offsetsForTimes(
       Map<TopicPartition, Long> timestampsToSearch) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * For every topic it returns beginning offset - in our case 0 (smallest possible timestamp).
+   */
   @Override
   public Map<TopicPartition, Long> beginningOffsets(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
+  /**
+   * For every topic it returns end offset - in our case current timestamp (biggest possible timestamp until now).
+   */
   @Override
   public Map<TopicPartition, Long> endOffsets(Collection<TopicPartition> partitions) {
     throw new UnsupportedOperationException("Not yet implemented");
   }
 
   /**
-  Temporary subscriptions are being created on subscribe and deleted on replacing subscriptions or
-  on close.
-  Closing is necessary to delete any remaining temporary subscriptions from Google Cloud Project.
+  Perform unsubscribe() from subscribed topics, closes deserializers, stops subscribers.
    */
   @Override
   public void close() {
@@ -598,6 +712,9 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     log.debug("PubSub subscriber has been closed");
   }
 
+  /**
+   * This method has absolutely no meaning in Pub/Sub. Throws exception.
+   */
   @Override
   public void wakeup() {
     throw new UnsupportedOperationException("Not yet implemented");
