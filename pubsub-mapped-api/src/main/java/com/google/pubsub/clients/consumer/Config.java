@@ -15,10 +15,14 @@
 package com.google.pubsub.clients.consumer;
 
 import com.google.common.base.Preconditions;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerConfigCreator;
+import org.apache.kafka.clients.consumer.ConsumerInterceptor;
+import org.apache.kafka.clients.consumer.internals.ConsumerInterceptors;
 import org.apache.kafka.common.serialization.Deserializer;
 
 class Config<K, V> {
@@ -37,6 +41,8 @@ class Config<K, V> {
   private final Integer createdSubscriptionDeadlineSeconds;
   private final Integer requestTimeoutMs;
   private final Integer maxAckExtensionPeriod;
+  private final ConsumerInterceptors<K,V> interceptors;
+  private static final AtomicInteger CLIENT_ID = new AtomicInteger(1);
 
 
   Config(Map<String, Object> configs) {
@@ -84,6 +90,25 @@ class Config<K, V> {
         ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, keyDeserializer, true);
     this.valueDeserializer = handleDeserializer(consumerConfig,
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer, false);
+
+    String id = consumerConfig.getString(ConsumerConfig.CLIENT_ID_CONFIG);
+    String clientId = "";
+    if (id.length() <= 0) {
+      clientId = "consumer-" + CLIENT_ID.getAndIncrement();
+    } else {
+      clientId = id;
+    }
+
+    consumerConfig.originals().put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
+
+    List interceptorList =
+        (ConsumerConfigCreator
+            .getConsumerConfig(consumerConfig.originals()))
+            .getConfiguredInstances(
+                ConsumerConfig.INTERCEPTOR_CLASSES_CONFIG, ConsumerInterceptor.class);
+
+    this.interceptors = interceptorList.isEmpty() ? null : new ConsumerInterceptors<>(interceptorList);
+    
     this.groupId = consumerConfig.getString(ConsumerConfig.GROUP_ID_CONFIG);
     //this is a limit on each poll for each topic
     this.maxPollRecords = consumerConfig.getInt(ConsumerConfig.MAX_POLL_RECORDS_CONFIG);
@@ -160,6 +185,10 @@ class Config<K, V> {
 
   Integer getMaxAckExtensionPeriod() {
     return maxAckExtensionPeriod;
+  }
+
+  ConsumerInterceptors<K, V> getInterceptors() {
+    return interceptors;
   }
 
   private Deserializer handleDeserializer(ConsumerConfig configs, String configString,
