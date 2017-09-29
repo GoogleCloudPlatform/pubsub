@@ -93,6 +93,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private static final int DEFAULT_CHECKSUM = 1;
 
   private static final String KEY_ATTRIBUTE = "key";
+  private static final String OFFSET_ATTRIBUTE = "offset";
 
   private final Config<K, V> config;
   private final SubscriberFutureStub subscriberFutureStub;
@@ -453,11 +454,12 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private ConsumerRecord<K,V> prepareKafkaRecord(ReceivedMessage receivedMessage, String topic) {
     PubsubMessage message = receivedMessage.getMessage();
 
-    long timestamp = message.getPublishTime().getSeconds();
+    long timestamp = message.getPublishTime().getSeconds() * 1000 + message.getPublishTime().getNanos() / 1000;
     TimestampType timestampType = TimestampType.CREATE_TIME;
 
     //because of no offset concept in PubSub, timestamp is treated as an offset
-    long offset = timestamp;
+    String offsetString = message.getAttributesOrDefault(OFFSET_ATTRIBUTE, "0");
+    long offset = Long.parseLong(offsetString);
 
     //key of Kafka-style message is stored in PubSub attributes (null possible)
     String key = message.getAttributesOrDefault(KEY_ATTRIBUTE, null);
@@ -488,7 +490,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void commitSync(final Map<TopicPartition, OffsetAndMetadata> offsets) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    commitForTopicAndOffset(offsets, true);
   }
 
   @Override
@@ -498,18 +500,33 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   @Override
   public void commitAsync(OffsetCommitCallback callback) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    log.warn("OffsetCommitCallback is not supported and will not be invoked");
+    commitAsync();
   }
 
   @Override
   public void commitAsync(final Map<TopicPartition, OffsetAndMetadata> offsets,
       OffsetCommitCallback callback) {
-    throw new UnsupportedOperationException("Not yet implemented");
+    log.warn("OffsetCommitCallback is not supported and will not be invoked");
+    commitForTopicAndOffset(offsets, false);
   }
 
   private void commit(boolean sync) {
     for (Map.Entry<String, Subscriber> entry : topicNameToSubscriber.entrySet()) {
       entry.getValue().commit(sync);
+    }
+  }
+
+  private void commitForTopicAndOffset(Map<TopicPartition, OffsetAndMetadata> offsets, boolean sync) {
+    for(Entry<TopicPartition, OffsetAndMetadata> commitOffsets: offsets.entrySet()) {
+      String topic = commitOffsets.getKey().topic();
+      long offset = commitOffsets.getValue().offset();
+      Subscriber subscriber = topicNameToSubscriber.get(topic);
+      if(subscriber != null) {
+        subscriber.commitBefore(sync, offset);
+      } else {
+        log.warn("Topic {} is not subscribed to", topic);
+      }
     }
   }
 

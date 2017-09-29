@@ -203,8 +203,12 @@ public class Subscriber extends AbstractApiService {
     return super.startAsync();
   }
 
+  public void commitBefore(boolean sync, Long offset) {
+    pollingSubscriberConnection.commit(sync, offset);
+  }
+
   public void commit(boolean sync) {
-    pollingSubscriberConnection.commit(sync, null);
+    commitBefore(sync, null);
   }
 
 

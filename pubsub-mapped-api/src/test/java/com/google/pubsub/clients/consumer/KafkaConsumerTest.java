@@ -43,15 +43,20 @@ import io.grpc.testing.GrpcServerRule;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Pattern;
+import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.KafkaException;
+import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.serialization.IntegerSerializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.Rule;
@@ -265,6 +270,29 @@ public class KafkaConsumerTest {
     }
   }
 
+  @Test
+  public void commitBefore() {
+    KafkaConsumer<Integer, String> consumer = getConsumer(false);
+    SubscriberCommitOffsetImpl subscriberCommitOffsetService = new SubscriberCommitOffsetImpl();
+    grpcServerRule.getServiceRegistry().addService(subscriberCommitOffsetService);
+
+    String topic = "topic";
+    consumer.subscribe(Collections.singletonList(topic));
+
+    for(int i = 0; i < 10; ++i) {
+      consumer.poll(1000);
+    }
+
+    assertEquals(10, subscriberCommitOffsetService.getNotAcknowledgedSize());
+
+    Map<TopicPartition, OffsetAndMetadata> topicOffsets = new HashMap<>();
+    topicOffsets.put(new TopicPartition(topic, 0), new OffsetAndMetadata(6));
+
+    consumer.commitSync(topicOffsets);
+
+    assertEquals(4, subscriberCommitOffsetService.getNotAcknowledgedSize());
+  }
+
   private KafkaConsumer<Integer, String> getConsumer(boolean allowesCreation) {
     Properties properties = getTestProperties(allowesCreation);
     Config configOptions = new Config(properties);
@@ -280,6 +308,7 @@ public class KafkaConsumerTest {
             "org.apache.kafka.common.serialization.StringDeserializer")
         .put("max.poll.records", 500)
         .put("group.id", "groupId")
+        .put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false)
         .put("subscription.allow.create", allowesCreation)
         .put("subscription.allow.delete", false)
         .build()
@@ -292,6 +321,9 @@ public class KafkaConsumerTest {
   }
 
   static class SubscriberGetImpl extends SubscriberImplBase {
+
+    private Timestamp keptTimestamp = Timestamp.newBuilder().setSeconds(1500).build();
+    private Long keptOffset = 1234567891234L;
 
     @Override
     public void createSubscription(Subscription request, StreamObserver<Subscription> responseObserver) {
@@ -322,8 +354,9 @@ public class KafkaConsumerTest {
       Timestamp timestamp = Timestamp.newBuilder().setSeconds(1500).build();
 
       PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
-          .setPublishTime(timestamp)
+          .setPublishTime(keptTimestamp)
           .putAttributes("key", serializedKey)
+          .putAttributes("offset", keptOffset.toString())
           .setData(ByteString.copyFrom(serializedValueBytes))
           .build();
 
@@ -343,6 +376,65 @@ public class KafkaConsumerTest {
     public void acknowledge(AcknowledgeRequest request, StreamObserver<Empty> responseObserver) {
       responseObserver.onNext(Empty.getDefaultInstance());
       responseObserver.onCompleted();
+    }
+  }
+
+  static class SubscriberCommitOffsetImpl extends SubscriberImplBase {
+
+    long currentOffset = 0;
+    Set<String> pulledMessagesOffsets = new HashSet<>();
+
+    @Override
+    public void getSubscription(GetSubscriptionRequest request, StreamObserver<Subscription> responseObserver) {
+      Subscription s = Subscription.newBuilder().setName("projects/null/subscriptions/name").setTopic("projects/null/topics/topic").build();
+      responseObserver.onNext(s);
+      responseObserver.onCompleted();
+    }
+
+    @Override
+    public void pull(PullRequest request, StreamObserver<PullResponse> responseObserver) {
+      String topic = "topic";
+      Integer key = 125;
+      String value = "value";
+      byte[] serializedKeyBytes = new IntegerSerializer().serialize(topic, key);
+      String serializedKey = new String(Base64.encodeBase64(serializedKeyBytes));
+      byte[] serializedValueBytes = new StringSerializer().serialize(topic, value);
+
+      PubsubMessage pubsubMessage = PubsubMessage.newBuilder()
+          .putAttributes("key", serializedKey)
+          .putAttributes("offset", Long.toString(currentOffset))
+          .setData(ByteString.copyFrom(serializedValueBytes))
+          .setMessageId(Long.toString(currentOffset))
+          .build();
+
+      pulledMessagesOffsets.add(Long.toString(currentOffset));
+
+      ReceivedMessage receivedMessage = ReceivedMessage.newBuilder()
+          .setMessage(pubsubMessage)
+          .setAckId(Long.toString(currentOffset))
+          .build();
+
+      PullResponse pullResponse = PullResponse.newBuilder()
+          .addReceivedMessages(receivedMessage)
+          .build();
+
+      currentOffset++;
+
+      responseObserver.onNext(pullResponse);
+      responseObserver.onCompleted();
+    }
+
+    @Override
+    public void acknowledge(AcknowledgeRequest request, StreamObserver<Empty> responseObserver) {
+      for(String ackId: request.getAckIdsList()) {
+        pulledMessagesOffsets.remove(ackId);
+      }
+      responseObserver.onNext(Empty.getDefaultInstance());
+      responseObserver.onCompleted();
+    }
+
+    public long getNotAcknowledgedSize() {
+      return pulledMessagesOffsets.size();
     }
   }
 

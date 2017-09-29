@@ -176,13 +176,15 @@ class MessageDispatcher {
    */
   private class AckHandler implements FutureCallback<AckReply> {
     private final String ackId;
+    private final long offset;
     private final int outstandingBytes;
     private final AtomicBoolean acked;
     private final long receivedTimeMillis;
 
-    AckHandler(String ackId, int outstandingBytes) {
+    AckHandler(String ackId, int outstandingBytes, long offset) {
       this.ackId = ackId;
       this.outstandingBytes = outstandingBytes;
+      this.offset = offset;
       acked = new AtomicBoolean(false);
       receivedTimeMillis = clock.millisTime();
     }
@@ -225,6 +227,10 @@ class MessageDispatcher {
       flowController.release(1, outstandingBytes);
       messagesWaiter.incrementPendingMessages(-1);
       processOutstandingBatches();
+    }
+
+    public long getOffset() {
+      return this.offset;
     }
   }
 
@@ -327,8 +333,11 @@ class MessageDispatcher {
     OutstandingMessagesBatch outstandingBatch = new OutstandingMessagesBatch(doneCallback);
     final ArrayList<AckHandler> ackHandlers = new ArrayList<>(messages.size());
     for (ReceivedMessage message : messages) {
+      long offset = Long.parseLong(message.getMessage().getAttributesOrDefault("offset", "0"));
+
       AckHandler ackHandler =
-          new AckHandler(message.getAckId(), message.getMessage().getSerializedSize());
+          new AckHandler(message.getAckId(), message.getMessage().getSerializedSize(), offset);
+
       ackHandlers.add(ackHandler);
       outstandingBatch.addMessage(message, ackHandler);
     }
@@ -530,7 +539,7 @@ class MessageDispatcher {
     }
   }
 
-  void acknowledgePendingMessages(boolean sync) {
+  void acknowledgePendingMessages(boolean sync, Long offset) {
     Map<String, AckHandler> acksToSend = new HashMap<>();
     synchronized (pendingAcks) {
       if (!pendingAcks.isEmpty()) {
@@ -541,11 +550,26 @@ class MessageDispatcher {
       }
     }
 
+    if(offset != null) {
+      acksToSend = filterAcksBeforeOffset(offset, acksToSend);
+    }
+
     if(sync) {
       commitSync(acksToSend);
     } else {
       commitAsync(acksToSend);
     }
+  }
+
+  private Map<String, AckHandler> filterAcksBeforeOffset(Long offset, Map<String, AckHandler> acksToSend) {
+    Map<String, AckHandler> filteredAcksToSend = new HashMap<>();
+    for(Entry<String, AckHandler> ackToSend: acksToSend.entrySet()) {
+      if(ackToSend.getValue().offset < offset) {
+        filteredAcksToSend.put(ackToSend.getKey(), ackToSend.getValue());
+      }
+    }
+    acksToSend = filteredAcksToSend;
+    return acksToSend;
   }
 
   private void commitAsync(Map<String, AckHandler> acksToSend) {
