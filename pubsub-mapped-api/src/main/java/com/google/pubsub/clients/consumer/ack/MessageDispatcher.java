@@ -228,10 +228,6 @@ class MessageDispatcher {
       messagesWaiter.incrementPendingMessages(-1);
       processOutstandingBatches();
     }
-
-    public long getOffset() {
-      return this.offset;
-    }
   }
 
   public interface AckProcessor {
