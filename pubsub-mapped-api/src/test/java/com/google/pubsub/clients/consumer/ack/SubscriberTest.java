@@ -267,7 +267,8 @@ public class SubscriberTest {
     subscriber.pull(10000);
 
     List<String> acks = fakeSubscriberServiceImpl.getAcks();
-    assertEquals("N", acks.get(acks.size() - 1));
+    assertTrue(!acks.contains("D"));
+    assertTrue(!acks.contains("E"));
 
     subscriber.stopAsync().awaitTerminated();
   }
