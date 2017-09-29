@@ -103,6 +103,8 @@ import org.slf4j.LoggerFactory;
  * It uses code on extending deadlines and acknowledging messages based on Google Cloud Platform Pub/Sub Client Library
  * (Subscriber). See this one for reference.
  *
+ * Interceptors method onCommit has no mapping in Pub/Sub, so is not called.
+ *
  * @param <K> Key
  * @param <V> value
  */
