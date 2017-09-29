@@ -266,8 +266,9 @@ public class SubscriberTest {
     fakeExecutor.advanceTime(Duration.ofSeconds(6));
     subscriber.pull(10000);
 
-    assertEquivalent(ImmutableList.of("N"), fakeSubscriberServiceImpl.waitAndConsumeReceivedAcks(1));
-    assertTrue(fakeSubscriberServiceImpl.getAcks().isEmpty());
+    List<String> acks = fakeSubscriberServiceImpl.getAcks();
+    assertTrue(!acks.contains("D"));
+    assertTrue(!acks.contains("E"));
 
     subscriber.stopAsync().awaitTerminated();
   }
