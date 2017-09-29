@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.apache.kafka.clients.consumer.OffsetCommitCallback;
 import org.apache.kafka.common.KafkaException;
 import org.threeten.bp.Duration;
 
@@ -115,8 +114,8 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
     return state == State.RUNNING || state == State.STARTING;
   }
 
-  void commit(boolean sync, OffsetCommitCallback callback) {
-    messageDispatcher.acknowledgePendingMessages(sync);
+  void commit(boolean sync, Long offset) {
+    messageDispatcher.acknowledgePendingMessages(sync, offset);
   }
 
   @Override
