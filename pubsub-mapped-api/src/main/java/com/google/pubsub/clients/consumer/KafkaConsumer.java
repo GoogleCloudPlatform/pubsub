@@ -597,6 +597,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     long now = new DateTime().getMillis();
     seekToTimestamp(endTopics, now);
+
+    lazySeeks = new HashMap<>();
   }
 
   private void seekToTimestamp(Collection<String> topics, long timestamp) {
@@ -725,6 +727,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     unsubscribe();
     config.getKeyDeserializer().close();
     config.getValueDeserializer().close();
+    config.getInterceptors().close();
     log.debug("PubSub subscriber has been closed");
   }
 
