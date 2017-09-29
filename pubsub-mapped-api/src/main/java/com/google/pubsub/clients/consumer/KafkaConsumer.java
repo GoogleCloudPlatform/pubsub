@@ -84,6 +84,11 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * This class, as Kafka's KafkaConsumer, IS NOT THREAD SAFE.
+ * @param <K> Key
+ * @param <V> value
+ */
 public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private static final ConsumerRebalanceListener NO_REBALANCE_LISTENER = null;
@@ -420,7 +425,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     ConsumerRecords<K, V> consumerRecords = new ConsumerRecords<>(new HashMap<>());
     try {
       do {
-
+        //TODO if multiple pulls are done here, timeout should be split among them.
         String topicName = topicNames.get(this.currentPoolIndex % topicNameToSubscriber.size());
         if(!pausedTopics.contains(topicName)) {
           Subscriber subscriber = topicNameToSubscriber.get(topicName);
@@ -430,10 +435,11 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
           if (!pullResponse.getReceivedMessagesList().isEmpty()) {
             consumerRecords = getConsumerRecords(topicName, subscriptionRecords);
+            incrementPollIndex();
             break;
           }
         }
-        this.currentPoolIndex = (this.currentPoolIndex + 1) % topicNameToSubscriber.size();
+        incrementPollIndex();
       } while (this.currentPoolIndex != startedAtIndex);
 
     } catch (InterruptedException e) {
@@ -446,6 +452,10 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
       consumerRecords = config.getInterceptors().onConsume(consumerRecords);
     }
     return consumerRecords;
+  }
+
+  private void incrementPollIndex() {
+    this.currentPoolIndex = (this.currentPoolIndex + 1) % topicNameToSubscriber.size();
   }
 
   private ConsumerRecords<K, V> getConsumerRecords(String topicName,
@@ -727,7 +737,8 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     unsubscribe();
     config.getKeyDeserializer().close();
     config.getValueDeserializer().close();
-    config.getInterceptors().close();
+    if(config.getInterceptors() != null)
+      config.getInterceptors().close();
     log.debug("PubSub subscriber has been closed");
   }
 

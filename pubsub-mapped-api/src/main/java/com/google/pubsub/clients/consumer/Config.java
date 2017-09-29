@@ -91,12 +91,12 @@ class Config<K, V> {
     this.valueDeserializer = handleDeserializer(consumerConfig,
         ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, valueDeserializer, false);
 
-    String Id = consumerConfig.getString(ConsumerConfig.CLIENT_ID_CONFIG);
+    String id = consumerConfig.getString(ConsumerConfig.CLIENT_ID_CONFIG);
     String clientId = "";
-    if (Id.length() <= 0) {
+    if (id.length() <= 0) {
       clientId = "consumer-" + CLIENT_ID.getAndIncrement();
     } else {
-      clientId = Id;
+      clientId = id;
     }
 
     consumerConfig.originals().put(ConsumerConfig.CLIENT_ID_CONFIG, clientId);
