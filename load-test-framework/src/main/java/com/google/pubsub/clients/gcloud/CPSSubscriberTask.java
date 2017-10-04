@@ -43,7 +43,10 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
     this.subscription =
         SubscriptionName.create(request.getProject(), request.getPubsubOptions().getSubscription());
     try {
-      this.subscriber = Subscriber.defaultBuilder(this.subscription, this).build();
+      this.subscriber =
+          Subscriber.defaultBuilder(this.subscription, this)
+              .setParallelPullCount(Runtime.getRuntime().availableProcessors() * 5)
+              .build();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
