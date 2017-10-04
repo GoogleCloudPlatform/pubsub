@@ -36,6 +36,7 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
   private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
   private final SubscriptionName subscription;
   private Subscriber subscriber;
+  private boolean shuttingDown = false;
 
   private CPSSubscriberTask(StartRequest request) {
     super(request, "gcloud", MetricsHandler.MetricName.END_TO_END_LATENCY);
@@ -72,6 +73,10 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
       if (subscriber.isRunning()) {
         return Futures.immediateFuture(RunResult.empty());
       }
+      if (shuttingDown) {
+        return Futures.immediateFailedFuture(
+            new IllegalStateException("the task is shutting down"));
+      }
       try {
         subscriber.startAsync().awaitRunning();
       } catch (Exception e) {
@@ -85,8 +90,16 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
 
   @Override
   public void shutdown() {
+    Subscriber subscriber;
     synchronized (this) {
-      subscriber.stopAsync().awaitTerminated();
+      if (shuttingDown) {
+        throw new IllegalStateException("the task is already shutting down");
+      }
+      shuttingDown = true;
+      subscriber = this.subscriber;
     }
+    // We must stop out of the lock. Stopping waits for all messages to be processed,
+    // and processing the messages needs to lock.
+    subscriber.stopAsync().awaitTerminated();
   }
 }
