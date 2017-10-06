@@ -18,6 +18,7 @@ package com.google.pubsub.clients.mapped;
 
 import com.beust.jcommander.JCommander;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 
@@ -30,12 +31,12 @@ import com.google.pubsub.clients.common.MetricsHandler.MetricName;
 import com.google.pubsub.clients.producer.KafkaProducer;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.kafka.clients.producer.ProducerRecord;
 
 import java.util.Random;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
-
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,7 +55,9 @@ class CPSPublisherTask extends Task {
   private final String topic;
   private final String payload;
   private final String clientId;
+  private final AtomicInteger sending = new AtomicInteger(0);
   private final AtomicInteger sequenceNumber = new AtomicInteger(0);
+  private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
 
   private final KafkaProducer<String, String> publisher;
 
@@ -70,7 +73,7 @@ class CPSPublisherTask extends Task {
     this.batchDelay = Durations.toMillis(request.getPublishBatchDuration());
 
     Properties props = new Properties();
-    props.put("project", "dataproc-kafka-test");
+    props.put("project", request.getProject());
     props.put("linger.ms", Long.toString(batchDelay));
     props.put("elements.count", Integer.toString(batchSize));
     props.put("batch.size", Integer.toString(9500000));
@@ -91,18 +94,25 @@ class CPSPublisherTask extends Task {
   @Override
   public ListenableFuture<RunResult> doRun() {
 
-    String sendTime = String.valueOf(System.currentTimeMillis());
     AtomicInteger messagesSent = new AtomicInteger(batchSize);
     AtomicInteger messagesToSend = new AtomicInteger(batchSize);
+    String sendTime = String.valueOf(System.currentTimeMillis());
     final SettableFuture<RunResult> done = SettableFuture.create();
 
+    if (shuttingDown.get()) {
+      return Futures.immediateFailedFuture(
+          new IllegalStateException("The task is shutting down."));
+    }
+
+    sending.incrementAndGet();
     for (int i = 0; i < batchSize; i++) {
+      actualCounter.incrementAndGet();
       publisher.send(
           new ProducerRecord<>(topic, 0, clientId + "#" +
-              sendTime + "#" + Integer.toString(sequenceNumber.getAndIncrement()), payload),
+              Integer.toString(sequenceNumber.getAndIncrement()) + "#" + sendTime, payload),
           (recordMetadata, e) -> {
             if (e != null) {
-              messagesSent.decrementAndGet();
+              messagesSent.getAndDecrement();
               log.error(e.getMessage(), e);
             }
             if (messagesToSend.decrementAndGet() == 0) {
@@ -110,11 +120,22 @@ class CPSPublisherTask extends Task {
             }
           });
     }
+    sending.decrementAndGet();
     return done;
   }
 
   @Override
   public void shutdown() {
-    publisher.close();
+    try {
+      if (shuttingDown.getAndSet(true)) {
+        return;
+      }
+      while (sending.get() > 0) {
+        //Don't shutdown until all the ongoing processes finish
+      }
+      publisher.close();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 }

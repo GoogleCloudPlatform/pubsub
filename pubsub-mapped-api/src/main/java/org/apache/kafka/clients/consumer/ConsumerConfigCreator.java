@@ -36,6 +36,6 @@ public class ConsumerConfigCreator {
 
   private static void addDefaultKafkaRequiredOptions(Map map) {
     if(!map.containsKey(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG))
-      map.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:8000");
+      map.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
   }
 }

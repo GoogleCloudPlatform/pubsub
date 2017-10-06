@@ -22,7 +22,7 @@ import java.util.Properties;
 /**
  * This is an adapter to control the ProducerConfig class since it's constructors are package-private.
  */
-public class ProducerConfigAdapter {
+public class ProducerConfigCreator {
   
   public static ProducerConfig getProducerConfig(Properties properties) {
     return getProducerConfig(properties);

@@ -16,13 +16,16 @@
 
 package com.google.pubsub.clients.producer;
 
-import com.google.common.collect.ImmutableMap;
 import java.util.Properties;
+
+import com.google.common.collect.ImmutableMap;
+
 import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.junit.Assert;
+
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.Assert;
 import org.junit.rules.ExpectedException;
 
 public class ConfigTest {

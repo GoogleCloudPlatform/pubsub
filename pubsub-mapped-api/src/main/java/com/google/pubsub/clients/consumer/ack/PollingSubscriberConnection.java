@@ -102,7 +102,7 @@ final class PollingSubscriberConnection extends AbstractApiService implements Me
 
     PullResponse response = pullResult.get();
 
-    //messageDispatcher.processReceivedMessages(response.getReceivedMessagesList(), () -> {});
+    messageDispatcher.processReceivedMessages(response.getReceivedMessagesList(), () -> {});
 
     //on non-retry-fail - stop dispatcher?
     return response;

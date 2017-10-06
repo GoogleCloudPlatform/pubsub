@@ -14,18 +14,22 @@
 
 package com.google.pubsub.clients.consumer;
 
-import java.util.Map;
 import org.apache.kafka.common.config.AbstractConfig;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 
-//TODO Use builder pattern using Kafka's ConsumerConfig class
+import java.util.Map;
+
 /**
  * The consumer configuration keys
  */
 public class PubSubConsumerConfig extends AbstractConfig {
   private static final ConfigDef CONFIG = getInstance();
+
+  /** <code>project</code> */
+  public static final String PROJECT_CONFIG = "project";
+  private static final String PROJECT_DOC = "GCP project that we will connect to.";
 
   /** <code>subscription.allow.create</code> */
   public static final String SUBSCRIPTION_ALLOW_CREATE_CONFIG = "subscription.allow.create";
@@ -37,8 +41,26 @@ public class PubSubConsumerConfig extends AbstractConfig {
   private static final String SUBSCRIPTION_ALLOW_DELETE_DOC =
       "Determines if subscriptions for non-existing groups should be created";
 
+  /** <code>max.per.request.changes</code> */
+  public static final String MAX_PER_REQUEST_CHANGES_CONFIG = "max.per.request.changes";
+  private static final String MAX_PER_REQUEST_CHANGES_DOC =
+      "Maximum of request changes sent in single message (acknowledge & extend deadline)";
+
+  public static final String CREATED_SUBSCRIPTION_DEADLINE_SECONDS_CONFIG = "created.subscription.deadline.sec";
+  private static final String CREATED_SUBSCRIPTION_DEADLINE_SECONDS_DOC =
+      "If creation of subscriptions is configured, this is the acknowledge deadline they are going to get";
+
+
+  public static final String MAX_ACK_EXTENSION_PERIOD_SECONDS_CONFIG = "max.ack.extension.period.sec";
+  private static final String MAX_ACK_EXTENSION_PERIOD_SECONDS_DOC =
+    "The maximum period a message ack deadline will be extended";
+
   private static synchronized ConfigDef getInstance() {
     return new ConfigDef()
+        .define(PROJECT_CONFIG,
+            Type.STRING,
+            Importance.HIGH,
+            PROJECT_DOC)
         .define(SUBSCRIPTION_ALLOW_CREATE_CONFIG,
             Type.BOOLEAN,
             false,
@@ -48,7 +70,22 @@ public class PubSubConsumerConfig extends AbstractConfig {
             Type.BOOLEAN,
             false,
             Importance.MEDIUM,
-            SUBSCRIPTION_ALLOW_DELETE_DOC);
+            SUBSCRIPTION_ALLOW_DELETE_DOC)
+        .define(MAX_PER_REQUEST_CHANGES_CONFIG,
+            Type.INT,
+            1000,
+            Importance.MEDIUM,
+            MAX_PER_REQUEST_CHANGES_DOC)
+        .define(CREATED_SUBSCRIPTION_DEADLINE_SECONDS_CONFIG,
+            Type.INT,
+            20,
+            Importance.MEDIUM,
+            CREATED_SUBSCRIPTION_DEADLINE_SECONDS_DOC)
+        .define(MAX_ACK_EXTENSION_PERIOD_SECONDS_CONFIG,
+            Type.INT,
+            3600, // 60 minutes
+            Importance.MEDIUM,
+            MAX_ACK_EXTENSION_PERIOD_SECONDS_DOC);
   }
 
   PubSubConsumerConfig(Map<?, ?> props) {

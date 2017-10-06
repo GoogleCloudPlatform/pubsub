@@ -18,26 +18,35 @@ package com.google.pubsub.clients.common;
 
 import com.beust.jcommander.Parameter;
 import com.beust.jcommander.Parameters;
+
 import com.google.common.base.Stopwatch;
 import com.google.common.util.concurrent.SettableFuture;
+
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Timestamps;
-import com.google.pubsub.flic.common.LoadtestGrpc;
+
+import com.google.pubsub.flic.common.LoadtestGrpc.LoadtestImplBase;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.CheckRequest;
 import com.google.pubsub.flic.common.LoadtestProto.CheckResponse;
-import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest.StopConditionsCase;
+
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
+
 import java.nio.charset.Charset;
-import java.util.Arrays;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
+
 import java.util.function.Function;
+
+import java.util.Arrays;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -46,12 +55,12 @@ import org.slf4j.LoggerFactory;
  */
 public class LoadTestRunner {
   private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
+  private static Task task;
+  private static Server server;
   private static final int MAX_IDLE_MILLIS = 60 * 1000; // 1 minute
   private static final Stopwatch stopwatch = Stopwatch.createUnstarted();
-  private static Server server;
-  private static Task task;
-  private static final AtomicBoolean finished = new AtomicBoolean(true);
   private static SettableFuture<Void> finishedFuture = SettableFuture.create();
+  private static final AtomicBoolean finished = new AtomicBoolean(true);
 
   /**
    * Command line options for the {@link LoadTestRunner}.
@@ -85,7 +94,6 @@ public class LoadTestRunner {
         log.error("Interrupted sleeping, starting test now.");
       }
     }
-
     stopwatch.start();
     while (shouldContinue(request)) {
       executor.execute(task);
@@ -114,7 +122,7 @@ public class LoadTestRunner {
     server =
         serverBuilder
             .addService(
-                new LoadtestGrpc.LoadtestImplBase() {
+                new LoadtestImplBase() {
                   @Override
                   public void start(
                       StartRequest request, StreamObserver<StartResponse> responseObserver) {
@@ -136,13 +144,13 @@ public class LoadTestRunner {
                     boolean finishedValue = finished.get();
                     responseObserver.onNext(
                         CheckResponse.newBuilder()
+                            .addAllReceivedMessages(
+                                task.flushMessageIdentifiers(request.getDuplicatesList()))
                             .addAllBucketValues(task.getBucketValues())
                             .setRunningDuration(
                                 Duration.newBuilder()
                                     .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
                             .setIsFinished(finishedValue)
-                            .addAllReceivedMessages(
-                                task.flushMessageIdentifiers(request.getDuplicatesList()))
                             .build());
                     responseObserver.onCompleted();
                     if (finishedValue) {
@@ -166,11 +174,17 @@ public class LoadTestRunner {
     Thread.currentThread().join();
   }
 
+  private static boolean notBlockingOnRequests(StopConditionsCase condition) {
+    return condition != StopConditionsCase.NUMBER_OF_MESSAGES
+        || System.currentTimeMillis() - task.getLastUpdateMillis() > 5 * MAX_IDLE_MILLIS;
+  }
+
   private static boolean shouldContinue(StartRequest request) {
     // If the test has been running for at least a minute, and we have been idle for a minute, we
     // should stop.
     if (System.currentTimeMillis() - Timestamps.toMillis(request.getStartTime()) > MAX_IDLE_MILLIS
-        && System.currentTimeMillis() - task.getLastUpdateMillis() > MAX_IDLE_MILLIS) {
+        && System.currentTimeMillis() - task.getLastUpdateMillis() > MAX_IDLE_MILLIS
+        && notBlockingOnRequests(request.getStopConditionsCase())) {
       return false;
     }
     switch (request.getStopConditionsCase()) {
@@ -181,7 +195,8 @@ public class LoadTestRunner {
                     + request.getTestDuration().getSeconds())
                 * 1000;
       case NUMBER_OF_MESSAGES:
-        return task.getNumberOfMessages() < request.getNumberOfMessages();
+        return task.getNumberOfMessages() < request.getNumberOfMessages()
+            && task.getActualCounter() < request.getNumberOfMessages();
       default:
         return false;
     }

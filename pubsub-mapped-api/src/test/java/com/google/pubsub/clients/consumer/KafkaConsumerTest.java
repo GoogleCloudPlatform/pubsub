@@ -91,6 +91,7 @@ public class KafkaConsumerTest {
 
     Set<String> subscribed = consumer.subscription();
     assertEquals(topics, subscribed);
+    consumer.close();
   }
 
   @Test
@@ -103,6 +104,7 @@ public class KafkaConsumerTest {
 
     Set<String> subscribed = consumer.subscription();
     assertEquals(topics, subscribed);
+    consumer.close();
   }
 
   @Test
@@ -116,6 +118,7 @@ public class KafkaConsumerTest {
     } catch (KafkaException e) {
       //expected
     }
+    consumer.close();
   }
 
   @Test
@@ -127,6 +130,7 @@ public class KafkaConsumerTest {
     consumer.unsubscribe();
 
     assertTrue(consumer.subscription().isEmpty());
+    consumer.close();
   }
 
   @Test
@@ -141,6 +145,7 @@ public class KafkaConsumerTest {
 
     Set<String> subscribed = consumer.subscription();
     assertEquals(topics, subscribed);
+    consumer.close();
   }
 
   @Test
@@ -154,6 +159,7 @@ public class KafkaConsumerTest {
 
     Set<String> subscribed = consumer.subscription();
     assertEquals(topics, subscribed);
+    consumer.close();
   }
 
   @Test
@@ -168,6 +174,7 @@ public class KafkaConsumerTest {
     Set<String> subscribed = consumer.subscription();
     Set<String> expectedTopics = new HashSet<>(Arrays.asList("thisis123cat", "funnycats000cat"));
     assertEquals(expectedTopics, subscribed);
+    consumer.close();
   }
 
   @Test
@@ -180,6 +187,7 @@ public class KafkaConsumerTest {
     } catch (IllegalArgumentException e) {
       assertEquals("Topic pattern to subscribe to cannot be null", e.getMessage());
     }
+    consumer.close();
   }
 
   @Test
@@ -192,6 +200,7 @@ public class KafkaConsumerTest {
     } catch (IllegalArgumentException e) {
       assertEquals("Topic collection to subscribe to cannot be null", e.getMessage());
     }
+    consumer.close();
   }
 
   @Test
@@ -204,6 +213,7 @@ public class KafkaConsumerTest {
     } catch (IllegalArgumentException e) {
       assertEquals("Topic collection to subscribe to cannot contain null or empty topic", e.getMessage());
     }
+    consumer.close();
   }
 
   @Test
@@ -215,6 +225,7 @@ public class KafkaConsumerTest {
     } catch (IllegalStateException e) {
       assertEquals("Consumer is not subscribed to any topics", e.getMessage());
     }
+    consumer.close();
   }
 
   @Test
@@ -226,6 +237,7 @@ public class KafkaConsumerTest {
     } catch (IllegalArgumentException e) {
       assertEquals("Timeout must not be negative", e.getMessage());
     }
+    consumer.close();
   }
 
   @Test
@@ -248,6 +260,7 @@ public class KafkaConsumerTest {
     assertEquals(consumerRecord.count(), 1);
     assertEquals(value, next.value());
     assertEquals(key, next.key());
+    consumer.close();
   }
 
   @Test
@@ -445,6 +458,7 @@ public class KafkaConsumerTest {
 
     Properties properties = new Properties();
     properties.putAll(new ImmutableMap.Builder<>()
+        .put("project", "unit-test-project")
         .put("key.deserializer",
             "org.apache.kafka.common.serialization.IntegerDeserializer")
         .put("value.deserializer",
@@ -469,15 +483,16 @@ public class KafkaConsumerTest {
     }
   }
 
-  private KafkaConsumer<Integer, String> getConsumer(boolean allowesCreation) {
-    Properties properties = getTestProperties(allowesCreation);
+  private KafkaConsumer<Integer, String> getConsumer(boolean allowsCreation) {
+    Properties properties = getTestProperties(allowsCreation);
     Config configOptions = new Config(properties);
     return new KafkaConsumer<>(configOptions, grpcServerRule.getChannel(), null);
   }
 
-  private Properties getTestProperties(boolean allowesCreation) {
+  private Properties getTestProperties(boolean allowsCreation) {
     Properties properties = new Properties();
     properties.putAll(new ImmutableMap.Builder<>()
+        .put("project", "unit-test-project")
         .put("key.deserializer",
             "org.apache.kafka.common.serialization.IntegerDeserializer")
         .put("value.deserializer",
@@ -485,7 +500,7 @@ public class KafkaConsumerTest {
         .put("max.poll.records", 500)
         .put("group.id", "groupId")
         .put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false)
-        .put("subscription.allow.create", allowesCreation)
+        .put("subscription.allow.create", allowsCreation)
         .put("subscription.allow.delete", false)
         .build()
     );
@@ -504,7 +519,7 @@ public class KafkaConsumerTest {
 
     @Override
     public void getSubscription(GetSubscriptionRequest request, StreamObserver<Subscription> responseObserver) {
-      Subscription s = Subscription.newBuilder().setName("name").setTopic("projects/null/topics/topic").build();
+      Subscription s = Subscription.newBuilder().setName("projects/null/subscriptions/name").setTopic("projects/null/topics/topic").build();
       responseObserver.onNext(s);
       responseObserver.onCompleted();
     }
@@ -619,7 +634,7 @@ public class KafkaConsumerTest {
   static class SubscriberNoExistingSubscriptionsImpl extends SubscriberImplBase {
     @Override
     public void createSubscription(Subscription request, StreamObserver<Subscription> responseObserver) {
-      Subscription s = Subscription.newBuilder().setName("name").setTopic("projects/null/topics/topic").build();
+      Subscription s = Subscription.newBuilder().setName("projects/null/subscriptions/name").setTopic("projects/null/topics/topic").build();
       responseObserver.onNext(s);
       responseObserver.onCompleted();
     }
@@ -635,7 +650,7 @@ public class KafkaConsumerTest {
 
     @Override
     public void listTopics(ListTopicsRequest request, StreamObserver<ListTopicsResponse> responseObserver) {
-      String project = "projects/" + System.getenv("GOOGLE_CLOUD_PROJECT") + "/topics/";
+      String project = "projects/unit-test-project/topics/";
       List<String> topicNames = new ArrayList<>(Arrays.asList(
         project + "thisis123cat", project + "abc12345bad", project + "noWay1234", project + "funnycats000cat"));
 

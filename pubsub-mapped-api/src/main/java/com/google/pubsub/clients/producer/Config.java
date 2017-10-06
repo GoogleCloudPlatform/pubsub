@@ -21,9 +21,10 @@ import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.kafka.common.serialization.Serializer;
+
 import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerConfigAdapter;
 import org.apache.kafka.clients.producer.ProducerInterceptor;
+import org.apache.kafka.clients.producer.ProducerConfigCreator;
 import org.apache.kafka.clients.producer.internals.ProducerInterceptors;
 
 /**
@@ -57,16 +58,16 @@ public class Config<K, V> {
     additionalConfigs = new PubSubProducerConfig(configs);
 
     if (keySerializer == null && valueSerializer == null) {
-      kafkaConfigs = ProducerConfigAdapter.getProducerConfig(
+      kafkaConfigs = ProducerConfigCreator.getProducerConfig(
           ProducerConfig.addSerializerToConfig(configs, keySerializer, valueSerializer));
     } else {
-      kafkaConfigs = ProducerConfigAdapter.getProducerConfig(configs);
+      kafkaConfigs = ProducerConfigCreator.getProducerConfig(configs);
     }
 
     // CPS's configs
-    project = additionalConfigs.getString(PubSubProducerConfig.PROJECT_CONFIG);
-    elementCount = additionalConfigs.getLong(PubSubProducerConfig.ELEMENTS_COUNT_CONFIG);
-    autoCreate = additionalConfigs.getBoolean(PubSubProducerConfig.AUTO_CREATE_TOPICS_CONFIG);
+    this.project = additionalConfigs.getString(PubSubProducerConfig.PROJECT_CONFIG);
+    this.elementCount = additionalConfigs.getLong(PubSubProducerConfig.ELEMENTS_COUNT_CONFIG);
+    this.autoCreate = additionalConfigs.getBoolean(PubSubProducerConfig.AUTO_CREATE_TOPICS_CONFIG);
 
     // Kafka's configs
     if (keySerializer == null) {
@@ -89,24 +90,24 @@ public class Config<K, V> {
       this.valueSerializer = valueSerializer;
     }
 
-    retries = kafkaConfigs.getInt(ProducerConfig.RETRIES_CONFIG);
-    timeout = kafkaConfigs.getInt(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG);
-    retriesMs = kafkaConfigs.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);
-    lingerMs = kafkaConfigs.getLong(ProducerConfig.LINGER_MS_CONFIG);
-    batchSize = kafkaConfigs.getInt(ProducerConfig.BATCH_SIZE_CONFIG);
-    acks = kafkaConfigs.getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
-    bufferMemorySize = kafkaConfigs.getLong(ProducerConfig.BUFFER_MEMORY_CONFIG);
+    this.retries = kafkaConfigs.getInt(ProducerConfig.RETRIES_CONFIG);
+    this.timeout = kafkaConfigs.getInt(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG);
+    this.retriesMs = kafkaConfigs.getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);
+    this.lingerMs = kafkaConfigs.getLong(ProducerConfig.LINGER_MS_CONFIG);
+    this.batchSize = kafkaConfigs.getInt(ProducerConfig.BATCH_SIZE_CONFIG);
+    this.acks = kafkaConfigs.getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
+    this.bufferMemorySize = kafkaConfigs.getLong(ProducerConfig.BUFFER_MEMORY_CONFIG);
 
-    String Id = kafkaConfigs.getString(ProducerConfig.CLIENT_ID_CONFIG);
-    if (Id.length() <= 0) {
-      clientId = "producer-" + CLIENT_ID.getAndIncrement();
+    String id = kafkaConfigs.getString(ProducerConfig.CLIENT_ID_CONFIG);
+    if (id.length() <= 0) {
+      this.clientId = "producer-" + CLIENT_ID.getAndIncrement();
     } else {
-      clientId = Id;
+      this.clientId = id;
     }
 
     kafkaConfigs.originals().put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
     List<ProducerInterceptor<K, V>> interceptorList =
-        (List) (ProducerConfigAdapter
+        (List) (ProducerConfigCreator
             .getProducerConfig(kafkaConfigs.originals()))
             .getConfiguredInstances(
                 ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, ProducerInterceptor.class);

@@ -21,7 +21,6 @@ import com.beust.jcommander.JCommander;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 
-import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.consumer.KafkaConsumer;
@@ -29,40 +28,36 @@ import com.google.pubsub.clients.common.MetricsHandler.MetricName;
 
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 
-import java.util.concurrent.Semaphore;
+import org.apache.kafka.common.KafkaException;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 
 import java.util.Properties;
 import java.util.Collections;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  *  Runs a task that consumes messages utilizing Pub/Sub's implementation of the Kafka Consumer<K,V> Interface.
  */
 class CPSSubscriberTask extends Task {
 
-  private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
-
-  private final long pollLength;
-  private final Semaphore outstandingPolls;
+  private static final long POLL_TIMEOUT = 300000L;
   private final KafkaConsumer<String, String> subscriber;
-
+  private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
 
   private CPSSubscriberTask(StartRequest request) {
     super(request, "mapped", MetricName.END_TO_END_LATENCY);
 
     Properties props = new Properties();
-    //DONT CHANGE, ELSE YOU WILL BREAK THE TEST.
-    props.put("group.id", "test");
+
+    //TODO: DON'T CHANGE, ELSE YOU WILL BREAK THE TEST. Subscription name depends on it.
+    props.put("group.id", "SUBSCRIBER_ID");
+    props.put("enable.auto.commit", "false");
+    props.put("project", request.getProject());
     props.put("key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
     props.put("value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer");
 
     this.subscriber = new KafkaConsumer<>(props);
     this.subscriber.subscribe(Collections.singletonList(request.getTopic()));
-    this.outstandingPolls = new Semaphore(request.getMaxOutstandingRequests());
-    this.pollLength = Durations.toMillis(request.getKafkaOptions().getPollDuration());
   }
 
   public static void main(String[] args) throws Exception {
@@ -73,24 +68,37 @@ class CPSSubscriberTask extends Task {
 
   @Override
   public ListenableFuture<RunResult> doRun() {
-    if (!outstandingPolls.tryAcquire()) {
-      return Futures.immediateFailedFuture(new Exception("Flow control limits reached."));
+    if (shuttingDown.get()) {
+      return Futures.immediateFailedFuture(
+          new IllegalStateException("The task is shutting down."));
     }
-    ConsumerRecords<String, String> records = subscriber.poll(300000);
+    ConsumerRecords<String, String> records = null;
+    try {
+      records = subscriber.poll(POLL_TIMEOUT);
+    } catch (KafkaException e) {
+      return Futures.immediateFailedFuture(
+          new IllegalStateException("The task is shut down."));
+    }
     records.forEach(
         record -> {
           String[] tokens = record.key().split("#");
+          long receiveTime = System.currentTimeMillis();
           recordMessageLatency(
               Integer.parseInt(tokens[0]),
-              Integer.parseInt(tokens[2]),
-              System.currentTimeMillis() - Long.parseLong(tokens[1]));
+              Integer.parseInt(tokens[1]),
+              record.timestamp(),
+              receiveTime,
+              receiveTime - Long.parseLong(tokens[2]));
         });
-    outstandingPolls.release();
+    subscriber.commitAsync();
     return Futures.immediateFuture(RunResult.empty());
   }
 
   @Override
   public void shutdown() {
-    //subscriber.close();
+    if (shuttingDown.getAndSet(true)) {
+      return;
+    }
+    subscriber.close();
   }
 }

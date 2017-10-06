@@ -59,10 +59,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import kafka.utils.ZKStringSerializer;
+import kafka.utils.ZkUtils;
 import kafka.admin.AdminUtils;
 import kafka.utils.ZKStringSerializer$;
-import kafka.utils.ZkUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -91,11 +93,19 @@ public class GCEController extends Controller {
                         int cores, ScheduledExecutorService executor, Storage storage,
                         Compute compute, Pubsub pubsub) throws Throwable {
     super(executor);
-    this.projectName = projectName;
     this.types = types;
     this.cores = cores;
     this.storage = storage;
     this.compute = compute;
+    this.projectName = projectName;
+
+    try {
+      createFirewall();
+      createStorageBucket();
+    } catch (Exception e) {
+      shutdown(e);
+      throw e;
+    }
 
     // For each unique type of CPS Publisher, create a Topic if it does not already exist, and then
     // delete and recreate any subscriptions attached to it so that we do not have backlog from
@@ -117,14 +127,6 @@ public class GCEController extends Controller {
               return;
             }
             log.info("Topic already exists, reusing.");
-            try {
-              pubsub.projects().topics()
-                  .delete("projects/" + projectName + "/topics/" + topic).execute();
-              pubsub.projects().topics()
-                  .create("projects/" + projectName + "/topics/" + topic, new Topic()).execute();
-            } catch (IOException e1) {
-              log.info("Couldn't recreate topic.");
-            }
           } catch (IOException e) {
             pubsubFuture.setException(e);
             return;
@@ -143,8 +145,8 @@ public class GCEController extends Controller {
             try {
               pubsub.projects().subscriptions().create("projects/" + projectName
                   + "/subscriptions/" + subscription, new Subscription()
-                  .setTopic("projects/" + projectName + "/topics/" + topic)
-                  .setAckDeadlineSeconds(subscription.startsWith("cloud") ? 600:10)).execute();
+                  .setTopic("projects/" + projectName + "/topics/" + topic).
+                      setAckDeadlineSeconds(600)).execute();
             } catch (IOException e) {
               pubsubFuture.setException(e);
             }
@@ -164,11 +166,19 @@ public class GCEController extends Controller {
           SettableFuture<Void> kafkaFuture = SettableFuture.create();
           kafkaFutures.add(kafkaFuture);
           executor.execute(() -> {
+            try {
+              Thread.sleep(45000);
+            } catch (InterruptedException e) { }
+
             String topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
-            ZkClient zookeeperClient = new ZkClient(Client.zookeeperIpAddress, 15000, 10000,
-                ZKStringSerializer$.MODULE$);
+
+            ZkClient zookeeperClient =
+                new ZkClient(Client.zookeeperIpAddress, 30000, 5000,
+                    ZKStringSerializer$.MODULE$);
+
             ZkUtils zookeeperUtils = new ZkUtils(zookeeperClient,
                 new ZkConnection(Client.zookeeperIpAddress), false);
+
             try {
               if (AdminUtils.topicExists(zookeeperUtils, topic)) {
                 log.info("Deleting topic " + topic + ".");
@@ -185,11 +195,9 @@ public class GCEController extends Controller {
               while (AdminUtils.topicExists(zookeeperUtils, topic)) {
                 // waiting for topic to delete before recreating
               }
-              Properties topicConfig = new Properties();
               AdminUtils
                   .createTopic(zookeeperUtils, topic, Client.partitions, Client.replicationFactor,
-                      AdminUtils.createTopic$default$5(),
-                      AdminUtils.createTopic$default$6());
+                      AdminUtils.createTopic$default$5(), AdminUtils.createTopic$default$6());
               log.info("Created topic " + topic + ".");
             } catch (Exception e) {
               kafkaFuture.setException(e);
@@ -199,6 +207,7 @@ public class GCEController extends Controller {
                 zookeeperClient.close();
               }
             }
+
             kafkaFuture.set(null);
           });
         });
@@ -206,9 +215,6 @@ public class GCEController extends Controller {
     }
 
     try {
-      createStorageBucket();
-      createFirewall();
-
       List<SettableFuture<Void>> filesRemaining = new ArrayList<>();
       Files.walk(Paths.get(resourceDirectory))
           .filter(Files::isRegularFile).forEach(filePath -> {
@@ -378,7 +384,7 @@ public class GCEController extends Controller {
     }
   }
 
-  /**
+   /**
    * Adds a firewall rule to the default network so that we can connect to our clients externally.
    */
   private void createFirewall() throws IOException {
@@ -388,7 +394,10 @@ public class GCEController extends Controller {
         .setAllowed(ImmutableList.of(
             new Firewall.Allowed()
                 .setIPProtocol("tcp")
-                .setPorts(Collections.singletonList("5000"))));
+                .setPorts(Collections.singletonList("5000")),
+            new Firewall.Allowed()
+                .setIPProtocol("tcp")
+                .setPorts(Collections.singletonList("2181"))));
     try {
       compute.firewalls().insert(projectName, firewallRule).execute();
     } catch (GoogleJsonResponseException e) {

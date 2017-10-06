@@ -16,36 +16,47 @@
 
 package com.google.pubsub.clients.common;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Stopwatch;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.RateLimiter;
+import com.google.common.base.Preconditions;
+
 import com.google.protobuf.util.Timestamps;
+
+import com.google.common.util.concurrent.Futures;
+import com.google.common.util.concurrent.RateLimiter;
+import com.google.common.util.concurrent.FutureCallback;
+import com.google.common.util.concurrent.ListenableFuture;
+
+import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
+import java.util.Comparator;
 import java.util.Map;
-import java.util.concurrent.Semaphore;
+import java.util.List;
+import java.util.Map.Entry;
+import java.util.LinkedHashMap;
+import java.util.stream.Collectors;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Each task is responsible for implementing its action and for creating {@link LoadTestRunner}.
  */
 public abstract class Task implements Runnable {
   private final MetricsHandler metricsHandler;
-  private AtomicInteger numMessages = new AtomicInteger(0);
-  private final Map<MessageIdentifier, Long> identifiers = new HashMap<>();
-  private final Map<MessageIdentifier, Long> identifiersToRecord = new HashMap<>();
-  private final AtomicLong lastUpdateMillis = new AtomicLong(System.currentTimeMillis());
+  private final Map<MessageIdentifier, Long> identifiers = new LinkedHashMap<>();
+  private final Map<MessageIdentifier, Long> identifiersToRecord = new LinkedHashMap<>();
   private final long burnInTimeMillis;
   private final RateLimiter rateLimiter;
   private final Semaphore outstandingRequestLimiter;
+
+  private final AtomicInteger numMessages = new AtomicInteger(0);
+  private final AtomicLong lastUpdateMillis = new AtomicLong(System.currentTimeMillis());
+
+  protected final AtomicInteger actualCounter = new AtomicInteger(0);
 
   protected Task(StartRequest request, String type, MetricsHandler.MetricName metricName) {
     this.metricsHandler = new MetricsHandler(request.getProject(), type, metricName);
@@ -65,11 +76,12 @@ public abstract class Task implements Runnable {
     public List<Long> latencies = new ArrayList<>();
     public int batchSize = 0;
 
-    public void addMessageLatency(int clientId, int sequenceNumber, long latency) {
+    public void addMessageLatency(int clientId, int sequenceNumber, long publishTime, long latency) {
       identifiers.add(MessageIdentifier.newBuilder()
-        .setPublisherClientId(clientId)
-        .setSequenceNumber(sequenceNumber)
-        .build());
+          .setPublisherClientId(clientId)
+          .setSequenceNumber(sequenceNumber)
+          .setPublishTime(publishTime)
+          .build());
       latencies.add(latency);
     }
 
@@ -139,7 +151,11 @@ public abstract class Task implements Runnable {
     return metricsHandler.flushBucketValues();
   }
 
-  int getNumberOfMessages() {
+  protected int getActualCounter() {
+    return actualCounter.get();
+  }
+
+  protected int getNumberOfMessages() {
     return numMessages.get();
   }
 
@@ -148,23 +164,26 @@ public abstract class Task implements Runnable {
   }
 
   protected void recordBatchLatency(long millis, int batchSize) {
-    lastUpdateMillis.set(System.currentTimeMillis());
     if (System.currentTimeMillis() < burnInTimeMillis) {
       return;
     }
-    metricsHandler.recordBatchLatency(millis, batchSize);
     numMessages.getAndAdd(batchSize);
+    lastUpdateMillis.set(System.currentTimeMillis());
+    metricsHandler.recordBatchLatency(millis, batchSize);
   }
 
   long getLastUpdateMillis() {
     return lastUpdateMillis.get();
   }
 
-  protected synchronized void recordMessageLatency(int clientId, int sequenceNumber, long latency) {
+  protected synchronized void recordMessageLatency(
+      int clientId, int sequenceNumber, long publishTime, long receiveTime, long latency) {
     identifiers.put(
         MessageIdentifier.newBuilder()
             .setPublisherClientId(clientId)
             .setSequenceNumber(sequenceNumber)
+            .setPublishTime(publishTime)
+            .setReceiveTime(receiveTime)
             .build(),
         latency);
     lastUpdateMillis.set(System.currentTimeMillis());
@@ -177,10 +196,11 @@ public abstract class Task implements Runnable {
         "Identifiers and latencies must be the same size (%s != %s).",
         identifiers.size(),
         latencies.size());
+    lastUpdateMillis.set(System.currentTimeMillis());
     for (int i = 0; i < identifiers.size(); i++) {
       this.identifiers.put(identifiers.get(i), latencies.get(i));
     }
-    lastUpdateMillis.set(System.currentTimeMillis());
+    numMessages.getAndAdd(identifiers.size());
   }
 
   synchronized List<MessageIdentifier> flushMessageIdentifiers(List<MessageIdentifier> duplicates) {
@@ -190,6 +210,17 @@ public abstract class Task implements Runnable {
       }
     });
     identifiersToRecord.clear();
+    if (Client.orderTest) {
+      identifiers.entrySet().stream()
+          .sorted(Comparator
+              .comparingLong(
+                  entry -> entry.getKey().getReceiveTime()))
+          .collect(Collectors.toMap(
+              Entry::getKey,
+              Entry::getValue,
+              (x,y)-> {throw new AssertionError();},
+              LinkedHashMap::new));
+    }
     identifiersToRecord.putAll(identifiers);
     identifiers.clear();
     return new ArrayList<>(identifiersToRecord.keySet());

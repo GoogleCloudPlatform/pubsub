@@ -20,8 +20,8 @@ import com.google.api.core.AbstractApiService;
 import com.google.api.core.ApiClock;
 import com.google.api.core.ApiService;
 import com.google.api.core.CurrentMillisClock;
-import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.batching.FlowController;
+import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.batching.FlowController.LimitExceededBehavior;
 import com.google.api.gax.core.Distribution;
 import com.google.api.gax.grpc.ExecutorProvider;
@@ -108,10 +108,8 @@ public class Subscriber extends AbstractApiService {
       this.nextCommitTime = clock.millisTime() + autoCommitIntervalMs;
     }
 
-    FlowController flowController = new FlowController(
-        builder
-            .flowControlSettings
-            .toBuilder()
+    FlowController flowController =
+        new FlowController(builder.flowControlSettings.toBuilder()
             .setLimitExceededBehavior(LimitExceededBehavior.ThrowException)
             .build());
 
@@ -235,11 +233,13 @@ public class Subscriber extends AbstractApiService {
 
   public PullResponse pull(final long timeout) throws IOException, ExecutionException, InterruptedException {
     long now = clock.millisTime();
-    if(this.autoCommit && this.nextCommitTime <= now) {
-      pollingSubscriberConnection.commit(false, null);
-      this.nextCommitTime = now + this.autoCommitIntervalMs;
+    synchronized (pollingSubscriberConnection) {
+      if(this.autoCommit && this.nextCommitTime <= now) {
+        pollingSubscriberConnection.commit(false, null);
+        this.nextCommitTime = now + this.autoCommitIntervalMs;
+      }
+      return pollingSubscriberConnection.pullMessages(timeout);
     }
-    return pollingSubscriberConnection.pullMessages(timeout);
   }
 
   private void stopAllPollingConnection() {
@@ -248,14 +248,14 @@ public class Subscriber extends AbstractApiService {
 
   /** Builder of {@link Subscriber Subscribers}. */
   public static final class Builder {
+    private static final long DEFAULT_MEMORY_PERCENTAGE = 20;
     private static final Duration MIN_ACK_EXPIRATION_PADDING = Duration.ofMillis(100);
     private static final Duration DEFAULT_ACK_EXPIRATION_PADDING = Duration.ofMillis(500);
-    private static final long DEFAULT_MEMORY_PERCENTAGE = 20;
 
     MessageReceiver receiver;
 
-    Duration ackExpirationPadding = DEFAULT_ACK_EXPIRATION_PADDING;
     Duration maxAckExtensionPeriod;
+    Duration ackExpirationPadding = DEFAULT_ACK_EXPIRATION_PADDING;
 
     FlowControlSettings flowControlSettings =
         FlowControlSettings.newBuilder()

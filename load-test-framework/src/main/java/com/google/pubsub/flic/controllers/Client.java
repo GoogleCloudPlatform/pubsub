@@ -26,12 +26,16 @@ import com.google.pubsub.flic.common.LatencyDistribution;
 import com.google.pubsub.flic.common.LoadtestGrpc;
 import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
+import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
 import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Supplier;
@@ -46,27 +50,30 @@ public class Client {
   public static final String TOPIC_PREFIX = "cloud-pubsub-loadtest-";
   private static final Logger log = LoggerFactory.getLogger(Client.class);
   private static final int PORT = 5000;
+  public static int cores;
+  public static int partitions;
   public static int messageSize;
   public static int requestRate;
-  public static Timestamp startTime;
-  public static Duration loadtestDuration;
   public static int publishBatchSize;
-  public static Duration publishBatchDuration;
+  public static int replicationFactor;
   public static int maxMessagesPerPull;
+  public static int numberOfMessages = 0;
+  public static int maxOutstandingRequests;
+  public static Timestamp startTime;
   public static Duration pollDuration;
+  public static Duration burnInDuration;
+  public static Duration loadtestDuration;
+  public static Duration publishBatchDuration;
   public static String broker;
   public static String zookeeperIpAddress;
-  public static int maxOutstandingRequests;
-  public static Duration burnInDuration;
-  public static int numberOfMessages = 0;
-  public static int replicationFactor;
-  public static int partitions;
-  private final ClientType clientType;
-  private final String networkAddress;
-  private final String project;
+  public static boolean orderTest;
   private final String topic;
+  private final String project;
   private final String subscription;
+  private final String networkAddress;
+  private final ClientType clientType;
   private final ScheduledExecutorService executorService;
+  private final List<MessageIdentifier> messagesReceived = new ArrayList<>();
   private ClientStatus clientStatus;
   private Supplier<LoadtestGrpc.LoadtestStub> stubFactory;
   private LoadtestGrpc.LoadtestStub stub;
@@ -98,8 +105,8 @@ public class Client {
     this.project = project;
     this.topic = TOPIC_PREFIX + getTopicSuffix(clientType);
     this.subscription = subscription;
-    this.executorService = executorService;
     this.stubFactory = stubFactory;
+    this.executorService = executorService;
   }
 
   public static String getTopicSuffix(ClientType clientType) {
@@ -152,6 +159,8 @@ public class Client {
   long[] getBucketValues() {
     return bucketValues;
   }
+
+  List<MessageIdentifier> getMessagesReceived() { return messagesReceived; }
 
   void start(MessageTracker messageTracker) throws Throwable {
     this.messageTracker = messageTracker;
@@ -264,6 +273,11 @@ public class Client {
             if (checkResponse.getIsFinished()) {
               clientStatus = ClientStatus.STOPPED;
               doneFuture.set(null);
+            }
+            if (orderTest && !clientType.isPublisher()) {
+              synchronized (this) {
+                messagesReceived.addAll(checkResponse.getReceivedMessagesList());
+              }
             }
             messageTracker.addAllMessageIdentifiers(checkResponse.getReceivedMessagesList());
             synchronized (this) {

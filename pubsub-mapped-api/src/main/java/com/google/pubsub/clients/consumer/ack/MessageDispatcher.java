@@ -192,7 +192,7 @@ class MessageDispatcher {
 
     @Override
     public void onFailure(Throwable t) {
-      /*logger.log(
+      logger.log(
           Level.WARNING,
           "MessageReceiver failed to processes ack ID: " + ackId + ", the message will be nacked.",
           t);
@@ -202,12 +202,12 @@ class MessageDispatcher {
       }
       flowController.release(1, outstandingBytes);
       messagesWaiter.incrementPendingMessages(-1);
-      processOutstandingBatches();*/
+      processOutstandingBatches();
     }
 
     @Override
     public void onSuccess(AckReply reply) {
-      /*switch (reply) {
+      switch (reply) {
         case ACK:
           synchronized (pendingAcks) {
             pendingAcks.put(ackId, this);
@@ -227,7 +227,7 @@ class MessageDispatcher {
       }
       flowController.release(1, outstandingBytes);
       messagesWaiter.incrementPendingMessages(-1);
-      processOutstandingBatches();*/
+      processOutstandingBatches();
     }
   }
 
@@ -360,12 +360,12 @@ class MessageDispatcher {
     synchronized (outstandingMessageBatches) {
       outstandingMessageBatches.add(outstandingBatch);
     }
-    //processOutstandingBatches();
+    processOutstandingBatches();
   }
 
   void processOutstandingBatches() {
-    //while (true) {
-      /*boolean batchDone = false;
+    while (true) {
+      boolean batchDone = false;
       Runnable batchCallback = null;
       OutstandingMessagesBatch.OutstandingMessage outstandingMessage;
       synchronized (outstandingMessageBatches) {
@@ -420,8 +420,8 @@ class MessageDispatcher {
 
       if (batchDone) {
         batchCallback.run();
-      }*/
-    //}
+      }
+    }
   }
 
   private class AckDeadlineAlarm implements Runnable {
@@ -515,7 +515,7 @@ class MessageDispatcher {
   }
 
   private void setupNextAckDeadlineExtensionAlarm(Instant expiration) {
-    /*Instant possibleNextAlarmTime = expiration.minus(ackExpirationPadding);
+    Instant possibleNextAlarmTime = expiration.minus(ackExpirationPadding);
     alarmsLock.lock();
     try {
       if (nextAckDeadlineExtensionAlarmTime.isAfter(possibleNextAlarmTime)) {
@@ -539,7 +539,7 @@ class MessageDispatcher {
 
     } finally {
       alarmsLock.unlock();
-    }*/
+    }
   }
 
   void acknowledgePendingMessages(boolean sync, Long offset) {
@@ -628,7 +628,7 @@ class MessageDispatcher {
 
 
   private void extendAckDeadlines(List<PendingModifyAckDeadline> ackDeadlineExtensions) {
-    /*List<PendingModifyAckDeadline> modifyAckDeadlinesToSend =
+    List<PendingModifyAckDeadline> modifyAckDeadlinesToSend =
         Lists.newArrayList(ackDeadlineExtensions);
     PendingModifyAckDeadline nacksToSend = new PendingModifyAckDeadline(0);
     synchronized (pendingNacks) {
@@ -644,7 +644,7 @@ class MessageDispatcher {
         modifyAckDeadlinesToSend.add(nacksToSend);
       }
     }
-    ackProcessor.sendAckOperations(Collections.<String>emptyList(), modifyAckDeadlinesToSend);*/
+    ackProcessor.sendAckOperations(Collections.<String>emptyList(), modifyAckDeadlinesToSend);
 
   }
 }
