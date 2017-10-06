@@ -34,6 +34,7 @@ import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -176,13 +177,15 @@ class MessageDispatcher {
    */
   private class AckHandler implements FutureCallback<AckReply> {
     private final String ackId;
+    private final long offset;
     private final int outstandingBytes;
     private final AtomicBoolean acked;
     private final long receivedTimeMillis;
 
-    AckHandler(String ackId, int outstandingBytes) {
+    AckHandler(String ackId, int outstandingBytes, long offset) {
       this.ackId = ackId;
       this.outstandingBytes = outstandingBytes;
+      this.offset = offset;
       acked = new AtomicBoolean(false);
       receivedTimeMillis = clock.millisTime();
     }
@@ -327,8 +330,17 @@ class MessageDispatcher {
     OutstandingMessagesBatch outstandingBatch = new OutstandingMessagesBatch(doneCallback);
     final ArrayList<AckHandler> ackHandlers = new ArrayList<>(messages.size());
     for (ReceivedMessage message : messages) {
+      long offset;
+
+      try {
+        offset = Long.parseLong(message.getMessage().getAttributesOrDefault("offset", "0"));
+      } catch (NumberFormatException e) {
+        throw new KafkaException("Offset attribute in message in not parsable", e);
+      }
+
       AckHandler ackHandler =
-          new AckHandler(message.getAckId(), message.getMessage().getSerializedSize());
+          new AckHandler(message.getAckId(), message.getMessage().getSerializedSize(), offset);
+
       ackHandlers.add(ackHandler);
       outstandingBatch.addMessage(message, ackHandler);
     }
@@ -530,7 +542,7 @@ class MessageDispatcher {
     }*/
   }
 
-  void acknowledgePendingMessages(boolean sync) {
+  void acknowledgePendingMessages(boolean sync, Long offset) {
     Map<String, AckHandler> acksToSend = new HashMap<>();
     synchronized (pendingAcks) {
       if (!pendingAcks.isEmpty()) {
@@ -541,10 +553,24 @@ class MessageDispatcher {
       }
     }
 
+    if(offset != null) {
+      filterAcksBeforeOffset(offset, acksToSend);
+    }
+
     if(sync) {
       commitSync(acksToSend);
     } else {
       commitAsync(acksToSend);
+    }
+  }
+
+  private void filterAcksBeforeOffset(Long offset, Map<String, AckHandler> acksToSend) {
+    Iterator<Map.Entry<String, AckHandler>> iter = acksToSend.entrySet().iterator();
+    while (iter.hasNext()) {
+      Map.Entry<String, AckHandler> entry = iter.next();
+      if(entry.getValue().offset > offset) {
+        iter.remove();
+      }
     }
   }
 

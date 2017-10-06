@@ -35,7 +35,7 @@ public class ProducerConfigAdapter {
 
   private static void addDefaultKafkaRequiredConfigs(Map map) {
     if (!map.containsKey(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
-      map.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:8080");
+      map.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
     }
 
     if (!map.containsKey(ProducerConfig.LINGER_MS_CONFIG)
