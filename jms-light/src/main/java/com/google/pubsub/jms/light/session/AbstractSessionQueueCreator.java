@@ -11,29 +11,29 @@ import javax.jms.TemporaryQueue;
  *
  * @author Maksym Prokhorenko
  */
-public abstract class AbstractSessionQueueCreator extends AbstractSessionTopicCreator
-{
+public abstract class AbstractSessionQueueCreator extends AbstractSessionTopicCreator {
   /**
    * Default constructor.
    * @param connection is a jms connection.
    * @param transacted is an indicator whether the session in transacted mode.
-   * @param acknowledgeMode is an acknowledgement mode {@link javax.jms.Session#AUTO_ACKNOWLEDGE}, {@link javax.jms.Session#CLIENT_ACKNOWLEDGE},
-   * {@link javax.jms.Session#SESSION_TRANSACTED}.
+   * @param acknowledgeMode is an acknowledgement mode {@link javax.jms.Session#AUTO_ACKNOWLEDGE},
+   *        {@link javax.jms.Session#CLIENT_ACKNOWLEDGE},
+   *        {@link javax.jms.Session#SESSION_TRANSACTED}.
    */
-  public AbstractSessionQueueCreator(final PubSubConnection connection, final boolean transacted, final int acknowledgeMode)
-  {
+  public AbstractSessionQueueCreator(
+      final PubSubConnection connection,
+      final boolean transacted,
+      final int acknowledgeMode) {
     super(connection, transacted, acknowledgeMode);
   }
 
   @Override
-  public Queue createQueue(final String queueName) throws JMSException
-  {
+  public Queue createQueue(final String queueName) throws JMSException {
     return null;
   }
 
   @Override
-  public TemporaryQueue createTemporaryQueue() throws JMSException
-  {
+  public TemporaryQueue createTemporaryQueue() throws JMSException {
     return null;
   }
 }

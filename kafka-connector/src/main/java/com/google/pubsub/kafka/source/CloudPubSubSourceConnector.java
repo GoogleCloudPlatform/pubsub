@@ -199,7 +199,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       stub.getSubscription(request).get();
     } catch (Exception e) {
       throw new ConnectException(
-          "The subscription " + cpsSubscription + " does not exist for the project" + cpsProject);
+          "Error verifying the subscription " + cpsSubscription + " for project " + cpsProject, e);
     }
   }
 

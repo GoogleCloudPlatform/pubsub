@@ -16,10 +16,9 @@
 package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.JCommander;
-import com.google.cloud.pubsub.spi.v1.AckReply;
-import com.google.cloud.pubsub.spi.v1.AckReplyConsumer;
-import com.google.cloud.pubsub.spi.v1.MessageReceiver;
-import com.google.cloud.pubsub.spi.v1.Subscriber;
+import com.google.cloud.pubsub.v1.AckReplyConsumer;
+import com.google.cloud.pubsub.v1.MessageReceiver;
+import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.pubsub.clients.common.LoadTestRunner;
@@ -35,16 +34,18 @@ import org.slf4j.LoggerFactory;
 /** Runs a task that consumes messages from a Cloud Pub/Sub subscription. */
 class CPSSubscriberTask extends Task implements MessageReceiver {
   private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
-  private final Subscriber subscriber;
+  private final SubscriptionName subscription;
+  private Subscriber subscriber;
+  private boolean shuttingDown = false;
 
   private CPSSubscriberTask(StartRequest request) {
     super(request, "gcloud", MetricsHandler.MetricName.END_TO_END_LATENCY);
+    this.subscription =
+        SubscriptionName.create(request.getProject(), request.getPubsubOptions().getSubscription());
     try {
       this.subscriber =
-          Subscriber.newBuilder(
-                  SubscriptionName.create(
-                      request.getProject(), request.getPubsubOptions().getSubscription()),
-                  this)
+          Subscriber.defaultBuilder(this.subscription, this)
+              .setParallelPullCount(Runtime.getRuntime().availableProcessors() * 5)
               .build();
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -57,7 +58,7 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
         Integer.parseInt(message.getAttributesMap().get("clientId")),
         Integer.parseInt(message.getAttributesMap().get("sequenceNumber")),
         System.currentTimeMillis() - Long.parseLong(message.getAttributesMap().get("sendTime")));
-    consumer.accept(AckReply.ACK, null);
+    consumer.ack();
   }
 
   public static void main(String[] args) throws Exception {
@@ -68,14 +69,19 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
 
   @Override
   public ListenableFuture<RunResult> doRun() {
-    synchronized (subscriber) {
+    synchronized (this) {
       if (subscriber.isRunning()) {
         return Futures.immediateFuture(RunResult.empty());
+      }
+      if (shuttingDown) {
+        return Futures.immediateFailedFuture(
+            new IllegalStateException("the task is shutting down"));
       }
       try {
         subscriber.startAsync().awaitRunning();
       } catch (Exception e) {
         log.error("Fatal error from subscriber.", e);
+        subscriber = Subscriber.defaultBuilder(this.subscription, this).build();
         return Futures.immediateFailedFuture(e);
       }
       return Futures.immediateFuture(RunResult.empty());
@@ -84,8 +90,16 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
 
   @Override
   public void shutdown() {
-    synchronized (subscriber) {
-      subscriber.stopAsync().awaitTerminated();
+    Subscriber subscriber;
+    synchronized (this) {
+      if (shuttingDown) {
+        throw new IllegalStateException("the task is already shutting down");
+      }
+      shuttingDown = true;
+      subscriber = this.subscriber;
     }
+    // We must stop out of the lock. Stopping waits for all messages to be processed,
+    // and processing the messages needs to lock.
+    subscriber.stopAsync().awaitTerminated();
   }
 }
