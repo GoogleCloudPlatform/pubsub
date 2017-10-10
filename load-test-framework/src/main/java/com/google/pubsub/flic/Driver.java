@@ -95,34 +95,40 @@ public class Driver {
   private int cpsGcloudJavaSubscriberCount = 0;
 
   @Parameter(
-    names = {"--cps_experimental_java_publisher_count"},
-    description = "Number of CPS publishers of this type to start."
-  )
-  private int cpsExperimentalJavaPublisherCount = 0;
-
-  @Parameter(
-    names = {"--cps_experimental_java_subscriber_count"},
-    description = "Number of CPS subscribers of this type to start."
-  )
-  private int cpsExperimentalJavaSubscriberCount = 0;
-
-  @Parameter(
-    names = {"--cps_vtk_java_publisher_count"},
-    description = "Number of CPS publishers of this type to start."
-  )
-  private int cpsVtkJavaPublisherCount = 0;
-
-  @Parameter(
     names = {"--cps_gcloud_python_publisher_count"},
     description = "Number of CPS publishers of this type to start."
   )
   private int cpsGcloudPythonPublisherCount = 0;
 
   @Parameter(
+    names = {"--cps_gcloud_python_subscriber_count"},
+    description = "Number of CPS subscribers of this type to start."
+  )
+  private int cpsGcloudPythonSubscriberCount = 0;
+
+  @Parameter(
+    names = {"--cps_gcloud_ruby_publisher_count"},
+    description = "Number of CPS publishers of this type to start."
+  )
+  private int cpsGcloudRubyPublisherCount = 0;
+
+  @Parameter(
+    names = {"--cps_gcloud_ruby_subscriber_count"},
+    description = "Number of CPS subscribers of this type to start."
+  )
+  private int cpsGcloudRubySubscriberCount = 0;
+
+  @Parameter(
     names = {"--cps_gcloud_go_publisher_count"},
     description = "Number of CPS publishers of this type to start."
   )
   private int cpsGcloudGoPublisherCount = 0;
+
+  @Parameter(
+    names = {"--cps_gcloud_go_subscriber_count"},
+    description = "Number of CPS publishers of this type to start."
+  )
+  private int cpsGcloudGoSubscriberCount = 0;
 
   @Parameter(
     names = {"--kafka_publisher_count"},
@@ -135,12 +141,6 @@ public class Driver {
     description = "Number of Kafka subscribers to start."
   )
   private int kafkaSubscriberCount = 0;
-
-  @Parameter(
-    names = {"--cps_mapped_java_publisher_count"},
-    description = "Number of cps mapped publishers to start."
-  )
-  private int cpsMappedJavaPublisherCount = 0;
 
   @Parameter(
     names = {"--message_size", "-m"},
@@ -171,9 +171,9 @@ public class Driver {
   private int publishBatchSize = 10;
 
   @Parameter(
-    names = {"--publish_batch_duration"},
-    description = "The maximum duration to wait for more messages to batch together.",
-    converter = DurationConverter.class
+      names = {"--publish_batch_duration"},
+      description = "The maximum duration to wait for more messages to batch together.",
+      converter = DurationConverter.class
   )
   private Duration publishBatchDuration = Durations.fromMillis(0);
 
@@ -375,24 +375,15 @@ public class Driver {
             new ClientParams(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER, null),
             cpsGcloudPythonPublisherCount);
       }
+      if (cpsGcloudRubyPublisherCount > 0) {
+        clientParamsMap.put(
+            new ClientParams(ClientType.CPS_GCLOUD_RUBY_PUBLISHER, null),
+            cpsGcloudRubyPublisherCount);
+      }
       if (cpsGcloudGoPublisherCount > 0) {
         clientParamsMap.put(
             new ClientParams(ClientType.CPS_GCLOUD_GO_PUBLISHER, null),
             cpsGcloudGoPublisherCount);
-      }
-      if (cpsExperimentalJavaPublisherCount > 0) {
-        clientParamsMap.put(
-            new ClientParams(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER, null),
-            cpsExperimentalJavaPublisherCount);
-      }
-      if (cpsVtkJavaPublisherCount > 0) {
-        clientParamsMap.put(
-            new ClientParams(ClientType.CPS_VTK_JAVA_PUBLISHER, null), cpsVtkJavaPublisherCount);
-      }
-      if (cpsMappedJavaPublisherCount > 0) {
-        clientParamsMap.put(
-            new ClientParams(ClientType.CPS_MAPPED_JAVA_PUBLISHER, null),
-            cpsMappedJavaPublisherCount);
       }
       if (kafkaPublisherCount > 0) {
         clientParamsMap.put(
@@ -423,24 +414,32 @@ public class Driver {
       // cpsSubscriberCount subscribers cumulatively among each of the subscriptions.
       for (int i = 0; i < cpsSubscriptionFanout; ++i) {
         if (cpsGcloudJavaSubscriberCount > 0) {
-          Preconditions.checkArgument(
-              cpsGcloudJavaPublisherCount + cpsGcloudPythonPublisherCount +
-                  cpsVtkJavaPublisherCount + cpsGcloudGoPublisherCount + cpsMappedJavaPublisherCount
-                  > 0,
-              "--cps_gcloud_java_publisher, --cps_gcloud_go_publisher, --cps_gcloud_python_publisher,"
-                  + "or --cps_mapped_java_publisher must be > 0.");
+          Preconditions.checkArgument(cpsGcloudJavaPublisherCount > 0,
+              "--cps_gcloud_java_publisher must be > 0.");
           clientParamsMap.put(
-              new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-subscription" + i),
+              new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-java-subscription" + i),
               cpsGcloudJavaSubscriberCount / cpsSubscriptionFanout);
         }
-        if (cpsExperimentalJavaSubscriberCount > 0) {
-          Preconditions.checkArgument(
-              cpsExperimentalJavaPublisherCount > 0,
-              "--cps_experimental_java_publisher or --cps_vtk_java_publisher must be > 0.");
+        if (cpsGcloudGoSubscriberCount > 0) {
+          Preconditions.checkArgument(cpsGcloudGoPublisherCount > 0,
+              "--cps_gcloud_go_publisher must be > 0.");
           clientParamsMap.put(
-              new ClientParams(
-                  ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER, "experimental-subscription" + i),
-              cpsExperimentalJavaSubscriberCount / cpsSubscriptionFanout);
+              new ClientParams(ClientType.CPS_GCLOUD_GO_SUBSCRIBER, "gcloud-go-subscription" + i),
+              cpsGcloudGoSubscriberCount / cpsSubscriptionFanout);
+        }
+        if (cpsGcloudPythonSubscriberCount > 0) {
+          Preconditions.checkArgument(cpsGcloudPythonPublisherCount > 0,
+              "--cps_gcloud_python_publisher must be > 0.");
+          clientParamsMap.put(
+              new ClientParams(ClientType.CPS_GCLOUD_PYTHON_SUBSCRIBER, "gcloud-python-subscription" + i),
+              cpsGcloudPythonSubscriberCount / cpsSubscriptionFanout);
+        }
+        if (cpsGcloudRubySubscriberCount > 0) {
+          Preconditions.checkArgument(cpsGcloudRubyPublisherCount > 0,
+              "--cps_gcloud_ruby_publisher must be > 0.");
+          clientParamsMap.put(
+              new ClientParams(ClientType.CPS_GCLOUD_RUBY_SUBSCRIBER, "gcloud-ruby-subscription" + i),
+              cpsGcloudRubySubscriberCount / cpsSubscriptionFanout);
         }
       }
       // Set static variables.
@@ -475,14 +474,23 @@ public class Driver {
       }
       if (maxPublishLatencyTest) {
         controller = controllerFunction.apply(project, clientParamsMap);
+        if (controller == null) {
+          System.exit(1);
+        }
         runMaxPublishLatencyTest();
       } else if (maxSubscriberThroughputTest) {
         controller = controllerFunction.apply(project, clientParamsMap);
+        if (controller == null) {
+          System.exit(1);
+        }
         runMaxSubscriberThroughputTest();
       } else if (numCoresTest) {
         runNumCoresTest(clientParamsMap, controllerFunction);
       } else {
         controller = controllerFunction.apply(project, clientParamsMap);
+        if (controller == null) {
+          System.exit(1);
+        }
         Map<ClientType, Controller.LoadtestStats> statsMap = runTest(null);
         GnuPlot.plot(statsMap);
         CsvOutput.outputStats(statsMap);
@@ -506,9 +514,9 @@ public class Driver {
         new MessageTracker(
             numberOfMessages,
             cpsGcloudJavaPublisherCount
-                + cpsExperimentalJavaPublisherCount
-                + cpsVtkJavaPublisherCount
-                + cpsGcloudPythonPublisherCount);
+            + cpsGcloudPythonPublisherCount
+            + cpsGcloudRubyPublisherCount
+            + cpsGcloudGoPublisherCount);
     controller.startClients(messageTracker);
     if (whileRunning != null) {
       whileRunning.run();
@@ -627,6 +635,9 @@ public class Driver {
     CsvOutput csv = new CsvOutput();
     for (cores = 1; cores <= 16; cores *= 2) {
       controller = controllerFunction.apply(project, clientParamsMap);
+      if (controller == null) {
+        System.exit(1);
+      }
       statsMap = runTest(null);
       gnuPlot.addCoresResult(cores, statsMap);
       csv.addCoresResult(cores, statsMap);
@@ -768,3 +779,4 @@ public class Driver {
     }
   }
 }
+

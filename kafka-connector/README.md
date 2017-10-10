@@ -1,9 +1,7 @@
 ### Introduction
 
-The CloudPubSubConnector is a connector to be used with [Kafka Connect]
-(http://kafka.apache.org/documentation.html#connect) to publish messages from
-[Kafka](http://kafka.apache.org) to [Google Cloud Pub/Sub]
-(https://cloud.google.com/pubsub/) and vice versa. CloudPubSubConnector provides
+The CloudPubSubConnector is a connector to be used with [Kafka Connect](http://kafka.apache.org/documentation.html#connect) to publish messages from
+[Kafka](http://kafka.apache.org) to [Google Cloud Pub/Sub](https://cloud.google.com/pubsub/) and vice versa. CloudPubSubConnector provides
 both a sink connector (to copy messages from Kafka to Cloud Pub/Sub) and a
 source connector (to copy messages from Cloud Pub/Sub to Kafka).
 
@@ -56,8 +54,14 @@ The resulting jar is at target/cps-kafka-connector.jar.
 
 3.  Create an appropriate configuration for your Kafka connect instance. More
     information on the configuration for Kafka connect can be found in the
-    [Kafka Users Guide]
-    (http://kafka.apache.org/documentation.html#connect_running).
+    [Kafka Users Guide](http://kafka.apache.org/documentation.html#connect_running).
+    
+4.  If running the Kafka Connector behind a proxy, you need to export the
+    KAFKA_OPTS variable with options for connecting around the proxy. You can
+    export this variable as part of a shell script in order ot make it easier.
+    Here is an example:
+ 
+   `export KAFKA_OPTS="-Dhttp.proxyHost=<host> -Dhttp.proxyPort=<port> -Dhttps.proxyHost=<host> -Dhttps.proxyPort=<port>"`
 
 ### CloudPubSubConnector Configs
 
@@ -132,3 +136,4 @@ from a Pubsub message into a SourceRecord with a relevant Schema.
     *   In these cases, to carry forward the structure of data stored in
         attributes, we recommend using a converter that can represent a struct
         schema type in a useful way, e.g. JsonConverter.
+ 

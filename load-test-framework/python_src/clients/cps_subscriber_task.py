@@ -14,7 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import random
 import sys
 import threading
 import time
@@ -22,51 +21,43 @@ import time
 from concurrent import futures
 import grpc
 import loadtest_pb2
-from google.cloud.pubsub_v1 import publisher
-from google.cloud.pubsub_v1.types import BatchSettings
+from google.cloud.pubsub_v1 import subscriber
 
 class LoadtestWorkerServicer(loadtest_pb2.LoadtestWorkerServicer):
     """Provides methods that implement functionality of load test server."""
 
     def __init__(self):
         self.lock = threading.Lock()
-        self.message_size = None
-        self.batch_size = None
-        self.batch = None
-        self.num_msgs_published = 0
-        self.id = str(int(random.random() * (2 ** 32 - 1)))
         self.latencies = []
+        self.recv_msgs = []
+
+    def ProcessMessage(self, message):
+        latency = int(time.time() * 1000 - int(message.attributes()["sendTime"]))
+        identifier = loadtest_pb2.MessageIdentifier()
+        identifier.publisher_client_id = int(message.attributes()["clientId"])
+        identifier.sequence_number = int(message.attributes()["sequenceNumber"])
+        message.ack()
+        self.lock.acquire()
+        self.latencies.append(latency)
+        self.recv_msgs.append(identifier)
+        self.lock.release()
 
     def Start(self, request, context):
         self.message_size = request.message_size
         self.batch_size = request.publish_batch_size
-        self.topic = "projects/" + request.project + "/topics/" + request.topic
-        self.client = publisher.Client(batch_settings=BatchSettings(max_latency=float(request.publish_batch_duration.seconds) + float(request.publish_batch_duration.nanos) / 1000000000.0))
+        subscription = "projects/" + request.project + "/subscriptions/" + request.pubsub_options.subscription
+        self.client = subscriber.Client()
+        self.client.subscribe(subscription, lambda msg: self.ProcessMessage(msg))
         return loadtest_pb2.StartResponse()
 
-    def OnPublishDone(self, start, future):
-        if future.exception() is not None:
-            return
-        end = time.time()
-        self.lock.acquire()
-        self.latencies.append(int((end - start) * 1000))
-        self.lock.release()
-
     def Execute(self, request, context):
-        self.lock.acquire()
-        sequence_number = self.num_msgs_published
-        self.num_msgs_published += self.batch_size
-        latencies = self.latencies
-        self.latencies = []
-        self.lock.release()
-        start = time.time()
-        for i in range(0, self.batch_size):
-            self.client.publish(self.topic, ("A" * self.message_size).encode(),
-                                sendTime=str(int(time.time() * 1000)),
-                                clientId=self.id,
-                                sequenceNumber=str(int(sequence_number + i))).add_done_callback(lambda f: self.OnPublishDone(start, f))
         response = loadtest_pb2.ExecuteResponse()
-        response.latencies.extend(latencies)
+        self.lock.acquire()
+        response.latencies.extend(self.latencies)
+        response.received_messages.extend(self.recv_msgs)
+        self.latencies = []
+        self.recv_msgs = []
+        self.lock.release()
         return response
 
 

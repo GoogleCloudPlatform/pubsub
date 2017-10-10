@@ -1,12 +1,6 @@
-### Introduction
-
-High Performance Cloud Pub/Sub Client libraries.
-
-(NOTE) This client includes only data plane operations, publishing and
-pulling messages, and it is based on our gRPC beta release.
-
-(ALPHA) This library uses features that are part of an invitation-only
-release of the underlying Cloud Pub/Sub API. The library will generate
-errors unless you have access to this API. This restriction should be
-relaxed in the near future. Please contact cloud-pubsub@google.com with any
-questions in the meantime.
+The alpha client libraries in this directory have been replaced by the official
+[Google Cloud Pub/Sub Java client library](https://github.com/GoogleCloudPlatform/google-cloud-java/tree/master/google-cloud-pubsub).
+The semantics and performance improvements introduced in these alpha libraries
+have been preserved and improved in the official libraries, so we strongly
+encourage you to migrate. However, we have no plan to remove this code from our [Maven
+repository](http://search.maven.org/#search%7Cga%7C1%7Cg%3A%22com.google.pubsub%22).

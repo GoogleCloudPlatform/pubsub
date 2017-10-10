@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
@@ -34,10 +35,10 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-import java.nio.ByteBuffer;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
@@ -60,7 +61,7 @@ public class CloudPubSubSourceTaskTest {
   private static final String KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE = "jumped";
   private static final String KAFKA_PARTITIONS = "3";
   private static final ByteString CPS_MESSAGE = ByteString.copyFromUtf8("over");
-  private static final ByteBuffer KAFKA_VALUE = CPS_MESSAGE.asReadOnlyByteBuffer();
+  private static final byte[] KAFKA_VALUE = CPS_MESSAGE.toByteArray();
   private static final String ACK_ID1 = "ackID1";
   private static final String ACK_ID2 = "ackID2";
   private static final String ACK_ID3 = "ackID3";
@@ -69,6 +70,31 @@ public class CloudPubSubSourceTaskTest {
   private CloudPubSubSourceTask task;
   private Map<String, String> props;
   private CloudPubSubSubscriber subscriber;
+
+  /**
+   * Compare two SourceRecords. This is necessary because the records' values contain a byte[] and
+   * the .equals on a SourceRecord does not take this into account.
+   */
+  public void assertRecordsEqual(SourceRecord sr1, SourceRecord sr2) {
+    assertEquals(sr1.key(), sr2.key());
+    assertEquals(sr1.keySchema(), sr2.keySchema());
+    assertEquals(sr1.valueSchema(), sr2.valueSchema());
+    assertEquals(sr1.topic(), sr2.topic());
+
+    if (sr1.valueSchema() == Schema.BYTES_SCHEMA) {
+      assertArrayEquals((byte[])sr1.value(), (byte[])sr2.value());
+    } else {
+      for(Field f : sr1.valueSchema().fields()) {
+        if (f.name().equals(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD)) {
+          assertArrayEquals(((Struct)sr1.value()).getBytes(f.name()),
+                            ((Struct)sr2.value()).getBytes(f.name()));
+        } else {
+          assertEquals(((Struct)sr1.value()).getString(f.name()),
+                       ((Struct)sr2.value()).getString(f.name()));
+        }
+      }
+    }
+  }
 
   @Before
   public void setup() {
@@ -121,7 +147,7 @@ public class CloudPubSubSourceTaskTest {
 
 
   /**
-   * Tests that when a call to ackMessages() fails, that the message is not sent again to Kafka if
+   * Tests that when a call to ackMessages() fails, that the message is redelivered to Kafka if
    * the message is received again by Cloud Pub/Sub. Also tests that ack ids are added properly if
    * the ack id has not been seen before.
    */
@@ -140,7 +166,7 @@ public class CloudPubSubSourceTaskTest {
     ListenableFuture<Empty> failedFuture = Futures.immediateFailedFuture(new Throwable());
     when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(failedFuture);
     result = task.poll();
-    assertEquals(1, result.size());
+    assertEquals(2, result.size());
     verify(subscriber, times(1)).ackMessages(any(AcknowledgeRequest.class));
 
   }
@@ -164,11 +190,11 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             0,
-            Schema.STRING_SCHEMA,
+            Schema.OPTIONAL_STRING_SCHEMA,
             null,
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
-    assertEquals(expected, result.get(0));
+    assertRecordsEqual(expected, result.get(0));
   }
 
   /**
@@ -192,11 +218,11 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             0,
-            Schema.STRING_SCHEMA,
+            Schema.OPTIONAL_STRING_SCHEMA,
             KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
-    assertEquals(expected, result.get(0));
+    assertRecordsEqual(expected, result.get(0));
   }
 
   /**
@@ -232,11 +258,11 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             0,
-            Schema.STRING_SCHEMA,
+            Schema.OPTIONAL_STRING_SCHEMA,
             KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
             expectedSchema,
             expectedValue);
-    assertEquals(expected, result.get(0));
+    assertRecordsEqual(expected, result.get(0));
   }
 
   /**
@@ -268,7 +294,7 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE.hashCode() % Integer.parseInt(KAFKA_PARTITIONS),
-            Schema.STRING_SCHEMA,
+            Schema.OPTIONAL_STRING_SCHEMA,
             KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
@@ -278,13 +304,13 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             0,
-            Schema.STRING_SCHEMA,
+            Schema.OPTIONAL_STRING_SCHEMA,
             null,
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
 
-    assertEquals(expectedForMessageWithKey, result.get(0));
-    assertEquals(expectedForMessageWithoutKey.value(), result.get(1).value());
+    assertRecordsEqual(expectedForMessageWithKey, result.get(0));
+    assertArrayEquals((byte[])expectedForMessageWithoutKey.value(), (byte[])result.get(1).value());
   }
 
   /** Tests that the correct partition is assigned when the partition scheme is "hash_value". */
@@ -306,11 +332,11 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             KAFKA_VALUE.hashCode() % Integer.parseInt(KAFKA_PARTITIONS),
-            Schema.STRING_SCHEMA,
+            Schema.OPTIONAL_STRING_SCHEMA,
             null,
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
-    assertEquals(expected, result.get(0));
+    assertRecordsEqual(expected, result.get(0));
   }
 
   /**
@@ -342,7 +368,7 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             0,
-            Schema.STRING_SCHEMA,
+            Schema.OPTIONAL_STRING_SCHEMA,
             null,
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
@@ -352,7 +378,7 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             1,
-            Schema.STRING_SCHEMA,
+            Schema.OPTIONAL_STRING_SCHEMA,
             null,
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
@@ -362,7 +388,7 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             2,
-            Schema.STRING_SCHEMA,
+            Schema.OPTIONAL_STRING_SCHEMA,
             null,
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
@@ -372,22 +398,22 @@ public class CloudPubSubSourceTaskTest {
             null,
             KAFKA_TOPIC,
             0,
-            Schema.STRING_SCHEMA,
+            Schema.OPTIONAL_STRING_SCHEMA,
             null,
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
-    assertEquals(expected1, result.get(0));
-    assertEquals(expected2, result.get(1));
-    assertEquals(expected3, result.get(2));
-    assertEquals(expected4, result.get(3));
+    assertRecordsEqual(expected1, result.get(0));
+    assertRecordsEqual(expected2, result.get(1));
+    assertRecordsEqual(expected3, result.get(2));
+    assertRecordsEqual(expected4, result.get(3));
   }
 
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testPollExceptionCase() throws Exception {
     task.start(props);
     // Could also throw ExecutionException if we wanted to...
     when(subscriber.pull(any(PullRequest.class)).get()).thenThrow(new InterruptedException());
-    task.poll();
+    assertEquals(0, task.poll().size());
   }
 
   private ReceivedMessage createReceivedMessage(

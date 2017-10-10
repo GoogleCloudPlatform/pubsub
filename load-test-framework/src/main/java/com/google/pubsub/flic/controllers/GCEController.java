@@ -324,6 +324,7 @@ public class GCEController extends Controller {
               .setApplicationName("Cloud Pub/Sub Loadtest Framework")
               .build());
     } catch (Throwable t) {
+      log.error("Unable to initialize GCE: ", t);
       return null;
     }
   }
@@ -533,6 +534,9 @@ public class GCEController extends Controller {
    * startup script used.
    */
   private InstanceTemplate defaultInstanceTemplate(String type) {
+    AccessConfig config = new AccessConfig();
+    config.setType("ONE_TO_ONE_NAT");
+    config.setName("External NAT");
     return new InstanceTemplate()
         .setName("cps-loadtest-" + type + "-" + cores)
         .setProperties(new InstanceProperties()
@@ -544,7 +548,7 @@ public class GCEController extends Controller {
                     .setSourceImage(SOURCE_FAMILY))))
             .setNetworkInterfaces(Collections.singletonList(new NetworkInterface()
                 .setNetwork("global/networks/default")
-                .setAccessConfigs(Collections.singletonList(new AccessConfig()))))
+                .setAccessConfigs(Collections.singletonList(config))))
             .setMetadata(new Metadata()
                 .setItems(ImmutableList.of(
                     new Metadata.Items()

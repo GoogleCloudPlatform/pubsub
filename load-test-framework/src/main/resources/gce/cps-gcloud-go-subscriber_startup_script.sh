@@ -31,7 +31,7 @@ wait
 cd ${TMP}
 unzip cps.zip
 chmod +x ./target/loadtest-go
-./target/loadtest-go -r pub & PIDSERV=$!
+./target/loadtest-go -r sub & PIDSERV=$!
 
 # Run the loadtest binary
 java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.PublisherAdapterTask

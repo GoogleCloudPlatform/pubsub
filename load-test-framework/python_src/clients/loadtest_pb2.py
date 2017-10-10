@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   name='loadtest.proto',
   package='google.pubsub.loadtest',
   syntax='proto3',
-  serialized_pb=_b('\n\x0eloadtest.proto\x12\x16google.pubsub.loadtest\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb8\x03\n\x0cStartRequest\x12\x0f\n\x07project\x18\x01 \x01(\t\x12\r\n\x05topic\x18\x02 \x01(\t\x12\x14\n\x0crequest_rate\x18\x03 \x01(\x05\x12\x14\n\x0cmessage_size\x18\x04 \x01(\x05\x12 \n\x18max_outstanding_requests\x18\x05 \x01(\x05\x12.\n\nstart_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x32\n\rtest_duration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.DurationH\x00\x12\x1c\n\x12number_of_messages\x18\x08 \x01(\x05H\x00\x12?\n\x0epubsub_options\x18\t \x01(\x0b\x32%.google.pubsub.loadtest.PubsubOptionsH\x01\x12=\n\rkafka_options\x18\n \x01(\x0b\x32$.google.pubsub.loadtest.KafkaOptionsH\x01\x12\x1a\n\x12publish_batch_size\x18\x0b \x01(\x05\x42\x11\n\x0fstop_conditionsB\t\n\x07options\"\x0f\n\rStartResponse\"D\n\rPubsubOptions\x12\x14\n\x0csubscription\x18\x01 \x01(\t\x12\x1d\n\x15max_messages_per_pull\x18\x02 \x01(\x05\"3\n\x0cKafkaOptions\x12\x0e\n\x06\x62roker\x18\x01 \x01(\t\x12\x13\n\x0bpoll_length\x18\x02 \x01(\x05\"\x0e\n\x0c\x43heckRequest\"I\n\x11MessageIdentifier\x12\x1b\n\x13publisher_client_id\x18\x01 \x01(\x03\x12\x17\n\x0fsequence_number\x18\x02 \x01(\x05\"\xb6\x01\n\rCheckResponse\x12\x15\n\rbucket_values\x18\x01 \x03(\x03\x12\x33\n\x10running_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x13\n\x0bis_finished\x18\x03 \x01(\x08\x12\x44\n\x11received_messages\x18\x04 \x03(\x0b\x32).google.pubsub.loadtest.MessageIdentifier\"\x10\n\x0e\x45xecuteRequest\"j\n\x0f\x45xecuteResponse\x12\x11\n\tlatencies\x18\x01 \x03(\x03\x12\x44\n\x11received_messages\x18\x02 \x03(\x0b\x32).google.pubsub.loadtest.MessageIdentifier2\xb6\x01\n\x08Loadtest\x12T\n\x05Start\x12$.google.pubsub.loadtest.StartRequest\x1a%.google.pubsub.loadtest.StartResponse\x12T\n\x05\x43heck\x12$.google.pubsub.loadtest.CheckRequest\x1a%.google.pubsub.loadtest.CheckResponse2\xc2\x01\n\x0eLoadtestWorker\x12T\n\x05Start\x12$.google.pubsub.loadtest.StartRequest\x1a%.google.pubsub.loadtest.StartResponse\x12Z\n\x07\x45xecute\x12&.google.pubsub.loadtest.ExecuteRequest\x1a\'.google.pubsub.loadtest.ExecuteResponseB.\n\x1d\x63om.google.pubsub.flic.commonB\rLoadtestProtob\x06proto3')
+  serialized_pb=_b('\n\x0eloadtest.proto\x12\x16google.pubsub.loadtest\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xa8\x04\n\x0cStartRequest\x12\x0f\n\x07project\x18\x01 \x01(\t\x12\r\n\x05topic\x18\x02 \x01(\t\x12\x14\n\x0crequest_rate\x18\x03 \x01(\x05\x12\x14\n\x0cmessage_size\x18\x04 \x01(\x05\x12 \n\x18max_outstanding_requests\x18\x05 \x01(\x05\x12.\n\nstart_time\x18\x06 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x33\n\x10\x62urn_in_duration\x18\x0c \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x1a\n\x12publish_batch_size\x18\x0b \x01(\x05\x12\x39\n\x16publish_batch_duration\x18\r \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x32\n\rtest_duration\x18\x07 \x01(\x0b\x32\x19.google.protobuf.DurationH\x00\x12\x1c\n\x12number_of_messages\x18\x08 \x01(\x05H\x00\x12?\n\x0epubsub_options\x18\t \x01(\x0b\x32%.google.pubsub.loadtest.PubsubOptionsH\x01\x12=\n\rkafka_options\x18\n \x01(\x0b\x32$.google.pubsub.loadtest.KafkaOptionsH\x01\x42\x11\n\x0fstop_conditionsB\t\n\x07options\"\x0f\n\rStartResponse\"D\n\rPubsubOptions\x12\x14\n\x0csubscription\x18\x01 \x01(\t\x12\x1d\n\x15max_messages_per_pull\x18\x02 \x01(\x05\"\x9e\x01\n\x0cKafkaOptions\x12\x0e\n\x06\x62roker\x18\x01 \x01(\t\x12\x30\n\rpoll_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x1c\n\x14zookeeper_ip_address\x18\x03 \x01(\t\x12\x1a\n\x12replication_factor\x18\x04 \x01(\x05\x12\x12\n\npartitions\x18\x05 \x01(\x05\"I\n\x11MessageIdentifier\x12\x1b\n\x13publisher_client_id\x18\x01 \x01(\x03\x12\x17\n\x0fsequence_number\x18\x02 \x01(\x05\"M\n\x0c\x43heckRequest\x12=\n\nduplicates\x18\x01 \x03(\x0b\x32).google.pubsub.loadtest.MessageIdentifier\"\xb6\x01\n\rCheckResponse\x12\x15\n\rbucket_values\x18\x01 \x03(\x03\x12\x33\n\x10running_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x13\n\x0bis_finished\x18\x03 \x01(\x08\x12\x44\n\x11received_messages\x18\x04 \x03(\x0b\x32).google.pubsub.loadtest.MessageIdentifier\"\x10\n\x0e\x45xecuteRequest\"j\n\x0f\x45xecuteResponse\x12\x11\n\tlatencies\x18\x01 \x03(\x03\x12\x44\n\x11received_messages\x18\x02 \x03(\x0b\x32).google.pubsub.loadtest.MessageIdentifier2\xb6\x01\n\x08Loadtest\x12T\n\x05Start\x12$.google.pubsub.loadtest.StartRequest\x1a%.google.pubsub.loadtest.StartResponse\x12T\n\x05\x43heck\x12$.google.pubsub.loadtest.CheckRequest\x1a%.google.pubsub.loadtest.CheckResponse2\xc2\x01\n\x0eLoadtestWorker\x12T\n\x05Start\x12$.google.pubsub.loadtest.StartRequest\x1a%.google.pubsub.loadtest.StartResponse\x12Z\n\x07\x45xecute\x12&.google.pubsub.loadtest.ExecuteRequest\x1a\'.google.pubsub.loadtest.ExecuteResponseB.\n\x1d\x63om.google.pubsub.flic.commonB\rLoadtestProtob\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 _sym_db.RegisterFileDescriptor(DESCRIPTOR)
@@ -79,37 +79,51 @@ _STARTREQUEST = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='test_duration', full_name='google.pubsub.loadtest.StartRequest.test_duration', index=6,
+      name='burn_in_duration', full_name='google.pubsub.loadtest.StartRequest.burn_in_duration', index=6,
+      number=12, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='publish_batch_size', full_name='google.pubsub.loadtest.StartRequest.publish_batch_size', index=7,
+      number=11, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='publish_batch_duration', full_name='google.pubsub.loadtest.StartRequest.publish_batch_duration', index=8,
+      number=13, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='test_duration', full_name='google.pubsub.loadtest.StartRequest.test_duration', index=9,
       number=7, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='number_of_messages', full_name='google.pubsub.loadtest.StartRequest.number_of_messages', index=7,
+      name='number_of_messages', full_name='google.pubsub.loadtest.StartRequest.number_of_messages', index=10,
       number=8, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='pubsub_options', full_name='google.pubsub.loadtest.StartRequest.pubsub_options', index=8,
+      name='pubsub_options', full_name='google.pubsub.loadtest.StartRequest.pubsub_options', index=11,
       number=9, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='kafka_options', full_name='google.pubsub.loadtest.StartRequest.kafka_options', index=9,
+      name='kafka_options', full_name='google.pubsub.loadtest.StartRequest.kafka_options', index=12,
       number=10, type=11, cpp_type=10, label=1,
       has_default_value=False, default_value=None,
-      message_type=None, enum_type=None, containing_type=None,
-      is_extension=False, extension_scope=None,
-      options=None),
-    _descriptor.FieldDescriptor(
-      name='publish_batch_size', full_name='google.pubsub.loadtest.StartRequest.publish_batch_size', index=10,
-      number=11, type=5, cpp_type=1, label=1,
-      has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       options=None),
@@ -132,7 +146,7 @@ _STARTREQUEST = _descriptor.Descriptor(
       index=1, containing_type=None, fields=[]),
   ],
   serialized_start=108,
-  serialized_end=548,
+  serialized_end=660,
 )
 
 
@@ -155,8 +169,8 @@ _STARTRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=550,
-  serialized_end=565,
+  serialized_start=662,
+  serialized_end=677,
 )
 
 
@@ -193,8 +207,8 @@ _PUBSUBOPTIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=567,
-  serialized_end=635,
+  serialized_start=679,
+  serialized_end=747,
 )
 
 
@@ -213,8 +227,29 @@ _KAFKAOPTIONS = _descriptor.Descriptor(
       is_extension=False, extension_scope=None,
       options=None),
     _descriptor.FieldDescriptor(
-      name='poll_length', full_name='google.pubsub.loadtest.KafkaOptions.poll_length', index=1,
-      number=2, type=5, cpp_type=1, label=1,
+      name='poll_duration', full_name='google.pubsub.loadtest.KafkaOptions.poll_duration', index=1,
+      number=2, type=11, cpp_type=10, label=1,
+      has_default_value=False, default_value=None,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='zookeeper_ip_address', full_name='google.pubsub.loadtest.KafkaOptions.zookeeper_ip_address', index=2,
+      number=3, type=9, cpp_type=9, label=1,
+      has_default_value=False, default_value=_b("").decode('utf-8'),
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='replication_factor', full_name='google.pubsub.loadtest.KafkaOptions.replication_factor', index=3,
+      number=4, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+    _descriptor.FieldDescriptor(
+      name='partitions', full_name='google.pubsub.loadtest.KafkaOptions.partitions', index=4,
+      number=5, type=5, cpp_type=1, label=1,
       has_default_value=False, default_value=0,
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
@@ -231,32 +266,8 @@ _KAFKAOPTIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=637,
-  serialized_end=688,
-)
-
-
-_CHECKREQUEST = _descriptor.Descriptor(
-  name='CheckRequest',
-  full_name='google.pubsub.loadtest.CheckRequest',
-  filename=None,
-  file=DESCRIPTOR,
-  containing_type=None,
-  fields=[
-  ],
-  extensions=[
-  ],
-  nested_types=[],
-  enum_types=[
-  ],
-  options=None,
-  is_extendable=False,
-  syntax='proto3',
-  extension_ranges=[],
-  oneofs=[
-  ],
-  serialized_start=690,
-  serialized_end=704,
+  serialized_start=750,
+  serialized_end=908,
 )
 
 
@@ -293,8 +304,39 @@ _MESSAGEIDENTIFIER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=706,
-  serialized_end=779,
+  serialized_start=910,
+  serialized_end=983,
+)
+
+
+_CHECKREQUEST = _descriptor.Descriptor(
+  name='CheckRequest',
+  full_name='google.pubsub.loadtest.CheckRequest',
+  filename=None,
+  file=DESCRIPTOR,
+  containing_type=None,
+  fields=[
+    _descriptor.FieldDescriptor(
+      name='duplicates', full_name='google.pubsub.loadtest.CheckRequest.duplicates', index=0,
+      number=1, type=11, cpp_type=10, label=3,
+      has_default_value=False, default_value=[],
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      options=None),
+  ],
+  extensions=[
+  ],
+  nested_types=[],
+  enum_types=[
+  ],
+  options=None,
+  is_extendable=False,
+  syntax='proto3',
+  extension_ranges=[],
+  oneofs=[
+  ],
+  serialized_start=985,
+  serialized_end=1062,
 )
 
 
@@ -345,8 +387,8 @@ _CHECKRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=782,
-  serialized_end=964,
+  serialized_start=1065,
+  serialized_end=1247,
 )
 
 
@@ -369,8 +411,8 @@ _EXECUTEREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=966,
-  serialized_end=982,
+  serialized_start=1249,
+  serialized_end=1265,
 )
 
 
@@ -407,11 +449,13 @@ _EXECUTERESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=984,
-  serialized_end=1090,
+  serialized_start=1267,
+  serialized_end=1373,
 )
 
 _STARTREQUEST.fields_by_name['start_time'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
+_STARTREQUEST.fields_by_name['burn_in_duration'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
+_STARTREQUEST.fields_by_name['publish_batch_duration'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
 _STARTREQUEST.fields_by_name['test_duration'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
 _STARTREQUEST.fields_by_name['pubsub_options'].message_type = _PUBSUBOPTIONS
 _STARTREQUEST.fields_by_name['kafka_options'].message_type = _KAFKAOPTIONS
@@ -427,6 +471,8 @@ _STARTREQUEST.fields_by_name['pubsub_options'].containing_oneof = _STARTREQUEST.
 _STARTREQUEST.oneofs_by_name['options'].fields.append(
   _STARTREQUEST.fields_by_name['kafka_options'])
 _STARTREQUEST.fields_by_name['kafka_options'].containing_oneof = _STARTREQUEST.oneofs_by_name['options']
+_KAFKAOPTIONS.fields_by_name['poll_duration'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
+_CHECKREQUEST.fields_by_name['duplicates'].message_type = _MESSAGEIDENTIFIER
 _CHECKRESPONSE.fields_by_name['running_duration'].message_type = google_dot_protobuf_dot_duration__pb2._DURATION
 _CHECKRESPONSE.fields_by_name['received_messages'].message_type = _MESSAGEIDENTIFIER
 _EXECUTERESPONSE.fields_by_name['received_messages'].message_type = _MESSAGEIDENTIFIER
@@ -434,8 +480,8 @@ DESCRIPTOR.message_types_by_name['StartRequest'] = _STARTREQUEST
 DESCRIPTOR.message_types_by_name['StartResponse'] = _STARTRESPONSE
 DESCRIPTOR.message_types_by_name['PubsubOptions'] = _PUBSUBOPTIONS
 DESCRIPTOR.message_types_by_name['KafkaOptions'] = _KAFKAOPTIONS
-DESCRIPTOR.message_types_by_name['CheckRequest'] = _CHECKREQUEST
 DESCRIPTOR.message_types_by_name['MessageIdentifier'] = _MESSAGEIDENTIFIER
+DESCRIPTOR.message_types_by_name['CheckRequest'] = _CHECKREQUEST
 DESCRIPTOR.message_types_by_name['CheckResponse'] = _CHECKRESPONSE
 DESCRIPTOR.message_types_by_name['ExecuteRequest'] = _EXECUTEREQUEST
 DESCRIPTOR.message_types_by_name['ExecuteResponse'] = _EXECUTERESPONSE
@@ -468,19 +514,19 @@ KafkaOptions = _reflection.GeneratedProtocolMessageType('KafkaOptions', (_messag
   ))
 _sym_db.RegisterMessage(KafkaOptions)
 
-CheckRequest = _reflection.GeneratedProtocolMessageType('CheckRequest', (_message.Message,), dict(
-  DESCRIPTOR = _CHECKREQUEST,
-  __module__ = 'loadtest_pb2'
-  # @@protoc_insertion_point(class_scope:google.pubsub.loadtest.CheckRequest)
-  ))
-_sym_db.RegisterMessage(CheckRequest)
-
 MessageIdentifier = _reflection.GeneratedProtocolMessageType('MessageIdentifier', (_message.Message,), dict(
   DESCRIPTOR = _MESSAGEIDENTIFIER,
   __module__ = 'loadtest_pb2'
   # @@protoc_insertion_point(class_scope:google.pubsub.loadtest.MessageIdentifier)
   ))
 _sym_db.RegisterMessage(MessageIdentifier)
+
+CheckRequest = _reflection.GeneratedProtocolMessageType('CheckRequest', (_message.Message,), dict(
+  DESCRIPTOR = _CHECKREQUEST,
+  __module__ = 'loadtest_pb2'
+  # @@protoc_insertion_point(class_scope:google.pubsub.loadtest.CheckRequest)
+  ))
+_sym_db.RegisterMessage(CheckRequest)
 
 CheckResponse = _reflection.GeneratedProtocolMessageType('CheckResponse', (_message.Message,), dict(
   DESCRIPTOR = _CHECKRESPONSE,

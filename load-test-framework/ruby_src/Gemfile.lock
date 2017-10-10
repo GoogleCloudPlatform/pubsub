@@ -1,0 +1,75 @@
+GIT
+  remote: git://github.com/GoogleCloudPlatform/google-cloud-ruby.git
+  revision: 85dd2b3cd718046cbecb727d054ba66fd6523d13
+  branch: pubsub
+  specs:
+    google-cloud-core (1.0.0)
+      google-cloud-env (~> 1.0)
+      googleauth (~> 0.5.1)
+    google-cloud-env (1.0.1)
+      faraday (~> 0.11)
+    google-cloud-pubsub (0.26.0)
+      concurrent-ruby (~> 1.0)
+      google-cloud-core (~> 1.0)
+      google-gax (~> 0.8.0)
+      grpc (~> 1.1)
+      grpc-google-iam-v1 (~> 0.6.8)
+
+GEM
+  remote: https://rubygems.org/
+  specs:
+    addressable (2.5.1)
+      public_suffix (~> 2.0, >= 2.0.2)
+    concurrent-ruby (1.0.5)
+    faraday (0.12.2)
+      multipart-post (>= 1.2, < 3)
+    google-gax (0.8.5)
+      google-protobuf (~> 3.2)
+      googleapis-common-protos (~> 1.3.5)
+      googleauth (~> 0.5.1)
+      grpc (~> 1.0)
+      rly (~> 0.2.3)
+    google-protobuf (3.3.0)
+    googleapis-common-protos (1.3.5)
+      google-protobuf (~> 3.2)
+      grpc (~> 1.0)
+    googleauth (0.5.3)
+      faraday (~> 0.12)
+      jwt (~> 1.4)
+      logging (~> 2.0)
+      memoist (~> 0.12)
+      multi_json (~> 1.11)
+      os (~> 0.9)
+      signet (~> 0.7)
+    grpc (1.4.1)
+      google-protobuf (~> 3.1)
+      googleauth (~> 0.5.1)
+    grpc-google-iam-v1 (0.6.8)
+      googleapis-common-protos (~> 1.3.1)
+      googleauth (~> 0.5.1)
+      grpc (~> 1.0)
+    jwt (1.5.6)
+    little-plugger (1.1.4)
+    logging (2.2.2)
+      little-plugger (~> 1.1)
+      multi_json (~> 1.10)
+    memoist (0.16.0)
+    multi_json (1.12.1)
+    multipart-post (2.0.0)
+    os (0.9.6)
+    public_suffix (2.0.5)
+    rly (0.2.3)
+    signet (0.7.3)
+      addressable (~> 2.3)
+      faraday (~> 0.9)
+      jwt (~> 1.5)
+      multi_json (~> 1.10)
+
+PLATFORMS
+  ruby
+
+DEPENDENCIES
+  google-cloud-pubsub!
+
+BUNDLED WITH
+   1.15.3
