@@ -1,4 +1,4 @@
-#!/bin/bash
+#/bin/bash
 
 #######################################
 # Query GCE for a provided metadata field.
@@ -24,8 +24,9 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 /usr/bin/apt-get update
 /usr/bin/apt-get install -y openjdk-8-jre-headless & PIDAPT=$!
 /usr/bin/gsutil cp "gs://${BUCKET}/driver.jar" "${TMP}"
+export GOOGLE_CLOUD_PROJECT=dataproc-kafka-test
 
 wait $PIDAPT
 
 # Run the loadtest binary
-java -Xmx5000M -cp ${TMP}/driver.jar com.google.pubsub.clients.experimental.CPSSubscriberTask
+java -Xmx5000M -cp ${TMP}/driver.jar com.google.pubsub.clients.mapped.CPSSubscriberTask

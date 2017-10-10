@@ -23,10 +23,10 @@ import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.LoadTestRunner;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.clients.common.Task.RunResult;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import java.util.Collections;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
@@ -35,17 +35,20 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
  * interface.
  */
 class KafkaSubscriberTask extends Task {
+
   private final long pollLength;
   private final KafkaConsumer<String, String> subscriber;
 
   private KafkaSubscriberTask(StartRequest request) {
     super(request, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);
+
     this.pollLength = Durations.toMillis(request.getKafkaOptions().getPollDuration());
+
     Properties props = new Properties();
     props.putAll(ImmutableMap.of(
+        "group.id", "SUBSCRIBER_ID",
         "key.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
         "value.deserializer", "org.apache.kafka.common.serialization.StringDeserializer",
-        "group.id", "SUBSCRIBER_ID",
         "enable.auto.commit", "true",
         "session.timeout.ms", "30000"
     ));
@@ -62,10 +65,23 @@ class KafkaSubscriberTask extends Task {
 
   @Override
   public ListenableFuture<RunResult> doRun() {
-    RunResult result = new RunResult();
     ConsumerRecords<String, String> records = subscriber.poll(pollLength);
-    long now = System.currentTimeMillis();
-    records.forEach(record -> result.latencies.add(now - record.timestamp()));
-    return Futures.immediateFuture(result);
+    records.forEach(
+        record -> {
+          String[] tokens = record.key().split("#");
+          long receiveTime = System.currentTimeMillis();
+          recordMessageLatency(
+              Integer.parseInt(tokens[0]),
+              Integer.parseInt(tokens[1]),
+              record.timestamp(),
+              receiveTime,
+              receiveTime - Long.parseLong(tokens[2]));
+        });
+    return Futures.immediateFuture(RunResult.empty());
+  }
+
+  @Override
+  public void shutdown() {
+    subscriber.close();
   }
 }

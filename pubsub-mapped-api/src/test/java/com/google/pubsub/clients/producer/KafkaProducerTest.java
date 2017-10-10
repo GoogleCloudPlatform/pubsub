@@ -19,43 +19,51 @@ package com.google.pubsub.clients.producer;
 import static org.powermock.api.mockito.PowerMockito.when;
 
 import com.google.api.core.ApiFuture;
-import com.google.api.gax.batching.BatchingSettings;
 import com.google.api.gax.retrying.RetrySettings;
+import com.google.api.gax.batching.BatchingSettings;
+
+import com.google.common.collect.ImmutableMap;
+
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.cloud.pubsub.v1.Publisher.Builder;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
-import com.google.common.collect.ImmutableMap;
-import com.google.pubsub.v1.PubsubMessage;
+
 import com.google.pubsub.v1.TopicName;
-import java.io.ByteArrayOutputStream;
+import com.google.pubsub.v1.PubsubMessage;
+
 import java.io.IOException;
-import java.io.OutputStream;
 import java.io.PrintStream;
-import java.util.ArrayList;
+import java.io.OutputStream;
+import java.io.ByteArrayOutputStream;
+
 import java.util.List;
-import java.util.Map;
+import java.util.ArrayList;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
+
 import org.apache.kafka.clients.producer.Callback;
-import org.apache.kafka.clients.producer.ProducerInterceptor;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
-import org.apache.kafka.common.serialization.Deserializer;
-import org.apache.kafka.common.serialization.IntegerDeserializer;
-import org.apache.kafka.common.serialization.IntegerSerializer;
+
 import org.apache.kafka.common.serialization.Serializer;
-import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
-import org.junit.Assert;
-import org.junit.Before;
+import org.apache.kafka.common.serialization.IntegerSerializer;
+import org.apache.kafka.common.serialization.Deserializer;
+import org.apache.kafka.common.serialization.StringDeserializer;
+import org.apache.kafka.common.serialization.IntegerDeserializer;
+
 import org.junit.Test;
+import org.junit.Before;
+import org.junit.Assert;
 import org.junit.runner.RunWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Matchers;
+
 import org.mockito.Mockito;
+import org.mockito.Matchers;
+import org.mockito.ArgumentCaptor;
+
 import org.powermock.api.mockito.PowerMockito;
-import org.powermock.core.classloader.annotations.PrepareForTest;
 import org.powermock.modules.junit4.PowerMockRunner;
+import org.powermock.core.classloader.annotations.PrepareForTest;
 
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({Publisher.class, TopicAdminClient.class})
@@ -265,43 +273,5 @@ public class KafkaProducerTest {
     System.setOut(original);
 
     Assert.assertEquals(10 * key, Integer.parseInt(os.toString()));
-  }
-
-  public static class MultiplyByTenInterceptor implements ProducerInterceptor<String, Integer> {
-    @Override
-    public ProducerRecord<String, Integer> onSend(ProducerRecord<String, Integer> producerRecord) {
-      int updatedValue = 10 * producerRecord.value();
-      System.out.print(updatedValue);
-      return new ProducerRecord<String, Integer>(producerRecord.topic(), producerRecord.key(), updatedValue);
-    }
-
-    @Override
-    public void onAcknowledgement(RecordMetadata recordMetadata, Exception e) { }
-
-    @Override
-    public void close() {
-      System.out.print("Closed");
-    }
-
-    @Override
-    public void configure(Map<String, ?> map) { }
-  }
-
-  public static class ThrowExceptionInterceptor implements ProducerInterceptor<String, Integer> {
-    @Override
-    public ProducerRecord<String, Integer> onSend(ProducerRecord<String, Integer> producerRecord) {
-      throw new RuntimeException();
-    }
-
-    @Override
-    public void onAcknowledgement(RecordMetadata recordMetadata, Exception e) { }
-
-    @Override
-    public void close() {
-      System.out.print("Closed");
-    }
-
-    @Override
-    public void configure(Map<String, ?> map) { }
   }
 }

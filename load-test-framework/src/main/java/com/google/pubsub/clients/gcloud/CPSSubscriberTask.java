@@ -16,48 +16,59 @@
 package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.JCommander;
-import com.google.cloud.pubsub.spi.v1.AckReply;
-import com.google.cloud.pubsub.spi.v1.AckReplyConsumer;
-import com.google.cloud.pubsub.spi.v1.MessageReceiver;
-import com.google.cloud.pubsub.spi.v1.Subscriber;
+
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
-import com.google.pubsub.clients.common.LoadTestRunner;
-import com.google.pubsub.clients.common.MetricsHandler;
-import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.clients.common.Task.RunResult;
-import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.SubscriptionName;
+
+import com.google.cloud.pubsub.v1.Subscriber;
+import com.google.cloud.pubsub.v1.MessageReceiver;
+import com.google.cloud.pubsub.v1.AckReplyConsumer;
+
+import com.google.pubsub.clients.common.Task;
+import com.google.pubsub.clients.common.LoadTestRunner;
+import com.google.pubsub.clients.common.MetricsHandler;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /** Runs a task that consumes messages from a Cloud Pub/Sub subscription. */
 class CPSSubscriberTask extends Task implements MessageReceiver {
+
+  private Subscriber subscriber;
+  private boolean shuttingDown = false;
+  private final SubscriptionName subscription;
   private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
-  private final Subscriber subscriber;
 
   private CPSSubscriberTask(StartRequest request) {
     super(request, "gcloud", MetricsHandler.MetricName.END_TO_END_LATENCY);
+    this.subscription =
+        SubscriptionName.create(request.getProject(), request.getPubsubOptions().getSubscription());
     try {
-      this.subscriber =
-          Subscriber.newBuilder(
-                  SubscriptionName.create(
-                      request.getProject(), request.getPubsubOptions().getSubscription()),
-                  this)
-              .build();
+      this.subscriber = Subscriber.defaultBuilder(this.subscription, this).build();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
   }
 
+  private long getMillis(com.google.protobuf.Timestamp ts) {
+    return ts.getSeconds() * 1000 + ts.getNanos() / 1000000;
+  }
+
   @Override
   public void receiveMessage(final PubsubMessage message, final AckReplyConsumer consumer) {
+    long receiveTime = System.currentTimeMillis();
+    long publishTime = getMillis(message.getPublishTime());
     recordMessageLatency(
         Integer.parseInt(message.getAttributesMap().get("clientId")),
         Integer.parseInt(message.getAttributesMap().get("sequenceNumber")),
-        System.currentTimeMillis() - Long.parseLong(message.getAttributesMap().get("sendTime")));
-    consumer.accept(AckReply.ACK, null);
+        publishTime,
+        receiveTime,
+        receiveTime - Long.parseLong(message.getAttributesMap().get("sendTime")));
+    consumer.ack();
   }
 
   public static void main(String[] args) throws Exception {
@@ -68,14 +79,18 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
 
   @Override
   public ListenableFuture<RunResult> doRun() {
-    synchronized (subscriber) {
+    synchronized (this) {
       if (subscriber.isRunning()) {
         return Futures.immediateFuture(RunResult.empty());
+      }
+      if (shuttingDown) {
+        return Futures.immediateFailedFuture(new IllegalStateException("The task is shutting down."));
       }
       try {
         subscriber.startAsync().awaitRunning();
       } catch (Exception e) {
         log.error("Fatal error from subscriber.", e);
+        subscriber = Subscriber.defaultBuilder(this.subscription, this).build();
         return Futures.immediateFailedFuture(e);
       }
       return Futures.immediateFuture(RunResult.empty());
@@ -84,8 +99,14 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
 
   @Override
   public void shutdown() {
-    synchronized (subscriber) {
-      subscriber.stopAsync().awaitTerminated();
+    Subscriber subscriber;
+    synchronized (this) {
+      if (shuttingDown) {
+        throw new IllegalStateException("The task is already shutting down.");
+      }
+      shuttingDown = true;
+      subscriber = this.subscriber;
     }
+    subscriber.stopAsync().awaitTerminated();
   }
 }

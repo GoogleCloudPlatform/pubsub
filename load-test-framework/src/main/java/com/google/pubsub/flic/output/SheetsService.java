@@ -73,17 +73,18 @@ public class SheetsService {
     types.values().forEach(paramsMap -> {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
           collect(Collectors.groupingBy(
-              ClientParams::getClientType, Collectors.summingInt(t -> 1)));
-      cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER) : 0;
-      cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) : 0;
-      cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_GO_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_GO_PUBLISHER) : 0;
-      cpsPublisherCount += (countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_PUBLISHER): 0;
-      cpsPublisherCount += (countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_VTK_JAVA_PUBLISHER) : 0;
-      cpsPublisherCount += (countMap.get(ClientType.CPS_MAPPED_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_MAPPED_JAVA_PUBLISHER) : 0;
-      cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER): 0;
-      cpsSubscriberCount += (countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_EXPERIMENTAL_JAVA_SUBSCRIBER): 0;
-      kafkaPublisherCount += (countMap.get(ClientType.KAFKA_PUBLISHER) != null) ? countMap.get(ClientType.KAFKA_PUBLISHER) : 0;
-      kafkaSubscriberCount += (countMap.get(ClientType.KAFKA_SUBSCRIBER) != null) ? countMap.get(ClientType.KAFKA_SUBSCRIBER) : 0;
+              ClientParams::getClientType, Collectors.summingInt(t -> paramsMap.get(t))));
+      countMap.forEach((k, v) -> {
+        if (k.isCpsPublisher()) {
+          cpsPublisherCount += v;
+        } else if (k.isKafkaPublisher()) {
+          kafkaPublisherCount += v;
+        } else if (k.toString().startsWith("kafka") && !k.toString().startsWith("kafka-mapped")) {
+          kafkaSubscriberCount += v;
+        } else {
+          cpsSubscriberCount += v;
+        }
+      });
     });
   }
 
@@ -134,25 +135,38 @@ public class SheetsService {
     List<List<Object>> kafkaValues = new ArrayList<>(results.size());
 
     results.forEach((type, stats) -> {
-      List<Object> valueRow = new ArrayList<>(13);
+      List<Object> valueRow = new ArrayList<>(16);
+      valueRow.add(Client.cores);
       switch (type) {
-        case CPS_EXPERIMENTAL_JAVA_PUBLISHER:
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
-        case CPS_MAPPED_JAVA_PUBLISHER:
+        case CPS_GCLOUD_RUBY_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
-        case CPS_VTK_JAVA_PUBLISHER:
+        case KAFKA_MAPPED_JAVA_PUBLISHER:
           if (cpsPublisherCount == 0) {
             return;
+          }
+          if (type.toString().startsWith("kafka")) {
+            valueRow.add("mapped");
+          } else {
+            valueRow.add("cps");
           }
           valueRow.add(cpsPublisherCount);
           valueRow.add(0);
           cpsValues.add(0, valueRow);
           break;
-        case CPS_EXPERIMENTAL_JAVA_SUBSCRIBER:
         case CPS_GCLOUD_JAVA_SUBSCRIBER:
+        case CPS_GCLOUD_GO_SUBSCRIBER:
+        case CPS_GCLOUD_PYTHON_SUBSCRIBER:
+        case CPS_GCLOUD_RUBY_SUBSCRIBER:
+        case KAFKA_MAPPED_JAVA_SUBSCRIBER:
           if (cpsSubscriberCount == 0) {
             return;
+          }
+          if (type.toString().startsWith("kafka")) {
+            valueRow.add("mapped");
+          } else {
+            valueRow.add("cps");
           }
           valueRow.add(0);
           valueRow.add(cpsSubscriberCount);
@@ -162,6 +176,7 @@ public class SheetsService {
           if (kafkaPublisherCount == 0) {
             return;
           }
+          valueRow.add("kafka");
           valueRow.add(kafkaPublisherCount);
           valueRow.add(0);
           kafkaValues.add(0, valueRow);
@@ -170,6 +185,7 @@ public class SheetsService {
           if (kafkaSubscriberCount == 0) {
             return;
           }
+          valueRow.add("kafka");
           valueRow.add(0);
           valueRow.add(kafkaSubscriberCount);
           kafkaValues.add(valueRow);
@@ -181,9 +197,13 @@ public class SheetsService {
       if (Client.numberOfMessages <= 0) {
         valueRow.add(Client.loadtestDuration.getSeconds());
         valueRow.add("N/A");
+        valueRow.add("N/A");
+        valueRow.add("N/A");
       } else {
         valueRow.add("N/A");
         valueRow.add(Client.numberOfMessages);
+        valueRow.add(stats.numOutOrderMsgs.toString().replaceAll("\\[|\\]", ""));
+        valueRow.add(stats.outOrderMsgsPercent.toString().replaceAll("\\[|\\]", ""));
       }
       valueRow.add(Client.publishBatchSize);
       valueRow.add(Client.maxMessagesPerPull);

@@ -20,34 +20,41 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 import com.google.api.gax.grpc.FixedExecutorProvider;
+
 import com.google.common.base.Function;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.pubsub.clients.consumer.ack.FakeSubscriberServiceImpl.ModifyAckDeadline;
+
 import com.google.pubsub.clients.consumer.ack.Subscriber.Builder;
-import com.google.pubsub.v1.PubsubMessage;
+import com.google.pubsub.clients.consumer.ack.FakeSubscriberServiceImpl.ModifyAckDeadline;
+
 import com.google.pubsub.v1.PullResponse;
-import com.google.pubsub.v1.ReceivedMessage;
-import com.google.pubsub.v1.SubscriberGrpc;
-import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import com.google.pubsub.v1.Subscription;
+import com.google.pubsub.v1.PubsubMessage;
+import com.google.pubsub.v1.SubscriberGrpc;
+import com.google.pubsub.v1.ReceivedMessage;
 import com.google.pubsub.v1.SubscriptionName;
+import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
+
 import io.grpc.ManagedChannel;
+import io.grpc.internal.ServerImpl;
 import io.grpc.inprocess.InProcessChannelBuilder;
 import io.grpc.inprocess.InProcessServerBuilder;
-import io.grpc.internal.ServerImpl;
+
 import java.io.IOException;
+
+import java.util.List;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.LinkedBlockingQueue;
-import org.junit.After;
-import org.junit.Before;
+
 import org.junit.Rule;
 import org.junit.Test;
+import org.junit.After;
+import org.junit.Before;
 import org.junit.rules.TestName;
 import org.threeten.bp.Duration;
 

@@ -25,13 +25,13 @@ import com.google.pubsub.flic.common.LoadtestProto;
  */
 class PublisherAdapterTask extends AdapterTask {
 
-  private PublisherAdapterTask(LoadtestProto.StartRequest request, AdapterTask.Options options) {
+  private PublisherAdapterTask(LoadtestProto.StartRequest request, Options options) {
     super(request, MetricsHandler.MetricName.PUBLISH_ACK_LATENCY, options);
   }
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options loadtestOptions = new LoadTestRunner.Options();
-    AdapterTask.Options adapterOptions = new AdapterTask.Options();
+    Options adapterOptions = new Options();
     new JCommander(loadtestOptions, args);
     new JCommander(adapterOptions, args);
     LoadTestRunner.run(

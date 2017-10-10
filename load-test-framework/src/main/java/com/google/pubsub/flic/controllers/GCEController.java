@@ -59,10 +59,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
+import kafka.utils.ZKStringSerializer;
+import kafka.utils.ZkUtils;
 import kafka.admin.AdminUtils;
 import kafka.utils.ZKStringSerializer$;
-import kafka.utils.ZkUtils;
 import org.apache.commons.codec.digest.DigestUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
@@ -72,7 +74,7 @@ import org.I0Itec.zkclient.exception.ZkNodeExistsException;
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
  */
 public class GCEController extends Controller {
-  private static final String MACHINE_TYPE = "n1-standard-"; // standard machine prefix
+  private static final String MACHINE_TYPE = "custom-"; // standard machine prefix
   private static final String SOURCE_FAMILY =
       "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
   private static final int ALREADY_EXISTS = 409;
@@ -91,11 +93,19 @@ public class GCEController extends Controller {
                         int cores, ScheduledExecutorService executor, Storage storage,
                         Compute compute, Pubsub pubsub) throws Throwable {
     super(executor);
-    this.projectName = projectName;
     this.types = types;
     this.cores = cores;
     this.storage = storage;
     this.compute = compute;
+    this.projectName = projectName;
+
+    try {
+      createFirewall();
+      createStorageBucket();
+    } catch (Exception e) {
+      shutdown(e);
+      throw e;
+    }
 
     // For each unique type of CPS Publisher, create a Topic if it does not already exist, and then
     // delete and recreate any subscriptions attached to it so that we do not have backlog from
@@ -131,11 +141,12 @@ public class GCEController extends Controller {
             } catch (IOException e) {
               log.debug("Error deleting subscription, assuming it has not yet been created.", e);
             }
+            //TODO: fix the AckDeadline
             try {
               pubsub.projects().subscriptions().create("projects/" + projectName
                   + "/subscriptions/" + subscription, new Subscription()
-                  .setTopic("projects/" + projectName + "/topics/" + topic)
-                  .setAckDeadlineSeconds(10)).execute();
+                  .setTopic("projects/" + projectName + "/topics/" + topic).
+                      setAckDeadlineSeconds(600)).execute();
             } catch (IOException e) {
               pubsubFuture.setException(e);
             }
@@ -155,11 +166,19 @@ public class GCEController extends Controller {
           SettableFuture<Void> kafkaFuture = SettableFuture.create();
           kafkaFutures.add(kafkaFuture);
           executor.execute(() -> {
+            try {
+              Thread.sleep(45000);
+            } catch (InterruptedException e) { }
+
             String topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
-            ZkClient zookeeperClient = new ZkClient(Client.zookeeperIpAddress, 15000, 10000,
-                ZKStringSerializer$.MODULE$);
+
+            ZkClient zookeeperClient =
+                new ZkClient(Client.zookeeperIpAddress, 30000, 5000,
+                    ZKStringSerializer$.MODULE$);
+
             ZkUtils zookeeperUtils = new ZkUtils(zookeeperClient,
                 new ZkConnection(Client.zookeeperIpAddress), false);
+
             try {
               if (AdminUtils.topicExists(zookeeperUtils, topic)) {
                 log.info("Deleting topic " + topic + ".");
@@ -176,11 +195,9 @@ public class GCEController extends Controller {
               while (AdminUtils.topicExists(zookeeperUtils, topic)) {
                 // waiting for topic to delete before recreating
               }
-              Properties topicConfig = new Properties();
               AdminUtils
                   .createTopic(zookeeperUtils, topic, Client.partitions, Client.replicationFactor,
-                      AdminUtils.createTopic$default$5(),
-                      AdminUtils.createTopic$default$6());
+                      AdminUtils.createTopic$default$5(), AdminUtils.createTopic$default$6());
               log.info("Created topic " + topic + ".");
             } catch (Exception e) {
               kafkaFuture.setException(e);
@@ -190,6 +207,7 @@ public class GCEController extends Controller {
                 zookeeperClient.close();
               }
             }
+
             kafkaFuture.set(null);
           });
         });
@@ -197,9 +215,6 @@ public class GCEController extends Controller {
     }
 
     try {
-      createStorageBucket();
-      createFirewall();
-
       List<SettableFuture<Void>> filesRemaining = new ArrayList<>();
       Files.walk(Paths.get(resourceDirectory))
           .filter(Files::isRegularFile).forEach(filePath -> {
@@ -324,6 +339,7 @@ public class GCEController extends Controller {
               .setApplicationName("Cloud Pub/Sub Loadtest Framework")
               .build());
     } catch (Throwable t) {
+      log.error("Unable to initialize GCE: ", t);
       return null;
     }
   }
@@ -368,7 +384,7 @@ public class GCEController extends Controller {
     }
   }
 
-  /**
+   /**
    * Adds a firewall rule to the default network so that we can connect to our clients externally.
    */
   private void createFirewall() throws IOException {
@@ -378,7 +394,10 @@ public class GCEController extends Controller {
         .setAllowed(ImmutableList.of(
             new Firewall.Allowed()
                 .setIPProtocol("tcp")
-                .setPorts(Collections.singletonList("5000"))));
+                .setPorts(Collections.singletonList("5000")),
+            new Firewall.Allowed()
+                .setIPProtocol("tcp")
+                .setPorts(Collections.singletonList("2181"))));
     try {
       compute.firewalls().insert(projectName, firewallRule).execute();
     } catch (GoogleJsonResponseException e) {
@@ -533,10 +552,13 @@ public class GCEController extends Controller {
    * startup script used.
    */
   private InstanceTemplate defaultInstanceTemplate(String type) {
+    AccessConfig config = new AccessConfig();
+    config.setType("ONE_TO_ONE_NAT");
+    config.setName("External NAT");
     return new InstanceTemplate()
         .setName("cps-loadtest-" + type + "-" + cores)
         .setProperties(new InstanceProperties()
-            .setMachineType(MACHINE_TYPE + cores)
+            .setMachineType(MACHINE_TYPE + cores + "-" + cores * 6144)
             .setDisks(Collections.singletonList(new AttachedDisk()
                 .setBoot(true)
                 .setAutoDelete(true)
@@ -544,7 +566,7 @@ public class GCEController extends Controller {
                     .setSourceImage(SOURCE_FAMILY))))
             .setNetworkInterfaces(Collections.singletonList(new NetworkInterface()
                 .setNetwork("global/networks/default")
-                .setAccessConfigs(Collections.singletonList(new AccessConfig()))))
+                .setAccessConfigs(Collections.singletonList(config))))
             .setMetadata(new Metadata()
                 .setItems(ImmutableList.of(
                     new Metadata.Items()

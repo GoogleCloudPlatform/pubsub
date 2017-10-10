@@ -16,19 +16,19 @@
 
 package com.google.pubsub.flic.controllers;
 
-import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Map;
 import java.util.Set;
+import java.util.Map;
+import java.util.HashSet;
+import java.util.HashMap;
+import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
 
 /** Ensures that no message loss has occurred. */
 public class MessageTracker {
 
-  Map<Long, Set<MessageIdentifier>> receivedMessages = new HashMap<>();
-  Set<MessageIdentifier> duplicates = new HashSet<>();
-  final int numMessagesPerPublisher;
   final int numPublishers;
+  final int numMessagesPerPublisher;
+  Set<MessageIdentifier> duplicates = new HashSet<>();
+  Map<Long, Set<MessageIdentifier>> receivedMessages = new HashMap<>();
 
   public MessageTracker(int numMessagesPerPublisher, int numPublishers) {
     this.numMessagesPerPublisher = numMessagesPerPublisher;
@@ -38,9 +38,14 @@ public class MessageTracker {
   synchronized void addAllMessageIdentifiers(Iterable<MessageIdentifier> identifiers) {
     identifiers.forEach(
         identifier -> {
-          receivedMessages.putIfAbsent(identifier.getPublisherClientId(),
-                                       new HashSet<MessageIdentifier>());
-          if (!receivedMessages.get(identifier.getPublisherClientId()).add(identifier)) {
+          receivedMessages.putIfAbsent(
+              identifier.getPublisherClientId(), new HashSet<MessageIdentifier>());
+          if (!receivedMessages.get(
+              identifier.getPublisherClientId()).add(
+                  MessageIdentifier.newBuilder()
+                      .setPublisherClientId(identifier.getPublisherClientId())
+                      .setSequenceNumber(identifier.getSequenceNumber())
+                      .build())) {
             duplicates.add(identifier);
           }
         });
@@ -48,6 +53,14 @@ public class MessageTracker {
 
   synchronized Set<MessageIdentifier> getDuplicates() {
     return duplicates;
+  }
+
+  public synchronized long getNumberReceivedMessages() {
+    long counter = 0;
+    for (Set<MessageIdentifier> set : receivedMessages.values()) {
+      counter += set.size();
+    }
+    return counter;
   }
 
   public synchronized Iterable<MessageIdentifier> getMissing() {
