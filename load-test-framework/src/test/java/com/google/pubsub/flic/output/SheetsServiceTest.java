@@ -37,12 +37,14 @@ public class SheetsServiceTest {
     Map<String, Map<ClientParams, Integer>> types = new HashMap<>();
     int expectedCpsCount = 0;
     int expectedKafkaCount = 0;
+    int expectedMappedCount = 0;
     Map<ClientParams, Integer> paramsMap = new HashMap<>();
     for (ClientType type : ClientType.values()) {
       paramsMap.put(new ClientParams(type, ""), 1);
-      if (type.toString().startsWith("cps")
-          || type.toString().startsWith("kafka-mapped")) {
+      if (type.toString().startsWith("cps")) {
         expectedCpsCount++;
+      } else if (type.toString().startsWith("kafka-mapped")) {
+        expectedMappedCount++;
       } else if (type.toString().startsWith("kafka")) {
         expectedKafkaCount++;
       } else {
@@ -56,6 +58,8 @@ public class SheetsServiceTest {
         service.getCpsPublisherCount() + service.getCpsSubscriberCount(), expectedCpsCount);
     assertEquals(
         service.getKafkaPublisherCount() + service.getKafkaSubscriberCount(), expectedKafkaCount);
+    assertEquals(
+        service.getMappedPublisherCount() + service.getMappedSubscriberCount(), expectedMappedCount);
 
     Map<ClientType, Controller.LoadtestStats> stats = new HashMap<>();
     for (ClientType type : ClientType.values()) {

@@ -50,13 +50,7 @@ def main(project, test, vms_count, zone, sheet_id,
         '--loadtest_duration=10m', '--burn_in_duration=2m',
         '--publish_batch_duration=50ms', '--num_cores_test'
     ])
-  elif test == 'throughput2':
-    arg_list.extend([
-      '--message_size=10000', '--publish_batch_size=10',
-      '--request_rate=1000000000', '--max_outstanding_requests=200',
-      '--loadtest_duration=5m', '--burn_in_duration=1m',
-      '--publish_batch_duration=50ms', '--num_cores_test'
-    ])
+
   elif test == 'test_throughput':
     arg_list.extend([
       '--message_size=10000', '--publish_batch_size=10',
@@ -151,7 +145,7 @@ if __name__ == '__main__':
   if len(broker) != 0 and replication < 1:
     sys.exit('If provided, --replication must be greater than 0.')
   if test not in ['latency', 'service',
-                  'throughput', 'throughput2', 'test_throughput',
+                  'throughput', 'test_throughput',
                   'ordering', 'correctness']:
     sys.exit('Invalid --test parameter given.')
 

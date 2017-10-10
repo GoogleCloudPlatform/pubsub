@@ -61,6 +61,8 @@ public class SheetsService {
   private int cpsSubscriberCount = 0;
   private int kafkaPublisherCount = 0;
   private int kafkaSubscriberCount = 0;
+  private int mappedPublisherCount = 0;
+  private int mappedSubscriberCount = 0;
   private String dataStoreDirectory;
 
   public SheetsService(String dataStoreDirectory, Map<String, Map<ClientParams, Integer>> types) {
@@ -76,13 +78,21 @@ public class SheetsService {
               ClientParams::getClientType, Collectors.summingInt(t -> paramsMap.get(t))));
       countMap.forEach((k, v) -> {
         if (k.isCpsPublisher()) {
-          cpsPublisherCount += v;
+          if (k.toString().startsWith("kafka")) {
+            mappedPublisherCount += v;
+          } else {
+            cpsPublisherCount += v;
+          }
         } else if (k.isKafkaPublisher()) {
           kafkaPublisherCount += v;
         } else if (k.toString().startsWith("kafka") && !k.toString().startsWith("kafka-mapped")) {
           kafkaSubscriberCount += v;
         } else {
-          cpsSubscriberCount += v;
+          if (k.toString().startsWith("kafka")) {
+            mappedSubscriberCount += v;
+          } else {
+            cpsSubscriberCount += v;
+          }
         }
       });
     });
@@ -143,16 +153,18 @@ public class SheetsService {
         case CPS_GCLOUD_RUBY_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
         case KAFKA_MAPPED_JAVA_PUBLISHER:
-          if (cpsPublisherCount == 0) {
+          if (cpsPublisherCount == 0 && mappedPublisherCount == 0) {
             return;
           }
           if (type.toString().startsWith("kafka")) {
             valueRow.add("mapped");
+            valueRow.add(mappedPublisherCount);
+            valueRow.add(0);
           } else {
             valueRow.add("cps");
+            valueRow.add(cpsPublisherCount);
+            valueRow.add(0);
           }
-          valueRow.add(cpsPublisherCount);
-          valueRow.add(0);
           cpsValues.add(0, valueRow);
           break;
         case CPS_GCLOUD_JAVA_SUBSCRIBER:
@@ -160,16 +172,18 @@ public class SheetsService {
         case CPS_GCLOUD_PYTHON_SUBSCRIBER:
         case CPS_GCLOUD_RUBY_SUBSCRIBER:
         case KAFKA_MAPPED_JAVA_SUBSCRIBER:
-          if (cpsSubscriberCount == 0) {
+          if (cpsSubscriberCount == 0 && mappedSubscriberCount == 0) {
             return;
           }
           if (type.toString().startsWith("kafka")) {
             valueRow.add("mapped");
+            valueRow.add(0);
+            valueRow.add(mappedSubscriberCount);
           } else {
             valueRow.add("cps");
+            valueRow.add(0);
+            valueRow.add(cpsSubscriberCount);
           }
-          valueRow.add(0);
-          valueRow.add(cpsSubscriberCount);
           cpsValues.add(valueRow);
           break;
         case KAFKA_PUBLISHER:
@@ -235,6 +249,21 @@ public class SheetsService {
   int getCpsSubscriberCount() {
     return cpsSubscriberCount;
   }
+
+  /**
+   * @return the mappedPublisherCount
+   */
+  int getMappedPublisherCount() {
+    return mappedPublisherCount;
+  }
+
+  /**
+   * @return the mappedSubscriberCount
+   */
+  int getMappedSubscriberCount() {
+    return mappedSubscriberCount;
+  }
+
 
   /**
    * @return the kafkaPublisherCount

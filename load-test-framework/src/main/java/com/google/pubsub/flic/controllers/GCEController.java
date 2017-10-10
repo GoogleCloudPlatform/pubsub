@@ -141,7 +141,7 @@ public class GCEController extends Controller {
             } catch (IOException e) {
               log.debug("Error deleting subscription, assuming it has not yet been created.", e);
             }
-            //TODO: fix the AckDeadline
+            //TODO: fix the AckDeadline - Return it back to 10 instead of 600.
             try {
               pubsub.projects().subscriptions().create("projects/" + projectName
                   + "/subscriptions/" + subscription, new Subscription()

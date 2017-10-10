@@ -76,11 +76,13 @@ public abstract class Task implements Runnable {
     public List<Long> latencies = new ArrayList<>();
     public int batchSize = 0;
 
-    public void addMessageLatency(int clientId, int sequenceNumber, long publishTime, long latency) {
+    public void addMessageLatency(
+        int clientId, int sequenceNumber, long publishTime, long receiveTime, long latency) {
       identifiers.add(MessageIdentifier.newBuilder()
           .setPublisherClientId(clientId)
           .setSequenceNumber(sequenceNumber)
           .setPublishTime(publishTime)
+          .setReceiveTime(receiveTime)
           .build());
       latencies.add(latency);
     }

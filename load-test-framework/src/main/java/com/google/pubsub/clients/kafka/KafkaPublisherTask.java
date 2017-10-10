@@ -48,7 +48,6 @@ class KafkaPublisherTask extends Task {
   private final String topic;
   private final String payload;
   private final String clientId;
-  private final AtomicInteger counter = new AtomicInteger();
   private final AtomicInteger sequenceNumber = new AtomicInteger(0);
 
   private final int partitions;
@@ -91,6 +90,7 @@ class KafkaPublisherTask extends Task {
     final SettableFuture<RunResult> done = SettableFuture.create();
 
     for (int i = 0; i < batchSize; i++) {
+      actualCounter.incrementAndGet();
       publisher.send(
           new ProducerRecord<>(topic, sequenceNumber.get() % partitions, clientId + "#" +
               Integer.toString(sequenceNumber.getAndIncrement()) + "#" + sendTime, payload),
@@ -99,7 +99,6 @@ class KafkaPublisherTask extends Task {
               messagesSent.getAndDecrement();
               log.error(e.getMessage(), e);
             }
-//            System.out.println("Sent " + counter.incrementAndGet());
             if (messagesToSend.decrementAndGet() == 0) {
               done.set(RunResult.fromBatchSize(messagesSent.get()));
             }
