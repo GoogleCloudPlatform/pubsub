@@ -13,5 +13,6 @@ script:
   - mvn -q -B -f jms-light/pom.xml clean integration-test
   - mvn -q -B -f kafka-connector/pom.xml clean verify
   - jdk_switcher use oraclejdk8
-  - mvn -q -B -f load-test-framework/pom.xml clean verify
+  - mvn -q -B -f pubsub-mapped-api/pom.xml clean install verify
+  - mvn -q -B -f load-test-framework/pom.xml clean install verify
   - mvn -q -B -f jms-light/pom.xml clean verify -Dmaven.test.skip=true
