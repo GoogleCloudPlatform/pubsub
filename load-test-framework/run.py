@@ -54,13 +54,14 @@ def main(project, test, client_types, vms_count, broker):
     subprocess.call([
         'zip', './target/classes/gce/cps.zip',
         './python_src/clients/cps_publisher_task.py',
+        './python_src/clients/cps_subscriber_task.py',
         './python_src/clients/loadtest_pb2.py',
         './python_src/clients/requirements.txt',
         './ruby_src/Gemfile',
         './ruby_src/loadtest_pb.rb',
         './ruby_src/loadtest_services_pb.rb',
         './ruby_src/cps_publisher_task.rb',
-        './ruby_src/cps_subscriber_task.rb',
+        './ruby_src/cps_subscriber_task.rb' ,
         go_bin_location
     ])
   arg_list = ['java', '-jar', 'target/driver.jar', '--project', project]
@@ -68,18 +69,16 @@ def main(project, test, client_types, vms_count, broker):
   for client in client_types:
     if client == 'gcloud_python':
       arg_list.append('--cps_gcloud_python_publisher_count=' + str(vms_count))
-      gcloud_subscriber_count += vms_count
+      arg_list.append('--cps_gcloud_python_subscriber_count=' + str(vms_count))
     elif client == 'gcloud_ruby':
       arg_list.append('--cps_gcloud_ruby_publisher_count=' + str(vms_count))
       arg_list.append('--cps_gcloud_ruby_subscriber_count=' + str(vms_count))
     elif client == 'gcloud_java':
       arg_list.append('--cps_gcloud_java_publisher_count=' + str(vms_count))
-      gcloud_subscriber_count += vms_count
+      arg_list.append('--cps_gcloud_java_subscriber_count=' + str(vms_count))
     elif client == 'gcloud_go':
       arg_list.append('--cps_gcloud_go_publisher_count=' + str(vms_count))
       arg_list.append('--cps_gcloud_go_subscriber_count=' + str(vms_count))
-  arg_list.append('--cps_gcloud_java_subscriber_count=' + str(
-      gcloud_subscriber_count))
   if broker:
     arg_list.extend([
         '--broker=' + broker, '--kafka_publisher_count=' + str(vms_count),
@@ -105,7 +104,7 @@ def main(project, test, client_types, vms_count, broker):
         '--loadtest_duration=10m', '--burn_in_duration=2m',
         '--publish_batch_duration=50ms', '--cores=16'
     ])
-  print ' '.join(arg_list)
+  print(' '.join(arg_list))
   subprocess.call(arg_list)
 
 

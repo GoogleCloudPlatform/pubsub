@@ -74,15 +74,17 @@ public class SheetsService {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
           collect(Collectors.groupingBy(
               ClientParams::getClientType, Collectors.summingInt(t -> 1)));
-      cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_PUBLISHER) : 0;
-      cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_PYTHON_PUBLISHER) : 0;
-      cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_RUBY_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_RUBY_PUBLISHER) : 0;
-      cpsPublisherCount += (countMap.get(ClientType.CPS_GCLOUD_GO_PUBLISHER) != null) ? countMap.get(ClientType.CPS_GCLOUD_GO_PUBLISHER) : 0;
-      cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER): 0;
-      cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_GO_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_GO_SUBSCRIBER): 0;
-      cpsSubscriberCount += (countMap.get(ClientType.CPS_GCLOUD_RUBY_SUBSCRIBER) != null) ? countMap.get(ClientType.CPS_GCLOUD_RUBY_SUBSCRIBER): 0;
-      kafkaPublisherCount += (countMap.get(ClientType.KAFKA_PUBLISHER) != null) ? countMap.get(ClientType.KAFKA_PUBLISHER) : 0;
-      kafkaSubscriberCount += (countMap.get(ClientType.KAFKA_SUBSCRIBER) != null) ? countMap.get(ClientType.KAFKA_SUBSCRIBER) : 0;
+      countMap.forEach((k, v) -> {
+        if (k.isCpsPublisher()) {
+          cpsPublisherCount += v;
+        } else if (k.isKafkaPublisher()) {
+          kafkaPublisherCount += v;
+        } else if (k.toString().startsWith("kafka")) {
+          kafkaSubscriberCount += v;
+        } else {
+          cpsSubscriberCount += v;
+        }
+      });
     });
   }
 
@@ -148,6 +150,7 @@ public class SheetsService {
           break;
         case CPS_GCLOUD_JAVA_SUBSCRIBER:
         case CPS_GCLOUD_GO_SUBSCRIBER:
+        case CPS_GCLOUD_PYTHON_SUBSCRIBER:
         case CPS_GCLOUD_RUBY_SUBSCRIBER:
           if (cpsSubscriberCount == 0) {
             return;
