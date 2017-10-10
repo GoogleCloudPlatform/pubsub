@@ -23,13 +23,13 @@ import com.google.pubsub.flic.common.LoadtestProto;
 /** A Task that proxies subscriber commands to a LoadtestWorker process on localhost. */
 class SubscriberAdapterTask extends AdapterTask {
 
-  private SubscriberAdapterTask(LoadtestProto.StartRequest request, AdapterTask.Options options) {
+  private SubscriberAdapterTask(LoadtestProto.StartRequest request, Options options) {
     super(request, MetricsHandler.MetricName.END_TO_END_LATENCY, options);
   }
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options loadtestOptions = new LoadTestRunner.Options();
-    AdapterTask.Options adapterOptions = new AdapterTask.Options();
+    Options adapterOptions = new Options();
     new JCommander(loadtestOptions, args);
     new JCommander(adapterOptions, args);
     LoadTestRunner.run(

@@ -16,19 +16,24 @@
 
 package com.google.pubsub.flic.controllers;
 
+import com.google.common.collect.Maps;
 import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.common.LatencyDistribution;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
+
+import java.util.Arrays;
 import java.util.Set;
+import java.util.Map;
+import java.util.List;
+import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.stream.LongStream;
+import java.util.stream.Collectors;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
-import java.util.stream.Collectors;
-import java.util.stream.LongStream;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -108,17 +113,52 @@ public abstract class Controller {
    */
   private LoadtestStats getStatsForClientType(Client.ClientType type) {
     LoadtestStats stats = new LoadtestStats();
+
     List<Client> clientsOfType = clients.stream()
         .filter(c -> c.getClientType() == type).collect(Collectors.toList());
+
     stats.runningSeconds =
         clientsOfType.stream().mapToLong(Client::getRunningSeconds).max().getAsLong()
             - Client.burnInDuration.getSeconds();
+
     clientsOfType.stream().map(Client::getBucketValues).forEach(bucketValues -> {
       for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
         stats.bucketValues[i] += bucketValues[i];
       }
     });
+
+    stats.numOutOrderMsgs = new ArrayList<>();
+    stats.outOrderMsgsPercent = new ArrayList<>();
+    if (!type.isPublisher() && Client.orderTest) {
+      clientsOfType.stream().map(Client::getMessagesReceived).forEach(list -> {
+        MessageIdentifier[] msgs = new MessageIdentifier[list.size()];
+        list.toArray(msgs);
+        long outOfOrderMsgsCount = countOutOfOrder(msgs);
+        stats.numOutOrderMsgs.add(outOfOrderMsgsCount);
+        stats.outOrderMsgsPercent.add(
+            Double.valueOf(String.format("%.2f", (outOfOrderMsgsCount * 100.0) / msgs.length)));
+      });
+    }
+
     return stats;
+  }
+
+  private Long countOutOfOrder(MessageIdentifier[] msgs) {
+    Map<Long, Long> counters = new HashMap<>();
+    Map<Long, Long> latestPublishTimestamps = new HashMap<>();
+
+    Arrays.stream(msgs).forEach(msg -> {
+      if (latestPublishTimestamps.get(msg.getPublisherClientId()) == null) {
+        counters.put(msg.getPublisherClientId(), 0L);
+        latestPublishTimestamps.put(msg.getPublisherClientId(), 0L);
+      } else if (msg.getPublishTime() < latestPublishTimestamps.get(msg.getPublisherClientId())) {
+        counters.put(msg.getPublisherClientId(), counters.get(msg.getPublisherClientId()) + 1);
+      } else {
+        latestPublishTimestamps.put(msg.getPublisherClientId(), msg.getPublishTime());
+      }
+    });
+
+    return counters.values().stream().mapToLong(Number::longValue).sum();
   }
 
   /**
@@ -179,6 +219,8 @@ public abstract class Controller {
   /** The statistics that are exported by each load test client. */
   public static class LoadtestStats {
     public long runningSeconds;
+    public List<Long> numOutOrderMsgs;
+    public List<Double> outOrderMsgsPercent;
     public long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
     /** Returns the average QPS. */
     public double getQPS() {

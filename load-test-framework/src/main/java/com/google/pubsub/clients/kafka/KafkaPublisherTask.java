@@ -27,6 +27,8 @@ import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.clients.common.Task.RunResult;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import java.util.Properties;
+import java.util.Random;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -40,27 +42,35 @@ import org.slf4j.LoggerFactory;
 class KafkaPublisherTask extends Task {
 
   private static final Logger log = LoggerFactory.getLogger(KafkaPublisherTask.class);
+
+  private final int batchSize;
+
   private final String topic;
   private final String payload;
-  private final int batchSize;
+  private final String clientId;
+  private final AtomicInteger counter = new AtomicInteger();
+  private final AtomicInteger sequenceNumber = new AtomicInteger(0);
+
+  private final int partitions;
   private final KafkaProducer<String, String> publisher;
 
   private KafkaPublisherTask(StartRequest request) {
     super(request, "kafka", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     this.topic = request.getTopic();
-    this.payload = LoadTestRunner.createMessage(request.getMessageSize());
     this.batchSize = request.getPublishBatchSize();
+    this.clientId = Integer.toString((new Random()).nextInt());
+    this.partitions = request.getKafkaOptions().getPartitions();
+    this.payload = LoadTestRunner.createMessage(request.getMessageSize());
     Properties props = new Properties();
     props.putAll(new ImmutableMap.Builder<>()
+        .put("acks", "all")
         .put("max.block.ms", "30000")
         .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
         .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-        .put("acks", "all")
         .put("bootstrap.servers", request.getKafkaOptions().getBroker())
         .put("buffer.memory", Integer.toString(1000 * 1000 * 1000)) // 1 GB
-        // 10M, high enough to allow for duration to control batching
-        .put("batch.size", Integer.toString(10 * 1000 * 1000))
         .put("linger.ms", Long.toString(Durations.toMillis(request.getPublishBatchDuration())))
+        .put("batch.size", Integer.toString(request.getMessageSize() * request.getPublishBatchSize()))
         .build()
     );
     this.publisher = new KafkaProducer<>(props);
@@ -74,22 +84,32 @@ class KafkaPublisherTask extends Task {
 
   @Override
   public ListenableFuture<RunResult> doRun() {
-    SettableFuture<RunResult> result = SettableFuture.create();
+
+    AtomicInteger messagesSent = new AtomicInteger(batchSize);
     AtomicInteger messagesToSend = new AtomicInteger(batchSize);
-    AtomicInteger messagesSentSuccess = new AtomicInteger(batchSize);
+    String sendTime = String.valueOf(System.currentTimeMillis());
+    final SettableFuture<RunResult> done = SettableFuture.create();
+
     for (int i = 0; i < batchSize; i++) {
       publisher.send(
-          new ProducerRecord<>(topic, null, System.currentTimeMillis(), null, payload),
-          (metadata, exception) -> {
-            if (exception != null) {
-              messagesSentSuccess.decrementAndGet();
-              log.error(exception.getMessage(), exception);
+          new ProducerRecord<>(topic, sequenceNumber.get() % partitions, clientId + "#" +
+              Integer.toString(sequenceNumber.getAndIncrement()) + "#" + sendTime, payload),
+          (recordMetadata, e) -> {
+            if (e != null) {
+              messagesSent.getAndDecrement();
+              log.error(e.getMessage(), e);
             }
+//            System.out.println("Sent " + counter.incrementAndGet());
             if (messagesToSend.decrementAndGet() == 0) {
-              result.set(RunResult.fromBatchSize(messagesSentSuccess.get()));
+              done.set(RunResult.fromBatchSize(messagesSent.get()));
             }
           });
     }
-    return result;
+    return done;
+  }
+
+  @Override
+  public void shutdown() {
+    publisher.close();
   }
 }

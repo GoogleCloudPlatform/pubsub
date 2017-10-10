@@ -1,35 +1,64 @@
+// Copyright 2017 Google Inc.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+//
+////////////////////////////////////////////////////////////////////////////////
+
 package com.google.pubsub.clients.mapped;
 
 import com.beust.jcommander.JCommander;
 
+import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import com.google.protobuf.util.Durations;
+
 import com.google.pubsub.clients.common.Task;
 import com.google.pubsub.clients.common.LoadTestRunner;
-import com.google.pubsub.clients.producer.KafkaProducer;
-import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.clients.common.MetricsHandler.MetricName;
 
+import com.google.pubsub.clients.producer.KafkaProducer;
+import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.apache.kafka.clients.producer.ProducerRecord;
+
+import java.util.Random;
 import java.util.Properties;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import org.apache.kafka.clients.producer.ProducerRecord;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Runs a task that publishes messages utilizing Pub/Sub's implementation of the Kafka Producer<K,V>
- * interface
+ * Runs a task that publishes messages utilizing Pub/Sub's implementation of the Kafka Producer<K,V> Interface.
  */
-public class CPSPublisherTask extends Task {
+class CPSPublisherTask extends Task {
 
   private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
 
+  private final int batchSize;
+  private final int messageSize;
+  private final long batchDelay;
+
   private final String topic;
   private final String payload;
-  private final int batchSize;
+  private final String clientId;
+  private final AtomicInteger sending = new AtomicInteger(0);
+  private final AtomicInteger sequenceNumber = new AtomicInteger(0);
+  private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
+
   private final KafkaProducer<String, String> publisher;
 
   @SuppressWarnings("unchecked")
@@ -37,11 +66,19 @@ public class CPSPublisherTask extends Task {
     super(request, "mapped", MetricName.PUBLISH_ACK_LATENCY);
 
     this.topic = request.getTopic();
+    this.messageSize = request.getMessageSize();
     this.batchSize = request.getPublishBatchSize();
-    this.payload = LoadTestRunner.createMessage(request.getMessageSize());
+    this.payload = LoadTestRunner.createMessage(messageSize);
+    this.clientId = Integer.toString((new Random()).nextInt());
+    this.batchDelay = Durations.toMillis(request.getPublishBatchDuration());
 
     Properties props = new Properties();
-    props.put("project", "dataproc-kafka-test");
+    props.put("project", request.getProject());
+    props.put("linger.ms", Long.toString(batchDelay));
+    props.put("elements.count", Integer.toString(batchSize));
+    props.put("batch.size", Integer.toString(9500000));
+    props.put("client.id", clientId);
+    props.put("buffer.memory", Integer.toString(1000 * 1000 * 1000));
     props.put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
     props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 
@@ -50,37 +87,55 @@ public class CPSPublisherTask extends Task {
 
   public static void main(String[] args) throws Exception {
     LoadTestRunner.Options options = new LoadTestRunner.Options();
-
     new JCommander(options, args);
-
     LoadTestRunner.run(options, CPSPublisherTask::new);
   }
 
   @Override
   public ListenableFuture<RunResult> doRun() {
-    SettableFuture<RunResult> result = SettableFuture.create();
 
+    AtomicInteger messagesSent = new AtomicInteger(batchSize);
     AtomicInteger messagesToSend = new AtomicInteger(batchSize);
-    AtomicInteger messagesSentSuccess = new AtomicInteger(batchSize);
+    String sendTime = String.valueOf(System.currentTimeMillis());
+    final SettableFuture<RunResult> done = SettableFuture.create();
 
+    if (shuttingDown.get()) {
+      return Futures.immediateFailedFuture(
+          new IllegalStateException("The task is shutting down."));
+    }
+
+    sending.incrementAndGet();
     for (int i = 0; i < batchSize; i++) {
+      actualCounter.incrementAndGet();
       publisher.send(
-          new ProducerRecord<>(topic, 0, "", payload),
-          (metadata, exception) -> {
-            if (exception != null) {
-              messagesSentSuccess.decrementAndGet();
-              log.error(exception.getMessage(), exception);
+          new ProducerRecord<>(topic, 0, clientId + "#" +
+              Integer.toString(sequenceNumber.getAndIncrement()) + "#" + sendTime, payload),
+          (recordMetadata, e) -> {
+            if (e != null) {
+              messagesSent.getAndDecrement();
+              log.error(e.getMessage(), e);
             }
             if (messagesToSend.decrementAndGet() == 0) {
-              result.set(RunResult.fromBatchSize(messagesSentSuccess.get()));
+              done.set(RunResult.fromBatchSize(messagesSent.get()));
             }
           });
     }
-    return result;
+    sending.decrementAndGet();
+    return done;
   }
 
   @Override
   public void shutdown() {
-    publisher.close();
+    try {
+      if (shuttingDown.getAndSet(true)) {
+        return;
+      }
+      while (sending.get() > 0) {
+        //Don't shutdown until all the ongoing processes finish
+      }
+      publisher.close();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
   }
 }
