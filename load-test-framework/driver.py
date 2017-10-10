@@ -21,7 +21,6 @@ def main(project, test, vms_count, zone, sheet_id,
     arg_list.append('--cps_gcloud_java_publisher_count=' + str(vms_count))
     arg_list.append('--cps_gcloud_java_subscriber_count=' + str(vms_count))
 
-  # --broker=broker-0:9092 --zookeeper=35.193.14.53:2181 --partitions=2 --replication=4
   # Kafka
   if len(broker) != 0:
     arg_list.append('--broker=' + broker)
@@ -87,7 +86,6 @@ def main(project, test, vms_count, zone, sheet_id,
       '--burn_in_duration=1m'
     ])
 
-  # --sheet_id=1RUm3EVcmVGJy8kDGHBhLfLONTetmXzubPSekWgAVmHA
   if len(sheet_id) != 0:
     arg_list.append('--spreadsheet_id=' + sheet_id)
 

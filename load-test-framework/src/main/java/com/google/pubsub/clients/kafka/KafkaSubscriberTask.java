@@ -38,7 +38,6 @@ class KafkaSubscriberTask extends Task {
 
   private final long pollLength;
   private final KafkaConsumer<String, String> subscriber;
-  private final AtomicInteger counter = new AtomicInteger();
 
   private KafkaSubscriberTask(StartRequest request) {
     super(request, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);

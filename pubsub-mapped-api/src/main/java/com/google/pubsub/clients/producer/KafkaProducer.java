@@ -174,7 +174,6 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
   /**
    * Sends the given record and invokes the specified callback.
-   * The given record must have the same topic as the producer.
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> originalRecord, Callback callback) {
     if (closed.get()) {
@@ -219,7 +218,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       }
     }
 
-    PubsubMessage msg = createMessage(record, dateTime.getMillis(), keyBytes, valueBytes);
+    PubsubMessage msg = createMessage(dateTime.getMillis(), keyBytes, valueBytes);
 
     ApiFuture<String> messageIdFuture = publishers.computeIfAbsent(
             record.topic(), topic -> createPublisher(topic)).publish(msg);
@@ -260,7 +259,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   }
 
   // Attribute's value's size shouldn't exceed 1024 bytes (256 for key)
-  private PubsubMessage createMessage(ProducerRecord<K, V> record, Long dateTime, byte[] key, byte[] value) {
+  private PubsubMessage createMessage(Long dateTime, byte[] key, byte[] value) {
     Map<String, String> attributes = new HashMap<>();
 
     attributes.put("id", producerConfig.getClientId());
@@ -275,7 +274,8 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       throw new SerializationException("Key size should be at most 1024 bytes.");
     }
 
-    return PubsubMessage.newBuilder().setData(ByteString.copyFrom(value)).putAllAttributes(attributes).build();
+    return PubsubMessage.newBuilder()
+        .setData(ByteString.copyFrom(value)).putAllAttributes(attributes).build();
   }
 
   private void callbackOnCompletion(Callback cb, RecordMetadata m, Exception e) {

@@ -209,7 +209,6 @@ public class Subscriber extends AbstractApiService {
     commitBefore(sync, null);
   }
 
-
   @Override
   public void doStart() {
     logger.log(Level.FINE, "Starting subscriber group.");

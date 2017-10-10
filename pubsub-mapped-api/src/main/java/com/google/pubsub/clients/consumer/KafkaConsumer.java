@@ -192,7 +192,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
           .withMaxOutboundMessageSize(16777216)
           .withDeadlineAfter(config.getRequestTimeoutMs(), TimeUnit.MILLISECONDS);
 
-      if(callCredentials != null) {
+      if (callCredentials != null) {
         subscriberFutureStub = subscriberFutureStub.withCallCredentials(callCredentials);
         publisherFutureStub = publisherFutureStub.withCallCredentials(callCredentials);
       }
@@ -472,7 +472,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
    * on next topic, as long as it polls some messages or gets though all topics.
    *
    * When polling, deadline extensions are scheduled. Messages deadlines will be extended until commit call
-   * (manual config),  until auto.commit.interval passes since previous commit (auto config)
+   * (manual config), until auto.commit.interval passes since previous commit (auto config)
    * or until max.ack.extension.period passes (maximum on deadline extensions).
    *
    * If auto commit configured, every time poll is called it will check if auto.commit.interval passed since last
