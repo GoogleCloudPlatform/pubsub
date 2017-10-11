@@ -88,6 +88,7 @@ public class ConfigTest {
 
   private ImmutableMap getTestOptionsMap() {
     return new ImmutableMap.Builder<>()
+        .put("project", "unit-test-project")
         .put("key.deserializer",
             "org.apache.kafka.common.serialization.StringDeserializer")
         .put("value.deserializer",

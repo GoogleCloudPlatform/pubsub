@@ -32,7 +32,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.v1.TopicName;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.clients.producer.Config.PubSubProducerConfig;
 
 import java.io.IOException;
 
@@ -60,121 +59,49 @@ import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.clients.producer.ProducerConfig;
-import org.apache.kafka.clients.producer.ProducerInterceptor;
-import org.apache.kafka.clients.producer.ProducerConfigAdapter;
-import org.apache.kafka.clients.producer.internals.ProducerInterceptors;
 
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * A Kafka client that publishes records to Google Cloud Pub/Sub.
  */
 public class KafkaProducer<K, V> implements Producer<K, V> {
 
+  private final AtomicBoolean closed;
+
   private static final long VERSION = 1L;
   private static final double MULTIPLIER = 1.0;
-  private static final AtomicInteger CLIENT_ID = new AtomicInteger(1);
 
   private Config producerConfig;
   private Map<String, Publisher> publishers;
 
-  private final String project;
-  private final Serializer<K> keySerializer;
-  private final Serializer<V> valueSerializer;
-
-  private final int retries;
-  private final int timeout;
-  private final int batchSize;
-  private final long lingerMs;
-  private final long retriesMs;
-  private final long elementCount;
-  private final long bufferMemorySize;
-  private final boolean isAcks;
-  private final boolean autoCreate;
-  private final String clientId;
-  private final ProducerInterceptors<K, V> interceptors;
-
-  private final AtomicBoolean closed;
-
   public KafkaProducer(Map<String, Object> configs) {
-    this(new Config(configs), null, null);
+    this(new Config(configs, null, null));
   }
 
   public KafkaProducer(Map<String, Object> configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
-    this(new Config(ProducerConfig.addSerializerToConfig(
-        configs, keySerializer, valueSerializer)), keySerializer, valueSerializer);
+    this(new Config(configs, keySerializer, valueSerializer));
   }
 
   public KafkaProducer(Properties properties) {
-    this(new Config(properties), null, null);
+    this(new Config(properties, null, null));
   }
 
   public KafkaProducer(Properties properties, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
-    this(new Config(ProducerConfig.addSerializerToConfig(
-        properties, keySerializer, valueSerializer)), keySerializer, valueSerializer);
+    this(new Config(properties, keySerializer, valueSerializer));
   }
 
   @VisibleForTesting
   @SuppressWarnings("unchecked")
-  public KafkaProducer(Config configs, Serializer<K> keySerializer, Serializer<V> valueSerializer) {
-
+  public KafkaProducer(Config configs) {
     producerConfig = configs;
 
-    // CPS's configs
-    project = configs.getAdditionalConfigs().getString(PubSubProducerConfig.PROJECT_CONFIG);
-    autoCreate = configs.getAdditionalConfigs().getBoolean(PubSubProducerConfig.AUTO_CREATE_TOPICS_CONFIG);
-    elementCount = configs.getAdditionalConfigs().getLong(PubSubProducerConfig.ELEMENTS_COUNT_CONFIG);
-
-    // Kafka's configs
-    if (keySerializer == null) {
-      this.keySerializer = configs.getKafkaConfigs().getConfiguredInstance(
-          ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, Serializer.class);
-
-      this.keySerializer.configure(configs.getKafkaConfigs().originals(), true);
-    } else {
-      configs.getKafkaConfigs().ignore(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG);
-      this.keySerializer = keySerializer;
-    }
-
-    if (valueSerializer == null) {
-      this.valueSerializer = configs.getKafkaConfigs().getConfiguredInstance(
-          ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, Serializer.class);
-
-      this.valueSerializer.configure(configs.getKafkaConfigs().originals(), false);
-    } else {
-      configs.getKafkaConfigs().ignore(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG);
-      this.valueSerializer = valueSerializer;
-    }
-
     closed = new AtomicBoolean(false);
-    retries = configs.getKafkaConfigs().getInt(ProducerConfig.RETRIES_CONFIG);
-    timeout = configs.getKafkaConfigs().getInt(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG);
-    retriesMs = configs.getKafkaConfigs().getLong(ProducerConfig.RETRY_BACKOFF_MS_CONFIG);
-    lingerMs = configs.getKafkaConfigs().getLong(ProducerConfig.LINGER_MS_CONFIG);
-    batchSize = configs.getKafkaConfigs().getInt(ProducerConfig.BATCH_SIZE_CONFIG);
-    isAcks = configs.getKafkaConfigs().getString(ProducerConfig.ACKS_CONFIG).matches("(-)?1|all");
-    bufferMemorySize = configs.getKafkaConfigs().getLong(ProducerConfig.BUFFER_MEMORY_CONFIG);
 
-    String Id = configs.getKafkaConfigs().getString(ProducerConfig.CLIENT_ID_CONFIG);
-    if (Id.length() <= 0) {
-      clientId = "producer-" + CLIENT_ID.getAndIncrement();
-    } else {
-      clientId = Id;
-    }
-
-    configs.getKafkaConfigs().originals().put(ProducerConfig.CLIENT_ID_CONFIG, clientId);
-    List<ProducerInterceptor<K, V>> interceptorList =
-        (List) (ProducerConfigAdapter.getConsumerConfig(configs.getKafkaConfigs().originals())).getConfiguredInstances(
-            ProducerConfig.INTERCEPTOR_CLASSES_CONFIG, ProducerInterceptor.class);
-    this.interceptors =
-        interceptorList.isEmpty() ? null : new ProducerInterceptors<>(interceptorList);
-    
     publishers = new ConcurrentHashMap<>();
   }
 
@@ -188,11 +115,11 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     TopicAdminClient topicAdmin = null;
 
     try {
-      topicName = TopicName.create(project, topic);
+      topicName = TopicName.create(producerConfig.getProject(), topic);
       topicAdmin = TopicAdminClient.create();
       topicAdmin.getTopic(topicName);
     } catch (Exception e) {
-      if (e.getMessage().contains("NOT_FOUND") && autoCreate) {
+      if (e.getMessage().contains("NOT_FOUND") && producerConfig.getAutoCreate()) {
         topicAdmin.createTopic(topicName);
       } else {
         throw new KafkaException("Failed to construct kafka producer, Topic not found.", e);
@@ -203,27 +130,30 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       pub = Publisher.defaultBuilder(topicName)
 
           .setBatchingSettings(BatchingSettings.newBuilder()
-              .setElementCountThreshold(elementCount)
-              .setRequestByteThreshold((long) batchSize)
-              .setDelayThreshold(Duration.ofMillis(lingerMs))
+              .setElementCountThreshold(producerConfig.getElementCount())
+              .setRequestByteThreshold((long) producerConfig.getBatchSize())
+              .setDelayThreshold(Duration.ofMillis(producerConfig.getLingerMs()))
 
               .setFlowControlSettings(FlowControlSettings.newBuilder()
-                  .setMaxOutstandingRequestBytes(bufferMemorySize)
+                  .setMaxOutstandingRequestBytes(producerConfig.getBufferMemorySize())
                   .build())
 
               .build())
 
           .setRetrySettings(RetrySettings.newBuilder()
-              .setMaxAttempts(retries)
+              .setMaxAttempts(producerConfig.getRetries())
               .setRetryDelayMultiplier(MULTIPLIER)
-              .setInitialRetryDelay(Duration.ofMillis(retriesMs))
-              .setMaxRetryDelay(Duration.ofMillis((retries + 1) * retriesMs))
+              .setInitialRetryDelay(Duration.ofMillis(producerConfig.getRetriesMs()))
+              .setMaxRetryDelay(Duration.ofMillis(
+                  (producerConfig.getRetries() + 1) * producerConfig.getRetriesMs()))
 
               .setRpcTimeoutMultiplier(MULTIPLIER)
-              .setInitialRpcTimeout(Duration.ofMillis(timeout))
-              .setMaxRpcTimeout(Duration.ofMillis((retries + 1) * timeout))
+              .setInitialRpcTimeout(Duration.ofMillis(producerConfig.getTimeout()))
+              .setMaxRpcTimeout(Duration.ofMillis(
+                  (producerConfig.getRetries() + 1) * producerConfig.getTimeout()))
 
-              .setTotalTimeout(Duration.ofMillis((retries + 2) * timeout))
+              .setTotalTimeout(Duration.ofMillis(
+                  (producerConfig.getRetries() + 2) * producerConfig.getTimeout()))
               .build())
 
           .build();
@@ -244,7 +174,6 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
   /**
    * Sends the given record and invokes the specified callback.
-   * The given record must have the same topic as the producer.
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> originalRecord, Callback callback) {
     if (closed.get()) {
@@ -252,7 +181,8 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     }
 
     ProducerRecord<K, V> record =
-        this.interceptors == null ? originalRecord : this.interceptors.onSend(originalRecord);
+        producerConfig.getInterceptors() ==
+            null ? originalRecord : producerConfig.getInterceptors().onSend(originalRecord);
 
     if (record == null) {
       throw new NullPointerException();
@@ -263,11 +193,11 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     byte[] valueBytes = null;
     if (record.value() != null) {
       try {
-        valueBytes = valueSerializer.serialize(record.topic(), record.value());
+        valueBytes = producerConfig.getValueSerializer().serialize(record.topic(), record.value());
       } catch (ClassCastException e) {
         throw new SerializationException("Can't convert value of class " +
             record.value().getClass().getName() + " to class " +
-            producerConfig.getKafkaConfigs().getClass(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG).getName() +
+            producerConfig.getValueSerializer().getClass().getName() +
             " specified in value.serializer");
       }
     }
@@ -279,16 +209,16 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     byte[] keyBytes = null;
     if (record.key() != null) {
       try {
-        keyBytes = keySerializer.serialize(record.topic(), record.key());
+        keyBytes = producerConfig.getKeySerializer().serialize(record.topic(), record.key());
       } catch (ClassCastException cce) {
         throw new SerializationException("Can't convert key of class " +
             record.key().getClass().getName() + " to class " +
-            producerConfig.getKafkaConfigs().getClass(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG).getName() +
+            producerConfig.getKeySerializer().getClass().getName() +
             " specified in key.serializer");
       }
     }
 
-    PubsubMessage msg = createMessage(record, dateTime.getMillis(), keyBytes, valueBytes);
+    PubsubMessage msg = createMessage(dateTime.getMillis(), keyBytes, valueBytes);
 
     ApiFuture<String> messageIdFuture = publishers.computeIfAbsent(
             record.topic(), topic -> createPublisher(topic)).publish(msg);
@@ -300,7 +230,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     final SettableFuture<RecordMetadata> future = SettableFuture.create();
 
     if (callback != null) {
-      if (isAcks) {
+      if (producerConfig.getAcks()) {
         ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
           private RecordMetadata recordMetadata =
               getRecordMetadata(topic, dateTime.getMillis(), keySize, valueSize);
@@ -329,10 +259,10 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   }
 
   // Attribute's value's size shouldn't exceed 1024 bytes (256 for key)
-  private PubsubMessage createMessage(ProducerRecord<K, V> record, Long dateTime, byte[] key, byte[] value) {
+  private PubsubMessage createMessage(Long dateTime, byte[] key, byte[] value) {
     Map<String, String> attributes = new HashMap<>();
 
-    attributes.put("id", clientId);
+    attributes.put("id", producerConfig.getClientId());
 
     attributes.put("offset", Long.toString(dateTime));
 
@@ -344,12 +274,13 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
       throw new SerializationException("Key size should be at most 1024 bytes.");
     }
 
-    return PubsubMessage.newBuilder().setData(ByteString.copyFrom(value)).putAllAttributes(attributes).build();
+    return PubsubMessage.newBuilder()
+        .setData(ByteString.copyFrom(value)).putAllAttributes(attributes).build();
   }
 
   private void callbackOnCompletion(Callback cb, RecordMetadata m, Exception e) {
-    if (interceptors != null) {
-      interceptors.onAcknowledgement(m, e);
+    if (producerConfig.getInterceptors() != null) {
+      producerConfig.getInterceptors().onAcknowledgement(m, e);
     }
     cb.onCompletion(m, e);
   }
@@ -371,7 +302,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         pub.getValue().shutdown();
       }
     } catch (Exception e) {
-      throw new InterruptException("Flush interrupted.", (InterruptedException) e);
+      throw new InterruptException("Flush interrupted.");
     }
   }
 
@@ -411,12 +342,12 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         pub.getValue().shutdown();
       }
 
-      if (interceptors != null) {
-        interceptors.close();
+      if (producerConfig.getInterceptors() != null) {
+        producerConfig.getInterceptors().close();
       }
 
-      keySerializer.close();
-      valueSerializer.close();
+      producerConfig.getKeySerializer().close();
+      producerConfig.getValueSerializer().close();
     } catch (Exception e) {
       throw new KafkaException("Failed to close kafka producer", e);
     }

@@ -22,24 +22,25 @@ import java.util.Properties;
 /**
  * This is an adapter to control the ProducerConfig class since it's constructors are package-private.
  */
-public class ProducerConfigAdapter {
+public class ProducerConfigCreator {
   
-  public static ProducerConfig getConsumerConfig(Properties properties) {
-    return getConsumerConfig(properties);
+  public static ProducerConfig getProducerConfig(Properties properties) {
+    return getProducerConfig(properties);
   }
 
-  public static ProducerConfig getConsumerConfig(Map<String, Object> configurations) {
+  public static ProducerConfig getProducerConfig(Map<String, Object> configurations) {
     addDefaultKafkaRequiredConfigs(configurations);
     return new ProducerConfig(configurations);
   }
 
   private static void addDefaultKafkaRequiredConfigs(Map map) {
     if (!map.containsKey(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG)) {
-      map.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "127.0.0.1:8080");
+      map.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, "localhost:9092");
     }
 
-    if (!map.containsKey(ProducerConfig.LINGER_MS_CONFIG)) {
-      map.put(ProducerConfig.LINGER_MS_CONFIG, 1);
+    if (!map.containsKey(ProducerConfig.LINGER_MS_CONFIG)
+        || Integer.parseInt((String) map.get(ProducerConfig.LINGER_MS_CONFIG)) == 0) {
+      map.put(ProducerConfig.LINGER_MS_CONFIG, "1");
     }
   }
 }

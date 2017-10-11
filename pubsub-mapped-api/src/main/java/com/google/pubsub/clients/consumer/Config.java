@@ -15,6 +15,7 @@
 package com.google.pubsub.clients.consumer;
 
 import com.google.common.base.Preconditions;
+import com.google.pubsub.clients.producer.PubSubProducerConfig;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -27,10 +28,11 @@ import org.apache.kafka.common.serialization.Deserializer;
 
 class Config<K, V> {
 
-  private final Boolean allowSubscriptionCreation;
-  private final Boolean allowSubscriptionDeletion;
+  private final String project;
   private final String groupId;
   private final int maxPollRecords;
+  private final Boolean allowSubscriptionCreation;
+  private final Boolean allowSubscriptionDeletion;
 
   private final Deserializer<K> keyDeserializer;
   private final Deserializer<V> valueDeserializer;
@@ -43,7 +45,6 @@ class Config<K, V> {
   private final Integer maxAckExtensionPeriod;
   private final ConsumerInterceptors<K,V> interceptors;
   private static final AtomicInteger CLIENT_ID = new AtomicInteger(1);
-
 
   Config(Map<String, Object> configs) {
     this(ConsumerConfigCreator.getConsumerConfig(configs),
@@ -119,6 +120,8 @@ class Config<K, V> {
     this.requestTimeoutMs = consumerConfig.getInt(ConsumerConfig.REQUEST_TIMEOUT_MS_CONFIG);
 
     //PubSub-specific options
+
+    this.project = pubSubConsumerConfig.getString(PubSubProducerConfig.PROJECT_CONFIG);
     this.allowSubscriptionCreation =
         pubSubConsumerConfig.getBoolean(PubSubConsumerConfig.SUBSCRIPTION_ALLOW_CREATE_CONFIG);
     this.allowSubscriptionDeletion =
@@ -128,11 +131,14 @@ class Config<K, V> {
         PubSubConsumerConfig.CREATED_SUBSCRIPTION_DEADLINE_SECONDS_CONFIG);
     this.maxAckExtensionPeriod = pubSubConsumerConfig.getInt(PubSubConsumerConfig.MAX_ACK_EXTENSION_PERIOD_SECONDS_CONFIG);
 
-
     Preconditions.checkNotNull(this.allowSubscriptionCreation);
     Preconditions.checkNotNull(this.allowSubscriptionDeletion);
     Preconditions.checkNotNull(this.groupId);
     Preconditions.checkArgument(!this.groupId.isEmpty());
+  }
+
+  String getProject() {
+    return project;
   }
 
   Boolean getAllowSubscriptionCreation() {
