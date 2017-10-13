@@ -32,8 +32,6 @@ import com.google.pubsub.v1.ReceivedMessage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -41,6 +39,7 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.PriorityQueue;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
@@ -76,9 +75,9 @@ class MessageDispatcher {
   private final FlowController flowController;
   private final MessageWaiter messagesWaiter;
 
+  private Set<String> pendingNacks;
+  private Map<String, AckHandler> pendingAcks;
   private final PriorityQueue<ExtensionJob> outstandingAckHandlers;
-  private final HashMap<String, AckHandler> pendingAcks;
-  private final Set<String> pendingNacks;
 
   private final Lock alarmsLock;
   private final Long retryBackoffMs;
@@ -197,9 +196,7 @@ class MessageDispatcher {
           "MessageReceiver failed to processes ack ID: " + ackId + ", the message will be nacked.",
           t);
       acked.getAndSet(true);
-      synchronized (pendingNacks) {
-        pendingNacks.add(ackId);
-      }
+      pendingNacks.add(ackId);
       flowController.release(1, outstandingBytes);
       messagesWaiter.incrementPendingMessages(-1);
       processOutstandingBatches();
@@ -209,18 +206,14 @@ class MessageDispatcher {
     public void onSuccess(AckReply reply) {
       switch (reply) {
         case ACK:
-          synchronized (pendingAcks) {
-            pendingAcks.put(ackId, this);
-          }
+          pendingAcks.put(ackId, this);
           // Record the latency rounded to the next closest integer.
           ackLatencyDistribution.record(
               Ints.saturatedCast(
                   (long) Math.ceil((clock.millisTime() - receivedTimeMillis) / 1000D)));
           break;
         case NACK:
-          synchronized (pendingNacks) {
-            pendingNacks.add(ackId);
-          }
+          pendingNacks.add(ackId);
           break;
         default:
           throw new IllegalArgumentException(String.format("AckReply: %s not supported", reply));
@@ -255,8 +248,8 @@ class MessageDispatcher {
     this.retryBackoffMs = retryBackoffMs;
     outstandingMessageBatches = new LinkedList<>();
     outstandingAckHandlers = new PriorityQueue<>();
-    pendingAcks = new HashMap<>();
-    pendingNacks = new HashSet<>();
+    pendingAcks = new ConcurrentHashMap<>();
+    pendingNacks = ConcurrentHashMap.newKeySet();
     // 601 buckets of 1s resolution from 0s to MAX_ACK_DEADLINE_SECONDS
     this.ackLatencyDistribution = ackLatencyDistribution;
     alarmsLock = new ReentrantLock();
@@ -542,22 +535,20 @@ class MessageDispatcher {
     }
   }
 
+  //TODO: do we really need the sync?
   void acknowledgePendingMessages(boolean sync, Long offset) {
-    Map<String, AckHandler> acksToSend = new HashMap<>();
+    Map<String, AckHandler> acksToSend;
     synchronized (pendingAcks) {
-      if (!pendingAcks.isEmpty()) {
-        for (Entry<String, AckHandler> pair : pendingAcks.entrySet()){
-          acksToSend.put(pair.getKey(), pair.getValue());
-        }
-        logger.log(Level.FINER, "Sending {0} acks", acksToSend.size());
-      }
+      acksToSend = pendingAcks;
+      pendingAcks = new ConcurrentHashMap<>();
     }
+    logger.log(Level.FINER, "Sending {0} acks", acksToSend.size());
 
-    if(offset != null) {
+    if (offset != null) {
       filterAcksBeforeOffset(offset, acksToSend);
     }
 
-    if(sync) {
+    if (sync) {
       commitSync(acksToSend);
     } else {
       commitAsync(acksToSend);
@@ -586,6 +577,7 @@ class MessageDispatcher {
 
       @Override
       public void onFailure(Throwable throwable) {
+        handleFailingAck(acksToSend);
         logger.log(Level.WARNING, "Failed to commit async", throwable);
       }
     });
@@ -599,23 +591,24 @@ class MessageDispatcher {
       listListenableFuture.get();
       handleSuccessfulAck(acksToSend);
     } catch (InterruptedException | ExecutionException e) {
-      if(StatusUtil.isRetryable(e)) {
+      if (StatusUtil.isRetryable(e)) {
         sleep(this.retryBackoffMs);
         commitSync(acksToSend);
       } else {
+        handleFailingAck(acksToSend);
         throw new KafkaException(e);
       }
     }
   }
 
-  private void handleSuccessfulAck(
-      Map<String, AckHandler> acksToSend) {
-    synchronized (pendingAcks) {
-      for(Entry<String, AckHandler> entry : acksToSend.entrySet()) {
-        entry.getValue().acked.getAndSet(true);
-        pendingAcks.remove(entry.getKey());
-      }
+  private void handleSuccessfulAck(Map<String, AckHandler> acksToSend) {
+    for(Entry<String, AckHandler> entry : acksToSend.entrySet()) {
+      entry.getValue().acked.getAndSet(true);
     }
+  }
+
+  private void handleFailingAck(Map<String, AckHandler> acksToSend) {
+    pendingAcks.putAll(acksToSend);
   }
 
   private void sleep(long ms) {
@@ -631,20 +624,22 @@ class MessageDispatcher {
     List<PendingModifyAckDeadline> modifyAckDeadlinesToSend =
         Lists.newArrayList(ackDeadlineExtensions);
     PendingModifyAckDeadline nacksToSend = new PendingModifyAckDeadline(0);
-    synchronized (pendingNacks) {
-      if (!pendingNacks.isEmpty()) {
-        try {
-          for (String ackId : pendingNacks) {
-            nacksToSend.addAckId(ackId);
-          }
-          logger.log(Level.FINER, "Sending {0} nacks", pendingNacks.size());
-        } finally {
-          pendingNacks.clear();
-        }
-        modifyAckDeadlinesToSend.add(nacksToSend);
-      }
-    }
-    ackProcessor.sendAckOperations(Collections.<String>emptyList(), modifyAckDeadlinesToSend);
 
+    Set<String> acksToExtend;
+
+    synchronized (pendingNacks) {
+      acksToExtend = pendingNacks;
+      pendingNacks = ConcurrentHashMap.newKeySet();
+    }
+
+    if (!acksToExtend.isEmpty()) {
+      for (String ackId : acksToExtend) {
+        nacksToSend.addAckId(ackId);
+      }
+      logger.log(Level.FINER, "Sending {0} nacks", pendingNacks.size());
+      modifyAckDeadlinesToSend.add(nacksToSend);
+    }
+
+    ackProcessor.sendAckOperations(Collections.<String>emptyList(), modifyAckDeadlinesToSend);
   }
 }

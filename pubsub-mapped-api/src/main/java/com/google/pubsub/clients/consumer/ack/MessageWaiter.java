@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * A barrier kind of object that helps to keep track and synchronously wait on pending messages.
  */
 class MessageWaiter {
+
   private int pendingMessages;
 
   MessageWaiter() {
@@ -49,7 +50,6 @@ class MessageWaiter {
           waitReached.set(true);
           wait();
         } catch (InterruptedException e) {
-          // Ignored, uninterruptibly.
           interrupted = true;
         }
       }

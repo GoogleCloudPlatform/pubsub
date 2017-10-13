@@ -39,6 +39,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.Nullable;
@@ -85,7 +86,7 @@ public class Subscriber extends AbstractApiService {
   private final PollingSubscriberConnection pollingSubscriberConnection;
   private final ApiClock clock;
   private final List<AutoCloseable> closeables = new ArrayList<>();
-  private long nextCommitTime;
+  private AtomicLong nextCommitTime = new AtomicLong(0);
   private Boolean autoCommit;
   private final Integer autoCommitIntervalMs;
 
@@ -104,8 +105,8 @@ public class Subscriber extends AbstractApiService {
     autoCommitIntervalMs = builder.autoCommitIntervalMs;
     autoCommit = builder.autoCommit;
 
-    if(this.autoCommit) {
-      this.nextCommitTime = clock.millisTime() + autoCommitIntervalMs;
+    if (this.autoCommit) {
+      this.nextCommitTime.set(clock.millisTime() + autoCommitIntervalMs);
     }
 
     FlowController flowController =
@@ -232,13 +233,11 @@ public class Subscriber extends AbstractApiService {
 
   public PullResponse pull(final long timeout) throws IOException, ExecutionException, InterruptedException {
     long now = clock.millisTime();
-    synchronized (pollingSubscriberConnection) {
-      if(this.autoCommit && this.nextCommitTime <= now) {
-        pollingSubscriberConnection.commit(false, null);
-        this.nextCommitTime = now + this.autoCommitIntervalMs;
-      }
-      return pollingSubscriberConnection.pullMessages(timeout);
+    if(this.autoCommit && this.nextCommitTime.get() <= now) {
+      pollingSubscriberConnection.commit(false, null);
+      this.nextCommitTime.set(now + this.autoCommitIntervalMs);
     }
+    return pollingSubscriberConnection.pullMessages(timeout);
   }
 
   private void stopAllPollingConnection() {
@@ -325,7 +324,7 @@ public class Subscriber extends AbstractApiService {
       this.systemExecutorProvider = Preconditions.checkNotNull(executorProvider);
       return this;
     }
-
+    
     public Builder setAutoCommit(Boolean autoCommit) {
       this.autoCommit = autoCommit;
       return this;
@@ -351,7 +350,7 @@ public class Subscriber extends AbstractApiService {
       this.subscriberFutureStub = subscriberFutureStub;
       return this;
     }
-
+    
     public Builder setRetryBackoffMs(Long retryBackoffMs) {
       this.retryBackoffMs = retryBackoffMs;
       return this;

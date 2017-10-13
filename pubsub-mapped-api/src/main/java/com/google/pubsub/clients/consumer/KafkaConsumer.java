@@ -113,9 +113,9 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
   private static final ConsumerRebalanceListener NO_REBALANCE_LISTENER = null;
   private static final Logger log = LoggerFactory.getLogger(KafkaConsumer.class);
 
+  private final String GOOGLE_CLOUD_PROJECT;
   private final String TOPIC_PREFIX;
   private final String SUBSCRIPTION_PREFIX;
-  private final String GOOGLE_CLOUD_PROJECT;
 
   //because of no partition concept, the partition number is constant
   private static final int DEFAULT_PARTITION = 0;
@@ -182,14 +182,15 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
       Preconditions.checkNotNull(channel);
 
+      // 32 MB for inbound and outbound messages
       SubscriberFutureStub subscriberFutureStub = SubscriberGrpc.newFutureStub(channel)
-          .withMaxInboundMessageSize(16777216)
-          .withMaxOutboundMessageSize(16777216)
+          .withMaxInboundMessageSize(32 * 1024 * 1024)
+          .withMaxOutboundMessageSize(32 * 1024 * 1024)
           .withDeadlineAfter(config.getRequestTimeoutMs(), TimeUnit.MILLISECONDS);
 
       PublisherFutureStub publisherFutureStub = PublisherGrpc.newFutureStub(channel)
-          .withMaxInboundMessageSize(16777216)
-          .withMaxOutboundMessageSize(16777216)
+          .withMaxInboundMessageSize(32 * 1024 * 1024)
+          .withMaxOutboundMessageSize(32 * 1024 * 1024)
           .withDeadlineAfter(config.getRequestTimeoutMs(), TimeUnit.MILLISECONDS);
 
       if (callCredentials != null) {
@@ -257,6 +258,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     log.debug("Subscribed to topic(s): {}", Utils.join(topics, ", "));
   }
 
+  //HERE
   private Subscriber getSubscriberFromConfigs(Entry<String, Subscription> entry) {
     return Subscriber.defaultBuilder(entry.getValue(),
             new MappedApiMessageReceiver())
