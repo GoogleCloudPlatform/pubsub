@@ -79,6 +79,8 @@ class CPSSubscriberTask extends Task {
       return Futures.immediateFailedFuture(
           new IllegalStateException("The task is shut down."));
     }
+
+    // Record the publishTime set by the server, and the receiveTime at which it's recorded.
     records.forEach(
         record -> {
           String[] tokens = record.key().split("#");

@@ -87,7 +87,6 @@ import org.slf4j.LoggerFactory;
 
 /**
  * This class, as Kafka's KafkaConsumer, IS NOT THREAD SAFE.
- * You must specify Google Cloud project in env variable GOOGLE_CLOUD_PROJECT.
  * In this implementation, due to differences in Kafka and Pub/Sub behavior, timestamp is treated as an offset.
  *
  * This consumer is designed to work with our KafkaProducer implementation. Our KafkaProducer adds attribute "offset"

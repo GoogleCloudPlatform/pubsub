@@ -74,6 +74,7 @@ import org.I0Itec.zkclient.exception.ZkNodeExistsException;
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
  */
 public class GCEController extends Controller {
+  // The standard machine ram is not enough, in some cases.
   private static final String MACHINE_TYPE = "custom-"; // standard machine prefix
   private static final String SOURCE_FAMILY =
       "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
@@ -99,6 +100,7 @@ public class GCEController extends Controller {
     this.compute = compute;
     this.projectName = projectName;
 
+    // We need to open the zookeeper port first - in case the user provides it.
     try {
       createFirewall();
       createStorageBucket();
@@ -141,7 +143,6 @@ public class GCEController extends Controller {
             } catch (IOException e) {
               log.debug("Error deleting subscription, assuming it has not yet been created.", e);
             }
-            //TODO: fix the AckDeadline - Return it back to 10 instead of 600.
             try {
               pubsub.projects().subscriptions().create("projects/" + projectName
                   + "/subscriptions/" + subscription, new Subscription()
@@ -165,6 +166,7 @@ public class GCEController extends Controller {
           SettableFuture<Void> kafkaFuture = SettableFuture.create();
           kafkaFutures.add(kafkaFuture);
           executor.execute(() -> {
+            // Give the firewall enough time to set everything right.
             try {
               Thread.sleep(45000);
             } catch (InterruptedException e) { }
@@ -394,6 +396,7 @@ public class GCEController extends Controller {
             new Firewall.Allowed()
                 .setIPProtocol("tcp")
                 .setPorts(Collections.singletonList("5000")),
+            // This is the default port for zookeeper access.
             new Firewall.Allowed()
                 .setIPProtocol("tcp")
                 .setPorts(Collections.singletonList("2181"))));

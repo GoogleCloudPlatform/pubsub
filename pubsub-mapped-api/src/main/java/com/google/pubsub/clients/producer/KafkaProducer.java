@@ -67,13 +67,23 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
- * A Kafka client that publishes records to Google Cloud Pub/Sub.
+ * This class, as Kafka's KafkaProducer, is thread safe, the best way to use it is by multithreading on a single producer.
+ * In this implementation, due to differences in Kafka and Pub/Sub behavior, timestamp set here is used as an offset.
+ *
+ * This Producer is designed to work with our KafkaConsumer implementation.
+ * Value is kept in Pub/Sub message body "data". Key is kept in Pub/Sub attributes map under "key".
+ *
+ * @param <K> Key
+ * @param <V> value
  */
 public class KafkaProducer<K, V> implements Producer<K, V> {
 
+  // Check if closed method was called previously
   private final AtomicBoolean closed;
 
+  // Identify the version of the producer which have sent the message.
   private static final long VERSION = 1L;
+  // The multiplier used with RetrySettings, to mirror that on Kafka's side.
   private static final double MULTIPLIER = 1.0;
 
   private Config producerConfig;
@@ -105,6 +115,12 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     publishers = new ConcurrentHashMap<>();
   }
 
+  /**
+   * This method creates a publisher for the provided topic, prior to that it checks if the topic
+   * is there on the server, if it's not the case it creates it - if auto.create.config is set to true.
+   *
+   * @param topic The name of the topic which will be assigned to the publisher.
+   */
   private Publisher createPublisher(String topic) {
     if (closed.get()) {
       throw new IllegalStateException("Cannot send after the producer is closed.");
@@ -164,7 +180,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   }
 
   /**
-   * Sends the given record.
+   * Send the given record.
+   *
+   * @param originalRecord The ProducerRecord to be sent.
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> originalRecord) {
     return send(originalRecord, null);
@@ -173,13 +191,17 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
   //TODO: there is an onSendError() in the interceptors, while there are no errors.
 
   /**
-   * Sends the given record and invokes the specified callback.
+   * Send the given record then invoke the provided callback.
+   *
+   * @param originalRecord The ProducerRecord to be sent.
+   * @param callback The Callback to be invoked.
    */
   public Future<RecordMetadata> send(ProducerRecord<K, V> originalRecord, Callback callback) {
     if (closed.get()) {
       throw new IllegalStateException("Cannot send after the producer is closed.");
     }
 
+    // Send the record to interceptors, if there is any - for pre-processing.
     ProducerRecord<K, V> record =
         producerConfig.getInterceptors() ==
             null ? originalRecord : producerConfig.getInterceptors().onSend(originalRecord);
@@ -190,6 +212,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
     DateTime dateTime = new DateTime();
 
+    // Serialize the key and value, into raw bytestrings.
     byte[] valueBytes = null;
     if (record.value() != null) {
       try {
@@ -229,6 +252,7 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
 
     final SettableFuture<RecordMetadata> future = SettableFuture.create();
 
+    // issue the callback and notify the interceptors, if there is any.
     if (callback != null) {
       if (producerConfig.getAcks()) {
         ApiFutures.addCallback(messageIdFuture, new ApiFutureCallback<String>() {
@@ -258,7 +282,14 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     return future;
   }
 
-  // Attribute's value's size shouldn't exceed 1024 bytes (256 for key)
+  /**
+   * Turn the provided data into a PubsubMessage.
+   * NOTE: Attribute's value's size shouldn't exceed 1024 bytes (256 for key)
+   *
+   * @param dateTime Timestamp when the message was created for sending.
+   * @param key The bytestring of key.
+   * @param value the bytestring of value.
+   */
   private PubsubMessage createMessage(Long dateTime, byte[] key, byte[] value) {
     Map<String, String> attributes = new HashMap<>();
 
@@ -278,6 +309,9 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
         .setData(ByteString.copyFrom(value)).putAllAttributes(attributes).build();
   }
 
+  /**
+   * Handles the callback thing.
+   */
   private void callbackOnCompletion(Callback cb, RecordMetadata m, Exception e) {
     if (producerConfig.getInterceptors() != null) {
       producerConfig.getInterceptors().onAcknowledgement(m, e);
@@ -285,13 +319,16 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     cb.onCompletion(m, e);
   }
 
+  /**
+   * Wrap provided data into a RecordMetadata object.
+   */
   private RecordMetadata getRecordMetadata(String topic, long offset, int keySize, int valueSize) {
     return new RecordMetadata(new TopicPartition(topic, 0),
         offset, 0L, System.currentTimeMillis(), 0L, keySize, valueSize);
   }
 
   /**
-   * Flushes records that have accumulated.
+   * Flushes all batches waiting to be sent, it's doing so by shutting down the publishers.
    */
   public void flush() {
     Map<String, Publisher> tempPublishers = publishers;
@@ -306,24 +343,31 @@ public class KafkaProducer<K, V> implements Producer<K, V> {
     }
   }
 
+  /**
+   * Not supported on our side - dummied.
+   */
   public List<PartitionInfo> partitionsFor(String topic) {
     Node[] dummy = {new Node(0, "", 0)};
     return Arrays.asList(new PartitionInfo(topic, 0, dummy[0], dummy, dummy));
   }
 
+  /**
+   * Not supported on our side - dummied.
+   */
   public Map<MetricName, ? extends Metric> metrics() {
     return new HashMap<>();
   }
 
   /**
-   * Closes the producer.
+   * Closes the producer - shutting down all the publishers and setting closed to true.
    */
   public void close() {
     close(0, null);
   }
 
   /**
-   * Closes the producer with the given timeout.
+   * Closes the producer - shutting down all the publishers and setting closed to true.
+   * The timeout is useless in our implementation.
    */
   public void close(long timeout, TimeUnit unit) {
     if (timeout < 0) {

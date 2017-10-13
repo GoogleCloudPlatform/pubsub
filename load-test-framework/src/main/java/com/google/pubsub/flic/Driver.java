@@ -575,6 +575,7 @@ public class Driver {
           .sendToSheets(spreadsheetId, statsMap);
     }
 
+    // It's not that helpful to print all the messages, our main concern is the count.
     Iterable<MessageIdentifier> missing = messageTracker.getMissing();
     if (missing.iterator().hasNext()) {
       log.error("Some published messages were not received!");

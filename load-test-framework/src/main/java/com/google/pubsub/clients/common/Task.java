@@ -47,6 +47,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  */
 public abstract class Task implements Runnable {
   private final MetricsHandler metricsHandler;
+
+  // Linked HashMap to maintain the order.
   private final Map<MessageIdentifier, Long> identifiers = new LinkedHashMap<>();
   private final Map<MessageIdentifier, Long> identifiersToRecord = new LinkedHashMap<>();
   private final long burnInTimeMillis;
@@ -56,6 +58,7 @@ public abstract class Task implements Runnable {
   private final AtomicInteger numMessages = new AtomicInteger(0);
   private final AtomicLong lastUpdateMillis = new AtomicLong(System.currentTimeMillis());
 
+  // Used to keep track of the count of sent messages, successful or not.
   protected final AtomicInteger actualCounter = new AtomicInteger(0);
 
   protected Task(StartRequest request, String type, MetricsHandler.MetricName metricName) {
@@ -212,6 +215,8 @@ public abstract class Task implements Runnable {
       }
     });
     identifiersToRecord.clear();
+
+    // Sort messages by receiveTime, to overcome the mess caused by multithreading.
     if (Client.orderTest) {
       identifiers.entrySet().stream()
           .sorted(Comparator

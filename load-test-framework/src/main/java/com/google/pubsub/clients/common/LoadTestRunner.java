@@ -145,12 +145,12 @@ public class LoadTestRunner {
                     boolean finishedValue = finished.get();
                     responseObserver.onNext(
                         CheckResponse.newBuilder()
+                            .addAllReceivedMessages(
+                                task.flushMessageIdentifiers(request.getDuplicatesList()))
                             .addAllBucketValues(task.getBucketValues())
                             .setRunningDuration(
                                 Duration.newBuilder()
                                     .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
-                            .addAllReceivedMessages(
-                                task.flushMessageIdentifiers(request.getDuplicatesList()))
                             .setIsFinished(finishedValue)
                             .build());
                     responseObserver.onCompleted();

@@ -40,6 +40,7 @@ public class MessageTracker {
         identifier -> {
           receivedMessages.putIfAbsent(
               identifier.getPublisherClientId(), new HashSet<MessageIdentifier>());
+          // Needs to create new object, for the test to work correctly.
           if (!receivedMessages.get(
               identifier.getPublisherClientId()).add(
                   MessageIdentifier.newBuilder()

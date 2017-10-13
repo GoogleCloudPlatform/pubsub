@@ -71,6 +71,7 @@ public class SheetsService {
     fillClientCounts(types);
   }
 
+  // Count mapped API instances separately.
   private void fillClientCounts(Map<String, Map<ClientParams, Integer>> types) {
     types.values().forEach(paramsMap -> {
       Map<ClientType, Integer> countMap = paramsMap.keySet().stream().
@@ -140,6 +141,7 @@ public class SheetsService {
     }
   }
 
+  // State number of cores, type and number of every instance correctly.
   public List<List<List<Object>>> getValuesList(Map<ClientType, Controller.LoadtestStats> results) {
     List<List<Object>> cpsValues = new ArrayList<>(results.size());
     List<List<Object>> kafkaValues = new ArrayList<>(results.size());
