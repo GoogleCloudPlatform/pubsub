@@ -258,7 +258,6 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     log.debug("Subscribed to topic(s): {}", Utils.join(topics, ", "));
   }
 
-  //HERE
   private Subscriber getSubscriberFromConfigs(Entry<String, Subscription> entry) {
     return Subscriber.defaultBuilder(entry.getValue(),
             new MappedApiMessageReceiver())
