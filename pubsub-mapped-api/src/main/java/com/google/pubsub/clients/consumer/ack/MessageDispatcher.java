@@ -32,6 +32,7 @@ import com.google.pubsub.v1.ReceivedMessage;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -75,6 +76,7 @@ class MessageDispatcher {
   private final FlowController flowController;
   private final MessageWaiter messagesWaiter;
 
+  // This part is thread safe.
   private Set<String> pendingNacks;
   private Map<String, AckHandler> pendingAcks;
   private final PriorityQueue<ExtensionJob> outstandingAckHandlers;
@@ -537,11 +539,9 @@ class MessageDispatcher {
 
   //TODO: do we really need the sync?
   void acknowledgePendingMessages(boolean sync, Long offset) {
-    Map<String, AckHandler> acksToSend;
-    synchronized (pendingAcks) {
-      acksToSend = pendingAcks;
-      pendingAcks = new ConcurrentHashMap<>();
-    }
+    Map<String, AckHandler> acksToSend = pendingAcks;
+    pendingAcks = new ConcurrentHashMap<>();
+
     logger.log(Level.FINER, "Sending {0} acks", acksToSend.size());
 
     if (offset != null) {
@@ -556,13 +556,16 @@ class MessageDispatcher {
   }
 
   private void filterAcksBeforeOffset(Long offset, Map<String, AckHandler> acksToSend) {
+    Map<String, AckHandler> returnBack = new HashMap<>();
     Iterator<Map.Entry<String, AckHandler>> iter = acksToSend.entrySet().iterator();
     while (iter.hasNext()) {
-      Map.Entry<String, AckHandler> entry = iter.next();
-      if(entry.getValue().offset > offset) {
+      Entry<String, AckHandler> entry = iter.next();
+      if (entry.getValue().offset > offset) {
+        returnBack.put(entry.getKey(), entry.getValue());
         iter.remove();
       }
     }
+    pendingAcks.putAll(returnBack);
   }
 
   private void commitAsync(Map<String, AckHandler> acksToSend) {
@@ -636,7 +639,7 @@ class MessageDispatcher {
       for (String ackId : acksToExtend) {
         nacksToSend.addAckId(ackId);
       }
-      logger.log(Level.FINER, "Sending {0} nacks", pendingNacks.size());
+      logger.log(Level.FINER, "Sending {0} nacks", acksToExtend.size());
       modifyAckDeadlinesToSend.add(nacksToSend);
     }
 
