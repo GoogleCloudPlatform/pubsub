@@ -1,5 +1,19 @@
 #!/usr/bin/env python
 
+# Copyright 2017 Google Inc. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 import os
 import sys
 import getopt
@@ -7,6 +21,45 @@ import subprocess
 
 def main(project, test, vms_count, zone, sheet_id,
     broker, zookeeper, partitions, replication, mapped, cps):
+
+  """
+  Runs the load test framework.
+
+  Args:
+    project: The name of the Google Cloud project.
+
+    test: The type of test to run. Valid options are 'latency', 'service',
+          'throughput', 'test_throughput', 'ordering', 'correctness'.
+
+    vms_count: The number of VMs to start for each client type. You must have
+               sufficient Google Compute Engine quota to start vms_count *
+               len(client_types) * 4 cores, and it will take 4 times as much
+               quota to run a 'throughput' or 'service' test.
+
+    zone: the region to instantiate the instances in.
+
+    sheet_id: the Google Sheets ID, needed to publish results to.
+
+    broker: The network address of the Kafka broker to connect to. If supplied
+            we will automatically start Kafka clients.
+
+    zookeeper: The address of the zookeeper cluster, we can create and manage topics
+               automatically if provided.
+
+    partitions: The number of partitions in a single topic - Kafka config.
+
+    replication: The replication factor for every topic - Kafka config.
+
+    mapped: A flag to run the test for the mapped API or not.
+
+    cps: A flag to run the test for CPS or not.
+
+  Arguments Example:
+
+  --project=<PROJECT_NAME> --vms_count=<# of VMs> --test=correctness --mapped --cps
+  --sheet_id=<SHEET_ID> --broker=<BROKER_IP:BROKER_PORT>
+  --zookeeper=<ZOOKEEPER1_IP:ZOOKEEPER1_PORT,ZOOKEEPER2_IP:ZOOKEEPER2_PORT,..>
+  """
 
   subprocess.call(['mvn', 'clean', 'install'], cwd='../pubsub-mapped-api')
   subprocess.call(['mvn', 'clean', 'package'])

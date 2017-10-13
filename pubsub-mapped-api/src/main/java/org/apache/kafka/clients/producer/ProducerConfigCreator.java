@@ -21,6 +21,8 @@ import java.util.Properties;
 
 /**
  * This is an adapter to control the ProducerConfig class since it's constructors are package-private.
+ * It provides a way to instantiate ProducerConfig objects. Also, it propagates the configuration
+ * with options required by ProducerConfig class that are irrelevant for PubSub.
  */
 public class ProducerConfigCreator {
   
