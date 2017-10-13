@@ -182,15 +182,15 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
       Preconditions.checkNotNull(channel);
 
-      // 32 MB for inbound and outbound messages
+      // 16 MB for inbound and outbound messages
       SubscriberFutureStub subscriberFutureStub = SubscriberGrpc.newFutureStub(channel)
-          .withMaxInboundMessageSize(32 * 1024 * 1024)
-          .withMaxOutboundMessageSize(32 * 1024 * 1024)
+          .withMaxInboundMessageSize(16 * 1024 * 1024)
+          .withMaxOutboundMessageSize(16 * 1024 * 1024)
           .withDeadlineAfter(config.getRequestTimeoutMs(), TimeUnit.MILLISECONDS);
 
       PublisherFutureStub publisherFutureStub = PublisherGrpc.newFutureStub(channel)
-          .withMaxInboundMessageSize(32 * 1024 * 1024)
-          .withMaxOutboundMessageSize(32 * 1024 * 1024)
+          .withMaxInboundMessageSize(16 * 1024 * 1024)
+          .withMaxOutboundMessageSize(16 * 1024 * 1024)
           .withDeadlineAfter(config.getRequestTimeoutMs(), TimeUnit.MILLISECONDS);
 
       if (callCredentials != null) {
