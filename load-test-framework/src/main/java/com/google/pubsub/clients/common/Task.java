@@ -198,11 +198,11 @@ public abstract class Task implements Runnable {
         "Identifiers and latencies must be the same size (%s != %s).",
         identifiers.size(),
         latencies.size());
-    lastUpdateMillis.set(System.currentTimeMillis());
     for (int i = 0; i < identifiers.size(); i++) {
       this.identifiers.put(identifiers.get(i), latencies.get(i));
     }
     numMessages.getAndAdd(identifiers.size());
+    lastUpdateMillis.set(System.currentTimeMillis());
   }
 
   synchronized List<MessageIdentifier> flushMessageIdentifiers(List<MessageIdentifier> duplicates) {

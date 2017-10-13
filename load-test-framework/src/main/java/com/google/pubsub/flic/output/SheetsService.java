@@ -216,8 +216,13 @@ public class SheetsService {
       } else {
         valueRow.add("N/A");
         valueRow.add(Client.numberOfMessages);
-        valueRow.add(stats.numOutOrderMsgs.toString().replaceAll("\\[|\\]", ""));
-        valueRow.add(stats.outOrderMsgsPercent.toString().replaceAll("\\[|\\]", ""));
+        if (Client.orderTest) {
+          valueRow.add(stats.numOutOrderMsgs.toString().replaceAll("\\[|\\]", ""));
+          valueRow.add(stats.outOrderMsgsPercent.toString().replaceAll("\\[|\\]", ""));
+        } else {
+          valueRow.add("N/A");
+          valueRow.add("N/A");
+        }
       }
       valueRow.add(Client.publishBatchSize);
       valueRow.add(Client.maxMessagesPerPull);

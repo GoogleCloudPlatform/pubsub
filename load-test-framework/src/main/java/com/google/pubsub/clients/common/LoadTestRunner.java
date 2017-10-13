@@ -54,12 +54,12 @@ import org.slf4j.LoggerFactory;
  * Starts a server to get the start request, then starts the load task.
  */
 public class LoadTestRunner {
-  private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
   private static Task task;
   private static Server server;
   private static final int MAX_IDLE_MILLIS = 60 * 1000; // 1 minute
   private static final Stopwatch stopwatch = Stopwatch.createUnstarted();
   private static SettableFuture<Void> finishedFuture = SettableFuture.create();
+  private static final Logger log = LoggerFactory.getLogger(LoadTestRunner.class);
   private static final AtomicBoolean finished = new AtomicBoolean(true);
 
   /**
@@ -98,11 +98,12 @@ public class LoadTestRunner {
     while (shouldContinue(request)) {
       executor.execute(task);
     }
+    log.info("Load test complete.");
     stopwatch.stop();
     finished.set(true);
     task.shutdown();
     executor.shutdownNow();
-    log.info("Load test complete.");
+    log.info("Shutting down server.");
   }
 
   public static void run(Options options, Function<StartRequest, Task> function)
@@ -144,12 +145,12 @@ public class LoadTestRunner {
                     boolean finishedValue = finished.get();
                     responseObserver.onNext(
                         CheckResponse.newBuilder()
-                            .addAllReceivedMessages(
-                                task.flushMessageIdentifiers(request.getDuplicatesList()))
                             .addAllBucketValues(task.getBucketValues())
                             .setRunningDuration(
                                 Duration.newBuilder()
                                     .setSeconds(stopwatch.elapsed(TimeUnit.SECONDS)))
+                            .addAllReceivedMessages(
+                                task.flushMessageIdentifiers(request.getDuplicatesList()))
                             .setIsFinished(finishedValue)
                             .build());
                     responseObserver.onCompleted();
@@ -174,17 +175,11 @@ public class LoadTestRunner {
     Thread.currentThread().join();
   }
 
-  private static boolean notBlockingOnRequests(StopConditionsCase condition) {
-    return condition != StopConditionsCase.NUMBER_OF_MESSAGES
-        || System.currentTimeMillis() - task.getLastUpdateMillis() > 5 * MAX_IDLE_MILLIS;
-  }
-
   private static boolean shouldContinue(StartRequest request) {
     // If the test has been running for at least a minute, and we have been idle for a minute, we
     // should stop.
     if (System.currentTimeMillis() - Timestamps.toMillis(request.getStartTime()) > MAX_IDLE_MILLIS
-        && System.currentTimeMillis() - task.getLastUpdateMillis() > MAX_IDLE_MILLIS
-        && notBlockingOnRequests(request.getStopConditionsCase())) {
+        && System.currentTimeMillis() - task.getLastUpdateMillis() > MAX_IDLE_MILLIS) {
       return false;
     }
     switch (request.getStopConditionsCase()) {

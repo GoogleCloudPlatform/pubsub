@@ -325,7 +325,7 @@ public class Subscriber extends AbstractApiService {
       this.systemExecutorProvider = Preconditions.checkNotNull(executorProvider);
       return this;
     }
-    
+
     public Builder setAutoCommit(Boolean autoCommit) {
       this.autoCommit = autoCommit;
       return this;
@@ -351,7 +351,7 @@ public class Subscriber extends AbstractApiService {
       this.subscriberFutureStub = subscriberFutureStub;
       return this;
     }
-    
+
     public Builder setRetryBackoffMs(Long retryBackoffMs) {
       this.retryBackoffMs = retryBackoffMs;
       return this;

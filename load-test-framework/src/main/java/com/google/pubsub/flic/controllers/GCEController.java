@@ -145,8 +145,7 @@ public class GCEController extends Controller {
             try {
               pubsub.projects().subscriptions().create("projects/" + projectName
                   + "/subscriptions/" + subscription, new Subscription()
-                  .setTopic("projects/" + projectName + "/topics/" + topic).
-                      setAckDeadlineSeconds(600)).execute();
+                  .setTopic("projects/" + projectName + "/topics/" + topic)).execute();
             } catch (IOException e) {
               pubsubFuture.setException(e);
             }
