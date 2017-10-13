@@ -27,6 +27,10 @@ import java.util.Map;
 public class PubSubConsumerConfig extends AbstractConfig {
   private static final ConfigDef CONFIG = getInstance();
 
+  /** <code>project</code> */
+  public static final String PROJECT_CONFIG = "project";
+  private static final String PROJECT_DOC = "GCP project that we will connect to.";
+
   /** <code>subscription.allow.create</code> */
   public static final String SUBSCRIPTION_ALLOW_CREATE_CONFIG = "subscription.allow.create";
   private static final String SUBSCRIPTION_ALLOW_CREATE_DOC =
@@ -53,6 +57,10 @@ public class PubSubConsumerConfig extends AbstractConfig {
 
   private static synchronized ConfigDef getInstance() {
     return new ConfigDef()
+        .define(PROJECT_CONFIG,
+            Type.STRING,
+            Importance.HIGH,
+            PROJECT_DOC)
         .define(SUBSCRIPTION_ALLOW_CREATE_CONFIG,
             Type.BOOLEAN,
             false,

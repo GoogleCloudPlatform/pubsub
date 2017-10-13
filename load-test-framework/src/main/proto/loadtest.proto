@@ -102,6 +102,13 @@ message MessageIdentifier {
 
   // Sequence number of the published message with the given publish_client_id.
   int32 sequence_number = 2;
+
+  // Publish time of the message identified by the sequence_number
+  // and populated by the server.
+  int64 publish_time = 3;
+
+  // Receive time of the message identified by the sequence_number.
+  int64 receive_time = 4;
 }
 
 message CheckRequest {

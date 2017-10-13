@@ -458,6 +458,7 @@ public class KafkaConsumerTest {
 
     Properties properties = new Properties();
     properties.putAll(new ImmutableMap.Builder<>()
+        .put("project", "unit-test-project")
         .put("key.deserializer",
             "org.apache.kafka.common.serialization.IntegerDeserializer")
         .put("value.deserializer",
@@ -482,15 +483,16 @@ public class KafkaConsumerTest {
     }
   }
 
-  private KafkaConsumer<Integer, String> getConsumer(boolean allowesCreation) {
-    Properties properties = getTestProperties(allowesCreation);
+  private KafkaConsumer<Integer, String> getConsumer(boolean allowsCreation) {
+    Properties properties = getTestProperties(allowsCreation);
     Config configOptions = new Config(properties);
     return new KafkaConsumer<>(configOptions, grpcServerRule.getChannel(), null);
   }
 
-  private Properties getTestProperties(boolean allowesCreation) {
+  private Properties getTestProperties(boolean allowsCreation) {
     Properties properties = new Properties();
     properties.putAll(new ImmutableMap.Builder<>()
+        .put("project", "unit-test-project")
         .put("key.deserializer",
             "org.apache.kafka.common.serialization.IntegerDeserializer")
         .put("value.deserializer",
@@ -498,15 +500,11 @@ public class KafkaConsumerTest {
         .put("max.poll.records", 500)
         .put("group.id", "groupId")
         .put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false)
-        .put("subscription.allow.create", allowesCreation)
+        .put("subscription.allow.create", allowsCreation)
         .put("subscription.allow.delete", false)
         .build()
     );
     return properties;
-  }
-
-  private String getTopicPrefixString(String topicName) {
-    return "projects/" +   System.getenv("GOOGLE_CLOUD_PROJECT") + "/topics/" + topicName;
   }
 
   static class SubscriberGetImpl extends SubscriberImplBase {
@@ -652,7 +650,7 @@ public class KafkaConsumerTest {
 
     @Override
     public void listTopics(ListTopicsRequest request, StreamObserver<ListTopicsResponse> responseObserver) {
-      String project = "projects/" + System.getenv("GOOGLE_CLOUD_PROJECT") + "/topics/";
+      String project = "projects/unit-test-project/topics/";
       List<String> topicNames = new ArrayList<>(Arrays.asList(
         project + "thisis123cat", project + "abc12345bad", project + "noWay1234", project + "funnycats000cat"));
 

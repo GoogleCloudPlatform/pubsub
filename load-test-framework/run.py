@@ -104,6 +104,7 @@ def main(project, test, client_types, vms_count, broker):
         '--loadtest_duration=10m', '--burn_in_duration=2m',
         '--publish_batch_duration=50ms', '--cores=16'
     ])
+
   print(' '.join(arg_list))
   subprocess.call(arg_list)
 

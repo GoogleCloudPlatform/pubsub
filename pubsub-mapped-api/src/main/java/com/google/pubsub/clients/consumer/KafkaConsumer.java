@@ -112,10 +112,10 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
   private static final ConsumerRebalanceListener NO_REBALANCE_LISTENER = null;
   private static final Logger log = LoggerFactory.getLogger(KafkaConsumer.class);
-  private static final String GOOGLE_CLOUD_PROJECT = "projects/" +
-      System.getenv("GOOGLE_CLOUD_PROJECT");
-  private static final String SUBSCRIPTION_PREFIX = GOOGLE_CLOUD_PROJECT + "/subscriptions/";
-  private static final String TOPIC_PREFIX = GOOGLE_CLOUD_PROJECT + "/topics/";
+
+  private final String TOPIC_PREFIX;
+  private final String SUBSCRIPTION_PREFIX;
+  private final String GOOGLE_CLOUD_PROJECT;
 
   //because of no partition concept, the partition number is constant
   private static final int DEFAULT_PARTITION = 0;
@@ -175,23 +175,30 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     try {
       log.debug("Starting PubSub subscriber");
 
+      this.config = config;
+      this.GOOGLE_CLOUD_PROJECT = "projects/" + config.getProject();
+      this.TOPIC_PREFIX = GOOGLE_CLOUD_PROJECT + "/topics/";
+      this.SUBSCRIPTION_PREFIX = GOOGLE_CLOUD_PROJECT + "/subscriptions/";
+
       Preconditions.checkNotNull(channel);
 
       SubscriberFutureStub subscriberFutureStub = SubscriberGrpc.newFutureStub(channel)
+          .withMaxInboundMessageSize(16777216)
+          .withMaxOutboundMessageSize(16777216)
           .withDeadlineAfter(config.getRequestTimeoutMs(), TimeUnit.MILLISECONDS);
 
       PublisherFutureStub publisherFutureStub = PublisherGrpc.newFutureStub(channel)
+          .withMaxInboundMessageSize(16777216)
+          .withMaxOutboundMessageSize(16777216)
           .withDeadlineAfter(config.getRequestTimeoutMs(), TimeUnit.MILLISECONDS);
 
-      if(callCredentials != null) {
+      if (callCredentials != null) {
         subscriberFutureStub = subscriberFutureStub.withCallCredentials(callCredentials);
         publisherFutureStub = publisherFutureStub.withCallCredentials(callCredentials);
       }
 
       this.subscriberFutureStub = subscriberFutureStub;
       this.publisherFutureStub = publisherFutureStub;
-
-      this.config = config;
 
       log.debug("PubSub subscriber created");
     } catch (Throwable t) {
@@ -464,7 +471,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
    * on next topic, as long as it polls some messages or gets though all topics.
    *
    * When polling, deadline extensions are scheduled. Messages deadlines will be extended until commit call
-   * (manual config),  until auto.commit.interval passes since previous commit (auto config)
+   * (manual config), until auto.commit.interval passes since previous commit (auto config)
    * or until max.ack.extension.period passes (maximum on deadline extensions).
    *
    * If auto commit configured, every time poll is called it will check if auto.commit.interval passed since last
@@ -549,11 +556,14 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
     }
   }
 
+  private long getMillis(com.google.protobuf.Timestamp ts) {
+    return ts.getSeconds() * 1000 + ts.getNanos() / 1000000;
+  }
+
   private ConsumerRecord<K,V> prepareKafkaRecord(ReceivedMessage receivedMessage, String topic) {
     PubsubMessage message = receivedMessage.getMessage();
 
-    long timestamp = message.getPublishTime().getSeconds() * 1000 + message.getPublishTime().getNanos() / 1000;
-
+    long timestamp = getMillis(message.getPublishTime());
     TimestampType timestampType = TimestampType.CREATE_TIME;
 
     //because of no offset concept in PubSub, timestamp is treated as an offset
@@ -943,7 +953,7 @@ public class KafkaConsumer<K, V> implements Consumer<K, V> {
 
     @Override
     public void onFailure(Throwable throwable) {
-      //TODO retry unsubscribe?
+      //TODO: retry unsubscribe?
       log.warn("Failed to unsubscribe to topic", throwable);
     }
   }
