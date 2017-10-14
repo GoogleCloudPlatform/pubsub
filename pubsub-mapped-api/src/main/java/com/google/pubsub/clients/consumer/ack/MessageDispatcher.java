@@ -628,12 +628,8 @@ class MessageDispatcher {
         Lists.newArrayList(ackDeadlineExtensions);
     PendingModifyAckDeadline nacksToSend = new PendingModifyAckDeadline(0);
 
-    Set<String> acksToExtend;
-
-    synchronized (pendingNacks) {
-      acksToExtend = pendingNacks;
-      pendingNacks = ConcurrentHashMap.newKeySet();
-    }
+    Set<String> acksToExtend = pendingNacks;
+    pendingNacks = ConcurrentHashMap.newKeySet();
 
     if (!acksToExtend.isEmpty()) {
       for (String ackId : acksToExtend) {
