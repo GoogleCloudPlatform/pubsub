@@ -197,9 +197,10 @@ public class CloudPubSubSourceTask extends SourceTask {
     if (ackIds.size() != 0) {
       AcknowledgeRequest.Builder requestBuilder = AcknowledgeRequest.newBuilder()
           .setSubscription(cpsSubscription);
+      final Set<String> ackIdsCopy = new HashSet<>();
       synchronized (ackIds) {
         requestBuilder.addAllAckIds(ackIds);
-        ackIds.clear();
+        ackIdsCopy.addAll(ackIds);
       }
       ListenableFuture<Empty> response = subscriber.ackMessages(requestBuilder.build());
       Futures.addCallback(
@@ -207,11 +208,17 @@ public class CloudPubSubSourceTask extends SourceTask {
           new FutureCallback<Empty>() {
             @Override
             public void onSuccess(Empty result) {
+              synchronized (ackIds){
+                ackIds.removeAll(ackIdsCopy);
+              }
               log.trace("Successfully acked a set of messages.");
             }
 
             @Override
             public void onFailure(Throwable t) {
+              synchronized (ackIds){
+                ackIds.addAll(ackIdsCopy);
+              }
               log.error("An exception occurred acking messages: " + t);
             }
           });
