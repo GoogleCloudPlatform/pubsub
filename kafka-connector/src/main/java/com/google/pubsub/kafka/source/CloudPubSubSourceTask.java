@@ -46,7 +46,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to <a
- * href="http://kafka.apache.org/">Apache Kafka</a>.
+ * href="http://kafka.apache.org/">Apache Kafka</a>. Due to at-last-once semantics in Google
+ * Cloud Pub/Sub duplicates in Kafka are possible.
  */
 public class CloudPubSubSourceTask extends SourceTask {
 
@@ -64,6 +65,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   // Keep track of all ack ids that have not been sent correctly acked yet.
   private Set<String> ackIds = Collections.synchronizedSet(new HashSet<String>());
   private CloudPubSubSubscriber subscriber;
+  private Set<String> ackIdsInFlight = Collections.synchronizedSet(new HashSet<String>());
 
   public CloudPubSubSourceTask() {}
 
@@ -120,8 +122,9 @@ public class CloudPubSubSourceTask extends SourceTask {
         PubsubMessage message = rm.getMessage();
         String ackId = rm.getAckId();
         // If we are receiving this message a second (or more) times because the ack for it failed
-        // then do not create a SourceRecord for this message.
-        if (ackIds.contains(ackId)) {
+        // then do not create a SourceRecord for this message. In case we are waiting for ack
+        // response we also skip the message
+        if (ackIds.contains(ackId) || ackIdsInFlight.contains(ackId)) {
           continue;
         }
         ackIds.add(ackId);
@@ -190,15 +193,17 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   /**
-   * Attempt to ack all ids in {@link #ackIds}. Acks are best-effort, so if acking fails, messages
-   * may be delivered multiple times to Kafka.
+   * Attempt to ack all ids in {@link #ackIds}.
    */
   private void ackMessages() {
     if (ackIds.size() != 0) {
       AcknowledgeRequest.Builder requestBuilder = AcknowledgeRequest.newBuilder()
           .setSubscription(cpsSubscription);
+      final Set<String> ackIdsBatch = new HashSet<>();
       synchronized (ackIds) {
         requestBuilder.addAllAckIds(ackIds);
+        ackIdsInFlight.addAll(ackIds);
+        ackIdsBatch.addAll(ackIds);
         ackIds.clear();
       }
       ListenableFuture<Empty> response = subscriber.ackMessages(requestBuilder.build());
@@ -207,11 +212,14 @@ public class CloudPubSubSourceTask extends SourceTask {
           new FutureCallback<Empty>() {
             @Override
             public void onSuccess(Empty result) {
+              ackIdsInFlight.removeAll(ackIdsBatch);
               log.trace("Successfully acked a set of messages.");
             }
 
             @Override
             public void onFailure(Throwable t) {
+              ackIds.addAll(ackIdsBatch);
+              ackIdsInFlight.removeAll(ackIdsBatch);
               log.error("An exception occurred acking messages: " + t);
             }
           });
