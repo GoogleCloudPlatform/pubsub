@@ -121,7 +121,8 @@ public class CloudPubSubSourceTask extends SourceTask {
         PubsubMessage message = rm.getMessage();
         String ackId = rm.getAckId();
         // If we are receiving this message a second (or more) times because the ack for it failed
-        // then do not create a SourceRecord for this message. In case we are waiting for ack response we also skip the message
+        // then do not create a SourceRecord for this message. In case we are waiting for ack
+        // response we also skip the message
         if (ackIds.contains(ackId) || ackIdsInFlight.contains(ackId)) {
           continue;
         }
