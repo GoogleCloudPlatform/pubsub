@@ -46,7 +46,8 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to <a
- * href="http://kafka.apache.org/">Apache Kafka</a>.
+ * href="http://kafka.apache.org/">Apache Kafka</a>. Due to at-last-once semantics in Google
+ * Cloud Pub/Sub duplicates in Kafka are possible.
  */
 public class CloudPubSubSourceTask extends SourceTask {
 
