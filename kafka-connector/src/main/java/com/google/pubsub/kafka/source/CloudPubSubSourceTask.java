@@ -107,7 +107,6 @@ public class CloudPubSubSourceTask extends SourceTask {
   @Override
   public List<SourceRecord> poll() throws InterruptedException {
     log.debug("Polling...");
-    ackMessages();
     PullRequest request =
         PullRequest.newBuilder()
             .setSubscription(cpsSubscription)
@@ -190,6 +189,11 @@ public class CloudPubSubSourceTask extends SourceTask {
       log.info("Error while retrieving records, treating as an empty poll. " + e);
       return new ArrayList<>();
     }
+  }
+
+  @Override
+  public void commit() throws InterruptedException {
+    ackMessages();
   }
 
   /**

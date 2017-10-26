@@ -139,8 +139,10 @@ public class CloudPubSubSourceTaskTest {
     when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     result = task.poll();
+    task.commit();
     assertEquals(0, result.size());
     result = task.poll();
+    task.commit();
     assertEquals(0, result.size());
     verify(subscriber, times(1)).ackMessages(any(AcknowledgeRequest.class));
   }
@@ -163,12 +165,8 @@ public class CloudPubSubSourceTaskTest {
     stubbedPullResponse =
         PullResponse.newBuilder().addReceivedMessages(0, rm1).addReceivedMessages(1, rm2).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    ListenableFuture<Empty> failedFuture = Futures.immediateFailedFuture(new Throwable());
-    when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(failedFuture);
     result = task.poll();
     assertEquals(1, result.size());
-    verify(subscriber, times(1)).ackMessages(any(AcknowledgeRequest.class));
-
   }
 
   /**
