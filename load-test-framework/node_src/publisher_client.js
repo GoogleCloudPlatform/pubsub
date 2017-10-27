@@ -46,7 +46,7 @@ function start(call, callback) {
 }
 
 function execute(call, callback) {
-  var publishTime = System.currentTimeMillis();
+  var publishTime = (new Date).getTime();
   for (var i = 0; i < batch_size; ++i) {
     var attributes = {
       'sendTime': publishTime.toString(),
