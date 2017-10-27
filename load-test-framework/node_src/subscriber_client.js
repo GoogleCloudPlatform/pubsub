@@ -23,8 +23,8 @@ var grpc = require('grpc');
 var pubsub = require('@google-cloud/pubsub')
 var loadtest = grpc.load(PROTO_PATH).google.pubsub.loadtest;
 var subscription;
-var latencies;
-var received_messages;
+var latencies = [];
+var received_messages = [];
 
 function onMessage(message) {
   latencies.push((new Date).getTime() - message.attributes['sendTime']);
@@ -32,7 +32,6 @@ function onMessage(message) {
     publisher_client_id: message.attributes['clientId'],
     sequence_number: message.attributes['sequenceNumber']
   });
-  messages.push(message.attributes);
   message.ack();
 }
 

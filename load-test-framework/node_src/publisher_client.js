@@ -27,6 +27,7 @@ var message;
 var batch_size;
 var client_id;
 var sequence_number;
+var latencies;
 
 function start(call, callback) {
   var pubsubClient = pubsub({
@@ -37,29 +38,37 @@ function start(call, callback) {
   var topic = pubsubClient.topic(call.request.topic);
 
   // Publish a message to the topic.
-  publisher = topic.publisher();
+  publisher = topic.publisher({
+    batching: {
+      maxMilliseconds: Math.round(call.request.publish_batch_duration.seconds * 1000 +
+                                  call.request.publish_batch_duration.nanos / 1000000.0)
+    }
+  });
   message = new Buffer('A' * call.request.message_size);
-  batch_size = call.request.batch_size;
+  batch_size = call.request.publish_batch_size;
   client_id = (Math.random() * Number.MAX_SAFE_INTEGER).toString();
   sequence_number = 0;
+  latencies = [];
   callback(null, {});
 }
 
 function execute(call, callback) {
-  var publishTime = (new Date).getTime();
+  var publish_time = (new Date).getTime();
   for (var i = 0; i < batch_size; ++i) {
     var attributes = {
-      'sendTime': publishTime.toString(),
-      'clientId': clientId,
-      'sequenceNumber': (sequenceNumber++).toString()
+      'sendTime': publish_time.toString(),
+      'clientId': client_id,
+      'sequenceNumber': (sequence_number++).toString()
     };
-    publisher.publish(message, attributes, function(publishTime) {
+    publisher.publish(message, attributes, function(publish_time) {
       return function(err, messageId) {
         if (!err) {
-          latencies.push((new Date).getTime() - publishTime);
+          latencies.push((new Date).getTime() - publish_time);
+        } else {
+          console.log("Error publishing message: " + err);
         }
       };
-    }(publishTime));
+    }(publish_time));
   }
   callback(null, { 'latencies': latencies});
   latencies = [];
