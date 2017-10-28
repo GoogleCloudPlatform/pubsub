@@ -119,6 +119,9 @@ public class Client {
       case CPS_GCLOUD_NODE_PUBLISHER:
       case CPS_GCLOUD_NODE_SUBSCRIBER:
         return "gcloud-node";
+      case CPS_GCLOUD_DOTNET_PUBLISHER:
+      case CPS_GCLOUD_DOTNET_SUBSCRIBER:
+        return "gcloud-dotnet";
       case KAFKA_PUBLISHER:
       case KAFKA_SUBSCRIBER:
         return "kafka";
@@ -179,6 +182,7 @@ public class Client {
       case CPS_GCLOUD_PYTHON_SUBSCRIBER:
       case CPS_GCLOUD_RUBY_SUBSCRIBER:
       case CPS_GCLOUD_NODE_SUBSCRIBER:
+      case CPS_GCLOUD_DOTNET_SUBSCRIBER:
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder().setSubscription(subscription));
         break;
       case KAFKA_PUBLISHER:
@@ -201,6 +205,7 @@ public class Client {
       case CPS_GCLOUD_RUBY_PUBLISHER:
       case CPS_GCLOUD_GO_PUBLISHER:
       case CPS_GCLOUD_NODE_PUBLISHER:
+      case CPS_GCLOUD_DOTNET_PUBLISHER:
         break;
     }
     StartRequest request = requestBuilder.build();
@@ -309,6 +314,8 @@ public class Client {
     CPS_GCLOUD_GO_SUBSCRIBER,
     CPS_GCLOUD_NODE_PUBLISHER,
     CPS_GCLOUD_NODE_SUBSCRIBER,
+    CPS_GCLOUD_DOTNET_PUBLISHER,
+    CPS_GCLOUD_DOTNET_SUBSCRIBER,
     KAFKA_PUBLISHER,
     KAFKA_SUBSCRIBER;
 
@@ -319,6 +326,7 @@ public class Client {
         case CPS_GCLOUD_RUBY_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
         case CPS_GCLOUD_NODE_PUBLISHER:
+        case CPS_GCLOUD_DOTNET_PUBLISHER:
           return true;
         default:
           return false;
@@ -342,6 +350,7 @@ public class Client {
         case CPS_GCLOUD_GO_PUBLISHER:
         case KAFKA_PUBLISHER:
         case CPS_GCLOUD_NODE_PUBLISHER:
+        case CPS_GCLOUD_DOTNET_PUBLISHER:
           return true;
         default:
           return false;
@@ -362,6 +371,8 @@ public class Client {
           return CPS_GCLOUD_RUBY_SUBSCRIBER;
         case CPS_GCLOUD_NODE_PUBLISHER:
           return CPS_GCLOUD_NODE_SUBSCRIBER;
+        case CPS_GCLOUD_DOTNET_PUBLISHER:
+          return CPS_GCLOUD_DOTNET_SUBSCRIBER;
         default:
           return this;
       }

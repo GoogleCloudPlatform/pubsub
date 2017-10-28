@@ -131,6 +131,18 @@ public class Driver {
   private int cpsGcloudNodeSubscriberCount = 0;
 
   @Parameter(
+      names = {"--cps_gcloud_dotnet_publisher_count"},
+      description = "Number of CPS publishers of this type to start."
+  )
+  private int cpsGcloudDotnetPublisherCount = 0;
+
+  @Parameter(
+      names = {"--cps_gcloud_dotnet_subscriber_count"},
+      description = "Number of CPS subscribers of this type to start."
+  )
+  private int cpsGcloudDotnetSubscriberCount = 0;
+
+  @Parameter(
     names = {"--cps_gcloud_go_publisher_count"},
     description = "Number of CPS publishers of this type to start."
   )
@@ -397,6 +409,11 @@ public class Driver {
             new ClientParams(ClientType.CPS_GCLOUD_NODE_PUBLISHER, null),
             cpsGcloudNodePublisherCount);
       }
+      if (cpsGcloudDotnetPublisherCount > 0) {
+        clientParamsMap.put(
+            new ClientParams(ClientType.CPS_GCLOUD_DOTNET_PUBLISHER, null),
+            cpsGcloudDotnetPublisherCount);
+      }
       if (cpsGcloudGoPublisherCount > 0) {
         clientParamsMap.put(
             new ClientParams(ClientType.CPS_GCLOUD_GO_PUBLISHER, null),
@@ -464,6 +481,13 @@ public class Driver {
           clientParamsMap.put(
               new ClientParams(ClientType.CPS_GCLOUD_NODE_SUBSCRIBER, "gcloud-node-subscription" + i),
               cpsGcloudNodeSubscriberCount / cpsSubscriptionFanout);
+        }
+        if (cpsGcloudDotnetSubscriberCount > 0) {
+          Preconditions.checkArgument(cpsGcloudDotnetPublisherCount > 0,
+              "--cps_gcloud_dotnet_publisher must be > 0.");
+          clientParamsMap.put(
+              new ClientParams(ClientType.CPS_GCLOUD_DOTNET_SUBSCRIBER, "gcloud-dotnet-subscription" + i),
+              cpsGcloudDotnetSubscriberCount / cpsSubscriptionFanout);
         }
       }
       // Set static variables.
@@ -541,7 +565,8 @@ public class Driver {
             + cpsGcloudPythonPublisherCount
             + cpsGcloudRubyPublisherCount
             + cpsGcloudGoPublisherCount
-            + cpsGcloudNodePublisherCount);
+            + cpsGcloudNodePublisherCount
+            + cpsGcloudDotnetPublisherCount);
     controller.startClients(messageTracker);
     if (whileRunning != null) {
       whileRunning.run();
