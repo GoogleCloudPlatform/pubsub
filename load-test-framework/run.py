@@ -68,6 +68,10 @@ def main(project, test, client_types, vms_count, broker):
         './node_src/loadtest.proto' ,
         './node_src/google/protobuf/duration.proto' ,
         './node_src/google/protobuf/timestamp.proto',
+        './dotnet_src/Worker/CPSPublisherTask.cs',
+        './dotnet_src/Worker/Loadtest.cs',
+        './dotnet_src/Worker/LoadtestGrpc.cs',
+        './dotnet_src/Worker/Worker.csproj',
         go_bin_location
     ])
   arg_list = ['java', '-jar', 'target/driver.jar', '--project', project]
@@ -88,6 +92,9 @@ def main(project, test, client_types, vms_count, broker):
     elif client == 'gcloud_node':
       arg_list.append('--cps_gcloud_node_publisher_count=' + str(vms_count))
       arg_list.append('--cps_gcloud_node_subscriber_count=' + str(vms_count))
+    elif client == 'gcloud_dotnet':
+      arg_list.append('--cps_gcloud_dotnet_publisher_count=' + str(vms_count))
+      arg_list.append('--cps_gcloud_dotnet_subscriber_count=' + str(vms_count))
   if broker:
     arg_list.extend([
         '--broker=' + broker, '--kafka_publisher_count=' + str(vms_count),
@@ -150,10 +157,10 @@ if __name__ == '__main__':
   if len(client_types_arg) == 0:
     client_types_arg = set(['gcloud_java'])
   if not client_types_arg.issubset(
-      set(['gcloud_python', 'gcloud_java', 'gcloud_go', 'gcloud_ruby', 'gcloud_node'])):
+      set(['gcloud_python', 'gcloud_java', 'gcloud_go', 'gcloud_ruby', 'gcloud_node', 'gcloud_dotnet'])):
     sys.exit(
         'Invalid --client_type parameter given. Must be a comma deliminated '
-        'sequence of client types. Allowed client types are \'gcloud_python\', '
+        'sequence of client types. Allowed client types are \'gcloud_python\', \'gcloud_dotnet\', '
         '\'gcloud_java\', \'gcloud_go\', \'gcloud_node\', and \'gcloud_ruby\'. (' + ','.join(
             client_types_arg) +
         ') was provided. Kafka is assumed if --broker is provided.')
