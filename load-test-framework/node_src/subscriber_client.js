@@ -29,8 +29,8 @@ var received_messages = [];
 function onMessage(message) {
   latencies.push((new Date).getTime() - message.attributes['sendTime']);
   received_messages.push({
-    publisher_client_id: message.attributes['clientId'],
-    sequence_number: message.attributes['sequenceNumber']
+    publisher_client_id: parseInt(message.attributes['clientId']),
+    sequence_number: parseInt(message.attributes['sequenceNumber'])
   });
   message.ack();
 }

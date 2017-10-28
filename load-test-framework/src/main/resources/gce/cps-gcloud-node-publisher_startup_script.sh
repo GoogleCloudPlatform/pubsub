@@ -31,7 +31,7 @@ curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
 
 wait $PIDAPT
 wait $PIDDRIV
-wait PIDCPS
+wait $PIDCPS
 
 cd ${TMP}
 unzip cps.zip
