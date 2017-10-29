@@ -68,10 +68,16 @@ def main(project, test, client_types, vms_count, broker):
         './node_src/loadtest.proto' ,
         './node_src/google/protobuf/duration.proto' ,
         './node_src/google/protobuf/timestamp.proto',
-        './dotnet_src/Worker/CPSPublisherTask.cs',
-        './dotnet_src/Worker/Loadtest.cs',
-        './dotnet_src/Worker/LoadtestGrpc.cs',
-        './dotnet_src/Worker/Worker.csproj',
+        './dotnet_src/Publisher/CPSPublisherTask.cs',
+        './dotnet_src/Publisher/Loadtest.cs',
+        './dotnet_src/Publisher/LoadtestGrpc.cs',
+        './dotnet_src/Publisher/Worker.csproj',
+        './dotnet_src/Publisher.sln',
+        './dotnet_src/Subscriber/CPSSubscriberTask.cs',
+        './dotnet_src/Subscriber/Loadtest.cs',
+        './dotnet_src/Subscriber/LoadtestGrpc.cs',
+        './dotnet_src/Subscriber/Worker.csproj',
+        './dotnet_src/Subscriber.sln',
         go_bin_location
     ])
   arg_list = ['java', '-jar', 'target/driver.jar', '--project', project]
