@@ -32,10 +32,16 @@ wait $PIDCPS
 
 cd ${TMP}
 unzip cps.zip
-cd dotnet_src/Subscriber
+cd dotnet_src
+
+# We need to set a directory for caching, must be HOME
+export HOME=${TMP}
+
+wget https://dot.net/v1/dotnet-install.sh
 bash dotnet-install.sh --version 2.0.0 --install-dir dotnet
-./dotnet/dotnet restore
-./dotnet/dotnet run &
+cd Subscriber
+../dotnet/dotnet restore
+../dotnet/dotnet run &
 cd ../../
 
 # Run the loadtest binary

@@ -1,4 +1,4 @@
-ing Google.Cloud.PubSub.V1;
+using Google.Cloud.PubSub.V1;
 using Grpc.Core;
 using System;
 using System.Collections.Generic;
@@ -23,10 +23,15 @@ namespace Google.Pubsub.Loadtest
             mutex = new Mutex();
             latencies = new List<long>();
             received_messages = new List<MessageIdentifier>();
-            client = SimpleSubscriber.CreateAsync(
-                new SubscriptionName(request.Project,
-                                     request.PubsubOptions.Subscription)
-            ).Result;
+            try {
+                client = SimpleSubscriber.CreateAsync(
+                    new SubscriptionName(request.Project,
+                                         request.PubsubOptions.Subscription)
+                ).Result;
+                Console.WriteLine("Client created successfully.");
+            } catch (Exception e) {
+                Console.WriteLine("Error starting client: " + e.ToString());
+            }
             client.StartAsync((msg, ct) =>
             {
                 long now = CurrentTimeMillis();

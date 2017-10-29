@@ -36,14 +36,21 @@ namespace Google.Pubsub.Loadtest
 
         public override Task<StartResponse> Start(StartRequest request, ServerCallContext context)
         {
+            Console.WriteLine("Start called.");
             mutex = new Mutex();
             sequenceNumber = 0;
             latencies = new List<long>();
             clientId = (new Random()).Next().ToString();
             messageData = ByteString.CopyFromUtf8(new string('A', request.MessageSize));
             batchSize = request.PublishBatchSize;
-            client = Google.Cloud.PubSub.V1.SimplePublisher.CreateAsync(new Google.Cloud.PubSub.V1.TopicName(request.Project, request.Topic), null,
-                new Google.Cloud.PubSub.V1.SimplePublisher.Settings { BatchingSettings = new Google.Api.Gax.BatchingSettings(batchSize, 10000000 /* 10 MB */, TimeSpan.FromMilliseconds(request.PublishBatchDuration.Seconds * 1000 + request.PublishBatchDuration.Nanos / 1000000.0)) }).Result;
+            Console.WriteLine("Initializing client.");
+            try {
+                client = Google.Cloud.PubSub.V1.SimplePublisher.CreateAsync(new Google.Cloud.PubSub.V1.TopicName(request.Project, request.Topic), null,
+                    new Google.Cloud.PubSub.V1.SimplePublisher.Settings { BatchingSettings = new Google.Api.Gax.BatchingSettings(batchSize, 9500000 /* 9.5 MB */, TimeSpan.FromMilliseconds(request.PublishBatchDuration.Seconds * 1000 + request.PublishBatchDuration.Nanos / 1000000.0)) }).Result;
+            } catch (Exception e) {
+                Console.WriteLine("Error initializing client: " + e.ToString());
+            }
+            Console.WriteLine("Start returning.");
             return Task.FromResult(new StartResponse());
         }
 
@@ -54,6 +61,7 @@ namespace Google.Pubsub.Loadtest
 
         public override Task<ExecuteResponse> Execute(ExecuteRequest request, ServerCallContext context)
         {
+            Console.WriteLine("Execute called.");
             Int64 batchSequenceNumber;
             ExecuteResponse executeResponse = new ExecuteResponse();
             mutex.WaitOne();
@@ -76,6 +84,7 @@ namespace Google.Pubsub.Loadtest
                 };
                 client.PublishAsync(message).ContinueWith(
                     task => {
+                        Console.WriteLine("Publish handler invoked.");
                         if (!task.IsFaulted)
                         {
                             long duration = CurrentTimeMillis() - currentTimeMillis;
@@ -83,9 +92,11 @@ namespace Google.Pubsub.Loadtest
                             latencies.Add(duration);
                             mutex.ReleaseMutex();
                         }
+                        Console.WriteLine("Publish handler done.");
                     }
                 );
             }
+            Console.WriteLine("Execute returned.");
             return Task.FromResult(executeResponse);
         }
 
@@ -103,6 +114,7 @@ namespace Google.Pubsub.Loadtest
             Console.WriteLine("Server listening on port 6000.");
             var waiter = new ManualResetEvent(false);
             waiter.WaitOne();
+            Console.WriteLine("Server shutting down.");
         }
     }
 }
