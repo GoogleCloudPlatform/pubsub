@@ -74,7 +74,7 @@ import org.I0Itec.zkclient.exception.ZkNodeExistsException;
 public class GCEController extends Controller {
   private static final String MACHINE_TYPE = "n1-standard-"; // standard machine prefix
   private static final String SOURCE_FAMILY =
-      "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20160930"; // Ubuntu 16.04 LTS
+      "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20171026a"; // Ubuntu 16.04 LTS
   private static final int ALREADY_EXISTS = 409;
   private static final int NOT_FOUND = 404;
   public static String resourceDirectory = "target/classes/gce";
