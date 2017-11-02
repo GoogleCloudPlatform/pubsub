@@ -38,6 +38,7 @@ import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
+import org.apache.kafka.connect.storage.Converter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -64,6 +65,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private String messageBodyName;
   private int maxBufferSize;
   private CloudPubSubPublisher publisher;
+  private Converter valueConverter;
 
   /** Holds a list of the publishing futures that have not been processed for a single partition. */
   private class OutstandingFuturesForPartition {
@@ -105,6 +107,13 @@ public class CloudPubSubSinkTask extends SinkTask {
       // Only do this if we did not use the constructor.
       publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
     }
+    if(props.containsKey(CloudPubSubSinkConnector.VALUE_CONVERTER)){
+      this.valueConverter = ConnectorUtils.getInstance(props.get(CloudPubSubSinkConnector.VALUE_CONVERTER)
+              .toString(), Converter.class);
+      this.valueConverter.configure(ConnectorUtils.propsForPrefix(CloudPubSubSinkConnector.VALUE_CONVERTER + ".",
+              props),
+              false);
+    }
     log.info("Start CloudPubSubSinkTask");
   }
 
@@ -115,7 +124,13 @@ public class CloudPubSubSinkTask extends SinkTask {
     for (SinkRecord record : sinkRecords) {
       log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
-      ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
+      ByteString value;
+      if(valueConverter != null) {
+        byte[] bytes = valueConverter.fromConnectData(record.topic(), record.valueSchema(), record.value());
+        value = ByteString.copyFrom(bytes);
+      } else {
+        value = handleValue(record.valueSchema(), record.value(), attributes);
+      }
       // Get the total number of bytes in this message.
       int messageSize = value.size(); // Assumes the topic name is in ASCII.
       if (record.key() != null) {
