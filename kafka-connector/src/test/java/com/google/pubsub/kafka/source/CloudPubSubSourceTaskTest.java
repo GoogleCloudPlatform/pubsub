@@ -139,10 +139,8 @@ public class CloudPubSubSourceTaskTest {
     when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     result = task.poll();
-    task.commit();
     assertEquals(0, result.size());
     result = task.poll();
-    task.commit();
     assertEquals(0, result.size());
     verify(subscriber, times(1)).ackMessages(any(AcknowledgeRequest.class));
   }
