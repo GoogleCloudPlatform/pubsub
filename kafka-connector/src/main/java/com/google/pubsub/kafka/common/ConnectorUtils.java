@@ -23,9 +23,14 @@ import io.grpc.ManagedChannel;
 import io.grpc.auth.ClientAuthInterceptor;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import org.apache.kafka.common.utils.Utils;
+import org.apache.kafka.connect.errors.ConnectException;
+
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Executors;
 
 /** Utility methods and constants that are repeated across one or more classes. */
@@ -52,5 +57,33 @@ public class ConnectorUtils {
             GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE),
             Executors.newCachedThreadPool());
     return ClientInterceptors.intercept(channelImpl, interceptor);
+  }
+
+  public static <T> T getInstance(String className, Class<T> t) {
+    try {
+      Class<?> c = Class.forName(className);
+      if (c == null)
+        return null;
+      Object o = Utils.newInstance(c);
+      if (!t.isInstance(o))
+        throw new ConnectException(c.getName() + " is not an instance of " + t.getName());
+      return t.cast(o);
+    } catch (ClassNotFoundException cnfe){
+      throw new ConnectException("Class not found for "+className, cnfe);
+    }
+  }
+
+   /**
+    * Extracts key/values into new map for keys starting with given prefix.
+    * Prefix is removed from every key.
+    */
+  public static Map<String, Object> propsForPrefix(final String prefix, Map<String, ?> props){
+    Map<String, Object> result = new HashMap<>();
+    for(String key: props.keySet()){
+      if(key.startsWith(prefix) && key.length() > prefix.length()){
+        result.put(key.replace(prefix, ""), props.get(key));
+      }
+    }
+    return result;
   }
 }

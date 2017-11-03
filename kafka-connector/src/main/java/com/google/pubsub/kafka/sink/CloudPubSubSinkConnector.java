@@ -41,6 +41,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   public static final int DEFAULT_MAX_BUFFER_SIZE = 100;
   public static final String CPS_MESSAGE_BODY_NAME = "messageBodyName";
   public static final String DEFAULT_MESSAGE_BODY_NAME = "cps_message_body";
+  public static final String VALUE_CONVERTER = "value.converter";
   private Map<String, String> props;
 
   @Override
@@ -96,7 +97,14 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             DEFAULT_MESSAGE_BODY_NAME,
             Importance.MEDIUM,
             "When using a struct or map value schema, this field or key name indicates that the "
-                + "corresponding value will go into the Pub/Sub message body.");
+                + "corresponding value will go into the Pub/Sub message body.")
+        .define(VALUE_CONVERTER,
+            Type.STRING,
+            null,
+            Importance.MEDIUM,
+            "Converter class to be used for converting between Kafka Connect Record and data written to Kafka. " +
+                    "This makes converter logic completely decoupled from specific Connector and supporting any " +
+                    "serialization format. Some of the examples are Json/Avro converters.");
   }
 
   @Override

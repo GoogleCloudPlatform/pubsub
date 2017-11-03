@@ -33,16 +33,20 @@ import com.google.pubsub.v1.PublishRequest;
 import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PubsubMessage;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaAndValue;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.sink.SinkRecord;
+import org.apache.kafka.connect.storage.Converter;
 import org.junit.Before;
 import org.junit.Test;
 import org.mockito.ArgumentCaptor;
@@ -261,6 +265,43 @@ public class CloudPubSubSinkTaskTest {
     task.flush(partitionOffsets);
     verify(publisher, times(1)).publish(any(PublishRequest.class));
     verify(badFuture, times(1)).get();
+  }
+
+  /**
+   * Tests if configured value converter runs and serializes Kafka Connect Record properly
+   */
+  @Test
+  public void testValueConverter(){
+    props.put(CloudPubSubSinkConnector.VALUE_CONVERTER, SillyStringConverter.class.getName());
+    String prefix = "123_";
+    props.put(CloudPubSubSinkConnector.VALUE_CONVERTER + ".prefix", prefix);
+    task.start(props);
+    SinkRecord sinkRecord = new SinkRecord(KAFKA_TOPIC, 0 , STRING_SCHEMA, "key", Schema.STRING_SCHEMA, "test", 0);
+    task.put(Arrays.asList(sinkRecord));
+    task.flush(new HashMap<TopicPartition, OffsetAndMetadata>());
+    ArgumentCaptor<PublishRequest> captor = ArgumentCaptor.forClass(PublishRequest.class);
+    verify(publisher, times(1)).publish(captor.capture());
+    PublishRequest publishRequest = captor.getValue();
+    PubsubMessage message = publishRequest.getMessages(0);
+    assertEquals(prefix + sinkRecord.value().toString(), new String(message.getData().toByteArray()));
+  }
+
+  public static class SillyStringConverter implements Converter {
+    private String prefix;
+    @Override
+    public void configure(Map<String, ?> configs, boolean isKey) {
+      prefix = configs.get("prefix").toString();
+    }
+
+    @Override
+    public byte[] fromConnectData(String topic, Schema schema, Object value) {
+      return new String(prefix + value.toString()).getBytes();
+    }
+
+    @Override
+    public SchemaAndValue toConnectData(String topic, byte[] value) {
+      return null;
+    }
   }
 
   /** Get some sample SinkRecords's to use in the tests. */
