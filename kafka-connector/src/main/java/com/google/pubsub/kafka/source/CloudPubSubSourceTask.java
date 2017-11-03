@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
+import com.google.protobuf.util.Timestamps;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.source.CloudPubSubSourceConnector.PartitionScheme;
 import com.google.pubsub.v1.AcknowledgeRequest;
@@ -169,7 +170,8 @@ public class CloudPubSubSourceTask extends SourceTask {
                 Schema.OPTIONAL_STRING_SCHEMA,
                 key,
                 valueSchema,
-                value);
+                value,
+                Timestamps.toMillis(message.getPublishTime()));
         } else {
           record =
             new SourceRecord(
@@ -180,7 +182,8 @@ public class CloudPubSubSourceTask extends SourceTask {
                 Schema.OPTIONAL_STRING_SCHEMA,
                 key,
                 Schema.BYTES_SCHEMA,
-                messageBytes);
+                messageBytes,
+                Timestamps.toMillis(message.getPublishTime()));
         }
         sourceRecords.add(record);
       }
