@@ -107,6 +107,7 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   @Override
   public List<SourceRecord> poll() throws InterruptedException {
+    ackMessages();
     log.debug("Polling...");
     PullRequest request =
         PullRequest.newBuilder()
