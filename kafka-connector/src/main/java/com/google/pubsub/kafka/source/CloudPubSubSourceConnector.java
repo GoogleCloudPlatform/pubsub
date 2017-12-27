@@ -46,6 +46,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String KAFKA_PARTITIONS_CONFIG = "kafka.partition.count";
   public static final String KAFKA_PARTITION_SCHEME_CONFIG = "kafka.partition.scheme";
   public static final String KAFKA_MESSAGE_KEY_CONFIG = "kafka.key.attribute";
+  public static final String KAFKA_MESSAGE_TIMESTAMP_CONFIG = "kafka.timestamp.attribute";
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";
   public static final String CPS_SUBSCRIPTION_CONFIG = "cps.subscription";
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
@@ -165,6 +166,12 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             null,
             Importance.MEDIUM,
             "The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka.")
+        .define(
+            KAFKA_MESSAGE_TIMESTAMP_CONFIG,
+            Type.STRING,
+            null,
+            Importance.MEDIUM,
+            "The optional Cloud Pub/Sub message attribute to use as a timestamp for messages published to Kafka.")
         .define(
             KAFKA_PARTITIONS_CONFIG,
             Type.INT,
