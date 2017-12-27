@@ -137,7 +137,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         ackIds.add(ackId);
         Map<String, String> messageAttributes = message.getAttributes();
         String key = messageAttributes.get(kafkaMessageKeyAttribute);
-        Long timestamp = timestampAttribute(messageAttributes.get(kafkaMessageTimestampAttribute));
+        Long timestamp = getLongValue(messageAttributes.get(kafkaMessageTimestampAttribute));
         if(timestamp == null){
           timestamp = Timestamps.toMillis(message.getPublishTime());
         }
@@ -255,8 +255,7 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
   }
 
-  private Long timestampAttribute(String timestamp){
-    if(timestamp == null) return null;
+  private Long getLongValue(String timestamp){
     try {
       return Long.valueOf(timestamp);
     } catch (NumberFormatException e){
