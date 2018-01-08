@@ -59,8 +59,10 @@ public class CloudPubSubSourceTaskTest {
   private static final String KAFKA_TOPIC = "brown";
   private static final String KAFKA_MESSAGE_KEY_ATTRIBUTE = "fox";
   private static final String KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE = "jumped";
+  private static final String KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE = "over";
+  private static final String KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE_VALUE = "1234567890";
   private static final String KAFKA_PARTITIONS = "3";
-  private static final ByteString CPS_MESSAGE = ByteString.copyFromUtf8("over");
+  private static final ByteString CPS_MESSAGE = ByteString.copyFromUtf8("the");
   private static final byte[] KAFKA_VALUE = CPS_MESSAGE.toByteArray();
   private static final String ACK_ID1 = "ackID1";
   private static final String ACK_ID2 = "ackID2";
@@ -106,6 +108,7 @@ public class CloudPubSubSourceTaskTest {
     props.put(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG, CPS_SUBSCRIPTION);
     props.put(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG, KAFKA_TOPIC);
     props.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG, KAFKA_MESSAGE_KEY_ATTRIBUTE);
+    props.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_TIMESTAMP_CONFIG, KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE);
     props.put(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG, KAFKA_PARTITIONS);
     props.put(
         CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
@@ -218,6 +221,35 @@ public class CloudPubSubSourceTaskTest {
             KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
+    assertRecordsEqual(expected, result.get(0));
+  }
+
+  /**
+   * Tests when the message(s) retrieved from Cloud Pub/Sub do have an attribute that matches {@link
+   * #KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE} and {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
+   */
+  @Test
+  public void testPollWithMessageTimestampAttribute() throws Exception{
+    task.start(props);
+    Map<String, String> attributes = new HashMap<>();
+    attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
+    attributes.put(KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE, KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE_VALUE);
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes);
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    assertEquals(1, result.size());
+    SourceRecord expected =
+            new SourceRecord(
+                    null,
+                    null,
+                    KAFKA_TOPIC,
+                    0,
+                    Schema.OPTIONAL_STRING_SCHEMA,
+                    KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
+                    Schema.BYTES_SCHEMA,
+                    KAFKA_VALUE, Long.parseLong(KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE_VALUE));
     assertRecordsEqual(expected, result.get(0));
   }
 
