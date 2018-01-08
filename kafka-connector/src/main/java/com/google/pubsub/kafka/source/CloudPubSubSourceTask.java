@@ -255,10 +255,13 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
   }
 
-  private Long getLongValue(String timestamp){
+  private Long getLongValue(String timestamp) {
+    if(timestamp == null) {
+      return null;
+    }
     try {
       return Long.valueOf(timestamp);
-    } catch (NumberFormatException e){
+    } catch (NumberFormatException e) {
       log.error("Error while converting `{}` to number", timestamp, e);
     }
     return null;
