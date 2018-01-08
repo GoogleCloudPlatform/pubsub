@@ -138,7 +138,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         Map<String, String> messageAttributes = message.getAttributes();
         String key = messageAttributes.get(kafkaMessageKeyAttribute);
         Long timestamp = getLongValue(messageAttributes.get(kafkaMessageTimestampAttribute));
-        if(timestamp == null){
+        if (timestamp == null){
           timestamp = Timestamps.toMillis(message.getPublishTime());
         }
         ByteString messageData = message.getData();
@@ -256,7 +256,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   private Long getLongValue(String timestamp) {
-    if(timestamp == null) {
+    if (timestamp == null) {
       return null;
     }
     try {
