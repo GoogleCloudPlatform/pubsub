@@ -1,0 +1,16 @@
+{
+  "name": "worker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "publisher_client.js",
+  "dependencies": {
+    "@google-cloud/pubsub": "^0.14.5",
+    "node-pre-gyp": "^0.6.38"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Google",
+  "license": "Apache2"
+}

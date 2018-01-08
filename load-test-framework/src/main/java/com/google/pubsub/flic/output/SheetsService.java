@@ -140,6 +140,8 @@ public class SheetsService {
         case CPS_GCLOUD_JAVA_PUBLISHER:
         case CPS_GCLOUD_PYTHON_PUBLISHER:
         case CPS_GCLOUD_RUBY_PUBLISHER:
+        case CPS_GCLOUD_NODE_PUBLISHER:
+        case CPS_GCLOUD_DOTNET_PUBLISHER:
         case CPS_GCLOUD_GO_PUBLISHER:
           if (cpsPublisherCount == 0) {
             return;
@@ -152,6 +154,8 @@ public class SheetsService {
         case CPS_GCLOUD_GO_SUBSCRIBER:
         case CPS_GCLOUD_PYTHON_SUBSCRIBER:
         case CPS_GCLOUD_RUBY_SUBSCRIBER:
+        case CPS_GCLOUD_NODE_SUBSCRIBER:
+        case CPS_GCLOUD_DOTNET_SUBSCRIBER:
           if (cpsSubscriberCount == 0) {
             return;
           }
