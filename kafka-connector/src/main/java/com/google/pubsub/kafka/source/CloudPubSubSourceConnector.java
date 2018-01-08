@@ -171,8 +171,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.STRING,
             null,
             Importance.MEDIUM,
-            "The optional Cloud Pub/Sub message attribute to use as a timestamp for messages published to Kafka."
-                + "The timestamp is Long value.")
+            "The optional Cloud Pub/Sub message attribute to use as a timestamp for messages "
+                + "published to Kafka. The timestamp is Long value.")
         .define(
             KAFKA_PARTITIONS_CONFIG,
             Type.INT,
