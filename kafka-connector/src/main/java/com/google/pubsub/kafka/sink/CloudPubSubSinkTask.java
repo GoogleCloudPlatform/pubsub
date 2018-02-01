@@ -53,6 +53,14 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final int CPS_MAX_MESSAGES_PER_REQUEST = 1000;
   private static final int CPS_MESSAGE_KEY_ATTRIBUTE_SIZE =
       ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE.length();
+  private static final int KAFKA_TOPIC_ATTRIBUTE_SIZE =
+      ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE.length();
+  private static final int KAFKA_PARTITION_ATTRIBUTE_SIZE =
+      ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE.length();
+  private static final int KAFKA_OFFSET_ATTRIBUTE_SIZE =
+      ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE.length();
+  private static final int KAFKA_TIMESTAMP_ATTRIBUTE_SIZE =
+      ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE.length();
 
   // Maps a topic to another map which contains the outstanding futures per partition
   private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
@@ -63,6 +71,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private String cpsTopic;
   private String messageBodyName;
   private int maxBufferSize;
+  private boolean includeMetadata;
   private CloudPubSubPublisher publisher;
 
   /** Holds a list of the publishing futures that have not been processed for a single partition. */
@@ -101,6 +110,7 @@ public class CloudPubSubSinkTask extends SinkTask {
             validatedProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     maxBufferSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG);
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
+    includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
     if (publisher == null) {
       // Only do this if we did not use the constructor.
       publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
@@ -118,11 +128,30 @@ public class CloudPubSubSinkTask extends SinkTask {
       ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
       // Get the total number of bytes in this message.
       int messageSize = value.size(); // Assumes the topic name is in ASCII.
-      if (record.key() != null) {
-        attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, record.key().toString());
-      }
       for (String key : attributes.keySet()) {
         messageSize+= key.getBytes().length + attributes.get(key).getBytes().length;
+      }
+      if (record.key() != null) {
+        String key = record.key().toString();
+        attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, key);
+        messageSize += CPS_MESSAGE_KEY_ATTRIBUTE_SIZE + key.getBytes().length;
+      }
+      if (includeMetadata) {
+        String topic = record.topic().toString();
+        attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, topic);
+        messageSize += KAFKA_TOPIC_ATTRIBUTE_SIZE + topic.getBytes().length;
+
+        String partition = record.kafkaPartition().toString();
+        attributes.put(ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, partition);
+        messageSize += KAFKA_PARTITION_ATTRIBUTE_SIZE + partition.getBytes().length;
+
+        String offset = Long.toString(record.kafkaOffset());
+        attributes.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, offset);
+        messageSize += KAFKA_OFFSET_ATTRIBUTE_SIZE + offset.getBytes().length;
+
+        String timestamp = record.timestamp().toString();
+        attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, timestamp);
+        messageSize += KAFKA_TIMESTAMP_ATTRIBUTE_SIZE + timestamp.getBytes().length;
       }
       PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
       // Get a map containing all the unpublished messages per partition for this topic.
