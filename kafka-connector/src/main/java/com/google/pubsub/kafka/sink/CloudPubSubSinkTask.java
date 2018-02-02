@@ -121,17 +121,11 @@ public class CloudPubSubSinkTask extends SinkTask {
         attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, key);
       }
       if (includeMetadata) {
-        String topic = record.topic().toString();
-        attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, topic);
-
-        String partition = record.kafkaPartition().toString();
-        attributes.put(ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, partition);
-
-        String offset = Long.toString(record.kafkaOffset());
-        attributes.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, offset);
-
-        String timestamp = record.timestamp().toString();
-        attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, timestamp);
+        attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, record.topic());
+        attributes.put(ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE,
+                       record.kafkaPartition().toString());
+        attributes.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, Long.toString(record.kafkaOffset()));
+        attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, record.timestamp().toString());
       }
       PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
       // Get a map containing all the unpublished messages per partition for this topic.
