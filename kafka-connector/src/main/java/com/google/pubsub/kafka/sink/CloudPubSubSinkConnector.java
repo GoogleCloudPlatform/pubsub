@@ -41,6 +41,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   public static final int DEFAULT_MAX_BUFFER_SIZE = 100;
   public static final String CPS_MESSAGE_BODY_NAME = "messageBodyName";
   public static final String DEFAULT_MESSAGE_BODY_NAME = "cps_message_body";
+  public static final String PUBLISH_KAFKA_METADATA = "metadata.publish";
   private Map<String, String> props;
 
   @Override
@@ -91,6 +92,13 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             Importance.MEDIUM,
             "The maximum number of messages that can be received for the messages on a topic "
                 + "partition before publishing them to Cloud Pub/Sub.")
+        .define(
+            PUBLISH_KAFKA_METADATA,
+            Type.BOOLEAN,
+            false,
+            Importance.MEDIUM,
+            "When true, include the Kafka topic, partition, offset, and timestamp as message "
+                + "attributes when a message is published to Cloud Pub/Sub.")
         .define(CPS_MESSAGE_BODY_NAME,
             Type.STRING,
             DEFAULT_MESSAGE_BODY_NAME,

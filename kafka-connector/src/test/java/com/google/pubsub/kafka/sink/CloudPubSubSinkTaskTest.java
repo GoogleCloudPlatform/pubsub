@@ -37,6 +37,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.record.TimestampType;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -261,6 +262,65 @@ public class CloudPubSubSinkTaskTest {
     task.flush(partitionOffsets);
     verify(publisher, times(1)).publish(any(PublishRequest.class));
     verify(badFuture, times(1)).get();
+  }
+
+  /**
+   * Tests that when requested, Kafka metadata is included in the messages published to Cloud
+   * Pub/Sub.
+   */
+  @Test
+  public void testKafkaMetadata() {
+    props.put(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA, "true");
+    props.put(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG, CPS_MIN_BATCH_SIZE1);
+    task.start(props);
+    List<SinkRecord> records = new ArrayList<SinkRecord>();
+    records.add(
+        new SinkRecord(
+            KAFKA_TOPIC,
+            4,
+            STRING_SCHEMA,
+            KAFKA_MESSAGE_KEY,
+            BYTE_STRING_SCHEMA,
+            KAFKA_MESSAGE1,
+            1000,
+            50000L,
+            TimestampType.CREATE_TIME));
+    records.add(
+        new SinkRecord(
+            KAFKA_TOPIC,
+            4,
+            STRING_SCHEMA,
+            KAFKA_MESSAGE_KEY,
+            BYTE_STRING_SCHEMA,
+            KAFKA_MESSAGE2,
+            1001,
+            50001L,
+            TimestampType.CREATE_TIME));
+    task.put(records);
+    ArgumentCaptor<PublishRequest> captor = ArgumentCaptor.forClass(PublishRequest.class);
+    verify(publisher, times(1)).publish(captor.capture());
+    PublishRequest requestArg = captor.getValue();
+
+
+    List<PubsubMessage> expectedMessages = new ArrayList<>();
+    Map<String, String> attributes1 = new HashMap<>();
+    attributes1.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
+    attributes1.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, KAFKA_TOPIC);
+    attributes1.put(ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, "4");
+    attributes1.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, "1000");
+    attributes1.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, "50000");
+    expectedMessages.add(
+        PubsubMessage.newBuilder().putAllAttributes(attributes1).setData(KAFKA_MESSAGE1).build());
+    Map<String, String> attributes2 = new HashMap<>();
+    attributes2.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
+    attributes2.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, KAFKA_TOPIC);
+    attributes2.put(ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, "4");
+    attributes2.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, "1001");
+    attributes2.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, "50001");
+    expectedMessages.add(
+        PubsubMessage.newBuilder().putAllAttributes(attributes2).setData(KAFKA_MESSAGE2).build());
+
+    assertEquals(requestArg.getMessagesList(), expectedMessages);
   }
 
   /** Get some sample SinkRecords's to use in the tests. */

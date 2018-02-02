@@ -51,8 +51,6 @@ public class CloudPubSubSinkTask extends SinkTask {
   private static final int NUM_CPS_PUBLISHERS = 10;
   private static final int CPS_MAX_REQUEST_SIZE = (10 << 20) - 1024; // Leave room for overhead.
   private static final int CPS_MAX_MESSAGES_PER_REQUEST = 1000;
-  private static final int CPS_MESSAGE_KEY_ATTRIBUTE_SIZE =
-      ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE.length();
 
   // Maps a topic to another map which contains the outstanding futures per partition
   private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
@@ -63,6 +61,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private String cpsTopic;
   private String messageBodyName;
   private int maxBufferSize;
+  private boolean includeMetadata;
   private CloudPubSubPublisher publisher;
 
   /** Holds a list of the publishing futures that have not been processed for a single partition. */
@@ -101,6 +100,7 @@ public class CloudPubSubSinkTask extends SinkTask {
             validatedProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
     maxBufferSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG);
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
+    includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
     if (publisher == null) {
       // Only do this if we did not use the constructor.
       publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
@@ -116,13 +116,16 @@ public class CloudPubSubSinkTask extends SinkTask {
       log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
       ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
-      // Get the total number of bytes in this message.
-      int messageSize = value.size(); // Assumes the topic name is in ASCII.
       if (record.key() != null) {
-        attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, record.key().toString());
+        String key = record.key().toString();
+        attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, key);
       }
-      for (String key : attributes.keySet()) {
-        messageSize+= key.getBytes().length + attributes.get(key).getBytes().length;
+      if (includeMetadata) {
+        attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, record.topic());
+        attributes.put(ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE,
+                       record.kafkaPartition().toString());
+        attributes.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, Long.toString(record.kafkaOffset()));
+        attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, record.timestamp().toString());
       }
       PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
       // Get a map containing all the unpublished messages per partition for this topic.
@@ -140,6 +143,7 @@ public class CloudPubSubSinkTask extends SinkTask {
         unpublishedMessages = new UnpublishedMessagesForPartition();
         unpublishedMessagesForTopic.put(record.kafkaPartition(), unpublishedMessages);
       }
+      int messageSize = message.getSerializedSize();
       int newUnpublishedSize = unpublishedMessages.size + messageSize;
       // Publish messages in this partition if the total number of bytes goes over limit.
       if (newUnpublishedSize > CPS_MAX_REQUEST_SIZE) {
