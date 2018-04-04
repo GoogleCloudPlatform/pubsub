@@ -56,7 +56,8 @@ public class CloudPubSubGRPCPublisher implements CloudPubSubPublisher {
       log.info("Creating publisher.");
       publisher = PublisherGrpc.newFutureStub(ConnectorUtils.getChannel());
       // We change the publisher every 25 - 35 minutes in order to avoid GOAWAY errors.
-      nextPublisherResetTime = System.currentTimeMillis() + rand.nextInt(10 * 60 * 1000) + 25 * 60 * 1000;
+      nextPublisherResetTime =
+          System.currentTimeMillis() + rand.nextInt(10 * 60 * 1000) + 25 * 60 * 1000;
     } catch (IOException e) {
       throw new RuntimeException("Could not create publisher stub; no publishes can occur.", e);
     }

@@ -44,7 +44,7 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
     makeSubscriber();
   }
 
-  public ListenableFuture<PullResponse> pull(PullRequest request) {{
+  public ListenableFuture<PullResponse> pull(PullRequest request) {
     if (System.currentTimeMillis() > nextSubscriberResetTime) {
       makeSubscriber();
     }
@@ -63,7 +63,8 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
       log.info("Creating subscriber.");
       subscriber = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
       // We change the subscriber every 25 - 35 minutes in order to avoid GOAWAY errors.
-      nextSubscriberResetTime = System.currentTimeMillis() + rand.nextInt(10 * 60 * 1000) + 25 * 60 * 1000;
+      nextSubscriberResetTime =
+          System.currentTimeMillis() + rand.nextInt(10 * 60 * 1000) + 25 * 60 * 1000;
     } catch (IOException e) {
       throw new RuntimeException("Could not create subscriber stub; no subscribing can occur.", e);
     }
