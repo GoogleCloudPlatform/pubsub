@@ -22,25 +22,43 @@ import com.google.pubsub.v1.PublishResponse;
 import com.google.pubsub.v1.PublisherGrpc;
 import com.google.pubsub.v1.PublisherGrpc.PublisherFutureStub;
 import java.io.IOException;
+import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A {@link CloudPubSubPublisher} that uses <a href="http://www.grpc.io/">gRPC</a> to send messages
- * to <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
+ * to <a href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>. This class is not thread-
+ * safe.
  */
 public class CloudPubSubGRPCPublisher implements CloudPubSubPublisher {
 
+  private static final Logger log = LoggerFactory.getLogger(CloudPubSubGRPCPublisher.class);
+  private long nextPublisherResetTime = 0;
   private PublisherFutureStub publisher;
+  private Random rand = new Random(System.currentTimeMillis());
 
   public CloudPubSubGRPCPublisher() {
-    try {
-      publisher = PublisherGrpc.newFutureStub(ConnectorUtils.getChannel());
-    } catch (IOException e) {
-      throw new RuntimeException("Could not create publisher stub; no publishes can occur.");
-    }
+    makePublisher();
   }
 
   @Override
   public ListenableFuture<PublishResponse> publish(PublishRequest request) {
+    if (System.currentTimeMillis() >= nextPublisherResetTime) {
+      makePublisher();
+    }
+
     return publisher.publish(request);
+  }
+
+  private void makePublisher() {
+    try {
+      log.info("Creating publisher.");
+      publisher = PublisherGrpc.newFutureStub(ConnectorUtils.getChannel());
+      // We change the publisher every 25 - 35 minutes in order to avoid GOAWAY errors.
+      nextPublisherResetTime = System.currentTimeMillis() + rand.nextInt(10 * 60 * 1000) + 25 * 60 * 1000;
+    } catch (IOException e) {
+      throw new RuntimeException("Could not create publisher stub; no publishes can occur.", e);
+    }
   }
 }
