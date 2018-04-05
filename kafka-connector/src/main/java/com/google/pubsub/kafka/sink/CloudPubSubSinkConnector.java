@@ -38,7 +38,11 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkConnector.class);
 
   public static final String MAX_BUFFER_SIZE_CONFIG = "maxBufferSize";
+  public static final String MAX_BUFFER_BYTES_CONFIG = "maxBufferBytes";
+  public static final String MAX_DELAY_THRESHOLD_MS = "delayThresholdMs";
   public static final int DEFAULT_MAX_BUFFER_SIZE = 100;
+  public static final long DEFAULT_MAX_BUFFER_BYTES = 10000000L;
+  public static final int DEFAULT_DELAY_THRESHOLD_MS = 100;
   public static final String CPS_MESSAGE_BODY_NAME = "messageBodyName";
   public static final String DEFAULT_MESSAGE_BODY_NAME = "cps_message_body";
   public static final String PUBLISH_KAFKA_METADATA = "metadata.publish";
@@ -92,6 +96,22 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             Importance.MEDIUM,
             "The maximum number of messages that can be received for the messages on a topic "
                 + "partition before publishing them to Cloud Pub/Sub.")
+        .define(
+            MAX_BUFFER_BYTES_CONFIG,
+            Type.LONG,
+            DEFAULT_MAX_BUFFER_BYTES,
+            ConfigDef.Range.between(1, DEFAULT_MAX_BUFFER_BYTES),
+            Importance.MEDIUM,
+            "The maximum number of bytes that can be received for the messages on a topic "
+                + "partition before publishing the messages to Cloud Pub/Sub.")
+        .define(
+            MAX_DELAY_THRESHOLD_MS,
+            Type.INT,
+            DEFAULT_DELAY_THRESHOLD_MS,
+            ConfigDef.Range.between(1, Integer.MAX_VALUE),
+            Importance.MEDIUM,
+            "The maximum amount of time to wait after receiving the first message in a batch for a "
+                + "before publishing the messages to Cloud Pub/Sub.")
         .define(
             PUBLISH_KAFKA_METADATA,
             Type.BOOLEAN,

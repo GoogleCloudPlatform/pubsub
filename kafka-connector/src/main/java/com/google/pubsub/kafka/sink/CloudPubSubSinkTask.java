@@ -15,12 +15,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.sink;
 
+import com.google.api.core.ApiFuture;
+import com.google.api.core.ApiFutures;
+import com.google.api.gax.batching.BatchingSettings;
+import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
-import com.google.pubsub.v1.PublishRequest;
-import com.google.pubsub.v1.PublishResponse;
+import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -40,6 +42,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.threeten.bp.Duration;
 
 /**
  * A {@link SinkTask} used by a {@link CloudPubSubSinkConnector} to write messages to <a
@@ -48,25 +51,22 @@ import org.slf4j.LoggerFactory;
 public class CloudPubSubSinkTask extends SinkTask {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
-  private static final int NUM_CPS_PUBLISHERS = 10;
-  private static final int CPS_MAX_REQUEST_SIZE = (10 << 20) - 1024; // Leave room for overhead.
-  private static final int CPS_MAX_MESSAGES_PER_REQUEST = 1000;
 
   // Maps a topic to another map which contains the outstanding futures per partition
   private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
       new HashMap<>();
-  // Maps a topic to another map which contains the unpublished messages per partition
-  private Map<String, Map<Integer, UnpublishedMessagesForPartition>> allUnpublishedMessages =
-      new HashMap<>();
+  private String cpsProject;
   private String cpsTopic;
   private String messageBodyName;
-  private int maxBufferSize;
+  private long maxBufferSize;
+  private long maxBufferBytes;
+  private int maxDelayThresholdMs;
   private boolean includeMetadata;
-  private CloudPubSubPublisher publisher;
+  private com.google.cloud.pubsub.v1.Publisher publisher;
 
   /** Holds a list of the publishing futures that have not been processed for a single partition. */
   private class OutstandingFuturesForPartition {
-    public List<ListenableFuture<PublishResponse>> futures = new ArrayList<>();
+    public List<ApiFuture<String>> futures = new ArrayList<>();
   }
 
   /**
@@ -81,7 +81,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   public CloudPubSubSinkTask() {}
 
   @VisibleForTesting
-  public CloudPubSubSinkTask(CloudPubSubPublisher publisher) {
+  public CloudPubSubSinkTask(Publisher publisher) {
     this.publisher = publisher;
   }
 
@@ -93,17 +93,17 @@ public class CloudPubSubSinkTask extends SinkTask {
   @Override
   public void start(Map<String, String> props) {
     Map<String, Object> validatedProps = new CloudPubSubSinkConnector().config().parse(props);
-    cpsTopic =
-        String.format(
-            ConnectorUtils.CPS_TOPIC_FORMAT,
-            validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG),
-            validatedProps.get(ConnectorUtils.CPS_TOPIC_CONFIG));
+    cpsProject = validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG).toString();
+    cpsTopic = validatedProps.get(ConnectorUtils.CPS_TOPIC_CONFIG).toString();
     maxBufferSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG);
+    maxBufferBytes = (Long) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_BYTES_CONFIG);
+    maxDelayThresholdMs =
+        (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_DELAY_THRESHOLD_MS);
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
     if (publisher == null) {
       // Only do this if we did not use the constructor.
-      publisher = new CloudPubSubRoundRobinPublisher(NUM_CPS_PUBLISHERS);
+      createPublisher();
     }
     log.info("Start CloudPubSubSinkTask");
   }
@@ -122,49 +122,20 @@ public class CloudPubSubSinkTask extends SinkTask {
       }
       if (includeMetadata) {
         attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, record.topic());
-        attributes.put(ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE,
-                       record.kafkaPartition().toString());
+        attributes.put(
+            ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
         attributes.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, Long.toString(record.kafkaOffset()));
         attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, record.timestamp().toString());
       }
       PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
-      // Get a map containing all the unpublished messages per partition for this topic.
-      Map<Integer, UnpublishedMessagesForPartition> unpublishedMessagesForTopic =
-          allUnpublishedMessages.get(record.topic());
-      if (unpublishedMessagesForTopic == null) {
-        unpublishedMessagesForTopic = new HashMap<>();
-        allUnpublishedMessages.put(record.topic(), unpublishedMessagesForTopic);
-      }
-      // Get the object containing the unpublished messages for the
-      // specific topic and partition this SinkRecord is associated with.
-      UnpublishedMessagesForPartition unpublishedMessages =
-          unpublishedMessagesForTopic.get(record.kafkaPartition());
-      if (unpublishedMessages == null) {
-        unpublishedMessages = new UnpublishedMessagesForPartition();
-        unpublishedMessagesForTopic.put(record.kafkaPartition(), unpublishedMessages);
-      }
-      int messageSize = message.getSerializedSize();
-      int newUnpublishedSize = unpublishedMessages.size + messageSize;
-      // Publish messages in this partition if the total number of bytes goes over limit.
-      if (newUnpublishedSize > CPS_MAX_REQUEST_SIZE) {
-        publishMessagesForPartition(
-            record.topic(), record.kafkaPartition(), unpublishedMessages.messages);
-        newUnpublishedSize = messageSize;
-      }
-      unpublishedMessages.size = newUnpublishedSize;
-      unpublishedMessages.messages.add(message);
-      // If the number of messages in this partition is greater than the batch size, then publish.
-      if (unpublishedMessages.messages.size() >= maxBufferSize) {
-        publishMessagesForPartition(
-            record.topic(), record.kafkaPartition(), unpublishedMessages.messages);
-      }
+      publishMessage(record.topic(), record.kafkaPartition(), message);
     }
   }
 
-  private ByteString handleValue(Schema schema, Object value,  Map<String, String> attributes) {
+  private ByteString handleValue(Schema schema, Object value, Map<String, String> attributes) {
     if (schema == null) {
-        String str = value.toString();
-        return ByteString.copyFromUtf8(str);
+      String str = value.toString();
+      return ByteString.copyFromUtf8(str);
     }
     Schema.Type t = schema.type();
     switch (t) {
@@ -193,7 +164,7 @@ public class CloudPubSubSinkTask extends SinkTask {
         doubleBuf.putDouble((Double) value);
         return ByteString.copyFrom(doubleBuf);
       case BOOLEAN:
-        byte bool = (byte)((Boolean) value?1:0);
+        byte bool = (byte) ((Boolean) value ? 1 : 0);
         byte[] boolArr = {bool};
         return ByteString.copyFrom(boolArr);
       case STRING:
@@ -261,20 +232,9 @@ public class CloudPubSubSinkTask extends SinkTask {
     return ByteString.EMPTY;
   }
 
-
   @Override
   public void flush(Map<TopicPartition, OffsetAndMetadata> partitionOffsets) {
     log.debug("Flushing...");
-    // Publish all messages that have not been published yet.
-    for (Map.Entry<String, Map<Integer, UnpublishedMessagesForPartition>> entry :
-        allUnpublishedMessages.entrySet()) {
-      for (Map.Entry<Integer, UnpublishedMessagesForPartition> innerEntry :
-          entry.getValue().entrySet()) {
-        publishMessagesForPartition(
-            entry.getKey(), innerEntry.getKey(), innerEntry.getValue().messages);
-      }
-    }
-    allUnpublishedMessages.clear();
     // Process results of all the outstanding futures specified by each TopicPartition.
     for (Map.Entry<TopicPartition, OffsetAndMetadata> partitionOffset :
         partitionOffsets.entrySet()) {
@@ -290,9 +250,7 @@ public class CloudPubSubSinkTask extends SinkTask {
         continue;
       }
       try {
-        for (ListenableFuture<PublishResponse> publishFuture : outstandingFutures.futures) {
-          publishFuture.get();
-        }
+        ApiFutures.allAsList(outstandingFutures.futures).get();
       } catch (Exception e) {
         throw new RuntimeException(e);
       }
@@ -300,10 +258,8 @@ public class CloudPubSubSinkTask extends SinkTask {
     allOutstandingFutures.clear();
   }
 
-
   /** Publish all the messages in a partition and store the Future's for each publish request. */
-  private void publishMessagesForPartition(
-      String topic, Integer partition, List<PubsubMessage> messages) {
+  private void publishMessage(String topic, Integer partition, PubsubMessage message) {
     // Get a map containing all futures per partition for the passed in topic.
     Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =
         allOutstandingFutures.get(topic);
@@ -317,20 +273,24 @@ public class CloudPubSubSinkTask extends SinkTask {
       outstandingFutures = new OutstandingFuturesForPartition();
       outstandingFuturesForTopic.put(partition, outstandingFutures);
     }
-    int startIndex = 0;
-    int endIndex = Math.min(CPS_MAX_MESSAGES_PER_REQUEST, messages.size());
-    PublishRequest.Builder builder = PublishRequest.newBuilder();
-    // Publish all the messages for this partition in batches.
-    while (startIndex < messages.size()) {
-      PublishRequest request =
-          builder.setTopic(cpsTopic).addAllMessages(messages.subList(startIndex, endIndex)).build();
-      builder.clear();
-      log.trace("Publishing: " + (endIndex - startIndex) + " messages");
-      outstandingFutures.futures.add(publisher.publish(request));
-      startIndex = endIndex;
-      endIndex = Math.min(endIndex + CPS_MAX_MESSAGES_PER_REQUEST, messages.size());
+    outstandingFutures.futures.add(publisher.publish(message));
+  }
+
+  private void createPublisher() {
+    ProjectTopicName fullTopic = ProjectTopicName.of(cpsProject, cpsTopic);
+    com.google.cloud.pubsub.v1.Publisher.Builder builder =
+        com.google.cloud.pubsub.v1.Publisher.newBuilder(fullTopic)
+            .setBatchingSettings(
+                BatchingSettings.newBuilder()
+                    .setDelayThreshold(Duration.ofMillis(maxDelayThresholdMs))
+                    .setElementCountThreshold(maxBufferSize)
+                    .setRequestByteThreshold(maxBufferBytes)
+                    .build());
+    try {
+      publisher = builder.build();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
     }
-    messages.clear();
   }
 
   @Override
