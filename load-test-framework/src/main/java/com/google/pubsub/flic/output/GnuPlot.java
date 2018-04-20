@@ -16,10 +16,6 @@
 
 package com.google.pubsub.flic.output;
 
-import com.google.common.base.Ascii;
-import com.google.pubsub.flic.common.LatencyDistribution;
-import com.google.pubsub.flic.controllers.Client.ClientType;
-import com.google.pubsub.flic.controllers.Controller.LoadtestStats;
 import java.io.BufferedWriter;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -32,8 +28,14 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.google.common.base.Ascii;
+import com.google.pubsub.flic.common.LatencyDistribution;
+import com.google.pubsub.flic.controllers.Client.ClientType;
+import com.google.pubsub.flic.controllers.Controller.LoadtestStats;
 
 /** Outputs results of the load test as a GnuPlot. */
 public class GnuPlot {
@@ -183,9 +185,13 @@ public class GnuPlot {
     DecimalFormat decimalFormat = new DecimalFormat("#.##");
     for (int cores = 1; cores <= 16; cores *= 2) {
       try {
+        Double coreValue = 0D;
+        if (throughputMap.containsKey(cores)) {
+          coreValue = throughputMap.get(cores);
+        }
         dat.append(cores)
             .append(" ")
-            .append(decimalFormat.format(throughputMap.get(cores)))
+            .append(decimalFormat.format(coreValue))
             .append("\n");
       } catch (Exception e) {
         log.error("There was a problem getting the results from one of the tests.", e);

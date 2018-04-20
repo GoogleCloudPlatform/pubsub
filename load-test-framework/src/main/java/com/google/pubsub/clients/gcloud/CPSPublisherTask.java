@@ -15,10 +15,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.clients.gcloud;
 
+import static java.util.Objects.nonNull;
+
 import com.beust.jcommander.JCommander;
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
 import com.google.api.gax.batching.BatchingSettings;
+import com.google.api.gax.core.NoCredentialsProvider;
+import com.google.api.gax.rpc.TransportChannelProvider;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -26,9 +30,9 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Durations;
 import com.google.pubsub.clients.common.LoadTestRunner;
+import com.google.pubsub.clients.common.LoadTestTopicAdminSettings;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.clients.common.Task.RunResult;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.TopicName;
@@ -43,6 +47,7 @@ import org.threeten.bp.Duration;
  * Runs a task that publishes messages to a Cloud Pub/Sub topic.
  */
 class CPSPublisherTask extends Task {
+
   private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
   private final Publisher publisher;
   private final ByteString payload;
@@ -52,19 +57,34 @@ class CPSPublisherTask extends Task {
   private final Semaphore outstandingBytes = new Semaphore(1000000000);  // 1 GB
   private final int messageSize;
 
+  private static final int MAX_INBOUND_MESSAGE_SIZE =
+      20 * 1024 * 1024; // 20MB API maximum message size.
+
   private CPSPublisherTask(StartRequest request) {
     super(request, "gcloud", MetricsHandler.MetricName.PUBLISH_ACK_LATENCY);
     try {
-      this.publisher =
-          Publisher.defaultBuilder(TopicName.create(request.getProject(), request.getTopic()))
-              .setBatchingSettings(
-                  BatchingSettings.newBuilder()
-                      .setElementCountThreshold(950L)
-                      .setRequestByteThreshold(9500000L)
-                      .setDelayThreshold(
-                          Duration.ofMillis(Durations.toMillis(request.getPublishBatchDuration())))
-                      .build())
-              .build();
+      Publisher.Builder publisherBuilder = Publisher.newBuilder(TopicName.of(request.getProject(),
+          request.getTopic()))
+          .setBatchingSettings(
+              BatchingSettings.newBuilder()
+                  .setElementCountThreshold(950L)
+                  .setRequestByteThreshold(9500000L)
+                  .setDelayThreshold(
+                      Duration.ofMillis(Durations.toMillis(request.getPublishBatchDuration())))
+                  .build());
+
+      if (nonNull(request.getEmulatorHost())) {
+        TransportChannelProvider channelProvider =
+            LoadTestTopicAdminSettings.defaultGrpcTransportProvider()
+                .setMaxInboundMessageSize(MAX_INBOUND_MESSAGE_SIZE)
+                .setEndpoint(request.getEmulatorHost())
+                .build();
+
+        publisherBuilder.setChannelProvider(channelProvider);
+        publisherBuilder.setCredentialsProvider(new NoCredentialsProvider());
+      }
+
+      this.publisher = publisherBuilder.build();
     } catch (Exception e) {
       throw new RuntimeException(e);
     }
@@ -92,26 +112,26 @@ class CPSPublisherTask extends Task {
       ApiFutures.addCallback(publisher
           .publish(
               PubsubMessage.newBuilder()
-              .setData(payload)
-              .putAttributes("sendTime", sendTime)
-              .putAttributes("clientId", id.toString())
-              .putAttributes(
-                  "sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement()))
-              .build()), new ApiFutureCallback<String>() {
-            @Override
-            public void onSuccess(String messageId) {
-              outstandingBytes.release(messageSize);
-              if (numPending.decrementAndGet() == 0) {
-                done.set(RunResult.fromBatchSize(batchSize));
-              }
-            }
+                  .setData(payload)
+                  .putAttributes("sendTime", sendTime)
+                  .putAttributes("clientId", id.toString())
+                  .putAttributes(
+                      "sequenceNumber", Integer.toString(sequenceNumber.getAndIncrement()))
+                  .build()), new ApiFutureCallback<String>() {
+        @Override
+        public void onSuccess(String messageId) {
+          outstandingBytes.release(messageSize);
+          if (numPending.decrementAndGet() == 0) {
+            done.set(RunResult.fromBatchSize(batchSize));
+          }
+        }
 
-            @Override
-            public void onFailure(Throwable t) {
-              outstandingBytes.release(messageSize);
-              done.setException(t);
-            }
-          });
+        @Override
+        public void onFailure(Throwable t) {
+          outstandingBytes.release(messageSize);
+          done.setException(t);
+        }
+      });
     }
     return done;
   }

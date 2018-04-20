@@ -42,6 +42,9 @@ message StartRequest {
   // The maximum outstanding requests, per client.
   int32 max_outstanding_requests = 5;
 
+  // The Cloud Pub/Sub emulator host
+  string emulator_host = 14;
+
   // The time at which the load test should start. If this is less than the current time, we start immediately.
   google.protobuf.Timestamp start_time = 6;
 

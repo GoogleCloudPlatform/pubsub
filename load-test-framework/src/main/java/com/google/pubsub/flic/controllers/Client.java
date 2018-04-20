@@ -61,10 +61,11 @@ public class Client {
   public static int numberOfMessages = 0;
   public static int replicationFactor;
   public static int partitions;
+  public static String emulatorHost;
+  private final String topic;
   private final ClientType clientType;
   private final String networkAddress;
   private final String project;
-  private final String topic;
   private final String subscription;
   private final ScheduledExecutorService executorService;
   private ClientStatus clientStatus;
@@ -80,15 +81,17 @@ public class Client {
       ClientType clientType,
       String networkAddress,
       String project,
+      String topic,
       @Nullable String subscription,
       ScheduledExecutorService executorService) {
-    this(clientType, networkAddress, project, subscription, executorService, null);
+    this(clientType, networkAddress, project, topic, subscription, executorService, null);
   }
 
   public Client(
       ClientType clientType,
       String networkAddress,
       String project,
+      String topic,
       @Nullable String subscription,
       ScheduledExecutorService executorService,
       @Nullable Supplier<LoadtestGrpc.LoadtestStub> stubFactory) {
@@ -96,7 +99,7 @@ public class Client {
     this.networkAddress = networkAddress;
     this.clientStatus = ClientStatus.NONE;
     this.project = project;
-    this.topic = TOPIC_PREFIX + getTopicSuffix(clientType);
+    this.topic = topic;
     this.subscription = subscription;
     this.executorService = executorService;
     this.stubFactory = stubFactory;
@@ -170,6 +173,7 @@ public class Client {
             .setStartTime(startTime)
             .setPublishBatchSize(publishBatchSize)
             .setPublishBatchDuration(publishBatchDuration)
+            .setEmulatorHost(emulatorHost)
             .setBurnInDuration(burnInDuration);
     if (numberOfMessages > 0) {
       requestBuilder.setNumberOfMessages(numberOfMessages);

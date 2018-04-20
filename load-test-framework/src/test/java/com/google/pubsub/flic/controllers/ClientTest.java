@@ -15,13 +15,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.flic.controllers;
 
-import com.google.pubsub.flic.common.LatencyDistribution;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
+
+import com.google.pubsub.flic.common.LatencyDistribution;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import org.junit.Test;
 
 
@@ -34,7 +34,7 @@ public class ClientTest {
   @Test
   public void testEmpty() {
     Client client = new Client(Client.ClientType.CPS_GCLOUD_JAVA_PUBLISHER, "127.0.0.1",
-        "my-project", null, executor);
+        "my-project", null, null, executor);
     assertArrayEquals(client.getBucketValues(),
         new long[LatencyDistribution.LATENCY_BUCKETS.length]);
     assertEquals(client.getClientType(), Client.ClientType.CPS_GCLOUD_JAVA_PUBLISHER);

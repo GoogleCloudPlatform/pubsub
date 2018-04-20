@@ -14,10 +14,29 @@ The goal of this framework is twofold:
 
 ### Quickstart
 
-You must have [Maven](https://maven.apache.org/) installed, be running on an Unix environment, either Linux or Mac OS X, and have the `zip` command line utility available.  
+1. Install [Maven](https://maven.apache.org/), must be running on an Unix environment, either Linux or Mac OS X.
+
+2. Install `zip` command line utility.
+
+3. Install `unzip` command line utility.
+
+4. Install `gnuplot` command line utility.
+
+5. Install and configure [GO Lang](https://golang.org/).
+
+6. Install load test dependency `go get -u cloud.google.com/go/pubsub/loadtest/cmd`.
+  
 You can then run `python run.py --project=<your_project>` which will install the load test framework and run a basic load test.  
 The `--test` parameter changes the test type. The default is 'latency', but it can also be set to 'throughput' which will test the maximum throughput on a single VM at different numbers of cores, and 'service' which will test maximum throughput on a 16 core VM.  
-The `--client_types` parameter to sets the clients to test. This is a comma deliminated list, valid options being 'gcloud_python', 'gcloud_java', and 'vtk'. 'experimental' requires you to be whitelisted for access to an experimental feature of Cloud Pub/Sub. You can contact cloud-pubsub@google.com to request access.
+The `--client_types` parameter to sets the clients to test. This is a comma delimited list, valid options being 'gcloud_python', 'gcloud_java', 'vtk'. 'experimental' requires you to be whitelisted for access to an experimental feature of Cloud Pub/Sub. You can contact cloud-pubsub@google.com to request access.
+
+For `gcloud_java` you have the option to execute on pub/sub emulator but you must provide:
+
+1. `--emulator_host` parameter to specify the host of Pub/Sub `<host>:<port>`.
+
+2. (Optional) `--topic` parameter to specify topic name.
+
+3. (Optional) `--subscription` parameter to specify subscription name.
 
 ### Pre-Running Steps
 

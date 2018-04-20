@@ -52,33 +52,33 @@ def main(project, test, client_types, vms_count, broker):
       sys.exit('cannot build Go load tester, maybe run `go get -u {}`?'.format(go_package))
 
     subprocess.call([
-        'zip', './target/classes/gce/cps.zip',
-        './python_src/clients/cps_publisher_task.py',
-        './python_src/clients/cps_subscriber_task.py',
-        './python_src/clients/loadtest_pb2.py',
-        './python_src/clients/requirements.txt',
-        './ruby_src/Gemfile',
-        './ruby_src/loadtest_pb.rb',
-        './ruby_src/loadtest_services_pb.rb',
-        './ruby_src/cps_publisher_task.rb',
-        './ruby_src/cps_subscriber_task.rb' ,
-        './node_src/publisher_client.js' ,
-        './node_src/subscriber_client.js' ,
-        './node_src/package.json' ,
-        './node_src/loadtest.proto' ,
-        './node_src/google/protobuf/duration.proto' ,
-        './node_src/google/protobuf/timestamp.proto',
-        './dotnet_src/Publisher/CPSPublisherTask.cs',
-        './dotnet_src/Publisher/Loadtest.cs',
-        './dotnet_src/Publisher/LoadtestGrpc.cs',
-        './dotnet_src/Publisher/Worker.csproj',
-        './dotnet_src/Publisher.sln',
-        './dotnet_src/Subscriber/CPSSubscriberTask.cs',
-        './dotnet_src/Subscriber/Loadtest.cs',
-        './dotnet_src/Subscriber/LoadtestGrpc.cs',
-        './dotnet_src/Subscriber/Worker.csproj',
-        './dotnet_src/Subscriber.sln',
-        go_bin_location
+      'zip', './target/classes/gce/cps.zip',
+      './python_src/clients/cps_publisher_task.py',
+      './python_src/clients/cps_subscriber_task.py',
+      './python_src/clients/loadtest_pb2.py',
+      './python_src/clients/requirements.txt',
+      './ruby_src/Gemfile',
+      './ruby_src/loadtest_pb.rb',
+      './ruby_src/loadtest_services_pb.rb',
+      './ruby_src/cps_publisher_task.rb',
+      './ruby_src/cps_subscriber_task.rb' ,
+      './node_src/publisher_client.js' ,
+      './node_src/subscriber_client.js' ,
+      './node_src/package.json' ,
+      './node_src/loadtest.proto' ,
+      './node_src/google/protobuf/duration.proto' ,
+      './node_src/google/protobuf/timestamp.proto',
+      './dotnet_src/Publisher/CPSPublisherTask.cs',
+      './dotnet_src/Publisher/Loadtest.cs',
+      './dotnet_src/Publisher/LoadtestGrpc.cs',
+      './dotnet_src/Publisher/Worker.csproj',
+      './dotnet_src/Publisher.sln',
+      './dotnet_src/Subscriber/CPSSubscriberTask.cs',
+      './dotnet_src/Subscriber/Loadtest.cs',
+      './dotnet_src/Subscriber/LoadtestGrpc.cs',
+      './dotnet_src/Subscriber/Worker.csproj',
+      './dotnet_src/Subscriber.sln',
+      go_bin_location
     ])
   arg_list = ['java', '-jar', 'target/driver.jar', '--project', project]
   gcloud_subscriber_count = 0
@@ -103,28 +103,28 @@ def main(project, test, client_types, vms_count, broker):
       arg_list.append('--cps_gcloud_dotnet_subscriber_count=' + str(vms_count))
   if broker:
     arg_list.extend([
-        '--broker=' + broker, '--kafka_publisher_count=' + str(vms_count),
-        '--kafka_subscriber_count=' + str(vms_count)
+      '--broker=' + broker, '--kafka_publisher_count=' + str(vms_count),
+      '--kafka_subscriber_count=' + str(vms_count)
     ])
   if test == 'latency':
     arg_list.extend([
-        '--message_size=1', '--publish_batch_size=1', '--request_rate=1',
-        '--max_outstanding_requests=10', '--loadtest_duration=10m',
-        '--burn_in_duration=2m', '--publish_batch_duration=1ms'
+      '--message_size=1', '--publish_batch_size=1', '--request_rate=1',
+      '--max_outstanding_requests=10', '--loadtest_duration=10m',
+      '--burn_in_duration=2m', '--publish_batch_duration=1ms'
     ])
   elif test == 'throughput':
     arg_list.extend([
-        '--message_size=10000', '--publish_batch_size=10',
-        '--request_rate=1000000000', '--max_outstanding_requests=1600',
-        '--loadtest_duration=10m', '--burn_in_duration=2m',
-        '--publish_batch_duration=50ms', '--num_cores_test'
+      '--message_size=10000', '--publish_batch_size=10',
+      '--request_rate=1000000000', '--max_outstanding_requests=1600',
+      '--loadtest_duration=10m', '--burn_in_duration=2m',
+      '--publish_batch_duration=50ms', '--num_cores_test'
     ])
   elif test == 'service':
     arg_list.extend([
-        '--message_size=10000', '--publish_batch_size=10',
-        '--request_rate=1000000000', '--max_outstanding_requests=1600',
-        '--loadtest_duration=10m', '--burn_in_duration=2m',
-        '--publish_batch_duration=50ms', '--cores=16'
+      '--message_size=10000', '--publish_batch_size=10',
+      '--request_rate=1000000000', '--max_outstanding_requests=1600',
+      '--loadtest_duration=10m', '--burn_in_duration=2m',
+      '--publish_batch_duration=50ms', '--cores=16'
     ])
   print(' '.join(arg_list))
   subprocess.call(arg_list)

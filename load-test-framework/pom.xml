@@ -26,7 +26,12 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <version>0.24.0-beta</version>
+      <version>0.33.0-beta</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.api.grpc</groupId>
+      <artifactId>grpc-google-cloud-pubsub-v1</artifactId>
+      <version>0.1.28</version>
     </dependency>
     <dependency>
       <groupId>commons-io</groupId>
@@ -119,6 +124,16 @@
        <artifactId>zkclient</artifactId>
        <version>0.7</version>
      </dependency>
+    <dependency>
+      <groupId>com.google.api</groupId>
+      <artifactId>gax</artifactId>
+      <version>RELEASE</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.api</groupId>
+      <artifactId>gax-grpc</artifactId>
+      <version>RELEASE</version>
+    </dependency>
   </dependencies>
   <build>
    <resources>

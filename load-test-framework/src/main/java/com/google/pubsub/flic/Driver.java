@@ -16,6 +16,8 @@
 
 package com.google.pubsub.flic;
 
+import static org.apache.commons.lang3.ObjectUtils.defaultIfNull;
+
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.JCommander;
 import com.beust.jcommander.Parameter;
@@ -235,6 +237,30 @@ public class Driver {
   private String zookeeperIpAddress = "";
 
   @Parameter(
+      names = {"--emulator_host"},
+      description = "Host to connect on pub/sub emulation server <host>:<port>."
+  )
+  private String emulatorHost;
+
+  @Parameter(
+      names = {"--topic"},
+      description = "Topic name to be used on tests."
+  )
+  private String topic;
+
+  @Parameter(
+      names = {"--skip_pubsub_reset"},
+      description = "Skip recreation of topic and subscriber for pub/sub"
+  )
+  private boolean skipPubSubReset = false;
+
+  @Parameter(
+      names = {"--subscription"},
+      description = "Subscription name to be used on tests."
+  )
+  private String subscription;
+
+  @Parameter(
     names = {"--request_rate"},
     description = "The rate at which each client will make requests (batches per second)."
   )
@@ -377,6 +403,9 @@ public class Driver {
       jCommander.usage();
       return;
     }
+
+    GCEController.skipPubSubReset = driver.skipPubSubReset;
+
     driver.run(
         (project, clientParamsMap) ->
             GCEController.newGCEController(
@@ -391,7 +420,7 @@ public class Driver {
       Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
       if (cpsGcloudJavaPublisherCount > 0) {
         clientParamsMap.put(
-            new ClientParams(ClientType.CPS_GCLOUD_JAVA_PUBLISHER, null),
+            new ClientParams(ClientType.CPS_GCLOUD_JAVA_PUBLISHER, topic, null),
             cpsGcloudJavaPublisherCount);
       }
       if (cpsGcloudPythonPublisherCount > 0) {
@@ -429,6 +458,7 @@ public class Driver {
         clientParamsMap.put(
             new ClientParams(ClientType.KAFKA_SUBSCRIBER, null), kafkaSubscriberCount);
       }
+
       Preconditions.checkArgument(
           Durations.toMillis(publishBatchDuration) >= 0,
           "--publish_batch_duration must be positive.");
@@ -439,6 +469,7 @@ public class Driver {
           broker != null || (kafkaPublisherCount == 0 && kafkaSubscriberCount == 0),
           "If using Kafka you must provide the network address of your broker using the"
               + "--broker flag.");
+
       if (maxPublishLatencyTest) {
         Preconditions.checkArgument(
             clientParamsMap.size() == 1,
@@ -451,7 +482,8 @@ public class Driver {
           Preconditions.checkArgument(cpsGcloudJavaPublisherCount > 0,
               "--cps_gcloud_java_publisher must be > 0.");
           clientParamsMap.put(
-              new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, "gcloud-java-subscription" + i),
+              new ClientParams(ClientType.CPS_GCLOUD_JAVA_SUBSCRIBER, topic,
+                  defaultIfNull(subscription, "gcloud-java-subscription" + i)),
               cpsGcloudJavaSubscriberCount / cpsSubscriptionFanout);
         }
         if (cpsGcloudGoSubscriberCount > 0) {
@@ -506,6 +538,7 @@ public class Driver {
       Client.publishBatchDuration = publishBatchDuration;
       Client.partitions = partitions;
       Client.replicationFactor = replicationFactor;
+      Client.emulatorHost = emulatorHost;
 
       // Start a thread to poll and output results.
       ScheduledExecutorService pollingExecutor = Executors.newSingleThreadScheduledExecutor();
@@ -542,6 +575,7 @@ public class Driver {
         Map<ClientType, Controller.LoadtestStats> statsMap = runTest(null);
         GnuPlot.plot(statsMap);
         CsvOutput.outputStats(statsMap);
+        controller.shutdown(null);
       }
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();

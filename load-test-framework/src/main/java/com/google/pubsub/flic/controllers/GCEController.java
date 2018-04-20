@@ -63,10 +63,10 @@ import java.util.concurrent.ScheduledExecutorService;
 import kafka.admin.AdminUtils;
 import kafka.utils.ZKStringSerializer$;
 import kafka.utils.ZkUtils;
-import org.apache.commons.codec.digest.DigestUtils;
 import org.I0Itec.zkclient.ZkClient;
 import org.I0Itec.zkclient.ZkConnection;
 import org.I0Itec.zkclient.exception.ZkNodeExistsException;
+import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * This is a subclass of {@link Controller} that controls load tests on Google Compute Engine.
@@ -78,6 +78,9 @@ public class GCEController extends Controller {
   private static final int ALREADY_EXISTS = 409;
   private static final int NOT_FOUND = 404;
   public static String resourceDirectory = "target/classes/gce";
+
+  public static Boolean skipPubSubReset = false;
+
   private final Storage storage;
   private final Compute compute;
   private final String projectName;
@@ -101,61 +104,66 @@ public class GCEController extends Controller {
     // delete and recreate any subscriptions attached to it so that we do not have backlog from
     // previous runs.
     List<SettableFuture<Void>> pubsubFutures = new ArrayList<>();
-    types.values().forEach(paramsMap -> {
-      paramsMap.keySet().stream().map(p -> p.getClientType())
-          .distinct().filter(ClientType::isCpsPublisher).forEach(clientType -> {
-        SettableFuture<Void> pubsubFuture = SettableFuture.create();
-        pubsubFutures.add(pubsubFuture);
-        executor.execute(() -> {
-          String topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
-          try {
-            pubsub.projects().topics()
-                .create("projects/" + projectName + "/topics/" + topic, new Topic()).execute();
-          } catch (GoogleJsonResponseException e) {
-            if (e.getStatusCode() != ALREADY_EXISTS) {
+
+    if (!skipPubSubReset) {
+      types.values().forEach(paramsMap -> {
+        paramsMap.keySet().stream()
+            .filter(p -> p.getClientType().isCpsPublisher())
+            .distinct().forEach(currentClientParam -> {
+          SettableFuture<Void> pubsubFuture = SettableFuture.create();
+          pubsubFutures.add(pubsubFuture);
+          executor.execute(() -> {
+            String topic = currentClientParam.getTopic();
+            try {
+              pubsub.projects().topics()
+                  .create("projects/" + projectName + "/topics/" + topic, new Topic()).execute();
+            } catch (GoogleJsonResponseException e) {
+              if (e.getStatusCode() != ALREADY_EXISTS) {
+                pubsubFuture.setException(e);
+                return;
+              }
+              log.info("Topic already exists, reusing.");
+            } catch (IOException e) {
               pubsubFuture.setException(e);
               return;
             }
-            log.info("Topic already exists, reusing.");
-          } catch (IOException e) {
-            pubsubFuture.setException(e);
-            return;
-          }
-          // Recreate each subscription attached to the topic.
-          paramsMap.keySet().stream()
-              .filter(p -> p.getClientType() == clientType.getSubscriberType())
-              .map(p -> p.subscription).forEach(subscription -> {
-            try {
-              pubsub.projects().subscriptions().delete("projects/" + projectName
-                  + "/subscriptions/" + subscription).execute();
-            } catch (IOException e) {
-              log.debug("Error deleting subscription, assuming it has not yet been created.", e);
-            }
-            try {
-              pubsub.projects().subscriptions().create("projects/" + projectName
-                  + "/subscriptions/" + subscription, new Subscription()
-                  .setTopic("projects/" + projectName + "/topics/" + topic)
-                  .setAckDeadlineSeconds(10)).execute();
-            } catch (IOException e) {
-              pubsubFuture.setException(e);
-            }
+            // Recreate each subscription attached to the topic.
+            paramsMap.keySet().stream()
+                .filter(p -> p.getClientType() == currentClientParam.getClientType()
+                    .getSubscriberType())
+                .map(p -> p.subscription).distinct().forEach(subscription -> {
+              try {
+                pubsub.projects().subscriptions().delete("projects/" + projectName
+                    + "/subscriptions/" + subscription).execute();
+              } catch (IOException e) {
+                log.debug("Error deleting subscription, assuming it has not yet been created.", e);
+              }
+              try {
+                pubsub.projects().subscriptions().create("projects/" + projectName
+                    + "/subscriptions/" + subscription, new Subscription()
+                    .setTopic("projects/" + projectName + "/topics/" + topic)
+                    .setAckDeadlineSeconds(10)).execute();
+              } catch (IOException e) {
+                pubsubFuture.setException(e);
+              }
+            });
+            pubsubFuture.set(null);
           });
-          pubsubFuture.set(null);
         });
       });
-    });
+    }
 
     List<SettableFuture<Void>> kafkaFutures = new ArrayList<>();
     // If the Zookeeper host is provided, delete and recreate the topic
     // in order to eliminate performance issues from backlogs.
     if (!Client.zookeeperIpAddress.isEmpty()) {
       types.values().forEach(paramsMap -> {
-        paramsMap.keySet().stream().map(p -> p.getClientType())
-            .distinct().filter(ClientType::isKafkaPublisher).forEach(clientType -> {
+        paramsMap.keySet().stream().distinct()
+            .filter(p -> p.getClientType().isKafkaPublisher()).forEach(currentParam -> {
           SettableFuture<Void> kafkaFuture = SettableFuture.create();
           kafkaFutures.add(kafkaFuture);
           executor.execute(() -> {
-            String topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
+            String topic = currentParam.getTopic();
             ZkClient zookeeperClient = new ZkClient(Client.zookeeperIpAddress, 15000, 10000,
                 ZKStringSerializer$.MODULE$);
             ZkUtils zookeeperUtils = new ZkUtils(zookeeperClient,
@@ -523,6 +531,7 @@ public class GCEController extends Controller {
             params.getClientType(),
             instance.getNetworkInterfaces().get(0).getAccessConfigs().get(0).getNatIP(),
             projectName,
+            params.topic,
             params.subscription,
             executor));
       }

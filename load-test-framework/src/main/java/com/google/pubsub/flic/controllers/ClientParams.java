@@ -16,15 +16,29 @@
 
 package com.google.pubsub.flic.controllers;
 
+import java.util.Objects;
+import org.apache.commons.lang3.StringUtils;
+
 /**
  * Keeps track of the parameters that define a client.
  */
 public class ClientParams {
+
+  public final String topic;
   public final String subscription;
   public final Client.ClientType clientType;
 
   public ClientParams(Client.ClientType clientType, String subscription) {
+    this(clientType, null, subscription);
+  }
+
+  public ClientParams(Client.ClientType clientType, String topic, String subscription) {
     this.clientType = clientType;
+    if (StringUtils.isBlank(topic)) {
+      this.topic = Client.TOPIC_PREFIX + Client.getTopicSuffix(clientType);
+    } else {
+      this.topic = topic;
+    }
     this.subscription = subscription;
   }
 
@@ -35,34 +49,26 @@ public class ClientParams {
     return clientType;
   }
 
+  public String getTopic() {
+    return topic;
+  }
+
   @Override
-  public boolean equals(Object obj) {
-    if (obj == this) {
+  public boolean equals(Object o) {
+    if (this == o) {
       return true;
     }
-    if (obj == null || obj.getClass() != this.getClass()) {
+    if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    ClientParams other = (ClientParams) obj;
-    if (!clientType.equals(other.getClientType())) {
-      return false;
-    }
-    if (subscription == null && other.subscription == null) {
-      return true;
-    }
-    if (subscription == null || other.subscription == null) {
-      return false;
-    }
-    return subscription.equals(other.subscription);
+    ClientParams that = (ClientParams) o;
+    return Objects.equals(topic, that.topic) &&
+        Objects.equals(subscription, that.subscription) &&
+        clientType == that.clientType;
   }
 
   @Override
   public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((subscription == null) ? 0 : subscription.hashCode());
-    result = prime * result + ((clientType == null) ? 0 : clientType.hashCode());
-    return result;
+    return Objects.hash(topic, subscription, clientType);
   }
-
 }
