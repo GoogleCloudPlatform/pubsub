@@ -18,6 +18,7 @@ package com.google.pubsub.kafka.sink;
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
 import com.google.api.gax.batching.BatchingSettings;
+import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
@@ -61,6 +62,8 @@ public class CloudPubSubSinkTask extends SinkTask {
   private long maxBufferSize;
   private long maxBufferBytes;
   private int maxDelayThresholdMs;
+  private int maxRequestTimeoutMs;
+  private int maxTotalTimeoutMs;
   private boolean includeMetadata;
   private com.google.cloud.pubsub.v1.Publisher publisher;
 
@@ -99,6 +102,10 @@ public class CloudPubSubSinkTask extends SinkTask {
     maxBufferBytes = (Long) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_BYTES_CONFIG);
     maxDelayThresholdMs =
         (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_DELAY_THRESHOLD_MS);
+    maxRequestTimeoutMs =
+        (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_REQUEST_TIMEOUT_MS);
+    maxTotalTimeoutMs =
+        (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_TOTAL_TIMEOUT_MS);
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
     if (publisher == null) {
@@ -285,6 +292,18 @@ public class CloudPubSubSinkTask extends SinkTask {
                     .setDelayThreshold(Duration.ofMillis(maxDelayThresholdMs))
                     .setElementCountThreshold(maxBufferSize)
                     .setRequestByteThreshold(maxBufferBytes)
+                    .build())
+            .setRetrySettings(
+                RetrySettings.newBuilder()
+                    // All values that are not configurable come from the defaults for the publisher
+                    // client library.
+                    .setTotalTimeout(Duration.ofMillis(maxTotalTimeoutMs))
+                    .setMaxRpcTimeout(Duration.ofMillis(maxRequestTimeoutMs))
+                    .setInitialRetryDelay(Duration.ofMillis(5))
+                    .setRetryDelayMultiplier(2)
+                    .setMaxRetryDelay(Duration.ofMillis(Long.MAX_VALUE))
+                    .setInitialRpcTimeout(Duration.ofSeconds(10))
+                    .setRpcTimeoutMultiplier(2)
                     .build());
     try {
       publisher = builder.build();
