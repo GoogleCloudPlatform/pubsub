@@ -191,15 +191,24 @@ public class CloudPubSubSinkTask extends SinkTask {
         Struct struct = (Struct) value;
         ByteString msgBody = null;
         for (Field f : schema.fields()) {
+          Schema.Type fieldType = f.schema().type();
+          if (fieldType == Type.MAP || fieldType == Type.STRUCT) {
+            throw new DataException("Struct type does not support nested Map or Struct types, " +
+                "present in field " + f.name());
+          }
+
           Object val = struct.get(f);
           if (val == null) {
-            throw new DataException("Struct message body does not support Map or Struct types.");
+            if (!f.schema().isOptional()) {
+              throw new DataException("Struct message missing required field " + f.name());
+            }  else {
+              continue;
+            }
           }
           if (f.name().equals(messageBodyName)) {
             Schema bodySchema = f.schema();
             msgBody = handleValue(bodySchema, val, null);
           } else {
-            f.name();
             attributes.put(f.name(), val.toString());
           }
         }
