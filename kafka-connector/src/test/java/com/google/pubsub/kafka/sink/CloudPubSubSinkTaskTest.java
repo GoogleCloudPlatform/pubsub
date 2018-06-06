@@ -61,10 +61,10 @@ public class CloudPubSubSinkTaskTest {
   private static final String CPS_MIN_BATCH_SIZE2 = "9";
   private static final String KAFKA_TOPIC = "brown";
   private static final ByteString KAFKA_MESSAGE1 = ByteString.copyFromUtf8("fox");
-  private static final ByteString KAFKA_MESSAGE2 = ByteString.copyFromUtf8("jumped");
-  private static final String FIELD_STRING1 = "Roll";
-  private static final String FIELD_STRING2 = "War";
-  private static final String KAFKA_MESSAGE_KEY = "over";
+  private static final ByteString KAFKA_MESSAGE2 = ByteString.copyFromUtf8("jumps");
+  private static final String FIELD_STRING1 = "over";
+  private static final String FIELD_STRING2 = "lazy";
+  private static final String KAFKA_MESSAGE_KEY = "dog";
   private static final Schema STRING_SCHEMA = SchemaBuilder.string().build();
   private static final Schema BYTE_STRING_SCHEMA =
       SchemaBuilder.bytes().name(ConnectorUtils.SCHEMA_NAME).build();
@@ -173,12 +173,61 @@ public class CloudPubSubSinkTaskTest {
     List<SinkRecord> list = new ArrayList<>();
     list.add(record);
     task.put(list);
-    schema = SchemaBuilder.struct().field(FIELD_STRING1, SchemaBuilder.struct()).build();
-    record = new SinkRecord(null, -1, null, null, schema, new Struct(schema), -1);
+  }
+
+  @Test
+  public void testStructSchemaWithOptionalField() {
+    task.start(props);
+
+    Schema schema = SchemaBuilder.struct().field(FIELD_STRING1, SchemaBuilder.string())
+        .field(FIELD_STRING2, SchemaBuilder.string().optional()).build();
+
+    // With the optional field missing.
+    Struct val = new Struct(schema);
+    val.put(FIELD_STRING1, "tide");
+    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    List<SinkRecord> list = new ArrayList<>();
     list.add(record);
-    try {
-      task.put(list);
-    } catch (DataException e) { } // Expected, pass.
+    task.put(list);
+
+    // With the optional field present.
+    val.put(FIELD_STRING2, "eagle");
+    record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
+  }
+
+  @Test(expected = DataException.class)
+  public void testStructSchemaWithMissingField() {
+    task.start(props);
+
+    Schema schema = SchemaBuilder.struct().field(FIELD_STRING1, SchemaBuilder.string())
+        .field(FIELD_STRING2, SchemaBuilder.string()).build();
+    Struct val = new Struct(schema);
+    val.put(FIELD_STRING1, "tide");
+    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    List<SinkRecord> list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
+  }
+
+  @Test(expected = DataException.class)
+  public void testStructSchemaWithNestedSchema() {
+    task.start(props);
+
+    Schema nestedSchema = SchemaBuilder.struct().build();
+    Struct nestedVal = new Struct(nestedSchema);
+
+    Schema schema = SchemaBuilder.struct().field(FIELD_STRING1, SchemaBuilder.string())
+        .field(FIELD_STRING2, nestedSchema).build();
+    Struct val = new Struct(schema);
+    val.put(FIELD_STRING1, "tide");
+    val.put(FIELD_STRING2, nestedVal);
+    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    List<SinkRecord> list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
   }
 
   @Test
