@@ -181,10 +181,19 @@ public class CloudPubSubSinkTaskTest {
 
     Schema schema = SchemaBuilder.struct().field(FIELD_STRING1, SchemaBuilder.string())
         .field(FIELD_STRING2, SchemaBuilder.string().optional()).build();
+
+    // With the optional field missing.
     Struct val = new Struct(schema);
     val.put(FIELD_STRING1, "tide");
     SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
     List<SinkRecord> list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
+
+    // With the optional field present.
+    val.put(FIELD_STRING2, "eagle");
+    record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    list = new ArrayList<>();
     list.add(record);
     task.put(list);
   }
