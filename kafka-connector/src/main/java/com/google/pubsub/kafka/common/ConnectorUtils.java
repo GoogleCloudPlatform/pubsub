@@ -50,7 +50,11 @@ public class ConnectorUtils {
   /** Return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's. */
   public static Channel getChannel() throws IOException {
     ManagedChannel channelImpl =
-        NettyChannelBuilder.forAddress(ENDPOINT, 443).negotiationType(NegotiationType.TLS).build();
+        NettyChannelBuilder.forAddress(ENDPOINT, 443)
+            .negotiationType(NegotiationType.TLS)
+            // Maximum Pub/Sub message size is 10MB.
+            .maxInboundMessageSize(10 * 1024 * 1024)
+            .build();
     final ClientAuthInterceptor interceptor =
         new ClientAuthInterceptor(
             GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE),
