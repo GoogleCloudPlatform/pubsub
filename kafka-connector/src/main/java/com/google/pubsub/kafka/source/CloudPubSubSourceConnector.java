@@ -43,7 +43,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceConnector.class);
 
-  public static final String KAFKA_PARTITIONS_CONFIG = "kafka.partition.count";
   public static final String KAFKA_PARTITION_SCHEME_CONFIG = "kafka.partition.scheme";
   public static final String KAFKA_MESSAGE_KEY_CONFIG = "kafka.key.attribute";
   public static final String KAFKA_MESSAGE_TIMESTAMP_CONFIG = "kafka.timestamp.attribute";
@@ -51,13 +50,11 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String CPS_SUBSCRIPTION_CONFIG = "cps.subscription";
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
   public static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
-  public static final int DEFAULT_KAFKA_PARTITIONS = 1;
-  public static final String DEFAULT_KAFKA_PARTITION_SCHEME = "round_robin";
+  public static final String DEFAULT_KAFKA_PARTITION_SCHEME = PartitionScheme.KAFKA_PRODUCER.value;
 
   /** Defines the accepted values for the {@link #KAFKA_PARTITION_SCHEME_CONFIG}. */
   public enum PartitionScheme {
-    ROUND_ROBIN("round_robin"),
-    HASH_KEY("hash_key"),
+    KAFKA_PRODUCER("kafka_producer"),
     HASH_VALUE("hash_value");
 
     private String value;
@@ -71,10 +68,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     }
 
     public static PartitionScheme getEnum(String value) {
-      if (value.equals("round_robin")) {
-        return PartitionScheme.ROUND_ROBIN;
-      } else if (value.equals("hash_key")) {
-        return PartitionScheme.HASH_KEY;
+      if (value.equals("kafka_producer")) {
+        return PartitionScheme.KAFKA_PRODUCER;
       } else if (value.equals("hash_value")) {
         return PartitionScheme.HASH_VALUE;
       } else {
@@ -88,13 +83,12 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       @Override
       public void ensureValid(String name, Object o) {
         String value = (String) o;
-        if (!value.equals(CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString())
-            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString())
-            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString())) {
+        if (!value.equals(PartitionScheme.KAFKA_PRODUCER.toString())
+            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString())) {
           throw new ConfigException(
               "Valid values for "
                   + CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG
-                  + " are hash_value, hash_key and round_robin");
+                  + " are kafka_producer and hash_value");
         }
       }
     }
@@ -173,14 +167,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Importance.MEDIUM,
             "The optional Cloud Pub/Sub message attribute to use as a timestamp for messages "
                 + "published to Kafka. The timestamp is Long value.")
-        .define(
-            KAFKA_PARTITIONS_CONFIG,
-            Type.INT,
-            DEFAULT_KAFKA_PARTITIONS,
-            ConfigDef.Range.between(1, Integer.MAX_VALUE),
-            Importance.MEDIUM,
-            "The number of Kafka partitions for the Kafka topic in which messages will be "
-                + "published to.")
         .define(
             KAFKA_PARTITION_SCHEME_CONFIG,
             Type.STRING,
