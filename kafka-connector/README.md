@@ -77,8 +77,7 @@ Connector supports the following configs:
 | kafka.topic | String | REQUIRED (No default) | The topic in Kafka which will receive messages that were pulled from Cloud Pub/Sub. |
 | cps.maxBatchSize | Integer | 100 | The minimum number of messages to batch per pull request to Cloud Pub/Sub. |
 | kafka.key.attribute | String | null | The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka. |
-| kafka.partition.count | Integer | 1 | The number of Kafka partitions for the Kafka topic in which messages will be published to. |
-| kafka.partition.scheme | round_robin, hash_key, hash_value | round_robin | The scheme for assigning a message to a partition in Kafka. The scheme "round_robin" assigns partitions in a round robin fashion, while the schemes "hash_key" and "hash_value" find the partition by hashing the message key and message value respectively. |
+| kafka.partition.scheme | kafka_producer, hash_value | kafka_producer | The scheme for assigning a message to a partition in Kafka. The scheme "kafka_producer" uses kafka partitioner, which by default hashes message key or round robin if no key is provided. "hash_value" assigns murmur2 hash as a message key and uses kafka producer partitioner. |
 
 #### Sink Connector
 

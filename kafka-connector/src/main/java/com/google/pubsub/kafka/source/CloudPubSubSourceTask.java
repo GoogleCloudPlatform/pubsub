@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+
+import org.apache.kafka.common.utils.Utils;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -59,18 +61,16 @@ public class CloudPubSubSourceTask extends SourceTask {
   private String cpsSubscription;
   private String kafkaMessageKeyAttribute;
   private String kafkaMessageTimestampAttribute;
-  private int kafkaPartitions;
   private PartitionScheme kafkaPartitionScheme;
   private int cpsMaxBatchSize;
-  // Keeps track of the current partition to publish to if the partition scheme is round robin.
-  private int currentRoundRobinPartition = -1;
   // Keep track of all ack ids that have not been sent correctly acked yet.
   private Set<String> ackIds = Collections.synchronizedSet(new HashSet<String>());
   private CloudPubSubSubscriber subscriber;
   private Set<String> ackIdsInFlight = Collections.synchronizedSet(new HashSet<String>());
   private final Set<String> standardAttributes = new HashSet<>();
 
-  public CloudPubSubSourceTask() {}
+  public CloudPubSubSourceTask() {
+  }
 
   @VisibleForTesting
   public CloudPubSubSourceTask(CloudPubSubSubscriber subscriber) {
@@ -93,15 +93,13 @@ public class CloudPubSubSourceTask extends SourceTask {
     kafkaTopic = validatedProps.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG).toString();
     cpsMaxBatchSize =
         (Integer) validatedProps.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG);
-    kafkaPartitions =
-        (Integer) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG);
     kafkaMessageKeyAttribute =
         (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG);
     kafkaMessageTimestampAttribute =
         (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_MESSAGE_TIMESTAMP_CONFIG);
     kafkaPartitionScheme =
         PartitionScheme.getEnum(
-            (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
+        (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
     if (subscriber == null) {
       // Only do this if we did not set through the constructor.
       subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);
@@ -136,13 +134,18 @@ public class CloudPubSubSourceTask extends SourceTask {
         }
         ackIds.add(ackId);
         Map<String, String> messageAttributes = message.getAttributes();
-        String key = messageAttributes.get(kafkaMessageKeyAttribute);
+
         Long timestamp = getLongValue(messageAttributes.get(kafkaMessageTimestampAttribute));
-        if (timestamp == null){
+        if (timestamp == null) {
           timestamp = Timestamps.toMillis(message.getPublishTime());
         }
         ByteString messageData = message.getData();
         byte[] messageBytes = messageData.toByteArray();
+
+        String key = messageAttributes.get(kafkaMessageKeyAttribute);
+        if (key == null && kafkaPartitionScheme.equals(PartitionScheme.HASH_VALUE)) {
+          key = Integer.toString(Utils.murmur2(messageBytes));
+        }
 
         boolean hasCustomAttributes = !standardAttributes.containsAll(messageAttributes.keySet());
 
@@ -156,7 +159,7 @@ public class CloudPubSubSourceTask extends SourceTask {
                messageAttributes.entrySet()) {
             if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
               valueSchemaBuilder.field(attribute.getKey(),
-                                       Schema.STRING_SCHEMA);
+                      Schema.STRING_SCHEMA);
             }
           }
 
@@ -176,7 +179,7 @@ public class CloudPubSubSourceTask extends SourceTask {
                 null,
                 null,
                 kafkaTopic,
-                selectPartition(key, value),
+                null,
                 Schema.OPTIONAL_STRING_SCHEMA,
                 key,
                 valueSchema,
@@ -188,7 +191,7 @@ public class CloudPubSubSourceTask extends SourceTask {
                 null,
                 null,
                 kafkaTopic,
-                selectPartition(key, messageBytes),
+                null,
                 Schema.OPTIONAL_STRING_SCHEMA,
                 key,
                 Schema.BYTES_SCHEMA,
@@ -240,18 +243,6 @@ public class CloudPubSubSourceTask extends SourceTask {
               log.error("An exception occurred acking messages: " + t);
             }
           });
-    }
-  }
-
-  /** Return the partition a message should go to based on {@link #kafkaPartitionScheme}. */
-  private int selectPartition(Object key, Object value) {
-    if (kafkaPartitionScheme.equals(PartitionScheme.HASH_KEY)) {
-      return key == null ? 0 : Math.abs(key.hashCode()) % kafkaPartitions;
-    } else if (kafkaPartitionScheme.equals(PartitionScheme.HASH_VALUE)) {
-      return Math.abs(value.hashCode()) % kafkaPartitions;
-    } else {
-      currentRoundRobinPartition = ++currentRoundRobinPartition % kafkaPartitions;
-      return currentRoundRobinPartition;
     }
   }
 

@@ -38,6 +38,8 @@ import com.google.pubsub.v1.ReceivedMessage;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+
+import org.apache.kafka.common.utils.Utils;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -82,6 +84,7 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(sr1.keySchema(), sr2.keySchema());
     assertEquals(sr1.valueSchema(), sr2.valueSchema());
     assertEquals(sr1.topic(), sr2.topic());
+    assertEquals(sr1.kafkaPartition(), sr2.kafkaPartition());
 
     if (sr1.valueSchema() == Schema.BYTES_SCHEMA) {
       assertArrayEquals((byte[])sr1.value(), (byte[])sr2.value());
@@ -109,10 +112,9 @@ public class CloudPubSubSourceTaskTest {
     props.put(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG, KAFKA_TOPIC);
     props.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG, KAFKA_MESSAGE_KEY_ATTRIBUTE);
     props.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_TIMESTAMP_CONFIG, KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE);
-    props.put(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG, KAFKA_PARTITIONS);
     props.put(
         CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
-        CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString());
+        CloudPubSubSourceConnector.PartitionScheme.KAFKA_PRODUCER.toString());
   }
 
   /** Tests when no messages are received from the Cloud Pub/Sub PullResponse. */
@@ -188,7 +190,7 @@ public class CloudPubSubSourceTaskTest {
             null,
             null,
             KAFKA_TOPIC,
-            0,
+            null,
             Schema.OPTIONAL_STRING_SCHEMA,
             null,
             Schema.BYTES_SCHEMA,
@@ -216,7 +218,7 @@ public class CloudPubSubSourceTaskTest {
             null,
             null,
             KAFKA_TOPIC,
-            0,
+            null,
             Schema.OPTIONAL_STRING_SCHEMA,
             KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
             Schema.BYTES_SCHEMA,
@@ -245,7 +247,7 @@ public class CloudPubSubSourceTaskTest {
                     null,
                     null,
                     KAFKA_TOPIC,
-                    0,
+                    null,
                     Schema.OPTIONAL_STRING_SCHEMA,
                     KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
                     Schema.BYTES_SCHEMA,
@@ -285,7 +287,7 @@ public class CloudPubSubSourceTaskTest {
             null,
             null,
             KAFKA_TOPIC,
-            0,
+            null,
             Schema.OPTIONAL_STRING_SCHEMA,
             KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
             expectedSchema,
@@ -293,55 +295,7 @@ public class CloudPubSubSourceTaskTest {
     assertRecordsEqual(expected, result.get(0));
   }
 
-  /**
-   * Tests that the correct partition is assigned when the partition scheme is "hash_key". The test
-   * has two cases, one where a key does exist and one where it does not.
-   */
-  @Test
-  public void testPollWithPartitionSchemeHashKey() throws Exception {
-    props.put(
-        CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
-        CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString());
-    task.start(props);
-    Map<String, String> attributes = new HashMap<>();
-    attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
-    ReceivedMessage withoutKey = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
-    ReceivedMessage withKey = createReceivedMessage(ACK_ID2, CPS_MESSAGE, attributes);
-    PullResponse stubbedPullResponse =
-        PullResponse.newBuilder()
-            .addReceivedMessages(0, withKey)
-            .addReceivedMessages(1, withoutKey)
-            .build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
-    assertEquals(2, result.size());
-    SourceRecord expectedForMessageWithKey =
-        new SourceRecord(
-            null,
-            null,
-            KAFKA_TOPIC,
-            KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE.hashCode() % Integer.parseInt(KAFKA_PARTITIONS),
-            Schema.OPTIONAL_STRING_SCHEMA,
-            KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
-            Schema.BYTES_SCHEMA,
-            KAFKA_VALUE);
-    SourceRecord expectedForMessageWithoutKey =
-        new SourceRecord(
-            null,
-            null,
-            KAFKA_TOPIC,
-            0,
-            Schema.OPTIONAL_STRING_SCHEMA,
-            null,
-            Schema.BYTES_SCHEMA,
-            KAFKA_VALUE);
-
-    assertRecordsEqual(expectedForMessageWithKey, result.get(0));
-    assertArrayEquals((byte[])expectedForMessageWithoutKey.value(), (byte[])result.get(1).value());
-  }
-
-  /** Tests that the correct partition is assigned when the partition scheme is "hash_value". */
+  /** Tests that the correct key is assigned when the partition scheme is "hash_value". */
   @Test
   public void testPollWithPartitionSchemeHashValue() throws Exception {
     props.put(
@@ -359,81 +313,40 @@ public class CloudPubSubSourceTaskTest {
             null,
             null,
             KAFKA_TOPIC,
-            KAFKA_VALUE.hashCode() % Integer.parseInt(KAFKA_PARTITIONS),
-            Schema.OPTIONAL_STRING_SCHEMA,
             null,
+            Schema.OPTIONAL_STRING_SCHEMA,
+            Integer.toString(Utils.murmur2(KAFKA_VALUE)),
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
     assertRecordsEqual(expected, result.get(0));
   }
 
-  /**
-   * Tests that the correct partition is assigned when the partition scheme is "round_robin". The
-   * tests makes sure to submit an approrpriate number of messages to poll() so that all partitions
-   * in the round robin are hit once.
-   */
+  /** Tests that the message key attribute is used even if partition scheme is "hash_value". */
   @Test
-  public void testPollWithPartitionSchemeRoundRobin() throws Exception {
+  public void testPollWithPartitionSchemeHashValueAndMessageKeyAttribute() throws Exception {
+    props.put(
+            CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
+            CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString());
     task.start(props);
-    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
-    ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<String, String>());
-    ReceivedMessage rm3 = createReceivedMessage(ACK_ID3, CPS_MESSAGE, new HashMap<String, String>());
-    ReceivedMessage rm4 = createReceivedMessage(ACK_ID4, CPS_MESSAGE, new HashMap<String, String>());
-    PullResponse stubbedPullResponse =
-        PullResponse.newBuilder()
-            .addReceivedMessages(0, rm1)
-            .addReceivedMessages(1, rm2)
-            .addReceivedMessages(2, rm3)
-            .addReceivedMessages(3, rm4)
-            .build();
+    Map<String, String> attributes = new HashMap<>();
+    attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes);
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
     verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
-    assertEquals(4, result.size());
-    SourceRecord expected1 =
-        new SourceRecord(
-            null,
-            null,
-            KAFKA_TOPIC,
-            0,
-            Schema.OPTIONAL_STRING_SCHEMA,
-            null,
-            Schema.BYTES_SCHEMA,
-            KAFKA_VALUE);
-    SourceRecord expected2 =
-        new SourceRecord(
-            null,
-            null,
-            KAFKA_TOPIC,
-            1,
-            Schema.OPTIONAL_STRING_SCHEMA,
-            null,
-            Schema.BYTES_SCHEMA,
-            KAFKA_VALUE);
-    SourceRecord expected3 =
-        new SourceRecord(
-            null,
-            null,
-            KAFKA_TOPIC,
-            2,
-            Schema.OPTIONAL_STRING_SCHEMA,
-            null,
-            Schema.BYTES_SCHEMA,
-            KAFKA_VALUE);
-    SourceRecord expected4 =
-        new SourceRecord(
-            null,
-            null,
-            KAFKA_TOPIC,
-            0,
-            Schema.OPTIONAL_STRING_SCHEMA,
-            null,
-            Schema.BYTES_SCHEMA,
-            KAFKA_VALUE);
-    assertRecordsEqual(expected1, result.get(0));
-    assertRecordsEqual(expected2, result.get(1));
-    assertRecordsEqual(expected3, result.get(2));
-    assertRecordsEqual(expected4, result.get(3));
+    assertEquals(1, result.size());
+    SourceRecord expected =
+            new SourceRecord(
+                    null,
+                    null,
+                    KAFKA_TOPIC,
+                    null,
+                    Schema.OPTIONAL_STRING_SCHEMA,
+                    KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
+                    Schema.BYTES_SCHEMA,
+                    KAFKA_VALUE);
+    assertRecordsEqual(expected, result.get(0));
   }
 
   @Test
