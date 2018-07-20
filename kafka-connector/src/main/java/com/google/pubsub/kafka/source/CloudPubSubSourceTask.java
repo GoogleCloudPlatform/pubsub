@@ -244,11 +244,13 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   /** Return the partition a message should go to based on {@link #kafkaPartitionScheme}. */
-  private int selectPartition(Object key, Object value) {
+  private Integer selectPartition(Object key, Object value) {
     if (kafkaPartitionScheme.equals(PartitionScheme.HASH_KEY)) {
       return key == null ? 0 : Math.abs(key.hashCode()) % kafkaPartitions;
     } else if (kafkaPartitionScheme.equals(PartitionScheme.HASH_VALUE)) {
       return Math.abs(value.hashCode()) % kafkaPartitions;
+    } if (kafkaPartitionScheme.equals(PartitionScheme.KAFKA_PARTITIONER)) {
+      return null;
     } else {
       currentRoundRobinPartition = ++currentRoundRobinPartition % kafkaPartitions;
       return currentRoundRobinPartition;

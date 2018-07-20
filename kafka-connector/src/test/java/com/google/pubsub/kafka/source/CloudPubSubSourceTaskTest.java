@@ -17,6 +17,7 @@ package com.google.pubsub.kafka.source;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -365,6 +366,33 @@ public class CloudPubSubSourceTaskTest {
             Schema.BYTES_SCHEMA,
             KAFKA_VALUE);
     assertRecordsEqual(expected, result.get(0));
+  }
+
+  /** Tests that the no partition is assigned when the partition scheme is "kafka_partitioner". */
+  @Test
+  public void testPollWithPartitionSchemeKafkaPartitioner() throws Exception {
+    props.put(
+            CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
+            CloudPubSubSourceConnector.PartitionScheme.KAFKA_PARTITIONER.toString());
+    task.start(props);
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    assertEquals(1, result.size());
+    SourceRecord expected =
+            new SourceRecord(
+                    null,
+                    null,
+                    KAFKA_TOPIC,
+                    null,
+                    Schema.OPTIONAL_STRING_SCHEMA,
+                    null,
+                    Schema.BYTES_SCHEMA,
+                    KAFKA_VALUE);
+    assertRecordsEqual(expected, result.get(0));
+    assertNull(result.get(0).kafkaPartition());
   }
 
   /**
