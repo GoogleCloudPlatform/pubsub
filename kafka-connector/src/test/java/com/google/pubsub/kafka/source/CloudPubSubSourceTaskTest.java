@@ -138,6 +138,7 @@ public class CloudPubSubSourceTaskTest {
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
+    task.commitRecord(result.get(0));
     stubbedPullResponse = PullResponse.newBuilder().build();
     ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
     when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);

@@ -65,6 +65,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   // Keeps track of the current partition to publish to if the partition scheme is round robin.
   private int currentRoundRobinPartition = -1;
   // Keep track of all ack ids that have not been sent correctly acked yet.
+  private Set<String> deliveredAckIds = Collections.synchronizedSet(new HashSet<String>());
   private Set<String> ackIds = Collections.synchronizedSet(new HashSet<String>());
   private CloudPubSubSubscriber subscriber;
   private Set<String> ackIdsInFlight = Collections.synchronizedSet(new HashSet<String>());
@@ -131,7 +132,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         // If we are receiving this message a second (or more) times because the ack for it failed
         // then do not create a SourceRecord for this message. In case we are waiting for ack
         // response we also skip the message
-        if (ackIds.contains(ackId) || ackIdsInFlight.contains(ackId)) {
+        if (ackIds.contains(ackId) || deliveredAckIds.contains(ackId) || ackIdsInFlight.contains(ackId)) {
           continue;
         }
         ackIds.add(ackId);
@@ -146,6 +147,7 @@ public class CloudPubSubSourceTask extends SourceTask {
 
         boolean hasCustomAttributes = !standardAttributes.containsAll(messageAttributes.keySet());
 
+        Map<String,String> ack = Collections.singletonMap(cpsSubscription, ackId);
         SourceRecord record = null;
         if (hasCustomAttributes) {
           SchemaBuilder valueSchemaBuilder = SchemaBuilder.struct().field(
@@ -174,7 +176,7 @@ public class CloudPubSubSourceTask extends SourceTask {
           record =
             new SourceRecord(
                 null,
-                null,
+                ack,
                 kafkaTopic,
                 selectPartition(key, value),
                 Schema.OPTIONAL_STRING_SCHEMA,
@@ -186,7 +188,7 @@ public class CloudPubSubSourceTask extends SourceTask {
           record =
             new SourceRecord(
                 null,
-                null,
+                ack,
                 kafkaTopic,
                 selectPartition(key, messageBytes),
                 Schema.OPTIONAL_STRING_SCHEMA,
@@ -210,18 +212,18 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   /**
-   * Attempt to ack all ids in {@link #ackIds}.
+   * Attempt to ack all ids in {@link #deliveredAckIds}.
    */
   private void ackMessages() {
-    if (ackIds.size() != 0) {
+    if (deliveredAckIds.size() != 0) {
       AcknowledgeRequest.Builder requestBuilder = AcknowledgeRequest.newBuilder()
           .setSubscription(cpsSubscription);
       final Set<String> ackIdsBatch = new HashSet<>();
-      synchronized (ackIds) {
-        requestBuilder.addAllAckIds(ackIds);
-        ackIdsInFlight.addAll(ackIds);
-        ackIdsBatch.addAll(ackIds);
-        ackIds.clear();
+      synchronized (deliveredAckIds) {
+        requestBuilder.addAllAckIds(deliveredAckIds);
+        ackIdsInFlight.addAll(deliveredAckIds);
+        ackIdsBatch.addAll(deliveredAckIds);
+        deliveredAckIds.clear();
       }
       ListenableFuture<Empty> response = subscriber.ackMessages(requestBuilder.build());
       Futures.addCallback(
@@ -230,12 +232,12 @@ public class CloudPubSubSourceTask extends SourceTask {
             @Override
             public void onSuccess(Empty result) {
               ackIdsInFlight.removeAll(ackIdsBatch);
-              log.trace("Successfully acked a set of messages.");
+              log.trace("Successfully acked a set of messages. {}", ackIdsBatch.size());
             }
 
             @Override
             public void onFailure(Throwable t) {
-              ackIds.addAll(ackIdsBatch);
+              deliveredAckIds.addAll(ackIdsBatch);
               ackIdsInFlight.removeAll(ackIdsBatch);
               log.error("An exception occurred acking messages: " + t);
             }
@@ -271,4 +273,12 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   @Override
   public void stop() {}
+
+  @Override
+  public void commitRecord(SourceRecord record) {
+    String ackId = record.sourceOffset().get(cpsSubscription).toString();
+    deliveredAckIds.add(ackId);
+    ackIds.remove(ackId);
+    log.trace("Committed {}", ackId);
+  }
 }
