@@ -9,11 +9,21 @@ source connector (to copy messages from Cloud Pub/Sub to Kafka).
 
 These instructions assume you are using [Maven](https://maven.apache.org/).
 
-1.  Clone the repository, ensuring to do so recursively to pick up submodules:
+1.  If you want to build the connector from head, clone the repository, ensuring
+    to do so recursively to pick up submodules:
 
-    `git clone --recursive https://github.com/GoogleCloudPlatform/cloud-pubsub-kafka`
+    `git clone --recursive https://github.com/GoogleCloudPlatform/pubsub`
 
-2.  Make the jar that contains the connector:
+    If you wish to build from a released version of the connector, download it
+    from the [Releases section](https://github.com/GoogleCloudPlatform/pubsub/releases)
+    in GitHub.
+
+2.  Unzip the source code if downloaded from the release version.
+
+3.  Go into the kafka-connector directory in the cloned repo or downloaded
+    release.
+
+4.  Make the jar that contains the connector:
 
     `mvn package`
 
