@@ -20,6 +20,7 @@ import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.GetSubscriptionRequest;
 import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -58,7 +59,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public enum PartitionScheme {
     ROUND_ROBIN("round_robin"),
     HASH_KEY("hash_key"),
-    HASH_VALUE("hash_value");
+    HASH_VALUE("hash_value"),
+    KAFKA_PARTITIONER("kafka_partitioner");
 
     private String value;
 
@@ -77,6 +79,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         return PartitionScheme.HASH_KEY;
       } else if (value.equals("hash_value")) {
         return PartitionScheme.HASH_VALUE;
+      } else if (value.equals("kafka_partitioner")) {
+        return PartitionScheme.KAFKA_PARTITIONER;
       } else {
         return null;
       }
@@ -90,11 +94,12 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         String value = (String) o;
         if (!value.equals(CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString())
             && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString())
-            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString())) {
+            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString())
+            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.KAFKA_PARTITIONER.toString())) {
           throw new ConfigException(
               "Valid values for "
                   + CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG
-                  + " are hash_value, hash_key and round_robin");
+                  + " are " + Arrays.toString(PartitionScheme.values()));
         }
       }
     }
