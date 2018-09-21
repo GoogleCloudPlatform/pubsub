@@ -15,6 +15,6 @@ available are:
   for CPS). Currently, we only support maven version 3 and Java 8.
   If you're having a problem building with those versions, please reach out to us with your issue or solution.
 * [DEPRECATED Experimental high-performance client library](https://github.com/GoogleCloudPlatform/pubsub/tree/master/client):
-  For Java along with [samples](https://github.com/GoogleCloudPlatform/pubsub/tree/master/client-samples).
+  For Java along with [samples](https://github.com/GoogleCloudPlatform/google-cloud-java/tree/master/google-cloud-examples/src/main/java/com/google/cloud/examples/pubsub/snippets).
 
 Note: To build each of these projects, we recommend using maven.
