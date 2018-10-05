@@ -8,3 +8,5 @@ data
 *.iml
 *.out
 .metadata
+__pycache__
+.DS_Store
