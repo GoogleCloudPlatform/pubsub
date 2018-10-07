@@ -2,7 +2,7 @@ import datetime
 from asyncio import Event
 from typing import AsyncIterator
 
-from fast_client.types import PubsubMessage
+from fast_client.core import PubsubMessage
 from fast_client.reader import Reader
 
 message = PubsubMessage("", {}, "", datetime.datetime.now(), "")

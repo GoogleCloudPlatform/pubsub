@@ -1,40 +1,53 @@
-from typing import AsyncIterator, AsyncGenerator, List
+import json
+from typing import AsyncIterator, AsyncGenerator, List, Awaitable, Dict
 
-from tornado.httpclient import AsyncHTTPClient
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPResponse
 
-from fast_client.helpers import batcher
-from fast_client.types import UserPubsubMessage, PubsubMessage, TopicInfo
+from fast_client.helpers import Batcher, parallelizer, retrying_requester
+from fast_client.core import UserPubsubMessage, TopicInfo, UserPubsubMessageEncoder
 from fast_client.writer import Writer
+
+
+class TornadoWriterOptions:
+    write_batch_latency_seconds: float = 5
+    write_batch_size_bytes: int = 10**6  # default is 1 MB for unencoded data-only size.  Setting this number too large
+                                         # may cause timeouts or size limit errors.
+    concurrent_writes: int = 20
 
 
 class TornadoWriter(Writer):
     _topic_info: TopicInfo
+    _publish_url: str
+    _headers: Dict[str, str]
     _client: AsyncHTTPClient
+    _options: TornadoWriterOptions
 
-    def __init__(self, topic_info: TopicInfo, client: AsyncHTTPClient):
+    def __init__(self, topic_info: TopicInfo, client: AsyncHTTPClient, options: TornadoWriterOptions):
         self._topic_info = topic_info
+        self._publish_url = topic_info.url("publish")
+        self._headers = topic_info.header_map()
         self._client = client
+        self._options = options
 
-    def write(self, to_write: AsyncIterator[UserPubsubMessage]) -> AsyncGenerator[PubsubMessage, UserPubsubMessage]:
-        batch_gen = batcher(to_write, 5, 1000)
-        safe_batch_gen = self._batch_divider(batch_gen, 8 * 10**9)  # 8 mb limit on the batch
+    async def write(self, to_write: AsyncIterator[UserPubsubMessage]) -> AsyncGenerator[str, UserPubsubMessage]:
+        batcher = Batcher(self._options.write_batch_latency_seconds,
+                          self._options.write_batch_size_bytes,
+                          lambda x: len(x.data))
+        batch_gen = batcher.batch(to_write)  # 1 mb limit on batch bytes
+        response_gen = parallelizer(batch_gen, self._write_with_retries, self._options.concurrent_writes)
+        async for response in response_gen:
+            for message_id in response:
+                yield message_id
 
-    @staticmethod
-    def _batch_divider(
-            batches: AsyncIterator[List[UserPubsubMessage]], byte_limit: int) -> AsyncGenerator[
-        List[UserPubsubMessage], List[UserPubsubMessage]]:
-        async for batch in batches:
-            byte_count: int = 0
-            new_batch: List[UserPubsubMessage] = []
-            for message in batch:
-                new_bytes = byte_count + len(message.data)
-                if new_bytes > byte_limit:
-                    if new_batch:
-                        yield new_batch
-                        new_batch = []
-                        byte_count = 0
-                new_batch.append(message)
-                byte_count += len(message.data)
-            if new_batch:
-                yield new_batch
+    async def _write_with_retries(self, to_write: List[UserPubsubMessage]) -> Awaitable[List[str]]:
+        data = json.dumps({
+            "messages": to_write
+        }, cls=UserPubsubMessageEncoder)
 
+        publish_request = HTTPRequest(url=self._publish_url, method="POST", body=data, headers=self._headers)
+
+        response: HTTPResponse = await retrying_requester(publish_request, self._client)
+
+        data: Dict[str, List[str]] = json.loads(response.body)
+
+        return data.get("messageIds", [])

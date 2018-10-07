@@ -1,3 +1,6 @@
+import base64
+import json
+from json import JSONEncoder
 from typing import Dict, AsyncIterator, Optional
 from datetime import datetime
 
@@ -9,6 +12,17 @@ class UserPubsubMessage:
     def __init__(self, data: bytes, attributes: Dict[str, str]):
         self.data = data
         self.attributes = attributes
+
+
+class UserPubsubMessageEncoder(JSONEncoder):
+    def default(self, o: UserPubsubMessage):
+        if isinstance(o, UserPubsubMessage):
+            return {
+                "data": base64.b64encode(o.data).decode("utf-8"),
+                "attributes": o.attributes
+            }
+        else:
+            return json.JSONEncoder.default(self, o)
 
 
 class PubsubMessage:

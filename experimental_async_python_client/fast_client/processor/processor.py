@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import AsyncIterator, AsyncGenerator
 
-from fast_client.types import PubsubMessage
+from fast_client.core import PubsubMessage
 
 
 class Processor(ABC):

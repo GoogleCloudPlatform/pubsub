@@ -1,14 +1,17 @@
 import json
 from typing import AsyncIterator, AsyncGenerator, List, Dict, Awaitable
-from asyncio import create_task, Future
 
-from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPError, HTTPResponse
+from tornado.httpclient import AsyncHTTPClient, HTTPRequest
 
 from fast_client.ack_processor import AckProcessor
-from fast_client.helpers import retrying_requester
-from fast_client.helpers.batcher import batcher
-from fast_client.helpers.parallelizer import parallelizer
-from fast_client.types.subscription_info import SubscriptionInfo
+from fast_client.helpers import retrying_requester, Batcher, parallelizer
+from fast_client.core.subscription_info import SubscriptionInfo
+
+
+class TornadoAckProcessorOptions:
+    ack_batch_latency_seconds: float = 5
+    ack_batch_size: int = 1000
+    concurrent_acks: int = 20
 
 
 class TornadoAckProcessor(AckProcessor):
@@ -16,27 +19,23 @@ class TornadoAckProcessor(AckProcessor):
     _ack_url: str
     _headers: Dict[str, str]
     _client: AsyncHTTPClient
+    _options: TornadoAckProcessorOptions
 
-    def __init__(self, subscription: SubscriptionInfo, client: AsyncHTTPClient):
+    def __init__(self, subscription: SubscriptionInfo, client: AsyncHTTPClient, options: TornadoAckProcessorOptions):
         self._subscription = subscription
         self._ack_url = subscription.url("acknowledge")
         self._headers = subscription.header_map()
         self._client = client
+        self._options = options
 
     async def process_ack(self, ack_ids: AsyncIterator[str]) -> AsyncGenerator[str, str]:
-        batch_gen = batcher(ack_ids, 5, 1000)
-        ack_gen = parallelizer(batch_gen, self._ack_task, 10)
+        batcher = Batcher(self._options.ack_batch_latency_seconds, self._options.ack_batch_size)
+        batch_gen = batcher.batch(ack_ids)
+        ack_gen = parallelizer(batch_gen, self._ack_with_retries, self._options.concurrent_acks)
 
         async for ack_id_list in ack_gen:
             for ack_id in ack_id_list:
                 yield ack_id
-
-    def _ack_task(self, ids: List[str]) -> "Future[List[str]]":
-        try:
-            return create_task(self._ack_with_retries(ids))
-        except Exception as e:
-            print(e)
-            raise RuntimeError()
 
     async def _ack_with_retries(self, ids: List[str]) -> Awaitable[List[str]]:
         data = json.dumps({

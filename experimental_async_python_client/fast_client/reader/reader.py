@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from asyncio import Event
 from typing import AsyncIterator
 
-from fast_client.types import PubsubMessage
+from fast_client.core import PubsubMessage
 
 
 class Reader(ABC):

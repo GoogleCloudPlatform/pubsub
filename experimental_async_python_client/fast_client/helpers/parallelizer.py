@@ -1,15 +1,15 @@
-from asyncio import Task, create_task, wait, FIRST_COMPLETED, Future
+from asyncio import Task, create_task, wait, FIRST_COMPLETED, ensure_future
 from itertools import chain
-from typing import TypeVar, AsyncIterator, Callable, AsyncGenerator, Set
+from typing import TypeVar, AsyncIterator, Callable, AsyncGenerator, Set, Awaitable
 
 InputT = TypeVar("InputT")
 OutputT = TypeVar("OutputT")
 
 
 async def parallelizer(inputs: AsyncIterator[InputT],
-                       action: Callable[[InputT], "Future[OutputT]"],
+                       action: Callable[[InputT], Awaitable[OutputT]],
                        max_outstanding: int) -> AsyncGenerator[OutputT, InputT]:
-    action_futures: Set["Future[OutputT]"] = set()
+    action_futures: Set[Awaitable[OutputT]] = set()
     try:
         input_task: Task = create_task(inputs.__anext__())
         while True:
@@ -19,15 +19,15 @@ async def parallelizer(inputs: AsyncIterator[InputT],
                 done, pending = await wait(action_futures, return_when=FIRST_COMPLETED)
             for one_done in done:
                 if one_done is input_task:
-                    action_future = action(one_done.result())
-                    action_futures.add(action_future)
+                    action_future = action(await one_done)
+                    action_futures.add(ensure_future(action_future))
                     input_task = create_task(inputs.__anext__())
                 else:  # one_done is in action_futures
                     action_futures.remove(one_done)
-                    yield one_done.result()
+                    yield await one_done
     except StopAsyncIteration:
         while action_futures:
             done, pending = await wait(action_futures, return_when=FIRST_COMPLETED)
             for one_done in done:
                 action_futures.remove(one_done)
-                yield one_done.result()
+                yield await one_done

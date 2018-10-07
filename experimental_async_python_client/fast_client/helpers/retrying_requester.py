@@ -4,13 +4,10 @@ from tornado.httpclient import HTTPRequest, HTTPResponse, AsyncHTTPClient, HTTPE
 
 
 async def retrying_requester(request: HTTPRequest, client: AsyncHTTPClient) -> Awaitable[HTTPResponse]:
-    done = False
-
-    while not done:
-        try:
-            result: HTTPResponse = await client.fetch(request)
-            done = True
+    while True:
+        result: HTTPResponse = await client.fetch(request, raise_error=False)
+        if result.code == 200:
             return result
-        except HTTPError as e:
-            print(e)
-            continue
+        else:
+            print("url: {}, headers: {}, error: {}".format(request.url, request.headers, result.error))
+            print(result.body)

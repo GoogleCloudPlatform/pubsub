@@ -1,9 +1,9 @@
-from asyncio import get_running_loop, Future
+from asyncio import get_running_loop
 from concurrent.futures import Executor
-from typing import AsyncIterator, AsyncGenerator, Callable, Optional
+from typing import AsyncIterator, AsyncGenerator, Callable, Optional, Awaitable
 
 from fast_client.helpers import parallelizer
-from fast_client.types import PubsubMessage
+from fast_client.core import PubsubMessage
 from fast_client.processor import Processor
 
 
@@ -20,9 +20,8 @@ class PoolProcessor(Processor):
             if maybe_ack_id:
                 yield maybe_ack_id
 
-    def _process_one(self, message: PubsubMessage) -> "Future[Optional[str]]":
-        to_return = get_running_loop().run_in_executor(self._executor, self._work, message)
-        return to_return
+    async def _process_one(self, message: PubsubMessage) -> Awaitable[Optional[str]]:
+        return await get_running_loop().run_in_executor(self._executor, self._work, message)
 
 
 def exception_safe_work(work: Callable[[PubsubMessage], Optional[str]]):

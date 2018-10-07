@@ -1,6 +1,6 @@
 from typing import AsyncIterator, AsyncGenerator
 
-from fast_client.types import PubsubMessage
+from fast_client.core import PubsubMessage
 from fast_client.processor import Processor
 
 
