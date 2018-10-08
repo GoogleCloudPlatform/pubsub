@@ -1,5 +1,5 @@
 import json
-from typing import AsyncIterator, AsyncGenerator, List, Awaitable, Dict
+from typing import AsyncIterator, AsyncGenerator, List, Awaitable, Dict, Optional
 
 from tornado.httpclient import AsyncHTTPClient, HTTPRequest, HTTPResponse
 
@@ -13,6 +13,19 @@ class TornadoWriterOptions:
     write_batch_size_bytes: int = 10**6  # default is 1 MB for unencoded data-only size.  Setting this number too large
                                          # may cause timeouts or size limit errors.
     concurrent_writes: int = 20
+
+
+class WriteBatchValue:
+    total_bytes: int = 0
+    message_count: int = 0
+
+
+def valuer(previous: Optional[WriteBatchValue], message: UserPubsubMessage) -> WriteBatchValue:
+    if previous is None:
+        previous = WriteBatchValue()
+    previous.total_bytes += len(message.data)
+    previous.message_count += 1
+    return previous
 
 
 class TornadoWriter(Writer):
@@ -31,13 +44,20 @@ class TornadoWriter(Writer):
 
     async def write(self, to_write: AsyncIterator[UserPubsubMessage]) -> AsyncGenerator[str, UserPubsubMessage]:
         batcher = Batcher(self._options.write_batch_latency_seconds,
-                          self._options.write_batch_size_bytes,
-                          lambda x: len(x.data))
+                          self._should_truncate_batch,
+                          valuer)
         batch_gen = batcher.batch(to_write)  # 1 mb limit on batch bytes
         response_gen = parallelizer(batch_gen, self._write_with_retries, self._options.concurrent_writes)
         async for response in response_gen:
             for message_id in response:
                 yield message_id
+
+    def _should_truncate_batch(self, previous: WriteBatchValue) -> bool:
+        if previous.message_count >= 1000:  # There is a hard 1000 message limit for publish requests.
+            return True
+        if previous.total_bytes >= self._options.write_batch_size_bytes:
+            return True
+        return False
 
     async def _write_with_retries(self, to_write: List[UserPubsubMessage]) -> Awaitable[List[str]]:
         data = json.dumps({

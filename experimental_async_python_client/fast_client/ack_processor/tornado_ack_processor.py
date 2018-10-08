@@ -29,7 +29,7 @@ class TornadoAckProcessor(AckProcessor):
         self._options = options
 
     async def process_ack(self, ack_ids: AsyncIterator[str]) -> AsyncGenerator[str, str]:
-        batcher = Batcher(self._options.ack_batch_latency_seconds, self._options.ack_batch_size)
+        batcher = Batcher(self._options.ack_batch_latency_seconds, lambda size: size >= self._options.ack_batch_size)
         batch_gen = batcher.batch(ack_ids)
         ack_gen = parallelizer(batch_gen, self._ack_with_retries, self._options.concurrent_acks)
 

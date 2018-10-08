@@ -9,7 +9,8 @@ from google.oauth2 import service_account
 import google.auth.transport.urllib3
 import urllib3
 
-from fast_client.publisher import BasicPublisher, Publisher, MultiprocessPublisher, MultiprocessPublisherOptions
+from fast_client.publisher import BasicPublisher, Publisher, MultiprocessPublisher, MultiprocessPublisherOptions, \
+    BasicPublisherOptions
 from fast_client.core import TopicInfo, UserPubsubMessage
 from load_testing.element_counter import ElementCounter
 from load_testing.message_counter import MessageCounter
@@ -74,10 +75,10 @@ if __name__ == "__main__":
     to_publish = UserPubsubMessage(b"a"*260, {"a": "b", "c": "d"})
 
     loop = asyncio.get_event_loop()
-    # pub = BasicPublisher(info, AsyncHTTPClient(), partial(publish, to_publish), publisher_done, loop)
-    options = MultiprocessPublisherOptions()
-    options.publisher_options.writer_options.write_batch_size_bytes = 10**5
-    pub = MultiprocessPublisher(info, partial(publish, to_publish), publisher_done, options)
+    pub = BasicPublisher(info, AsyncHTTPClient(), partial(publish, to_publish), publisher_done, loop)
+    # options = MultiprocessPublisherOptions()
+    # options.publisher_options.writer_options.write_batch_size_bytes = 10**5
+    # pub = MultiprocessPublisher(info, partial(publish, to_publish), publisher_done, options)
 
     pub.start()
     asyncio.run_coroutine_threadsafe(counter_reader(), loop)
