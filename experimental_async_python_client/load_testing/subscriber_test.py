@@ -76,4 +76,4 @@ if __name__ == "__main__":
 
     sub.start()
     asyncio.run_coroutine_threadsafe(counter_reader(), loop)
-    loop.run_until_complete(run_sub_for(sub, 30))
+    loop.run_until_complete(run_sub_for(sub, 60))
