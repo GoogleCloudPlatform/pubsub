@@ -269,6 +269,8 @@ public class CloudPubSubSinkTask extends SinkTask {
         ApiFutures.allAsList(outstandingFutures.futures).get();
       } catch (Exception e) {
         throw new RuntimeException(e);
+      } finally {
+        outstandingFutures.futures.clear();
       }
     }
     allOutstandingFutures.clear();
