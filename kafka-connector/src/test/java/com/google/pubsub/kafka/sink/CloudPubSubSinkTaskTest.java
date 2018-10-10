@@ -385,6 +385,33 @@ public class CloudPubSubSinkTaskTest {
     assertEquals(requestArgs, expectedMessages);
   }
 
+  /**
+   * Tests that if a Future that is being processed in flush() failed with an exception and then a
+   * second Future is processed successfully in a subsequent flush, then the subsequent flush
+   * succeeds.
+   */
+  @Test
+  public void testFlushExceptionThenNoExceptionCase() throws Exception {
+    task.start(props);
+    Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
+    partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
+    List<SinkRecord> records = getSampleRecords();
+    ApiFuture<String> badFuture = getFailedPublishFuture();
+    ApiFuture<String> goodFuture = getSuccessfulPublishFuture();
+    when(publisher.publish(any(PubsubMessage.class))).thenReturn(badFuture).thenReturn(badFuture).thenReturn(goodFuture);
+    task.put(records);
+    try {
+      task.flush(partitionOffsets);
+    } catch (RuntimeException e) {
+    }
+    records = getSampleRecords();
+    task.put(records);
+    task.flush(partitionOffsets);
+    verify(publisher, times(4)).publish(any(PubsubMessage.class));
+    verify(badFuture, times(2)).addListener(any(Runnable.class), any(Executor.class));
+    verify(goodFuture, times(2)).addListener(any(Runnable.class), any(Executor.class));
+  }
+
   /** Get some sample SinkRecords's to use in the tests. */
   private List<SinkRecord> getSampleRecords() {
     List<SinkRecord> records = new ArrayList<>();
