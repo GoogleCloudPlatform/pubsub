@@ -23,6 +23,7 @@ import io.grpc.ManagedChannel;
 import io.grpc.auth.ClientAuthInterceptor;
 import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.List;
@@ -48,7 +49,7 @@ public class ConnectorUtils {
   public static final String KAFKA_TIMESTAMP_ATTRIBUTE = "kafka.timestamp";
 
   /** Return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's. */
-  public static Channel getChannel() throws IOException {
+  public static Channel getChannel(String credKeyPath) throws IOException {
     ManagedChannel channelImpl =
         NettyChannelBuilder.forAddress(ENDPOINT, 443)
             .negotiationType(NegotiationType.TLS)
@@ -57,7 +58,7 @@ public class ConnectorUtils {
             .build();
     final ClientAuthInterceptor interceptor =
         new ClientAuthInterceptor(
-            GoogleCredentials.getApplicationDefault().createScoped(CPS_SCOPE),
+            GoogleCredentials.fromStream(new FileInputStream(credKeyPath)).createScoped(CPS_SCOPE),
             Executors.newCachedThreadPool());
     return ClientInterceptors.intercept(channelImpl, interceptor);
   }

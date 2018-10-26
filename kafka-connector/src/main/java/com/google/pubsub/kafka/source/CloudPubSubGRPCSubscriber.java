@@ -39,9 +39,11 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
   private long nextSubscriberResetTime = 0;
   private SubscriberFutureStub subscriber;
   private Random rand = new Random(System.currentTimeMillis());
+  private String gcpCredentialsFilePath;
 
-  CloudPubSubGRPCSubscriber() {
+  CloudPubSubGRPCSubscriber(String gcpCredentialsFilePath) {
     makeSubscriber();
+    this.gcpCredentialsFilePath = gcpCredentialsFilePath;
   }
 
   public ListenableFuture<PullResponse> pull(PullRequest request) {
@@ -61,7 +63,7 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
   private void makeSubscriber() {
     try {
       log.info("Creating subscriber.");
-      subscriber = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
+      subscriber = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel(gcpCredentialsFilePath));
       // We change the subscriber every 25 - 35 minutes in order to avoid GOAWAY errors.
       nextSubscriberResetTime =
           System.currentTimeMillis() + rand.nextInt(10 * 60 * 1000) + 25 * 60 * 1000;
@@ -69,4 +71,4 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
       throw new RuntimeException("Could not create subscriber stub; no subscribing can occur.", e);
     }
   }
-}
+}ß
