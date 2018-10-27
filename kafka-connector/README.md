@@ -45,7 +45,11 @@ The resulting jar is at target/cps-kafka-connector.jar.
 3.  Go to the "IAM" tab, find the service account you just created and click on
     the dropdown menu named "Role(s)". Under the "Pub/Sub" submenu, select
     "Pub/Sub Admin". Finally, the key file that was downloaded to your machine
-    needs to be placed on the machine running the framework.
+    needs to be placed on the machine running the framework. An environment variable
+    named GOOGLE_APPLICATION_CREDENTIALS must point to this file.
+    (Tip: export this environment variable as part of your shell startup file).
+
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key/file
 
 ### Running a Connector
 
@@ -85,7 +89,7 @@ Connector supports the following configs:
 | kafka.key.attribute | String | null | The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka. |
 | kafka.partition.count | Integer | 1 | The number of Kafka partitions for the Kafka topic in which messages will be published to. NOTE: this parameter is ignored if partition scheme is "kafka_partitioner".|
 | kafka.partition.scheme | round_robin, hash_key, hash_value, kafka_partitioner | round_robin | The scheme for assigning a message to a partition in Kafka. The scheme "round_robin" assigns partitions in a round robin fashion, while the schemes "hash_key" and "hash_value" find the partition by hashing the message key and message value respectively. "kafka_partitioner" scheme delegates partitioning logic to kafka producer, which by default detects number of partitions automatically and performs either murmur hash based partition mapping or round robin depending on whether message key is provided or not.|
-|gcp.credentials.file.path| String | REQUIRED (No default) | The file path, which stores GCP credentials.|
+|gcp.credentials.file.path| String | Optional | The file path, which stores GCP credentials.| If not defined, GOOGLE_APPLICATION_CREDENTIALS env is used.
 
 #### Sink Connector
 

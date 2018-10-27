@@ -71,4 +71,4 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
       throw new RuntimeException("Could not create subscriber stub; no subscribing can occur.", e);
     }
   }
-}ß
+}

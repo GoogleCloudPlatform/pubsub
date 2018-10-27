@@ -56,9 +56,11 @@ public class ConnectorUtils {
             // Maximum Pub/Sub message size is 10MB.
             .maxInboundMessageSize(10 * 1024 * 1024)
             .build();
+    GoogleCredentials googleCredentials = credKeyPath == null ? 
+        GoogleCredentials.getApplicationDefault() : GoogleCredentials.fromStream(new FileInputStream(credKeyPath));   
     final ClientAuthInterceptor interceptor =
         new ClientAuthInterceptor(
-            GoogleCredentials.fromStream(new FileInputStream(credKeyPath)).createScoped(CPS_SCOPE),
+            googleCredentials.createScoped(CPS_SCOPE),
             Executors.newCachedThreadPool());
     return ClientInterceptors.intercept(channelImpl, interceptor);
   }
