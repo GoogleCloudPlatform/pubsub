@@ -45,11 +45,11 @@ The resulting jar is at target/cps-kafka-connector.jar.
 3.  Go to the "IAM" tab, find the service account you just created and click on
     the dropdown menu named "Role(s)". Under the "Pub/Sub" submenu, select
     "Pub/Sub Admin". Finally, the key file that was downloaded to your machine
-    needs to be placed on the machine running the framework. An environment variable
-    named GOOGLE_APPLICATION_CREDENTIALS must point to this file.
-    (Tip: export this environment variable as part of your shell startup file).
+    needs to be placed on the machine running the framework. An environment
+    variable named GOOGLE_APPLICATION_CREDENTIALS must point to this file. (Tip:
+    export this environment variable as part of your shell startup file).
 
-export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key/file
+    `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key/file`
 
 ### Running a Connector
 
@@ -102,6 +102,8 @@ Connector supports the following configs:
 | maxDelayThresholdMs | Integer | 100 | The maximum amount of time to wait to reach maxBufferSize or maxBufferBytes before publishing outstanding messages to Cloud Pub/Sub. |
 | maxRequestTimeoutMs | Integer | 10000 | The timeout for individual publish requests to Cloud Pub/Sub. |
 | maxTotalTimeoutMs | Integer | 60000| The total timeout for a call to publish (including retries) to Cloud Pub/Sub. |
+|gcp.credentials.file.path| String | Optional | The file path, which stores GCP credentials.| If not defined, GOOGLE_APPLICATION_CREDENTIALS env is used.
+
 
 #### Schema Support and Data Model
 
