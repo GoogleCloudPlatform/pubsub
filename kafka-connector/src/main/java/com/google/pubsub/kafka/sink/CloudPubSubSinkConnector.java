@@ -50,6 +50,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   public static final String CPS_MESSAGE_BODY_NAME = "messageBodyName";
   public static final String DEFAULT_MESSAGE_BODY_NAME = "cps_message_body";
   public static final String PUBLISH_KAFKA_METADATA = "metadata.publish";
+  public static final String GCP_CREDENTIALS_FILE_PATH  = "gcp.credentials.file.path";
   private Map<String, String> props;
 
   @Override
@@ -143,7 +144,13 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             DEFAULT_MESSAGE_BODY_NAME,
             Importance.MEDIUM,
             "When using a struct or map value schema, this field or key name indicates that the "
-                + "corresponding value will go into the Pub/Sub message body.");
+                + "corresponding value will go into the Pub/Sub message body.")
+        .define(
+                GCP_CREDENTIALS_FILE_PATH,
+                Type.STRING,
+                null,
+                Importance.HIGH,
+                "The path to the GCP credentials file");
   }
 
   @Override

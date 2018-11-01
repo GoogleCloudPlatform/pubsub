@@ -32,10 +32,10 @@ public class CloudPubSubRoundRobinSubscriber implements CloudPubSubSubscriber {
   private List<CloudPubSubSubscriber> subscribers;
   private int currentSubscriberIndex = 0;
 
-  public CloudPubSubRoundRobinSubscriber(int subscriberCount) {
+  public CloudPubSubRoundRobinSubscriber(int subscriberCount, String gcpCredentialsFilePath) {
     subscribers = new ArrayList<>();
     for (int i = 0; i < subscriberCount; ++i) {
-      subscribers.add(new CloudPubSubGRPCSubscriber());
+      subscribers.add(new CloudPubSubGRPCSubscriber(gcpCredentialsFilePath));
     }
   }
 

@@ -52,7 +52,7 @@ public class CloudPubSubSourceConnectorTest {
 
   @Test(expected = ConnectException.class)
   public void testStartWhenSubscriptionNonexistant() {
-    doThrow(new ConnectException("")).when(connector).verifySubscription(anyString(), anyString());
+    doThrow(new ConnectException("")).when(connector).verifySubscription(anyString(), anyString(), anyString());
     connector.start(props);
   }
 
@@ -63,7 +63,7 @@ public class CloudPubSubSourceConnectorTest {
 
   @Test
   public void testTaskConfigs() {
-    doNothing().when(connector).verifySubscription(anyString(), anyString());
+    doNothing().when(connector).verifySubscription(anyString(), anyString(), anyString());
     connector.start(props);
     List<Map<String, String>> taskConfigs = connector.taskConfigs(NUM_TASKS);
     assertEquals(taskConfigs.size(), NUM_TASKS);

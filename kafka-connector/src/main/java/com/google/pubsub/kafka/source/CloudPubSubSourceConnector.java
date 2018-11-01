@@ -54,6 +54,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
   public static final int DEFAULT_KAFKA_PARTITIONS = 1;
   public static final String DEFAULT_KAFKA_PARTITION_SCHEME = "round_robin";
+  public static final String GCP_CREDENTIALS_FILE_PATH  = "gcp.credentials.file.path";
 
   /** Defines the accepted values for the {@link #KAFKA_PARTITION_SCHEME_CONFIG}. */
   public enum PartitionScheme {
@@ -119,7 +120,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     config().parse(props);
     String cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
     String cpsSubscription = props.get(CPS_SUBSCRIPTION_CONFIG);
-    verifySubscription(cpsProject, cpsSubscription);
+    String keyPath = props.get(GCP_CREDENTIALS_FILE_PATH);
+    verifySubscription(cpsProject, cpsSubscription, keyPath);
     this.props = props;
     log.info("Started the CloudPubSubSourceConnector");
   }
@@ -192,7 +194,13 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             DEFAULT_KAFKA_PARTITION_SCHEME,
             new PartitionScheme.Validator(),
             Importance.MEDIUM,
-            "The scheme for assigning a message to a partition in Kafka.");
+            "The scheme for assigning a message to a partition in Kafka.")
+        .define(
+            GCP_CREDENTIALS_FILE_PATH,
+            Type.STRING,
+            null,
+            Importance.HIGH,
+            "The path to the GCP credentials file");
   }
 
   /**
@@ -200,9 +208,9 @@ public class CloudPubSubSourceConnector extends SourceConnector {
    * #CPS_SUBSCRIPTION_CONFIG} exists or not.
    */
   @VisibleForTesting
-  public void verifySubscription(String cpsProject, String cpsSubscription) {
+  public void verifySubscription(String cpsProject, String cpsSubscription, String credentialsPath) {
     try {
-      SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
+      SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel(credentialsPath));
       GetSubscriptionRequest request =
           GetSubscriptionRequest.newBuilder()
               .setSubscription(
