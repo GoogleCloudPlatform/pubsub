@@ -144,12 +144,16 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             Importance.MEDIUM,
             "When using a struct or map value schema, this field or key name indicates that the "
                 + "corresponding value will go into the Pub/Sub message body.")
-        .define(
-                ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG,
-                Type.STRING,
-                null,
-                Importance.HIGH,
-                "The path to the GCP credentials file");
+        .define(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG,
+            Type.STRING,
+            null,
+            Importance.HIGH,
+            "The path to the GCP credentials file")
+        .define(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG,
+            Type.STRING,
+            null,
+            Importance.HIGH,
+            "GCP JSON credentials");
   }
 
   @Override

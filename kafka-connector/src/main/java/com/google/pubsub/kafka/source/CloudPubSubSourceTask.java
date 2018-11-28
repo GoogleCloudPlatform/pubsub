@@ -108,9 +108,16 @@ public class CloudPubSubSourceTask extends SourceTask {
             (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
     gcpCredentialsProvider = new ConnectorCredentialsProvider();
     String gcpCredentialsFilePath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
+    String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
     if (gcpCredentialsFilePath != null) {
       try {
         gcpCredentialsProvider.loadFromFile(gcpCredentialsFilePath);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    } else if (credentialsJson != null) {
+      try {
+        gcpCredentialsProvider.loadJson(credentialsJson);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }

@@ -18,6 +18,7 @@ package com.google.pubsub.kafka.common;
 import com.google.api.gax.core.CredentialsProvider;
 import com.google.auth.Credentials;
 import com.google.auth.oauth2.GoogleCredentials;
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.util.Arrays;
@@ -32,6 +33,11 @@ public class ConnectorCredentialsProvider implements CredentialsProvider {
 
   public void loadFromFile(String credentialPath) throws IOException {
     this.credentials = GoogleCredentials.fromStream(new FileInputStream(credentialPath));
+  }
+
+  public void loadJson(String credentialsJson) throws IOException {
+    ByteArrayInputStream bs = new ByteArrayInputStream(credentialsJson.getBytes());
+    this.credentials = credentials = GoogleCredentials.fromStream(bs);
   }
 
   @Override

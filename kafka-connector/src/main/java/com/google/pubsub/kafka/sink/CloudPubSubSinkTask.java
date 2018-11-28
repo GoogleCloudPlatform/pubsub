@@ -115,9 +115,16 @@ public class CloudPubSubSinkTask extends SinkTask {
     includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
     gcpCredentialsProvider = new ConnectorCredentialsProvider();
     String credentialsPath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
+    String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
     if (credentialsPath != null) {
       try {
         gcpCredentialsProvider.loadFromFile(credentialsPath);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    } else if (credentialsJson != null) {
+      try {
+        gcpCredentialsProvider.loadJson(credentialsJson);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }

@@ -123,6 +123,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     String cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
     String cpsSubscription = props.get(CPS_SUBSCRIPTION_CONFIG);
     String credentialsPath = props.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
+    String credentialsJson = props.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
     ConnectorCredentialsProvider credentialsProvider = new ConnectorCredentialsProvider();
     if (credentialsPath != null) {
       try {
@@ -130,7 +131,14 @@ public class CloudPubSubSourceConnector extends SourceConnector {
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
+    } else if (credentialsJson != null) {
+      try {
+        credentialsProvider.loadJson(credentialsJson);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
     }
+
     verifySubscription(cpsProject, cpsSubscription, credentialsProvider);
     this.props = props;
     log.info("Started the CloudPubSubSourceConnector");
@@ -210,7 +218,13 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.STRING,
             null,
             Importance.HIGH,
-            "The path to the GCP credentials file");
+            "The path to the GCP credentials file")
+        .define(
+            ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG,
+            Type.STRING,
+            null,
+            Importance.HIGH,
+            "GCP JSON credentials");
   }
 
   /**
