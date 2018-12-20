@@ -44,6 +44,7 @@ public class ConnectorUtils {
   public static final String KAFKA_PARTITION_ATTRIBUTE = "kafka.partition";
   public static final String KAFKA_OFFSET_ATTRIBUTE = "kafka.offset";
   public static final String KAFKA_TIMESTAMP_ATTRIBUTE = "kafka.timestamp";
+  public static final String STRUCT_TO_JSON = "cps.struct.to.json";
 
   /** Return {@link io.grpc.Channel} which is used by Cloud Pub/Sub gRPC API's. */
   public static Channel getChannel(CredentialsProvider credentialsProvider) throws IOException {

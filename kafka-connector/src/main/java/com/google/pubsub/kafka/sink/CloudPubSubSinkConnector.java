@@ -153,7 +153,12 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             Type.STRING,
             null,
             Importance.HIGH,
-            "GCP JSON credentials");
+            "GCP JSON credentials")
+        .define(ConnectorUtils.STRUCT_TO_JSON,
+            Type.BOOLEAN,
+            false,
+            Importance.LOW,
+            "Weather to publish structs as JSON");
   }
 
   @Override
