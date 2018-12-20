@@ -35,9 +35,11 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.Collections;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.connect.json.JsonConverter;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Schema.Type;
@@ -71,6 +73,8 @@ public class CloudPubSubSinkTask extends SinkTask {
   private boolean includeMetadata;
   private ConnectorCredentialsProvider gcpCredentialsProvider;
   private com.google.cloud.pubsub.v1.Publisher publisher;
+  private final JsonConverter jsonConverter = new JsonConverter();
+  private boolean structToJson;
 
   /** Holds a list of the publishing futures that have not been processed for a single partition. */
   private class OutstandingFuturesForPartition {
@@ -86,11 +90,15 @@ public class CloudPubSubSinkTask extends SinkTask {
     public int size = 0;
   }
 
-  public CloudPubSubSinkTask() {}
+  public CloudPubSubSinkTask() {
+    jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);
+  }
+
 
   @VisibleForTesting
   public CloudPubSubSinkTask(Publisher publisher) {
     this.publisher = publisher;
+    jsonConverter.configure(Collections.singletonMap("schemas.enable", "false"), false);
   }
 
   @Override
@@ -103,6 +111,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     Map<String, Object> validatedProps = new CloudPubSubSinkConnector().config().parse(props);
     cpsProject = validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG).toString();
     cpsTopic = validatedProps.get(ConnectorUtils.CPS_TOPIC_CONFIG).toString();
+    structToJson = (Boolean) validatedProps.get(ConnectorUtils.STRUCT_TO_JSON);
     maxBufferSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG);
     maxBufferBytes = (Long) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_BYTES_CONFIG);
     maxDelayThresholdMs =
@@ -143,7 +152,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     for (SinkRecord record : sinkRecords) {
       log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
-      ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
+      ByteString value = handleValue(record.topic(), record.valueSchema(), record.value(), attributes);
       if (record.key() != null) {
         String key = record.key().toString();
         attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, key);
@@ -160,7 +169,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     }
   }
 
-  private ByteString handleValue(Schema schema, Object value, Map<String, String> attributes) {
+  private ByteString handleValue(String topic, Schema schema, Object value, Map<String, String> attributes) {
     if (schema == null) {
       String str = value.toString();
       return ByteString.copyFromUtf8(str);
@@ -209,34 +218,41 @@ public class CloudPubSubSinkTask extends SinkTask {
           throw new DataException("Unexpected value class with BYTES schema type.");
         }
       case STRUCT:
-        Struct struct = (Struct) value;
-        ByteString msgBody = null;
-        for (Field f : schema.fields()) {
-          Schema.Type fieldType = f.schema().type();
-          if (fieldType == Type.MAP || fieldType == Type.STRUCT) {
-            throw new DataException("Struct type does not support nested Map or Struct types, " +
-                "present in field " + f.name());
-          }
+        if (structToJson) {
+          return ByteString.copyFrom(jsonConverter.fromConnectData(
+                  topic,
+                  schema,
+                  value));
+        } else {
+          Struct struct = (Struct) value;
+          ByteString msgBody = null;
+          for (Field f : schema.fields()) {
+            Schema.Type fieldType = f.schema().type();
+            if (fieldType == Type.MAP || fieldType == Type.STRUCT) {
+              throw new DataException("Struct type does not support nested Map or Struct types, " +
+                      "present in field " + f.name());
+            }
 
-          Object val = struct.get(f);
-          if (val == null) {
-            if (!f.schema().isOptional()) {
-              throw new DataException("Struct message missing required field " + f.name());
-            }  else {
-              continue;
+            Object val = struct.get(f);
+            if (val == null) {
+              if (!f.schema().isOptional()) {
+                throw new DataException("Struct message missing required field " + f.name());
+              } else {
+                continue;
+              }
+            }
+            if (f.name().equals(messageBodyName)) {
+              Schema bodySchema = f.schema();
+              msgBody = handleValue(topic, bodySchema, val, null);
+            } else {
+              attributes.put(f.name(), val.toString());
             }
           }
-          if (f.name().equals(messageBodyName)) {
-            Schema bodySchema = f.schema();
-            msgBody = handleValue(bodySchema, val, null);
+          if (msgBody != null) {
+            return msgBody;
           } else {
-            attributes.put(f.name(), val.toString());
+            return ByteString.EMPTY;
           }
-        }
-        if (msgBody != null) {
-          return msgBody;
-        } else {
-          return ByteString.EMPTY;
         }
       case MAP:
         Map<Object, Object> map = (Map<Object, Object>) value;
@@ -262,7 +278,7 @@ public class CloudPubSubSinkTask extends SinkTask {
         ByteString out = ByteString.EMPTY;
         Object[] objArr = (Object[]) value;
         for (Object o : objArr) {
-          out = out.concat(handleValue(schema.valueSchema(), o, null));
+          out = out.concat(handleValue(topic, schema.valueSchema(), o, null));
         }
         return out;
     }

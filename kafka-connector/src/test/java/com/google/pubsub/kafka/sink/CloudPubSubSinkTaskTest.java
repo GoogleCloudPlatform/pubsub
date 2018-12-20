@@ -231,6 +231,32 @@ public class CloudPubSubSinkTaskTest {
   }
 
   @Test
+  public void testStructToJSON() {
+    props.put(ConnectorUtils.STRUCT_TO_JSON, "true");
+    task.start(props);
+
+    Schema schema = SchemaBuilder.struct().field(FIELD_STRING1, SchemaBuilder.string())
+            .field(FIELD_STRING2, SchemaBuilder.string()).build();
+    Struct val = new Struct(schema);
+    val.put(FIELD_STRING1, "tide");
+    val.put(FIELD_STRING2, "eagle");
+    SinkRecord record = new SinkRecord(null, -1, null, null, schema, val, -1);
+    List<SinkRecord> list = new ArrayList<>();
+    list.add(record);
+    task.put(list);
+
+    List<PubsubMessage> expected_messages = new ArrayList<>();
+    expected_messages.add(PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8("{\"over\":\"tide\",\"lazy\":\"eagle\"}")).build());
+
+    ArgumentCaptor<PubsubMessage> captor = ArgumentCaptor.forClass(PubsubMessage.class);
+    verify(publisher, times(1)).publish(captor.capture());
+    List<PubsubMessage> requestArgs = captor.getAllValues();
+    assertEquals(requestArgs, expected_messages);
+  }
+
+
+  @Test
   public void testMapSchema() {
     task.start(props);
     Schema schema = SchemaBuilder.map(SchemaBuilder.string(), SchemaBuilder.string()).build();
