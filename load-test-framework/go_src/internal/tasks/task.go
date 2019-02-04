@@ -2,9 +2,9 @@ package tasks
 
 import (
 	"github.com/golang/protobuf/ptypes"
+	"go/types"
 	"google.com/cloud_pubsub_loadtest/internal/genproto"
 	"google.com/cloud_pubsub_loadtest/internal/util"
-	"go/types"
 	"log"
 	"runtime"
 	"time"
@@ -55,15 +55,15 @@ func (task *baseTask) Start(request genproto.StartRequest) {
 		task.stopped = true
 		task.Stop()
 	}()
-	//go func() {
-		//time.Sleep(startTime.Sub(time.Now()))
+	go func() {
+		time.Sleep(startTime.Sub(time.Now()))
 		for i := 0; i < task.workerFactory.numWorkers(); i++ {
 			stopChan := make(chan types.Nil)
 			task.workerStopChannels = append(task.workerStopChannels, stopChan)
 			go task.workerFactory.runWorker(
 				request, task.metricsTracker, stopChan)
 		}
-	//}()
+	}()
 
 	return
 }
