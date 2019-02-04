@@ -41,47 +41,15 @@ def main(project, test, client_types, vms_count, broker):
             we will automatically start Kafka clients, they do not need to be
             specified under client_types.
   """
-  if not os.path.isfile('./src/main/resources/gce/driver.jar'):
-    subprocess.call(['mvn', 'package'])
-    subprocess.call(['cp', 'target/driver.jar', 'target/classes/gce/'])
-  if not os.path.isfile('./target/classes/gce/cps.zip'):
-    go_package = 'cloud.google.com/go/pubsub/loadtest/cmd'
-    go_bin_location = './target/loadtest-go'
-    return_code = subprocess.call(['go', 'build', '-o', go_bin_location, go_package])
-    if return_code != 0:
-      sys.exit('cannot build Go load tester, maybe run `go get -u {}`?'.format(go_package))
+  subprocess.call(['mvn', 'package'])
+  subprocess.call(['cp', 'target/driver.jar', 'target/classes/gce/'])
 
-    subprocess.call([
-        'zip', './target/classes/gce/cps.zip',
-        './python_src/clients/cps_publisher_task.py',
-        './python_src/clients/cps_subscriber_task.py',
-        './python_src/clients/loadtest_pb2.py',
-        './python_src/clients/requirements.txt',
-        './ruby_src/Gemfile',
-        './ruby_src/loadtest_pb.rb',
-        './ruby_src/loadtest_services_pb.rb',
-        './ruby_src/cps_publisher_task.rb',
-        './ruby_src/cps_subscriber_task.rb' ,
-        './node_src/publisher_client.js' ,
-        './node_src/subscriber_client.js' ,
-        './node_src/package.json' ,
-        './node_src/loadtest.proto' ,
-        './node_src/google/protobuf/duration.proto' ,
-        './node_src/google/protobuf/timestamp.proto',
-        './dotnet_src/Publisher/CPSPublisherTask.cs',
-        './dotnet_src/Publisher/Loadtest.cs',
-        './dotnet_src/Publisher/LoadtestGrpc.cs',
-        './dotnet_src/Publisher/Worker.csproj',
-        './dotnet_src/Publisher.sln',
-        './dotnet_src/Subscriber/CPSSubscriberTask.cs',
-        './dotnet_src/Subscriber/Loadtest.cs',
-        './dotnet_src/Subscriber/LoadtestGrpc.cs',
-        './dotnet_src/Subscriber/Worker.csproj',
-        './dotnet_src/Subscriber.sln',
-        go_bin_location
-    ])
+  subprocess.call([
+    'zip', '-FSr', './target/classes/gce/cps.zip', './proto',
+    './python_src', './node_src/src', './node_src/package.json', './go_src'
+  ])
+
   arg_list = ['java', '-jar', 'target/driver.jar', '--project', project]
-  gcloud_subscriber_count = 0
   for client in client_types:
     if client == 'gcloud_python':
       arg_list.append('--cps_gcloud_python_publisher_count=' + str(vms_count))
@@ -108,23 +76,26 @@ def main(project, test, client_types, vms_count, broker):
     ])
   if test == 'latency':
     arg_list.extend([
-        '--message_size=1', '--publish_batch_size=1', '--request_rate=1',
-        '--max_outstanding_requests=10', '--loadtest_duration=10m',
-        '--burn_in_duration=2m', '--publish_batch_duration=1ms'
+        '--message_size=1', '--publish_batch_size=1', '--per_worker_publish_rate=1',
+        '--loadtest_duration=10m', '--burn_in_duration=2m', '--publish_batch_duration=1ms'
     ])
   elif test == 'throughput':
     arg_list.extend([
-        '--message_size=10000', '--publish_batch_size=10',
-        '--request_rate=1000000000', '--max_outstanding_requests=1600',
+        '--message_size=1000', '--publish_batch_size=1000',
         '--loadtest_duration=10m', '--burn_in_duration=2m',
         '--publish_batch_duration=50ms', '--num_cores_test'
     ])
   elif test == 'service':
     arg_list.extend([
-        '--message_size=10000', '--publish_batch_size=10',
-        '--request_rate=1000000000', '--max_outstanding_requests=1600',
+        '--message_size=1000', '--publish_batch_size=1000',
         '--loadtest_duration=10m', '--burn_in_duration=2m',
         '--publish_batch_duration=50ms', '--cores=16'
+    ])
+  elif test == 'local':
+    arg_list.extend([
+      '--message_size=1000', '--publish_batch_size=1000',
+      '--loadtest_duration=2m', '--burn_in_duration=1m',
+      '--publish_batch_duration=50ms', '--local'
     ])
   print(' '.join(arg_list))
   subprocess.call(arg_list)
@@ -156,9 +127,9 @@ if __name__ == '__main__':
     sys.exit('You must provide the name of your project with --project.')
   if vms_count_arg < 1:
     sys.exit('If provided, --vms_count must be greater than 0.')
-  if test_arg not in ['latency', 'throughput', 'service']:
+  if test_arg not in ['latency', 'throughput', 'service', 'local']:
     sys.exit('Invalid --test parameter given. Must be set to \'latency\', '
-             '\'throughput\', or \'service\'. (' + test_arg +
+             '\'throughput\', \'service\' or \'local\'. (' + test_arg +
              ') was provided.')
   if len(client_types_arg) == 0:
     client_types_arg = set(['gcloud_java'])

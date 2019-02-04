@@ -17,9 +17,10 @@
 package com.google.pubsub.flic.output;
 
 import com.google.common.base.Ascii;
-import com.google.pubsub.flic.common.LatencyDistribution;
+import com.google.pubsub.flic.common.LatencyTracker;
+import com.google.pubsub.flic.common.StatsUtils;
+import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
-import com.google.pubsub.flic.controllers.Controller.LoadtestStats;
 import java.io.BufferedWriter;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -103,29 +104,29 @@ public class GnuPlot {
                 .collect(Collectors.toList()));
   }
 
-  private static String buildLatenciesDat(LoadtestStats stats) {
+  private static String buildLatenciesDat(LatencyTracker tracker) {
     StringBuilder dat = new StringBuilder();
     for (int percentile = 5; percentile < 100; percentile += 5) {
       dat.append(percentile)
           .append(" ")
-          .append(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, percentile))
+          .append(tracker.getNthPercentileMidpoint(percentile))
           .append("\n");
     }
     dat.append("99 ")
-        .append(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99))
+        .append(tracker.getNthPercentileMidpoint(99))
         .append("\n" + "99.9 ")
-        .append(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9))
+        .append(tracker.getNthPercentileMidpoint(99.9))
         .append("\n");
     return dat.toString();
   }
 
-  public static void plot(Map<ClientType, LoadtestStats> statsMap) {
-    statsMap.forEach(
-        (type, stats) -> {
+  public static void plot(Map<ClientType, LatencyTracker> trackers) {
+    trackers.forEach(
+        (type, tracker) -> {
           try (Writer writer =
               new BufferedWriter(
                   new OutputStreamWriter(new FileOutputStream(type + "_latency.dat"), "utf-8"))) {
-            writer.write(buildLatenciesDat(stats));
+            writer.write(buildLatenciesDat(tracker));
           } catch (IOException e) {
             log.error("Error writing latencies.plot.", e);
           }
@@ -135,7 +136,7 @@ public class GnuPlot {
             new OutputStreamWriter(new FileOutputStream("publish_latencies.plot"), "utf-8"))) {
       writer.write(
           buildLatenciesPlot(
-              "Publish", statsMap.keySet().stream().filter(ClientType::isPublisher)));
+              "Publish", trackers.keySet().stream().filter(ClientType::isPublisher)));
     } catch (IOException e) {
       log.error("Error writing publish_latencies.plot.", e);
     }
@@ -144,15 +145,15 @@ public class GnuPlot {
             new OutputStreamWriter(new FileOutputStream("end_to_end_latencies.plot"), "utf-8"))) {
       writer.write(
           buildLatenciesPlot(
-              "End-to-End", statsMap.keySet().stream().filter(c -> !c.isPublisher())));
+              "End-to-End", trackers.keySet().stream().filter(c -> !c.isPublisher())));
     } catch (IOException e) {
       log.error("Error writing end_to_end_latencies.plot.", e);
     }
     Runtime runtime = Runtime.getRuntime();
     try {
-      runtime.exec(new String[] {"gnuplot", "publish_latencies.plot"}).waitFor();
-      runtime.exec(new String[] {"gnuplot", "end_to_end_latencies.plot"}).waitFor();
-      statsMap.keySet().forEach(type -> {
+      runtime.exec(new String[] {"/Users/dpcollins/homebrew/bin/gnuplot", "publish_latencies.plot"}).waitFor();
+      runtime.exec(new String[] {"/Users/dpcollins/homebrew/bin/gnuplot", "end_to_end_latencies.plot"}).waitFor();
+      trackers.keySet().forEach(type -> {
         try {
           Files.deleteIfExists(Paths.get(type + "_latency.dat"));
         } catch (IOException e) {
@@ -171,10 +172,10 @@ public class GnuPlot {
     coreStats = new HashMap<>();
   }
 
-  public void addCoresResult(Integer numCores, Map<ClientType, LoadtestStats> statsMap) {
-    statsMap.forEach((type, stats) -> {
+  public void addCoresResult(Integer numCores, Map<ClientType, LatencyTracker> trackers) {
+    trackers.forEach((type, tracker) -> {
       coreStats.putIfAbsent(type, new HashMap<>());
-      coreStats.get(type).put(numCores, stats.getThroughput());
+      coreStats.get(type).put(numCores, StatsUtils.getThroughput(tracker.getCount(), Client.loadtestDuration, Client.messageSize));
     });
   }
 
@@ -184,9 +185,9 @@ public class GnuPlot {
     for (int cores = 1; cores <= 16; cores *= 2) {
       try {
         dat.append(cores)
-            .append(" ")
-            .append(decimalFormat.format(throughputMap.get(cores)))
-            .append("\n");
+           .append(" ")
+           .append(decimalFormat.format(throughputMap.get(cores)))
+           .append("\n");
       } catch (Exception e) {
         log.error("There was a problem getting the results from one of the tests.", e);
       }
@@ -226,8 +227,8 @@ public class GnuPlot {
     }
     Runtime runtime = Runtime.getRuntime();
     try {
-      runtime.exec(new String[] {"gnuplot", "publish_throughput.plot"}).waitFor();
-      runtime.exec(new String[] {"gnuplot", "subscribe_throughput.plot"}).waitFor();
+      runtime.exec(new String[] {"/Users/dpcollins/homebrew/bin/gnuplot", "publish_throughput.plot"}).waitFor();
+      runtime.exec(new String[] {"/Users/dpcollins/homebrew/bin/gnuplot", "subscribe_throughput.plot"}).waitFor();
       coreStats.keySet().forEach(type -> {
         try {
           Files.deleteIfExists(Paths.get(type + "_throughput.dat"));

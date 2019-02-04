@@ -29,7 +29,8 @@ import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.sheets.v4.Sheets;
 import com.google.api.services.sheets.v4.SheetsScopes;
 import com.google.api.services.sheets.v4.model.ValueRange;
-import com.google.pubsub.flic.common.LatencyDistribution;
+import com.google.pubsub.flic.common.LatencyTracker;
+import com.google.pubsub.flic.common.StatsUtils;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
 import com.google.pubsub.flic.controllers.ClientParams;
@@ -75,14 +76,18 @@ public class SheetsService {
           collect(Collectors.groupingBy(
               ClientParams::getClientType, Collectors.summingInt(t -> 1)));
       countMap.forEach((k, v) -> {
-        if (k.isCpsPublisher()) {
-          cpsPublisherCount += v;
-        } else if (k.isKafkaPublisher()) {
-          kafkaPublisherCount += v;
-        } else if (k.toString().startsWith("kafka")) {
-          kafkaSubscriberCount += v;
-        } else {
-          cpsSubscriberCount += v;
+        if (k.isCps()) {
+          if (k.isPublisher()) {
+            cpsPublisherCount += v;
+          } else {
+            cpsSubscriberCount += v;
+          }
+        } else if (k.isKafka()) {
+          if (k.isPublisher()) {
+            kafkaPublisherCount += v;
+          } else {
+            kafkaSubscriberCount += v;
+          }
         }
       });
     });
@@ -118,8 +123,8 @@ public class SheetsService {
    * Publish batch size; Subscribe pull size; Request rate; Max outstanding requests;
    * Throughput (MB/s); 50% (ms); 90% (ms); 99% (ms)
    */
-  public void sendToSheets(String sheetId, Map<ClientType, Controller.LoadtestStats> results) {
-    List<List<List<Object>>> values = getValuesList(results);
+  public void sendToSheets(String sheetId, Map<ClientType, LatencyTracker> trackers) {
+    List<List<List<Object>>> values = getValuesList(trackers);
     try {
       service.spreadsheets().values().append(sheetId, "CPS",
           new ValueRange().setValues(values.get(0))).setValueInputOption("USER_ENTERED").execute();
@@ -130,76 +135,57 @@ public class SheetsService {
     }
   }
 
-  public List<List<List<Object>>> getValuesList(Map<ClientType, Controller.LoadtestStats> results) {
-    List<List<Object>> cpsValues = new ArrayList<>(results.size());
-    List<List<Object>> kafkaValues = new ArrayList<>(results.size());
+  public List<List<List<Object>>> getValuesList(Map<ClientType, LatencyTracker> trackers) {
+    List<List<Object>> cpsValues = new ArrayList<>(trackers.size());
+    List<List<Object>> kafkaValues = new ArrayList<>(trackers.size());
 
-    results.forEach((type, stats) -> {
+    trackers.forEach((type, tracker) -> {
       List<Object> valueRow = new ArrayList<>(13);
-      switch (type) {
-        case CPS_GCLOUD_JAVA_PUBLISHER:
-        case CPS_GCLOUD_PYTHON_PUBLISHER:
-        case CPS_GCLOUD_RUBY_PUBLISHER:
-        case CPS_GCLOUD_NODE_PUBLISHER:
-        case CPS_GCLOUD_DOTNET_PUBLISHER:
-        case CPS_GCLOUD_GO_PUBLISHER:
+      if (type.isCps()) {
+        if (type.isPublisher()) {
           if (cpsPublisherCount == 0) {
             return;
           }
           valueRow.add(cpsPublisherCount);
           valueRow.add(0);
           cpsValues.add(0, valueRow);
-          break;
-        case CPS_GCLOUD_JAVA_SUBSCRIBER:
-        case CPS_GCLOUD_GO_SUBSCRIBER:
-        case CPS_GCLOUD_PYTHON_SUBSCRIBER:
-        case CPS_GCLOUD_RUBY_SUBSCRIBER:
-        case CPS_GCLOUD_NODE_SUBSCRIBER:
-        case CPS_GCLOUD_DOTNET_SUBSCRIBER:
+        } else {
           if (cpsSubscriberCount == 0) {
             return;
           }
           valueRow.add(0);
           valueRow.add(cpsSubscriberCount);
           cpsValues.add(valueRow);
-          break;
-        case KAFKA_PUBLISHER:
+        }
+      } else if (type.isKafka()) {
+        if (type.isPublisher()) {
           if (kafkaPublisherCount == 0) {
             return;
           }
           valueRow.add(kafkaPublisherCount);
           valueRow.add(0);
           kafkaValues.add(0, valueRow);
-          break;
-        case KAFKA_SUBSCRIBER:
+        } else {
           if (kafkaSubscriberCount == 0) {
             return;
           }
           valueRow.add(0);
           valueRow.add(kafkaSubscriberCount);
           kafkaValues.add(valueRow);
-          break;
-        default:
-          throw new IllegalArgumentException("Type " + type + " in results map was not expected.");
-      }
-      valueRow.add(Client.messageSize);
-      if (Client.numberOfMessages <= 0) {
-        valueRow.add(Client.loadtestDuration.getSeconds());
-        valueRow.add("N/A");
+        }
       } else {
-        valueRow.add("N/A");
-        valueRow.add(Client.numberOfMessages);
+        throw new IllegalArgumentException("Type " + type + " in results map was not expected.");
       }
+
+      valueRow.add(Client.messageSize);
+      valueRow.add(Client.loadtestDuration.getSeconds());
       valueRow.add(Client.publishBatchSize);
-      valueRow.add(Client.maxMessagesPerPull);
-      valueRow.add(Client.requestRate);
-      valueRow.add(Client.maxOutstandingRequests);
+      valueRow.add(Client.perWorkerPublishRate);
       valueRow.add(new DecimalFormat("#.##").format(
-          (double) LongStream.of(
-              stats.bucketValues).sum() / stats.runningSeconds * Client.messageSize / 1000000.0));
-      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 50.0));
-      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.0));
-      valueRow.add(LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9));
+              StatsUtils.getThroughput(tracker.getCount(), Client.loadtestDuration, Client.messageSize)));
+      valueRow.add(tracker.getNthPercentileMidpoint(50.0));
+      valueRow.add(tracker.getNthPercentileMidpoint(99.0));
+      valueRow.add(tracker.getNthPercentileMidpoint(99.9));
     });
     List<List<List<Object>>> out = new ArrayList<>();
     out.add(cpsValues);

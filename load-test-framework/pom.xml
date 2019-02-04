@@ -9,11 +9,6 @@
   <url>http://maven.apache.org</url>
   <dependencies>
     <dependency>
-      <groupId>javax.annotation</groupId>
-      <artifactId>javax.annotation-api</artifactId>
-      <version>1.3.2</version>
-    </dependency>
-    <dependency>
       <groupId>junit</groupId>
       <artifactId>junit</artifactId>
       <version>4.12</version>
@@ -31,17 +26,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <version>0.24.0-beta</version>
-    </dependency>
-    <dependency>
-      <groupId>commons-io</groupId>
-      <artifactId>commons-io</artifactId>
-      <version>2.4</version>
-    </dependency>
-    <dependency>
-      <groupId>org.apache.commons</groupId>
-      <artifactId>commons-lang3</artifactId>
-      <version>3.4</version>
+      <version>1.60.0</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -65,34 +50,29 @@
       <version>1.7.21</version>
     </dependency>
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
-      <version>1.7.21</version>
-    </dependency>
-    <dependency>
-      <groupId>log4j</groupId>
-      <artifactId>log4j</artifactId>
-      <version>1.2.17</version>
-    </dependency>
-    <dependency>
       <groupId>com.google.apis</groupId>
       <artifactId>google-api-services-compute</artifactId>
-      <version>v1-rev125-1.22.0</version>
+      <version>v1-rev201-1.24.1</version>
     </dependency>
     <dependency>
       <groupId>com.google.apis</groupId>
       <artifactId>google-api-services-storage</artifactId>
-      <version>v1-rev85-1.22.0</version>
+      <version>v1-rev141-1.25.0</version>
+    </dependency>
+    <dependency>
+      <groupId>com.google.apis</groupId>
+      <artifactId>google-api-services-sheets</artifactId>
+      <version>v4-rev553-1.25.0</version>
     </dependency>
     <dependency>
       <groupId>com.google.apis</groupId>
       <artifactId>google-api-services-monitoring</artifactId>
-      <version>v3-rev9-1.22.0</version>
+      <version>v3-rev477-1.25.0</version>
     </dependency>
     <dependency>
       <groupId>com.google.api-client</groupId>
       <artifactId>google-api-client</artifactId>
-      <version>1.22.0</version>
+      <version>1.27.0</version>
     </dependency>
     <dependency>
       <groupId>org.apache.httpcomponents</groupId>
@@ -100,25 +80,10 @@
       <version>4.2.5</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.httpcomponents</groupId>
-      <artifactId>httpclient</artifactId>
-      <version>4.2.5</version>
+      <groupId>com.google.oauth-client</groupId>
+      <artifactId>google-oauth-client-jetty</artifactId>
+      <version>1.22.0</version>
     </dependency>
-    <dependency>
-       <groupId>com.google.apis</groupId>
-       <artifactId>google-api-services-sheets</artifactId>
-       <version>v4-rev108-1.22.0</version>
-     </dependency>
-     <dependency>
-       <groupId>com.google.oauth-client</groupId>
-       <artifactId>google-oauth-client-java6</artifactId>
-       <version>1.11.0-beta</version>
-     </dependency>
-     <dependency>
-       <groupId>com.google.oauth-client</groupId>
-       <artifactId>google-oauth-client-jetty</artifactId>
-       <version>1.22.0</version>
-     </dependency>
      <dependency>
        <groupId>com.101tec</groupId>
        <artifactId>zkclient</artifactId>
@@ -193,6 +158,11 @@
           <source>1.8</source>
           <target>1.8</target>
         </configuration>
+      </plugin>
+      <plugin>
+      <groupId>org.apache.maven.plugins</groupId>
+      <artifactId>maven-dependency-plugin</artifactId>
+      <version>3.0.2</version>
       </plugin>
     </plugins>
   </build>

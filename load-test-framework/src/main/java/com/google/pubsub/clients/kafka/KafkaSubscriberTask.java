@@ -17,16 +17,21 @@ package com.google.pubsub.clients.kafka;
 
 import com.beust.jcommander.JCommander;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.protobuf.InvalidProtocolBufferException;
 import com.google.protobuf.util.Durations;
-import com.google.pubsub.clients.common.LoadTestRunner;
+import com.google.protobuf.util.Timestamps;
+import com.google.pubsub.clients.common.JavaLoadtestWorker;
+import com.google.pubsub.clients.common.LoadtestTask;
 import com.google.pubsub.clients.common.MetricsHandler;
-import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.clients.common.Task.RunResult;
+import com.google.pubsub.clients.common.PooledWorkerTask;
+import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
+
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 
@@ -34,12 +39,12 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
  * Runs a task that consumes messages utilizing Kafka's implementation of the Consumer<K,V>
  * interface.
  */
-class KafkaSubscriberTask extends Task {
+class KafkaSubscriberTask extends PooledWorkerTask {
   private final long pollLength;
   private final KafkaConsumer<String, String> subscriber;
 
-  private KafkaSubscriberTask(StartRequest request) {
-    super(request, "kafka", MetricsHandler.MetricName.END_TO_END_LATENCY);
+  private KafkaSubscriberTask(StartRequest request, MetricsHandler handler, int numWorkers) {
+    super(request, handler, numWorkers);
     this.pollLength = Durations.toMillis(request.getKafkaOptions().getPollDuration());
     Properties props = new Properties();
     props.putAll(ImmutableMap.of(
@@ -54,18 +59,41 @@ class KafkaSubscriberTask extends Task {
     subscriber.subscribe(Collections.singletonList(request.getTopic()));
   }
 
-  public static void main(String[] args) throws Exception {
-    LoadTestRunner.Options options = new LoadTestRunner.Options();
-    new JCommander(options, args);
-    LoadTestRunner.run(options, KafkaSubscriberTask::new);
+  @Override
+  public void startAction() {
+    while (!isShutdown.get()) {
+      ConsumerRecords<String, String> records = subscriber.poll(pollLength);
+      for (ConsumerRecord<String, String> record : records) {
+        LoadtestProto.KafkaMessage message = parsePayload(record.value());
+        long delayMillis = Timestamps.toMillis(message.getPublishTime()) - System.currentTimeMillis();
+        metricsHandler.add(message.getId(), Duration.ofMillis(delayMillis));
+      }
+    }
+  }
+
+  private static LoadtestProto.KafkaMessage parsePayload(String payload) {
+    try {
+      return LoadtestProto.KafkaMessage.parseFrom(payload.getBytes());
+    } catch (InvalidProtocolBufferException e) {
+      throw new RuntimeException("Invalid proto received from kafka: ", e);
+    }
   }
 
   @Override
-  public ListenableFuture<RunResult> doRun() {
-    RunResult result = new RunResult();
-    ConsumerRecords<String, String> records = subscriber.poll(pollLength);
-    long now = System.currentTimeMillis();
-    records.forEach(record -> result.latencies.add(now - record.timestamp()));
-    return Futures.immediateFuture(result);
+  protected void cleanup() {
+    subscriber.close();
+  }
+
+  private static class KafkaSubscriberFactory implements Factory {
+    @Override
+    public LoadtestTask newTask(StartRequest request, MetricsHandler handler, int numWorkers) {
+      return new KafkaSubscriberTask(request, handler, numWorkers);
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    JavaLoadtestWorker.Options options = new JavaLoadtestWorker.Options();
+    new JCommander(options, args);
+    new JavaLoadtestWorker(options, new KafkaSubscriberFactory());
   }
 }

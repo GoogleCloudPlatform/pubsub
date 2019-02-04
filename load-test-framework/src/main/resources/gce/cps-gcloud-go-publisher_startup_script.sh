@@ -22,18 +22,22 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 
 # Download the loadtest binary to this machine and install Java 8.
 /usr/bin/apt-get update
-/usr/bin/apt-get install -y openjdk-8-jre-headless unzip &
-/usr/bin/gsutil cp "gs://${BUCKET}/driver.jar" "${TMP}" &
-/usr/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}" &
-
-wait
+/usr/bin/apt-get install -y unzip gcc
+/usr/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}"
 
 cd ${TMP}
+
+# install go
+curl https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz -o go.tar.gz
+tar -C /usr/local -xzf go.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+mkdir gopath
+export GOPATH="${TMP}/gopath"
+mkdir gocache
+export GOCACHE="${TMP}/gocache"
+
+# unpack loadtest
 unzip cps.zip
-chmod +x ./target/loadtest-go
-./target/loadtest-go -r pub & PIDSERV=$!
+cd go_src/cmd
 
-# Run the loadtest binary
-java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.PublisherAdapterTask
-
-kill $PIDSERV
+go run main.go --publisher=true

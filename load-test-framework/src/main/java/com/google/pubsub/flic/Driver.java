@@ -41,14 +41,12 @@ import com.google.protobuf.Duration;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.protobuf.util.Timestamps;
-import com.google.pubsub.flic.common.LatencyDistribution;
+import com.google.pubsub.flic.common.LatencyTracker;
 import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
-import com.google.pubsub.flic.controllers.Client;
+import com.google.pubsub.flic.common.StatsUtils;
+import com.google.pubsub.flic.controllers.*;
 import com.google.pubsub.flic.controllers.Client.ClientType;
-import com.google.pubsub.flic.controllers.ClientParams;
-import com.google.pubsub.flic.controllers.Controller;
-import com.google.pubsub.flic.controllers.GCEController;
-import com.google.pubsub.flic.controllers.MessageTracker;
+import com.google.pubsub.flic.common.MessageTracker;
 import com.google.pubsub.flic.output.CsvOutput;
 import com.google.pubsub.flic.output.GnuPlot;
 import com.google.pubsub.flic.output.SheetsService;
@@ -66,6 +64,8 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.BiFunction;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.apache.log4j.BasicConfigurator;
 import org.joda.time.DateTimeConstants;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -81,6 +81,12 @@ public class Driver {
     help = true
   )
   public boolean help = false;
+
+  @Parameter(
+          names = {"--local"},
+          help = true
+  )
+  public boolean local = false;
 
   @Parameter(
     names = {"--cps_gcloud_java_publisher_count"},
@@ -202,13 +208,6 @@ public class Driver {
   private Duration publishBatchDuration = Durations.fromMillis(0);
 
   @Parameter(
-    names = {"--cps_max_messages_per_pull"},
-    description = "Number of messages to return in each pull request.",
-    validateWith = GreaterThanZeroValidator.class
-  )
-  private int cpsMaxMessagesPerPull = 10;
-
-  @Parameter(
     names = {"--kafka_poll_length"},
     description = "Length of time to poll when subscribing with Kafka.",
     converter = DurationConverter.class
@@ -235,16 +234,10 @@ public class Driver {
   private String zookeeperIpAddress = "";
 
   @Parameter(
-    names = {"--request_rate"},
-    description = "The rate at which each client will make requests (batches per second)."
+    names = {"--per_worker_publish_rate"},
+    description = "The rate at which each client will publish (messages per second).  0 means unbounded."
   )
-  private int requestRate = 10;
-
-  @Parameter(
-    names = {"--max_outstanding_requests"},
-    description = "The maximum number of outstanding requests each client will allow."
-  )
-  private int maxOutstandingRequests = 20;
+  private int perWorkerPublishRate = 0;
 
   @Parameter(
     names = {"--burn_in_duration"},
@@ -252,15 +245,6 @@ public class Driver {
     converter = DurationConverter.class
   )
   private Duration burnInDuration = Durations.fromMillis(2 * 60 * 1000); // 2 min.
-
-  @Parameter(
-    names = {"--number_of_messages"},
-    description =
-        "The total number of messages to publish in the test. Enabling this will "
-            + "override --loadtest_length_seconds. Enabling this flag will also enable the check "
-            + "for message loss. If set less than 1, this flag is ignored."
-  )
-  private int numberOfMessages = 0;
 
   @Parameter(
     names = {"--max_publish_latency_test"},
@@ -371,10 +355,19 @@ public class Driver {
   private Controller controller;
 
   public static void main(String[] args) {
+    BasicConfigurator.configure();
     Driver driver = new Driver();
     JCommander jCommander = new JCommander(driver, args);
     if (driver.help) {
       jCommander.usage();
+      return;
+    }
+    if (driver.local) {
+      driver.run(
+              (project, clientParamsMap) -> LocalController.newLocalController(
+                      project, ImmutableMap.of(driver.zone, clientParamsMap),
+                      Executors.newScheduledThreadPool(500))
+      );
       return;
     }
     driver.run(
@@ -491,17 +484,15 @@ public class Driver {
         }
       }
       // Set static variables.
-      Controller.resourceDirectory = resourceDirectory;
+      Client.resourceDirectory = resourceDirectory;
       Client.messageSize = messageSize;
       Client.loadtestDuration = loadtestDuration;
       Client.publishBatchSize = publishBatchSize;
-      Client.maxMessagesPerPull = cpsMaxMessagesPerPull;
       Client.pollDuration = kafkaPollDuration;
       Client.broker = broker;
       Client.zookeeperIpAddress = zookeeperIpAddress;
-      Client.requestRate = requestRate;
-      Client.maxOutstandingRequests = maxOutstandingRequests;
-      Client.numberOfMessages = numberOfMessages;
+      // TODO
+      Client.perWorkerPublishRate = perWorkerPublishRate;
       Client.burnInDuration = burnInDuration;
       Client.publishBatchDuration = publishBatchDuration;
       Client.partitions = partitions;
@@ -539,9 +530,9 @@ public class Driver {
         if (controller == null) {
           System.exit(1);
         }
-        Map<ClientType, Controller.LoadtestStats> statsMap = runTest(null);
-        GnuPlot.plot(statsMap);
-        CsvOutput.outputStats(statsMap);
+        Map<ClientType, LatencyTracker> trackers = runTest(null);
+        GnuPlot.plot(trackers);
+        CsvOutput.outputStats(trackers);
       }
       synchronized (pollingExecutor) {
         pollingExecutor.shutdownNow();
@@ -553,66 +544,58 @@ public class Driver {
     }
   }
 
-  private Map<ClientType, Controller.LoadtestStats> runTest(Runnable whileRunning)
+  private Map<ClientType, LatencyTracker> runTest(Runnable whileRunning)
       throws Throwable {
-    Map<ClientType, Controller.LoadtestStats> statsMap;
     Client.startTime =
-        Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 90).build();
-    MessageTracker messageTracker =
-        new MessageTracker(
-            numberOfMessages,
-            cpsGcloudJavaPublisherCount
-            + cpsGcloudPythonPublisherCount
-            + cpsGcloudRubyPublisherCount
-            + cpsGcloudGoPublisherCount
-            + cpsGcloudNodePublisherCount
-            + cpsGcloudDotnetPublisherCount);
-    controller.startClients(messageTracker);
+        Timestamp.newBuilder().setSeconds(System.currentTimeMillis() / 1000 + 120).build();
+    MessageTracker messageTracker = new MessageTracker();
+    controller.start(messageTracker);
     if (whileRunning != null) {
       whileRunning.run();
     }
     // Wait for the load test to finish.
     controller.waitForClients();
-    statsMap = controller.getStatsForAllClientTypes();
-    printStats(statsMap);
+    Map<ClientType, LatencyTracker> trackers = controller.getClientLatencyTrackers();
+    printStats(trackers);
     Iterable<MessageIdentifier> missing = messageTracker.getMissing();
     if (missing.iterator().hasNext()) {
-      log.error("Some published messages were not received!");
+      log.error("Some published messages were not received!\nExamples:");
+      int missing_count = 0;
       for (MessageIdentifier identifier : missing) {
-        log.error(
-            String.format(
-                "%d:%d", identifier.getPublisherClientId(), identifier.getSequenceNumber()));
+        if (missing_count < 5) {
+          log.error(String.format("%d:%d", identifier.getPublisherClientId(), identifier.getSequenceNumber()));
+        }
+        missing_count++;
       }
+      log.error("Missing " + missing_count + " total messages.");
     }
     if (spreadsheetId.length() > 0) {
       // Output results to common Google sheet
       new SheetsService(dataStoreDirectory, controller.getTypes())
-          .sendToSheets(spreadsheetId, statsMap);
+          .sendToSheets(spreadsheetId, trackers);
     }
 
-    return statsMap;
+    return trackers;
   }
 
   private void runMaxPublishLatencyTest() throws Throwable {
-    int highestRequestRate = 0;
+    float highestRequestRate = 0;
     for (AtomicDouble publishLatency = new AtomicDouble(0);
-        publishLatency.get() < maxPublishLatencyMillis;
-        Client.requestRate = (int) (Client.requestRate * 1.1)) {
-      Map<ClientType, Controller.LoadtestStats> statsMap = runTest(null);
-      statsMap.forEach(
-          (type, stats) -> {
+        publishLatency.get() < maxPublishLatencyMillis;) {
+      Map<ClientType, LatencyTracker> trackers = runTest(null);
+      trackers.forEach(
+          (type, tracker) -> {
             if (type.isPublisher()) {
-              publishLatency.set(
-                  LatencyDistribution.getNthPercentileUpperBound(
-                      stats.bucketValues, maxPublishLatencyPercentile));
+              publishLatency.set(tracker.getNthPercentileUpperBound(
+                      maxPublishLatencyPercentile));
             }
           });
       if (publishLatency.get() < maxPublishLatencyMillis) {
-        highestRequestRate = Client.requestRate;
+        highestRequestRate = Client.perWorkerPublishRate;
       }
     }
-    log.info("Maximum Request Rate: " + highestRequestRate);
-    controller.shutdown(null);
+    log.info("Maximum Request Rate: " + highestRequestRate + " messages per second.");
+    controller.stop();
   }
 
   private void runMaxSubscriberThroughputTest() throws Throwable {
@@ -630,7 +613,7 @@ public class Driver {
     dateFormatter.setTimeZone(TimeZone.getTimeZone("GMT"));
     for (AtomicLong backlogSize = new AtomicLong(0);
         backlogSize.get() < maxSubscriberThroughputTestBacklog;
-        Client.requestRate = (int) (Client.requestRate * 1.1)) {
+        Client.perWorkerPublishRate = (int) (Client.perWorkerPublishRate * 1.1)) {
       runTest(
           () -> {
             try {
@@ -673,14 +656,13 @@ public class Driver {
     log.info(
         "We accumulated a backlog during this test, refer to the last run "
             + "for the maximum throughput attained before accumulating backlog.");
-    controller.shutdown(null);
+    controller.stop();
   }
 
   private void runNumCoresTest(
       Map<ClientParams, Integer> clientParamsMap,
       BiFunction<String, Map<ClientParams, Integer>, Controller> controllerFunction)
       throws Throwable {
-    Map<ClientType, Controller.LoadtestStats> statsMap;
     GnuPlot gnuPlot = new GnuPlot();
     CsvOutput csv = new CsvOutput();
     for (cores = 1; cores <= 16; cores *= 2) {
@@ -688,20 +670,20 @@ public class Driver {
       if (controller == null) {
         System.exit(1);
       }
-      statsMap = runTest(null);
-      gnuPlot.addCoresResult(cores, statsMap);
-      csv.addCoresResult(cores, statsMap);
-      controller.shutdown(null);
+      Map<ClientType, LatencyTracker> trackers = runTest(null);
+      gnuPlot.addCoresResult(cores, trackers);
+      csv.addCoresResult(cores, trackers);
+      controller.stop();
     }
-    gnuPlot.plotStatsPerCore();
     csv.outputStatsPerCore();
+    gnuPlot.plotStatsPerCore();
   }
 
   private void printStats() {
-    printStats(controller.getStatsForAllClientTypes());
+    printStats(controller.getClientLatencyTrackers());
   }
 
-  private void printStats(Map<ClientType, Controller.LoadtestStats> results) {
+  private void printStats(Map<ClientType, LatencyTracker> trackers) {
     long startMillis = Timestamps.toMillis(Timestamps.add(Client.startTime, Client.burnInDuration));
     if (System.currentTimeMillis() < startMillis) {
       log.info(
@@ -711,15 +693,16 @@ public class Driver {
       return;
     }
     log.info("===============================================");
-    results.forEach(
-        (type, stats) -> {
+    trackers.forEach(
+        (type, tracker) -> {
           log.info("Results for " + type + ":");
-          log.info("50%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 50.0));
-          log.info("99%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.0));
-          log.info("99.9%: " + LatencyDistribution.getNthPercentile(stats.bucketValues, 99.9));
+          log.info("50%: " + tracker.getNthPercentile(50.0));
+          log.info("99%: " + tracker.getNthPercentile(99.0));
+          log.info("99.9%: " + tracker.getNthPercentile(99.9));
           log.info(
               "Average throughput: "
-                  + new DecimalFormat("#.##").format(stats.getQPS() * messageSize / 1000000.0)
+                  + new DecimalFormat("#.##").format(
+                          StatsUtils.getQPS(tracker.getCount(), Client.loadtestDuration) * messageSize / 1000000.0)
                   + " MB/s");
         });
     log.info("===============================================");

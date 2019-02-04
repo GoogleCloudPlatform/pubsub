@@ -16,9 +16,10 @@
 
 package com.google.pubsub.flic.output;
 
-import com.google.pubsub.flic.common.LatencyDistribution;
+import com.google.pubsub.flic.common.LatencyTracker;
+import com.google.pubsub.flic.common.StatsUtils;
+import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.Client.ClientType;
-import com.google.pubsub.flic.controllers.Controller.LoadtestStats;
 import java.io.BufferedWriter;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -44,8 +45,8 @@ public class CsvOutput {
     coresBuilder = new StringBuilder(CSV_CORES_HEADER);
   }
 
-  public void addCoresResult(int numCores, Map<ClientType, LoadtestStats> statsMap) {
-    statsMap.entrySet().stream().map(kv -> buildRow(kv.getKey(), kv.getValue())).forEach(
+  public void addCoresResult(int numCores, Map<ClientType, LatencyTracker> trackers) {
+    trackers.entrySet().stream().map(kv -> buildRow(kv.getKey(), kv.getValue())).forEach(
         s -> coresBuilder.append(numCores).append(',').append(s).append('\n'));
   }
 
@@ -58,28 +59,28 @@ public class CsvOutput {
     }
   }
 
-  private static String buildRow(ClientType type, LoadtestStats stats) {
+  private static String buildRow(ClientType type, LatencyTracker tracker) {
     return String.join(
         ",",
         type.toString(),
-        decimalFormat.format(stats.getQPS()),
-        decimalFormat.format(stats.getThroughput()),
-        LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 50),
-        LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 90),
-        LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99),
-        LatencyDistribution.getNthPercentileMidpoint(stats.bucketValues, 99.9));
+        decimalFormat.format(StatsUtils.getQPS(tracker.getCount(), Client.loadtestDuration)),
+        decimalFormat.format(StatsUtils.getThroughput(tracker.getCount(), Client.loadtestDuration, Client.messageSize)),
+        tracker.getNthPercentileMidpoint(50),
+        tracker.getNthPercentileMidpoint(90),
+        tracker.getNthPercentileMidpoint(99),
+        tracker.getNthPercentileMidpoint(99.9));
   }
 
-  private static String buildCsv(Map<ClientType, LoadtestStats> statsMap) {
-    return CSV_HEADER + statsMap.entrySet().stream()
+  private static String buildCsv(Map<ClientType, LatencyTracker> trackers) {
+    return CSV_HEADER + trackers.entrySet().stream()
         .map(kv -> buildRow(kv.getKey(), kv.getValue())).collect(Collectors.joining("\n"));
   }
 
-  public static void outputStats(Map<ClientType, LoadtestStats> statsMap) {
+  public static void outputStats(Map<ClientType, LatencyTracker> trackers) {
     try (Writer writer =
         new BufferedWriter(
             new OutputStreamWriter(new FileOutputStream("output.csv"), "utf-8"))) {
-      writer.write(buildCsv(statsMap));
+      writer.write(buildCsv(trackers));
     } catch (IOException e) {
       log.error("Error writing CSV.", e);
     }

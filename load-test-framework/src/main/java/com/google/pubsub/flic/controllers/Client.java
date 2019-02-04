@@ -22,19 +22,19 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Duration;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
-import com.google.pubsub.flic.common.LatencyDistribution;
-import com.google.pubsub.flic.common.LoadtestGrpc;
+import com.google.pubsub.flic.common.LatencyTracker;
 import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
 import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
+import com.google.pubsub.flic.common.LoadtestWorkerGrpc;
+import com.google.pubsub.flic.common.MessageTracker;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,46 +43,58 @@ import org.slf4j.LoggerFactory;
  * on running clients.
  */
 public class Client {
-  public static final String TOPIC_PREFIX = "cloud-pubsub-loadtest-";
+  public static final String TOPIC = "cloud-pubsub-loadtest";
   private static final Logger log = LoggerFactory.getLogger(Client.class);
-  private static final int PORT = 5000;
-  public static int messageSize;
-  public static int requestRate;
+  private static final int DEFAULT_PORT = 5000;
+
+  private final ClientType clientType;
+  private final String networkAddress;
+  private final ScheduledExecutorService executorService;
+
+  private final Integer port;
+
+  private ClientStatus clientStatus;
+  private LoadtestWorkerGrpc.LoadtestWorkerStub stub;
+  private int errors = 0;
+  private Duration runningDuration = Durations.fromMillis(0);
+  private SettableFuture<Void> doneFuture = SettableFuture.create();
+
+  private MessageTracker messageTracker;
+  private LatencyTracker latencyTracker;
+
+  public static String resourceDirectory = "target/classes/gce";
+
+  // StartRequest options
+  // General options
+  private final String project;
+  private final String topic;
   public static Timestamp startTime;
   public static Duration loadtestDuration;
+  public static Duration burnInDuration;
+
+  // Publisher options
+  public static int messageSize;
+  public static int perWorkerPublishRate;
   public static int publishBatchSize;
   public static Duration publishBatchDuration;
-  public static int maxMessagesPerPull;
+
+  // Pubsub options
+  private final String subscription;
+
+  // Kafka options
   public static Duration pollDuration;
   public static String broker;
   public static String zookeeperIpAddress;
-  public static int maxOutstandingRequests;
-  public static Duration burnInDuration;
-  public static int numberOfMessages = 0;
   public static int replicationFactor;
   public static int partitions;
-  private final ClientType clientType;
-  private final String networkAddress;
-  private final String project;
-  private final String topic;
-  private final String subscription;
-  private final ScheduledExecutorService executorService;
-  private ClientStatus clientStatus;
-  private Supplier<LoadtestGrpc.LoadtestStub> stubFactory;
-  private LoadtestGrpc.LoadtestStub stub;
-  private int errors = 0;
-  private long[] bucketValues = new long[LatencyDistribution.LATENCY_BUCKETS.length];
-  private Duration runningDuration = Durations.fromMillis(0);
-  private SettableFuture<Void> doneFuture = SettableFuture.create();
-  private MessageTracker messageTracker;
 
   Client(
-      ClientType clientType,
-      String networkAddress,
-      String project,
-      @Nullable String subscription,
-      ScheduledExecutorService executorService) {
-    this(clientType, networkAddress, project, subscription, executorService, null);
+          ClientType clientType,
+          String networkAddress,
+          String project,
+          @Nullable String subscription,
+          ScheduledExecutorService executorService) {
+    this(clientType, networkAddress, project, subscription, executorService, DEFAULT_PORT);
   }
 
   public Client(
@@ -91,42 +103,15 @@ public class Client {
       String project,
       @Nullable String subscription,
       ScheduledExecutorService executorService,
-      @Nullable Supplier<LoadtestGrpc.LoadtestStub> stubFactory) {
-        this.clientType = clientType;
+      Integer port) {
+    this.clientType = clientType;
     this.networkAddress = networkAddress;
     this.clientStatus = ClientStatus.NONE;
     this.project = project;
-    this.topic = TOPIC_PREFIX + getTopicSuffix(clientType);
+    this.topic = TOPIC;
     this.subscription = subscription;
     this.executorService = executorService;
-    this.stubFactory = stubFactory;
-  }
-
-  public static String getTopicSuffix(ClientType clientType) {
-    switch (clientType) {
-      case CPS_GCLOUD_JAVA_PUBLISHER:
-      case CPS_GCLOUD_JAVA_SUBSCRIBER:
-        return "gcloud-java";
-      case CPS_GCLOUD_GO_PUBLISHER:
-      case CPS_GCLOUD_GO_SUBSCRIBER:
-        return "gcloud-go";
-      case CPS_GCLOUD_PYTHON_PUBLISHER:
-      case CPS_GCLOUD_PYTHON_SUBSCRIBER:
-        return "gcloud-python";
-      case CPS_GCLOUD_RUBY_PUBLISHER:
-      case CPS_GCLOUD_RUBY_SUBSCRIBER:
-        return "gcloud-ruby";
-      case CPS_GCLOUD_NODE_PUBLISHER:
-      case CPS_GCLOUD_NODE_SUBSCRIBER:
-        return "gcloud-node";
-      case CPS_GCLOUD_DOTNET_PUBLISHER:
-      case CPS_GCLOUD_DOTNET_SUBSCRIBER:
-        return "gcloud-dotnet";
-      case KAFKA_PUBLISHER:
-      case KAFKA_SUBSCRIBER:
-        return "kafka";
-    }
-    return null;
+    this.port = port;
   }
 
   ClientType getClientType() {
@@ -137,14 +122,11 @@ public class Client {
     return doneFuture;
   }
 
-  private LoadtestGrpc.LoadtestStub getStub() {
-    if (stubFactory != null) {
-      return stubFactory.get();
-    }
-    return LoadtestGrpc.newStub(
-        ManagedChannelBuilder.forAddress(networkAddress, PORT)
-            .usePlaintext(true)
-            .maxInboundMessageSize(100000000)
+  private LoadtestWorkerGrpc.LoadtestWorkerStub getStub() {
+    return LoadtestWorkerGrpc.newStub(
+        ManagedChannelBuilder.forAddress(networkAddress, port)
+            .usePlaintext()
+            .maxInboundMessageSize(1000000000)
             .build());
   }
 
@@ -152,63 +134,41 @@ public class Client {
     return runningDuration.getSeconds();
   }
 
-  long[] getBucketValues() {
-    return bucketValues;
-  }
-
-  void start(MessageTracker messageTracker) throws Throwable {
+  void start(MessageTracker messageTracker, LatencyTracker latencyTracker) throws Throwable {
     this.messageTracker = messageTracker;
+    this.latencyTracker = latencyTracker;
     // Send a gRPC call to start the server
-    log.info("Connecting to " + networkAddress + ":" + PORT);
+    log.info("Connecting to " + networkAddress + ":" + port);
+    log.info("Starting at " + startTime);
     StartRequest.Builder requestBuilder =
         StartRequest.newBuilder()
             .setProject(project)
             .setTopic(topic)
-            .setMaxOutstandingRequests(maxOutstandingRequests)
-            .setMessageSize(messageSize)
-            .setRequestRate(requestRate)
             .setStartTime(startTime)
-            .setPublishBatchSize(publishBatchSize)
-            .setPublishBatchDuration(publishBatchDuration)
-            .setBurnInDuration(burnInDuration);
-    if (numberOfMessages > 0) {
-      requestBuilder.setNumberOfMessages(numberOfMessages);
-    } else {
-      requestBuilder.setTestDuration(loadtestDuration);
+            .setTestDuration(Durations.add(loadtestDuration, burnInDuration))
+            .setIncludeIds(perWorkerPublishRate > 0);
+    if (clientType.isPublisher()) {
+      requestBuilder.setPublisherOptions(
+              LoadtestProto.PublisherOptions.newBuilder()
+                      .setMessageSize(messageSize)
+                      .setBatchDuration(publishBatchDuration)
+                      .setRate(perWorkerPublishRate)
+                      .setBatchSize(publishBatchSize));
     }
-    switch (clientType) {
-      case CPS_GCLOUD_JAVA_SUBSCRIBER:
-      case CPS_GCLOUD_GO_SUBSCRIBER:
-      case CPS_GCLOUD_PYTHON_SUBSCRIBER:
-      case CPS_GCLOUD_RUBY_SUBSCRIBER:
-      case CPS_GCLOUD_NODE_SUBSCRIBER:
-      case CPS_GCLOUD_DOTNET_SUBSCRIBER:
-        requestBuilder.setPubsubOptions(PubsubOptions.newBuilder().setSubscription(subscription));
-        break;
-      case KAFKA_PUBLISHER:
-        requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
-            .setBroker(broker)
-            .setZookeeperIpAddress(zookeeperIpAddress)
-            .setReplicationFactor(replicationFactor)
-            .setPartitions(partitions));
-        break;
-      case KAFKA_SUBSCRIBER:
-        requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
-            .setBroker(broker)
-            .setPollDuration(pollDuration)
-            .setZookeeperIpAddress(zookeeperIpAddress)
-            .setReplicationFactor(replicationFactor)
-            .setPartitions(partitions));
-        break;
-      case CPS_GCLOUD_JAVA_PUBLISHER:
-      case CPS_GCLOUD_PYTHON_PUBLISHER:
-      case CPS_GCLOUD_RUBY_PUBLISHER:
-      case CPS_GCLOUD_GO_PUBLISHER:
-      case CPS_GCLOUD_NODE_PUBLISHER:
-      case CPS_GCLOUD_DOTNET_PUBLISHER:
-        break;
+    if (clientType.isCps() && !clientType.isPublisher()) {
+      requestBuilder.setPubsubOptions(PubsubOptions.newBuilder().setSubscription(subscription));
     }
+    if (clientType.isKafka()) {
+      requestBuilder.setKafkaOptions(KafkaOptions.newBuilder()
+              .setBroker(broker)
+              .setPollDuration(pollDuration)
+              .setZookeeperIpAddress(zookeeperIpAddress)
+              .setReplicationFactor(replicationFactor)
+              .setPartitions(partitions));
+    }
+
     StartRequest request = requestBuilder.build();
+    log.warn("Request to start: " + request);
     SettableFuture<Void> startFuture = SettableFuture.create();
     stub = getStub();
     stub.start(
@@ -255,27 +215,30 @@ public class Client {
   }
 
   private void checkClient() {
+    log.info("Checking...");
     if (clientStatus != ClientStatus.RUNNING) {
       return;
     }
     stub.check(
-        LoadtestProto.CheckRequest.newBuilder()
-            .addAllDuplicates(messageTracker.getDuplicates())
-            .build(),
+        LoadtestProto.CheckRequest.getDefaultInstance(),
         new StreamObserver<LoadtestProto.CheckResponse>() {
           @Override
           public void onNext(LoadtestProto.CheckResponse checkResponse) {
-            log.debug("Connected to client.");
+            LoadtestProto.CheckResponse cloned = checkResponse.toBuilder().clearReceivedMessages().build();
+            log.info("Connected to " + clientType + " client.  Got check response: " + cloned);
             if (checkResponse.getIsFinished()) {
               clientStatus = ClientStatus.STOPPED;
               doneFuture.set(null);
             }
-            messageTracker.addAllMessageIdentifiers(checkResponse.getReceivedMessagesList());
-            synchronized (this) {
-              for (int i = 0; i < LatencyDistribution.LATENCY_BUCKETS.length; i++) {
-                bucketValues[i] += checkResponse.getBucketValues(i);
-              }
-              runningDuration = checkResponse.getRunningDuration();
+            if (clientType.isPublisher()) {
+              messageTracker.addSent(checkResponse.getReceivedMessagesList());
+            } else {
+              messageTracker.addReceived(checkResponse.getReceivedMessagesList());
+            }
+            runningDuration = checkResponse.getRunningDuration();
+            // Has been running for longer than the burn in duration.
+            if (Durations.comparator().compare(runningDuration, burnInDuration) > 0) {
+              latencyTracker.addLatencies(checkResponse.getBucketValuesList());
             }
           }
 
@@ -300,87 +263,64 @@ public class Client {
         });
   }
 
-  /**
-   * An enum representing the possible client types.
-   */
-  public enum ClientType {
-    CPS_GCLOUD_JAVA_PUBLISHER,
-    CPS_GCLOUD_JAVA_SUBSCRIBER,
-    CPS_GCLOUD_PYTHON_PUBLISHER,
-    CPS_GCLOUD_PYTHON_SUBSCRIBER,
-    CPS_GCLOUD_RUBY_PUBLISHER,
-    CPS_GCLOUD_RUBY_SUBSCRIBER,
-    CPS_GCLOUD_GO_PUBLISHER,
-    CPS_GCLOUD_GO_SUBSCRIBER,
-    CPS_GCLOUD_NODE_PUBLISHER,
-    CPS_GCLOUD_NODE_SUBSCRIBER,
-    CPS_GCLOUD_DOTNET_PUBLISHER,
-    CPS_GCLOUD_DOTNET_SUBSCRIBER,
-    KAFKA_PUBLISHER,
-    KAFKA_SUBSCRIBER;
+  public enum MessagingType {
+    CPS_GCLOUD, KAFKA
+  }
+  
+  public enum Language {
+    JAVA, PYTHON, RUBY, GO, NODE, DOTNET
+  }
+  
+  public enum MessagingSide {
+    PUBLISHER, SUBSCRIBER
+  }
 
-    public boolean isCpsPublisher() {
-      switch (this) {
-        case CPS_GCLOUD_JAVA_PUBLISHER:
-        case CPS_GCLOUD_PYTHON_PUBLISHER:
-        case CPS_GCLOUD_RUBY_PUBLISHER:
-        case CPS_GCLOUD_GO_PUBLISHER:
-        case CPS_GCLOUD_NODE_PUBLISHER:
-        case CPS_GCLOUD_DOTNET_PUBLISHER:
-          return true;
-        default:
-          return false;
-      }
+  /**
+   * A class representing the possible client types.
+   */
+  public static class ClientType {
+    public static ClientType CPS_GCLOUD_JAVA_PUBLISHER = new ClientType(MessagingType.CPS_GCLOUD, Language.JAVA, MessagingSide.PUBLISHER);
+    public static ClientType CPS_GCLOUD_JAVA_SUBSCRIBER = new ClientType(MessagingType.CPS_GCLOUD, Language.JAVA, MessagingSide.SUBSCRIBER);
+    public static ClientType CPS_GCLOUD_PYTHON_PUBLISHER = new ClientType(MessagingType.CPS_GCLOUD, Language.PYTHON, MessagingSide.PUBLISHER);
+    public static ClientType CPS_GCLOUD_PYTHON_SUBSCRIBER = new ClientType(MessagingType.CPS_GCLOUD, Language.PYTHON, MessagingSide.SUBSCRIBER);
+    public static ClientType CPS_GCLOUD_RUBY_PUBLISHER = new ClientType(MessagingType.CPS_GCLOUD, Language.RUBY, MessagingSide.PUBLISHER);
+    public static ClientType CPS_GCLOUD_RUBY_SUBSCRIBER = new ClientType(MessagingType.CPS_GCLOUD, Language.RUBY, MessagingSide.SUBSCRIBER);
+    public static ClientType CPS_GCLOUD_GO_PUBLISHER = new ClientType(MessagingType.CPS_GCLOUD, Language.GO, MessagingSide.PUBLISHER);
+    public static ClientType CPS_GCLOUD_GO_SUBSCRIBER = new ClientType(MessagingType.CPS_GCLOUD, Language.GO, MessagingSide.SUBSCRIBER);
+    public static ClientType CPS_GCLOUD_NODE_PUBLISHER = new ClientType(MessagingType.CPS_GCLOUD, Language.NODE, MessagingSide.PUBLISHER);
+    public static ClientType CPS_GCLOUD_NODE_SUBSCRIBER = new ClientType(MessagingType.CPS_GCLOUD, Language.NODE, MessagingSide.SUBSCRIBER);
+    public static ClientType CPS_GCLOUD_DOTNET_PUBLISHER = new ClientType(MessagingType.CPS_GCLOUD, Language.DOTNET, MessagingSide.PUBLISHER);
+    public static ClientType CPS_GCLOUD_DOTNET_SUBSCRIBER = new ClientType(MessagingType.CPS_GCLOUD, Language.DOTNET, MessagingSide.SUBSCRIBER);
+    public static ClientType KAFKA_PUBLISHER = new ClientType(MessagingType.KAFKA, Language.JAVA, MessagingSide.PUBLISHER);
+    public static ClientType KAFKA_SUBSCRIBER = new ClientType(MessagingType.KAFKA, Language.JAVA, MessagingSide.SUBSCRIBER);
+    
+    public final MessagingType messaging;
+    public final Language language;
+    public final MessagingSide side;
+    private ClientType(MessagingType messaging, Language language, MessagingSide side) {
+      this.messaging = messaging;
+      this.language = language;
+      this.side = side;
     }
 
-    public boolean isKafkaPublisher() {
-      switch (this) {
-        case KAFKA_PUBLISHER:
-          return true;
-        default:
-          return false;
-      }
+    public boolean isCps() {
+      return messaging == MessagingType.CPS_GCLOUD;
+    }
+
+    public boolean isKafka() {
+      return messaging == MessagingType.KAFKA;
     }
 
     public boolean isPublisher() {
-      switch (this) {
-        case CPS_GCLOUD_JAVA_PUBLISHER:
-        case CPS_GCLOUD_PYTHON_PUBLISHER:
-        case CPS_GCLOUD_RUBY_PUBLISHER:
-        case CPS_GCLOUD_GO_PUBLISHER:
-        case KAFKA_PUBLISHER:
-        case CPS_GCLOUD_NODE_PUBLISHER:
-        case CPS_GCLOUD_DOTNET_PUBLISHER:
-          return true;
-        default:
-          return false;
-      }
-    }
-
-    public ClientType getSubscriberType() {
-      switch (this) {
-        case CPS_GCLOUD_JAVA_PUBLISHER:
-          return CPS_GCLOUD_JAVA_SUBSCRIBER;
-        case KAFKA_PUBLISHER:
-          return KAFKA_SUBSCRIBER;
-        case CPS_GCLOUD_GO_PUBLISHER:
-          return CPS_GCLOUD_GO_SUBSCRIBER;
-        case CPS_GCLOUD_PYTHON_PUBLISHER:
-          return CPS_GCLOUD_PYTHON_SUBSCRIBER;
-        case CPS_GCLOUD_RUBY_PUBLISHER:
-          return CPS_GCLOUD_RUBY_SUBSCRIBER;
-        case CPS_GCLOUD_NODE_PUBLISHER:
-          return CPS_GCLOUD_NODE_SUBSCRIBER;
-        case CPS_GCLOUD_DOTNET_PUBLISHER:
-          return CPS_GCLOUD_DOTNET_SUBSCRIBER;
-        default:
-          return this;
-      }
+      return side == MessagingSide.PUBLISHER;
     }
 
     @Override
     public String toString() {
-      return name().toLowerCase().replace('_', '-');
+      if (isKafka()) {
+        return (messaging + "-" + side).toLowerCase();
+      }
+      return (messaging.toString().replace("_", "-") + "-" + language + "-" + side).toLowerCase();
     }
   }
 

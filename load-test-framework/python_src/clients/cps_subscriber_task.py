@@ -1,74 +1,56 @@
-#!/usr/bin/env python
-
-# Copyright 2016 Google Inc. All Rights Reserved.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-
-import sys
-import threading
+from clients.task import Task, Worker, SubtaskWorker
+from google.cloud.pubsub_v1.subscriber import Client
+from google.cloud.pubsub_v1.subscriber.message import Message
 import time
-
-from concurrent import futures
+from clients.metrics_tracker import MessageAndDuration
 import grpc
-import loadtest_pb2
-from google.cloud.pubsub_v1 import subscriber
+from concurrent import futures
 
-class LoadtestWorkerServicer(loadtest_pb2.LoadtestWorkerServicer):
-    """Provides methods that implement functionality of load test server."""
+from proto.loadtest_pb2 import StartRequest
+from proto.loadtest_pb2_grpc import add_LoadtestWorkerServicer_to_server
+from clients.loadtest_worker_servicer import LoadtestWorkerServicer
+import sys
 
-    def __init__(self):
-        self.lock = threading.Lock()
-        self.latencies = []
-        self.recv_msgs = []
 
-    def ProcessMessage(self, message):
-        latency = int(time.time() * 1000 - int(message.attributes()["sendTime"]))
-        identifier = loadtest_pb2.MessageIdentifier()
-        identifier.publisher_client_id = int(message.attributes()["clientId"])
-        identifier.sequence_number = int(message.attributes()["sequenceNumber"])
-        message.ack()
-        self.lock.acquire()
-        self.latencies.append(latency)
-        self.recv_msgs.append(identifier)
-        self.lock.release()
-
-    def Start(self, request, context):
-        self.message_size = request.message_size
-        self.batch_size = request.publish_batch_size
+class SubscriberSubtaskWorker(SubtaskWorker):
+    def run_worker(self, request: StartRequest):
+        Worker.print_flush("started subscriber")
         subscription = "projects/" + request.project + "/subscriptions/" + request.pubsub_options.subscription
-        self.client = subscriber.Client()
-        self.client.subscribe(subscription, lambda msg: self.ProcessMessage(msg))
-        return loadtest_pb2.StartResponse()
+        client = Client()
+        client.subscribe(subscription, self._on_receive).result()
 
-    def Execute(self, request, context):
-        response = loadtest_pb2.ExecuteResponse()
-        self.lock.acquire()
-        response.latencies.extend(self.latencies)
-        response.received_messages.extend(self.recv_msgs)
-        self.latencies = []
-        self.recv_msgs = []
-        self.lock.release()
-        return response
+    def _on_receive(self, message: Message):
+        recv_time = int(time.time() * 1000)
+        latency_ms = recv_time - int(message.attributes["sendTime"])
+        pub_id = int(message.attributes["clientId"])
+        sequence_number = int(message.attributes["sequenceNumber"])
+        out = MessageAndDuration(pub_id, sequence_number, latency_ms)
+        self.metrics_tracker.put(out)
+        message.ack()
+
+
+class CPSSubscriberWorker(Worker):
+    def __init__(self):
+        super().__init__(SubscriberSubtaskWorker())
+
+
+class CPSSubscriberTask(Task):
+    @staticmethod
+    def get_worker() -> Worker:
+        return CPSSubscriberWorker()
 
 
 if __name__ == "__main__":
-    port = "6000"
+    port = "5000"
     for arg in sys.argv:
-      if arg.startswith("--worker_port="):
-        port = arg.split("=")[1]
-    server = grpc.server(futures.ThreadPoolExecutor(max_workers=1000))
-    loadtest_pb2.add_LoadtestWorkerServicer_to_server(LoadtestWorkerServicer(), server)
-    server.add_insecure_port('localhost:' + port)
+        if arg.startswith("--port="):
+            port = arg.split("=")[1]
+    task = CPSSubscriberTask()
+    server = grpc.server(futures.ThreadPoolExecutor(max_workers=2))
+    add_LoadtestWorkerServicer_to_server(LoadtestWorkerServicer(task), server)
+    address = '[::]:' + port
+    server.add_insecure_port(address)
     server.start()
+    print('subscriber server started at ' + address)
     while True:
-        time.sleep(3600)
+        time.sleep(1)

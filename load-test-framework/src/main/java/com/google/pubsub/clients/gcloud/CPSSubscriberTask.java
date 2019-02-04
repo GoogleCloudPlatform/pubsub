@@ -19,33 +19,32 @@ import com.beust.jcommander.JCommander;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.pubsub.clients.common.LoadTestRunner;
+import com.google.pubsub.clients.common.JavaLoadtestWorker;
+import com.google.pubsub.clients.common.LoadtestTask;
 import com.google.pubsub.clients.common.MetricsHandler;
-import com.google.pubsub.clients.common.Task;
-import com.google.pubsub.clients.common.Task.RunResult;
+import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.v1.SubscriptionName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Runs a task that consumes messages from a Cloud Pub/Sub subscription. */
-class CPSSubscriberTask extends Task implements MessageReceiver {
-  private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
-  private final SubscriptionName subscription;
-  private Subscriber subscriber;
-  private boolean shuttingDown = false;
+import java.time.Duration;
 
-  private CPSSubscriberTask(StartRequest request) {
-    super(request, "gcloud", MetricsHandler.MetricName.END_TO_END_LATENCY);
-    this.subscription =
-        SubscriptionName.create(request.getProject(), request.getPubsubOptions().getSubscription());
+/** Runs a task that consumes messages from a Cloud Pub/Sub subscription. */
+class CPSSubscriberTask implements LoadtestTask, MessageReceiver {
+  private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
+  private final MetricsHandler metricsHandler;
+  private final Subscriber subscriber;
+
+  private CPSSubscriberTask(StartRequest request, MetricsHandler metricsHandler, int workerCount) {
+    this.metricsHandler = metricsHandler;
+    ProjectSubscriptionName subscription =
+        ProjectSubscriptionName.of(request.getProject(), request.getPubsubOptions().getSubscription());
     try {
       this.subscriber =
-          Subscriber.defaultBuilder(this.subscription, this)
-              .setParallelPullCount(Runtime.getRuntime().availableProcessors() * 5)
+          Subscriber.newBuilder(subscription, this)
+              .setParallelPullCount(workerCount)
               .build();
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -54,52 +53,42 @@ class CPSSubscriberTask extends Task implements MessageReceiver {
 
   @Override
   public void receiveMessage(final PubsubMessage message, final AckReplyConsumer consumer) {
-    recordMessageLatency(
-        Integer.parseInt(message.getAttributesMap().get("clientId")),
-        Integer.parseInt(message.getAttributesMap().get("sequenceNumber")),
-        System.currentTimeMillis() - Long.parseLong(message.getAttributesMap().get("sendTime")));
+
+    this.metricsHandler.add(
+            LoadtestProto.MessageIdentifier.newBuilder()
+                    .setPublisherClientId(Integer.parseInt(message.getAttributesMap().get("clientId")))
+                    .setSequenceNumber(Integer.parseInt(message.getAttributesMap().get("sequenceNumber")))
+                    .build(),
+            Duration.ofMillis(System.currentTimeMillis() - Long.parseLong(message.getAttributesMap().get("sendTime")))
+    );
     consumer.ack();
   }
 
-  public static void main(String[] args) throws Exception {
-    LoadTestRunner.Options options = new LoadTestRunner.Options();
-    new JCommander(options, args);
-    LoadTestRunner.run(options, CPSSubscriberTask::new);
-  }
-
   @Override
-  public ListenableFuture<RunResult> doRun() {
-    synchronized (this) {
-      if (subscriber.isRunning()) {
-        return Futures.immediateFuture(RunResult.empty());
-      }
-      if (shuttingDown) {
-        return Futures.immediateFailedFuture(
-            new IllegalStateException("the task is shutting down"));
-      }
-      try {
-        subscriber.startAsync().awaitRunning();
-      } catch (Exception e) {
-        log.error("Fatal error from subscriber.", e);
-        subscriber = Subscriber.defaultBuilder(this.subscription, this).build();
-        return Futures.immediateFailedFuture(e);
-      }
-      return Futures.immediateFuture(RunResult.empty());
+  public void start() {
+    try {
+      subscriber.startAsync().awaitRunning();
+    } catch (Exception e) {
+      log.error("Fatal error from subscriber.", e);
+      throw new RuntimeException(e);
     }
   }
 
   @Override
-  public void shutdown() {
-    Subscriber subscriber;
-    synchronized (this) {
-      if (shuttingDown) {
-        throw new IllegalStateException("the task is already shutting down");
-      }
-      shuttingDown = true;
-      subscriber = this.subscriber;
-    }
-    // We must stop out of the lock. Stopping waits for all messages to be processed,
-    // and processing the messages needs to lock.
+  public void stop() {
     subscriber.stopAsync().awaitTerminated();
+  }
+
+  private static class CPSSubscriberFactory implements Factory {
+    @Override
+    public LoadtestTask newTask(StartRequest request, MetricsHandler handler, int workerCount) {
+      return new CPSSubscriberTask(request, handler, workerCount);
+    }
+  }
+
+  public static void main(String[] args) throws Exception {
+    JavaLoadtestWorker.Options options = new JavaLoadtestWorker.Options();
+    new JCommander(options, args);
+    new JavaLoadtestWorker(options, new CPSSubscriberFactory());
   }
 }
