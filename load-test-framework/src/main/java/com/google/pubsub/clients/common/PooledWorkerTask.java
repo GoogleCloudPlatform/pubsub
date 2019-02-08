@@ -60,6 +60,7 @@ public abstract class PooledWorkerTask implements LoadtestTask {
 
     // Run the task. This should never return until shutdown is set.
     protected abstract void startAction();
+
     // Run actions that should be performed on shutdown.  isShutdown will be set and all workers
     // stopped before this is called.
     protected abstract void cleanup();

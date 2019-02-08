@@ -1,6 +1,6 @@
 let task = require('./task.js');
 let metrics_tracker = require('./metrics_tracker.js');
-let { PubSub } = require('@google-cloud/pubsub');
+let {PubSub} = require('@google-cloud/pubsub');
 
 class SubscriberSubtaskWorker extends task.SubtaskWorker {
     constructor() {
@@ -14,7 +14,9 @@ class SubscriberSubtaskWorker extends task.SubtaskWorker {
         let topic = client.topic(startRequest.topic);
         let subscription = topic.subscription(startRequest.pubsub_options.subscription);
         subscription.on('message', this.onMessage.bind(this));
-        subscription.on(`error`, error => { console.error(`ERROR: ${error}`); });
+        subscription.on(`error`, error => {
+            console.error(`ERROR: ${error}`);
+        });
     }
 
     onMessage(message) {

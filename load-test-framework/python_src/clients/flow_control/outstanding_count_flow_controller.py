@@ -14,6 +14,7 @@ class OutstandingCountFlowController(FlowController):
     A FlowController that tries to ensure that the outstanding count is roughly equivalent to the
     completion rate in the next two seconds.
     """
+
     def __init__(self, initial_per_second: float):
         self.rate_per_second = initial_per_second
         self.index = 0
@@ -49,6 +50,3 @@ class OutstandingCountFlowController(FlowController):
                 self.expiry_cache[index] = None
             self.outstanding -= 1
             self.condition.notify()
-
-
-

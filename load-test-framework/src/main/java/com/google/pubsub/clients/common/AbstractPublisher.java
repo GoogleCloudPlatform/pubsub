@@ -15,6 +15,7 @@ import java.util.Random;
 
 public abstract class AbstractPublisher extends PooledWorkerTask {
     private static final Logger log = LoggerFactory.getLogger(AbstractPublisher.class);
+    private static final LogEveryN logEveryN = new LogEveryN(log, 500);
 
     private final ByteString payload;
     private final double perThreadRateUpperBound;
@@ -37,8 +38,6 @@ public abstract class AbstractPublisher extends PooledWorkerTask {
             this.startingPerThreadRate = 0;
             log.info("Per thread rate upper bound: " + perThreadRateUpperBound);
         }
-
-
     }
 
     protected ByteString getPayload() {
@@ -74,21 +73,22 @@ public abstract class AbstractPublisher extends PooledWorkerTask {
                             .build();
             Futures.addCallback(
                     publish(id, sequence_number++, publishTimestampMillis),
-                    new FutureCallback<Void> () {
+                    new FutureCallback<Void>() {
                         public void onSuccess(Void result) {
                             metricsHandler.add(
                                     identifier, Duration.ofMillis(
                                             System.currentTimeMillis() - publishTimestampMillis));
                             flowController.informFinished(true);
                         }
+
                         public void onFailure(Throwable t) {
+                            metricsHandler.addFailure();
                             flowController.informFinished(false);
-                            log.error("Publisher error: " + t.getMessage(), t);
+                            logEveryN.error("Publisher error: " + t);
                         }
                     }, MoreExecutors.directExecutor());
         }
     }
-
 
 
     protected abstract ListenableFuture<Void> publish(

@@ -34,7 +34,9 @@ class OutstandingCountFlowController extends FlowController {
         this.ratePerSecond = this.underlyingMap.size / kExpiryLatencySeconds;
         let waiters = this.waiters;
         this.waiters = [];
-        waiters.forEach(waiter => { waiter.set(); });
+        waiters.forEach(waiter => {
+            waiter.set();
+        });
     }
 
     async requestStart() {

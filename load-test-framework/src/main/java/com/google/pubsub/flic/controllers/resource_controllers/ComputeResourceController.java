@@ -1,4 +1,7 @@
-package com.google.pubsub.flic.controllers;
+package com.google.pubsub.flic.controllers.resource_controllers;
+
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.pubsub.flic.controllers.Client;
 
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
@@ -8,5 +11,5 @@ public abstract class ComputeResourceController extends ResourceController {
         super(executor);
     }
 
-    public abstract List<Client> startClients() throws Exception;
+    public abstract ListenableFuture<List<Client>> startClients();
 }

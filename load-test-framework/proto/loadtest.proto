@@ -41,6 +41,12 @@ message StartRequest {
     PublisherOptions publisher_options = 8;
     SubscriberOptions subscriber_options = 9;
   }
+
+  // The cpu scaling of the worker.  A multiple of the number of logical processors
+  // on the machine.  The number of threads for the worker is calculated by
+  // max((numCpus * cpu_scaling), 1) for languages which use thread parallelism.
+  // Languages which use process parallelism ignore this setting.
+  int32 cpu_scaling = 10;
 }
 
 message StartResponse {
@@ -113,6 +119,9 @@ message CheckResponse {
   // True if the load test has finished running.
   bool is_finished = 3;
 
-  // MessageIdentifiers of all received messages since the last Check.
+  // MessageIdentifiers of all messages since the last Check.
   repeated MessageIdentifier received_messages = 4;
+
+  // Number of failed messages since the last check.
+  int64 failed = 5;
 }

@@ -16,53 +16,38 @@
 
 package com.google.pubsub.flic.controllers;
 
+import com.google.auto.value.AutoValue;
+import com.google.pubsub.flic.controllers.mode.Mode;
+
 /**
  * Keeps track of the parameters that define a client.
  */
-public class ClientParams {
-  public final String subscription;
-  public final Client.ClientType clientType;
+@AutoValue
+public abstract class ClientParams {
+    public abstract Mode getMode();
 
-  public ClientParams(Client.ClientType clientType, String subscription) {
-    this.clientType = clientType;
-    this.subscription = subscription;
-  }
+    public abstract String getProject();
 
-  /**
-   * @return the clientType
-   */
-  public Client.ClientType getClientType() {
-    return clientType;
-  }
+    public abstract ClientType getClientType();
 
-  @Override
-  public boolean equals(Object obj) {
-    if (obj == this) {
-      return true;
-    }
-    if (obj == null || obj.getClass() != this.getClass()) {
-      return false;
-    }
-    ClientParams other = (ClientParams) obj;
-    if (!clientType.equals(other.getClientType())) {
-      return false;
-    }
-    if (subscription == null && other.subscription == null) {
-      return true;
-    }
-    if (subscription == null || other.subscription == null) {
-      return false;
-    }
-    return subscription.equals(other.subscription);
-  }
+    public abstract String getZone();
 
-  @Override
-  public int hashCode() {
-    final int prime = 31;
-    int result = 1;
-    result = prime * result + ((subscription == null) ? 0 : subscription.hashCode());
-    result = prime * result + ((clientType == null) ? 0 : clientType.hashCode());
-    return result;
-  }
+    public abstract Builder toBuilder();
 
+    public static Builder builder() {
+        return new AutoValue_ClientParams.Builder();
+    }
+
+    @AutoValue.Builder
+    public static abstract class Builder {
+        public abstract Builder setMode(Mode mode);
+
+        public abstract Builder setProject(String project);
+
+        public abstract Builder setClientType(ClientType type);
+
+        public abstract Builder setZone(String zone);
+
+        public abstract ClientParams build();
+    }
 }

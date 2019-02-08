@@ -23,6 +23,7 @@ class MetricsTracker:
     def __init__(self, include_ids: bool):
         self.lock_ = Lock()
         self.to_fill = CheckResponse()
+        self.to_fill.failed = 0
         self.include_ids = include_ids
 
     @staticmethod
@@ -42,10 +43,15 @@ class MetricsTracker:
                 message_id.publisher_client_id = value.publisher_id
                 message_id.sequence_number = value.sequence_number
 
+    def putError(self):
+        with self.lock_:
+            self.to_fill.failed += 1
+
     def check(self):
         with self.lock_:
             out = self.to_fill
             self.to_fill = CheckResponse()
+            self.to_fill.failed = 0
             return out
 
 

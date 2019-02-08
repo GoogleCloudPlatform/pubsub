@@ -16,7 +16,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class OutstandingCountFlowController implements FlowController {
     private static final class None {
         static final None NONE = new None();
-        private None() {}
+
+        private None() {
+        }
     }
 
     private int outstanding = 0;
@@ -46,6 +48,7 @@ public class OutstandingCountFlowController implements FlowController {
     }
 
     private void updateRate() {
+        expiryCache.cleanUp();
         monitor.enter();
         ratePerSecond = expiryCache.size() * 1.0 / expiryLatencySeconds;
         monitor.leave();

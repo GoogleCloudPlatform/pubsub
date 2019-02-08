@@ -16,10 +16,9 @@ type Task interface {
 	Check() genproto.CheckResponse
 }
 
-
 type subtaskWorkerFactory interface {
 	// Returns the number of workers to start
-	numWorkers() int
+	numWorkers(request genproto.StartRequest) int
 	// Starts a worker that will stop when it receives a message on stopChannel
 	runWorker(
 		request genproto.StartRequest,
@@ -28,11 +27,11 @@ type subtaskWorkerFactory interface {
 }
 
 type baseTask struct {
-	metricsTracker util.MetricsTracker
-	workerFactory subtaskWorkerFactory
+	metricsTracker     util.MetricsTracker
+	workerFactory      subtaskWorkerFactory
 	workerStopChannels []chan<- types.Nil
-	startTime time.Time
-	stopped bool
+	startTime          time.Time
+	stopped            bool
 }
 
 func (task *baseTask) Start(request genproto.StartRequest) {
@@ -57,7 +56,7 @@ func (task *baseTask) Start(request genproto.StartRequest) {
 	}()
 	go func() {
 		time.Sleep(startTime.Sub(time.Now()))
-		for i := 0; i < task.workerFactory.numWorkers(); i++ {
+		for i := 0; i < task.workerFactory.numWorkers(request); i++ {
 			stopChan := make(chan types.Nil)
 			task.workerStopChannels = append(task.workerStopChannels, stopChan)
 			go task.workerFactory.runWorker(

@@ -1,5 +1,6 @@
 package com.google.pubsub.flic.controllers;
 
+import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.LatencyTracker;
 import com.google.pubsub.flic.common.MessageTracker;
 
@@ -11,6 +12,7 @@ public interface Controller {
      * function returns it is guaranteed that all clients have started.
      */
     void start(MessageTracker messageTracker);
+
     /**
      * Shuts down the given environment. When this function returns, each client is guaranteed to be
      * in process of being deleted, or else output directions on how to manually delete any potential
@@ -19,9 +21,9 @@ public interface Controller {
     void stop();
 
     /**
-     * @return the types map
+     * @return the clients map
      */
-    Map<String, Map<ClientParams, Integer>> getTypes();
+    Map<ClientParams, Integer> getClients();
 
     /**
      * Waits for clients to complete the load test.
@@ -29,14 +31,16 @@ public interface Controller {
     void waitForClients() throws Throwable;
 
     /**
-     * Waits for publishers to complete the load test.
+     * Gets the current start time.
+     *
+     * @return the start time
      */
-    void waitForPublisherClients() throws Throwable;
+    Timestamp getStartTime();
 
     /**
      * Gets the results for all available types.
      *
      * @return the map from type to result, every type running is a valid key
      */
-    Map<Client.ClientType, LatencyTracker> getClientLatencyTrackers();
+    Map<ClientType, LatencyTracker> getClientLatencyTrackers();
 }

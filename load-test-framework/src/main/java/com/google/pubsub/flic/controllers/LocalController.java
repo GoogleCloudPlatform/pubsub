@@ -22,6 +22,10 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.pubsub.Pubsub;
 import com.google.common.collect.ImmutableList;
+import com.google.pubsub.flic.controllers.resource_controllers.ComputeResourceController;
+import com.google.pubsub.flic.controllers.resource_controllers.LocalComputeResourceController;
+import com.google.pubsub.flic.controllers.resource_controllers.PubsubResourceController;
+import com.google.pubsub.flic.controllers.resource_controllers.ResourceController;
 
 import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
@@ -30,22 +34,24 @@ import java.util.concurrent.ScheduledExecutorService;
  * This is a subclass of {@link Controller} that controls local load tests.
  */
 public class LocalController extends ControllerBase {
-    private final Map<String, Map<ClientParams, Integer>> types;
+    private final Map<ClientParams, Integer> clients;
 
     /**
      * Instantiates the load test on Google Compute Engine.
      */
-    private LocalController(Map<String, Map<ClientParams, Integer>> types,
+    private LocalController(Map<ClientParams, Integer> clients,
                             ScheduledExecutorService executor, List<ResourceController> controllers,
                             List<ComputeResourceController> computeControllers) {
         super(executor, controllers, computeControllers);
-        this.types = types;
+        this.clients = clients;
     }
 
-    /** Returns a LocalController using default application credentials. */
+    /**
+     * Returns a LocalController using default application credentials.
+     */
     public static LocalController newLocalController(
             String projectName,
-            Map<String, Map<ClientParams, Integer>> types,
+            Map<ClientParams, Integer> clients,
             ScheduledExecutorService executor) {
         try {
             HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
@@ -62,18 +68,14 @@ public class LocalController extends ControllerBase {
             ArrayList<ResourceController> controllers = new ArrayList<>();
             ArrayList<ComputeResourceController> computeControllers = new ArrayList<>();
             ArrayList<String> subscriptions = new ArrayList<>();
-            types.forEach((zone, clientMap) -> {
-                ComputeResourceController computeController = new LocalComputeResourceController(projectName, ImmutableList.copyOf(clientMap.keySet()), executor);
+            clients.forEach((params, numWorkers) -> {
+                ComputeResourceController computeController = new LocalComputeResourceController(
+                        params, numWorkers, executor);
                 controllers.add(computeController);
                 computeControllers.add(computeController);
-                clientMap.forEach((params, count) -> {
-                    if (!params.clientType.isPublisher()) {
-                        subscriptions.add(params.subscription);
-                    }
-                });
             });
-            controllers.add(new PubsubResourceController(projectName, Client.TOPIC, subscriptions, executor, pubsub));
-            return new LocalController(types, executor, controllers, computeControllers);
+            controllers.add(new PubsubResourceController(projectName, Client.TOPIC, ImmutableList.of(Client.SUBSCRIPTION), executor, pubsub));
+            return new LocalController(clients, executor, controllers, computeControllers);
         } catch (Throwable t) {
             log.error("Unable to initialize GCE: ", t);
             return null;
@@ -81,8 +83,8 @@ public class LocalController extends ControllerBase {
     }
 
     @Override
-    public Map<String, Map<ClientParams, Integer>> getTypes() {
-        return types;
+    public Map<ClientParams, Integer> getClients() {
+        return clients;
     }
 }
 

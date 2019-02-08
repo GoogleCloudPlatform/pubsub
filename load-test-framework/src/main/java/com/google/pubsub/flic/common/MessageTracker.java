@@ -20,72 +20,74 @@ import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
 
 import java.util.*;
 
-/** Ensures that no message loss has occurred. */
+/**
+ * Ensures that no message loss has occurred.
+ */
 public class MessageTracker {
-  // Map from publisher id to a set of sequence numbers.
-  private Map<Long, Set<Long>> sentMessages = new HashMap<>();
-  // Map from publisher id to a map from sequence numbers to received count.
-  private Map<Long, Map<Long, Integer>> receivedMessages = new HashMap<>();
+    // Map from publisher id to a set of sequence numbers.
+    private Map<Long, Set<Long>> sentMessages = new HashMap<>();
+    // Map from publisher id to a map from sequence numbers to received count.
+    private Map<Long, Map<Long, Integer>> receivedMessages = new HashMap<>();
 
-  public MessageTracker() {
-  }
-
-  public synchronized void addSent(Iterable<MessageIdentifier> identifiers) {
-    for (MessageIdentifier identifier: identifiers) {
-      long client_id = identifier.getPublisherClientId();
-      long sequence_number = identifier.getSequenceNumber();
-
-      if (!sentMessages.containsKey(client_id)) {
-        sentMessages.put(client_id, new HashSet<>());
-      }
-      sentMessages.get(client_id).add(sequence_number);
+    public MessageTracker() {
     }
-  }
 
-  public synchronized void addReceived(Iterable<MessageIdentifier> identifiers) {
-    for (MessageIdentifier identifier: identifiers) {
-      long client_id = identifier.getPublisherClientId();
-      long sequence_number = identifier.getSequenceNumber();
+    public synchronized void addSent(Iterable<MessageIdentifier> identifiers) {
+        for (MessageIdentifier identifier : identifiers) {
+            long client_id = identifier.getPublisherClientId();
+            long sequence_number = identifier.getSequenceNumber();
 
-      if (!receivedMessages.containsKey(client_id)) {
-        receivedMessages.put(client_id, new HashMap<>());
-      }
-      Map<Long, Integer> publisher_id_recv_map = receivedMessages.get(client_id);
-      if (!publisher_id_recv_map.containsKey(sequence_number)) {
-        publisher_id_recv_map.put(sequence_number, 0);
-      }
-      publisher_id_recv_map.put(sequence_number, publisher_id_recv_map.get(sequence_number) + 1);
-    }
-  }
-
-  // Get the ratio of duplicate deliveries to published messages.
-  public synchronized double getDuplicateRatio() {
-    long duplicates = 0;
-    long size = 0;
-    for (Map.Entry<Long, Map<Long, Integer>> publisher_entry: receivedMessages.entrySet()) {
-      for (Map.Entry<Long, Integer> sequence_number_entry: publisher_entry.getValue().entrySet()) {
-        ++size;
-        if (sequence_number_entry.getValue() > 1) {
-          duplicates += (sequence_number_entry.getValue() - 1);
+            if (!sentMessages.containsKey(client_id)) {
+                sentMessages.put(client_id, new HashSet<>());
+            }
+            sentMessages.get(client_id).add(sequence_number);
         }
-      }
     }
-    return ((double) duplicates) / size;
-  }
 
-  public synchronized Iterable<MessageIdentifier> getMissing() {
-    ArrayList<MessageIdentifier> missing = new ArrayList<>();
-    for (Map.Entry<Long, Set<Long>> published : sentMessages.entrySet()) {
-      Map<Long, Integer> received_counts = receivedMessages.getOrDefault(published.getKey(), new HashMap<>());
-      for (Long sequence_number : published.getValue()) {
-        if (received_counts.getOrDefault(sequence_number, 0) == 0) {
-          missing.add(MessageIdentifier.newBuilder()
-                  .setPublisherClientId(published.getKey())
-                  .setSequenceNumber(sequence_number.intValue())
-                  .build());
+    public synchronized void addReceived(Iterable<MessageIdentifier> identifiers) {
+        for (MessageIdentifier identifier : identifiers) {
+            long client_id = identifier.getPublisherClientId();
+            long sequence_number = identifier.getSequenceNumber();
+
+            if (!receivedMessages.containsKey(client_id)) {
+                receivedMessages.put(client_id, new HashMap<>());
+            }
+            Map<Long, Integer> publisher_id_recv_map = receivedMessages.get(client_id);
+            if (!publisher_id_recv_map.containsKey(sequence_number)) {
+                publisher_id_recv_map.put(sequence_number, 0);
+            }
+            publisher_id_recv_map.put(sequence_number, publisher_id_recv_map.get(sequence_number) + 1);
         }
-      }
     }
-    return missing;
-  }
+
+    // Get the ratio of duplicate deliveries to published messages.
+    public synchronized double getDuplicateRatio() {
+        long duplicates = 0;
+        long size = 0;
+        for (Map.Entry<Long, Map<Long, Integer>> publisher_entry : receivedMessages.entrySet()) {
+            for (Map.Entry<Long, Integer> sequence_number_entry : publisher_entry.getValue().entrySet()) {
+                ++size;
+                if (sequence_number_entry.getValue() > 1) {
+                    duplicates += (sequence_number_entry.getValue() - 1);
+                }
+            }
+        }
+        return ((double) duplicates) / size;
+    }
+
+    public synchronized Iterable<MessageIdentifier> getMissing() {
+        ArrayList<MessageIdentifier> missing = new ArrayList<>();
+        for (Map.Entry<Long, Set<Long>> published : sentMessages.entrySet()) {
+            Map<Long, Integer> received_counts = receivedMessages.getOrDefault(published.getKey(), new HashMap<>());
+            for (Long sequence_number : published.getValue()) {
+                if (received_counts.getOrDefault(sequence_number, 0) == 0) {
+                    missing.add(MessageIdentifier.newBuilder()
+                            .setPublisherClientId(published.getKey())
+                            .setSequenceNumber(sequence_number.intValue())
+                            .build());
+                }
+            }
+        }
+        return missing;
+    }
 }

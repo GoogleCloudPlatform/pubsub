@@ -25,8 +25,8 @@ import org.apache.log4j.spi.LoggingEvent;
  */
 public class LoggingPattern extends PatternLayout {
 
-  @Override
-  public String format(LoggingEvent event) {
-    return event.getLevel() + "-" + event.getMessage() + Layout.LINE_SEP;
-  }
+    @Override
+    public String format(LoggingEvent event) {
+        return event.getLevel() + "-" + event.getMessage() + Layout.LINE_SEP;
+    }
 }

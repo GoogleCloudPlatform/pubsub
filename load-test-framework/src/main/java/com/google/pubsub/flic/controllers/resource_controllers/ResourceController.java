@@ -1,18 +1,19 @@
-package com.google.pubsub.flic.controllers;
+package com.google.pubsub.flic.controllers.resource_controllers;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 
 import java.util.concurrent.ScheduledExecutorService;
 
-/** A ResourceController creates a resource when start is called and cleans it up when stop is called.
- *
+/**
+ * A ResourceController creates a resource when start is called and cleans it up when stop is called.
+ * <p>
  * These operations are complete when their future returns.
- * **/
+ **/
 public abstract class ResourceController {
     private final ScheduledExecutorService executor;
 
-    ResourceController(ScheduledExecutorService executor) {
+    protected ResourceController(ScheduledExecutorService executor) {
         this.executor = executor;
     }
 
@@ -29,6 +30,7 @@ public abstract class ResourceController {
         });
         return future;
     }
+
     public ListenableFuture<Void> stop() {
         SettableFuture<Void> future = SettableFuture.create();
         executor.execute(() -> {
@@ -44,5 +46,6 @@ public abstract class ResourceController {
     }
 
     protected abstract void startAction() throws Exception;
+
     protected abstract void stopAction() throws Exception;
 }

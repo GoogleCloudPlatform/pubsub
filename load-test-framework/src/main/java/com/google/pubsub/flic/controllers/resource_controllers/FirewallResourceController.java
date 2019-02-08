@@ -1,4 +1,4 @@
-package com.google.pubsub.flic.controllers;
+package com.google.pubsub.flic.controllers.resource_controllers;
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.compute.Compute;
@@ -18,7 +18,7 @@ public class FirewallResourceController extends ResourceController {
     private final String project;
     private final Compute compute;
 
-    FirewallResourceController(String project, ScheduledExecutorService executor, Compute compute) {
+    public FirewallResourceController(String project, ScheduledExecutorService executor, Compute compute) {
         super(executor);
         this.project = project;
         this.compute = compute;
@@ -41,17 +41,13 @@ public class FirewallResourceController extends ResourceController {
             if (e.getStatusCode() != HttpStatus.SC_CONFLICT) {
                 throw e;
             }
-            //compute.firewalls()
-            //        .update(project, "cloud-loadtest-framework-firewall-rule", firewallRule).execute();
-        }
-        log.info("Existing firewalls:");
-        for (Firewall firewall: compute.firewalls().list(project).execute().getItems()) {
-            log.info(firewall.toPrettyString());
         }
     }
 
     @Override
     protected void stopAction() throws Exception {
+        log.info("Cleaning up firewall resource_controllers.");
         compute.firewalls().delete(project, FIREWALL_NAME);
+        log.info("Cleaned up firewall resource_controllers.");
     }
 }

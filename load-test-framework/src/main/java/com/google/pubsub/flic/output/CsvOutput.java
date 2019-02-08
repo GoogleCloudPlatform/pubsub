@@ -16,73 +16,82 @@
 
 package com.google.pubsub.flic.output;
 
-import com.google.pubsub.flic.common.LatencyTracker;
 import com.google.pubsub.flic.common.StatsUtils;
-import com.google.pubsub.flic.controllers.Client;
-import com.google.pubsub.flic.controllers.Client.ClientType;
+
 import java.io.BufferedWriter;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
-import java.util.Map;
+import java.util.List;
 import java.util.stream.Collectors;
+
+import com.google.pubsub.flic.controllers.Client;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Outputs load test results to a CSV file. */
-public class CsvOutput {
-  private static final Logger log = LoggerFactory.getLogger(CsvOutput.class);
-  private static final String CSV_HEADER =
-      "Client Type,QPS,Throughput (MB/s),50%ile Latency,90%ile Latency,99%ile Latency,"
-    + "99.9%ile Latency\n";
-  private static final String CSV_CORES_HEADER = "Number of Cores," + CSV_HEADER;
-  private static final DecimalFormat decimalFormat = new DecimalFormat("#.##");
+/**
+ * Outputs load test results to a CSV file.
+ */
+public class CsvOutput implements ResultsOutput {
+    private static final Logger log = LoggerFactory.getLogger(CsvOutput.class);
+    private static final String CSV_HEADER =
+            "Messaging Type,Language,Messaging Side,Num Clients,Cores Per Client,Message Size,CPU Scaling,QPS,Throughput (MB/s),50%ile Latency,90%ile Latency,99%ile Latency,"
+                    + "99.9%ile Latency\n";
+    private static final DecimalFormat decimalFormat = new DecimalFormat("#.##");
 
-  private final StringBuilder coresBuilder;
-  public CsvOutput() {
-    coresBuilder = new StringBuilder(CSV_CORES_HEADER);
-  }
-
-  public void addCoresResult(int numCores, Map<ClientType, LatencyTracker> trackers) {
-    trackers.entrySet().stream().map(kv -> buildRow(kv.getKey(), kv.getValue())).forEach(
-        s -> coresBuilder.append(numCores).append(',').append(s).append('\n'));
-  }
-
-  public void outputStatsPerCore() {
-    try (Writer writer =
-        new BufferedWriter(new OutputStreamWriter(new FileOutputStream("output.csv"), "utf-8"))) {
-      writer.write(coresBuilder.toString());
-    } catch (IOException e) {
-      log.error("Error writing CSV.", e);
+    public CsvOutput() {
     }
-  }
 
-  private static String buildRow(ClientType type, LatencyTracker tracker) {
-    return String.join(
-        ",",
-        type.toString(),
-        decimalFormat.format(StatsUtils.getQPS(tracker.getCount(), Client.loadtestDuration)),
-        decimalFormat.format(StatsUtils.getThroughput(tracker.getCount(), Client.loadtestDuration, Client.messageSize)),
-        tracker.getNthPercentileMidpoint(50),
-        tracker.getNthPercentileMidpoint(90),
-        tracker.getNthPercentileMidpoint(99),
-        tracker.getNthPercentileMidpoint(99.9));
-  }
+    private static String buildRow(TrackedResult result) {
+        int numClients = result.type.isPublisher() ? result.mode.numPublisherWorkers() : result.mode.numSubscriberWorkers();
 
-  private static String buildCsv(Map<ClientType, LatencyTracker> trackers) {
-    return CSV_HEADER + trackers.entrySet().stream()
-        .map(kv -> buildRow(kv.getKey(), kv.getValue())).collect(Collectors.joining("\n"));
-  }
+        int rawCpuScaling = result.type.isPublisher() ? Client.PUBLISHER_CPU_SCALING : result.mode.subscriberCpuScaling();
+        String cpuScaling;
+        switch (result.type.language) {
+            case JAVA:
+            case GO:
+                cpuScaling = Integer.toString(rawCpuScaling);
+                break;
+            case PYTHON:
+            case NODE:
+                cpuScaling = "NA";
+                break;
+            default:
+                throw new RuntimeException("Language not handled by csv output: " + result.type.language);
+        }
 
-  public static void outputStats(Map<ClientType, LatencyTracker> trackers) {
-    try (Writer writer =
-        new BufferedWriter(
-            new OutputStreamWriter(new FileOutputStream("output.csv"), "utf-8"))) {
-      writer.write(buildCsv(trackers));
-    } catch (IOException e) {
-      log.error("Error writing CSV.", e);
+        return String.join(
+                ",",
+                result.type.messaging.name(),
+                result.type.language.name(),
+                result.type.side.name(),
+                Integer.toString(numClients),
+                Integer.toString(result.mode.numCoresPerWorker()),
+                Integer.toString(result.mode.messageSize()),
+                cpuScaling,
+                decimalFormat.format(StatsUtils.getQPS(result.tracker.getCount(), result.mode.loadtestDuration())),
+                decimalFormat.format(StatsUtils.getThroughput(
+                        result.tracker.getCount(), result.mode.loadtestDuration(), result.mode.messageSize())),
+                result.tracker.getNthPercentileMidpoint(50),
+                result.tracker.getNthPercentileMidpoint(90),
+                result.tracker.getNthPercentileMidpoint(99),
+                result.tracker.getNthPercentileMidpoint(99.9));
     }
-  }
+
+    private static String buildCsv(List<TrackedResult> results) {
+        return CSV_HEADER + results.stream().map(CsvOutput::buildRow).collect(Collectors.joining("\n"));
+    }
+
+    @Override
+    public void outputStats(List<TrackedResult> results) {
+        try (Writer writer = new BufferedWriter(new OutputStreamWriter(new FileOutputStream(
+                "output.csv"), StandardCharsets.UTF_8))) {
+            writer.write(buildCsv(results));
+        } catch (IOException e) {
+            log.error("Error writing CSV.", e);
+        }
+    }
 }

@@ -31,64 +31,66 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 
-/** Runs a task that consumes messages from a Cloud Pub/Sub subscription. */
+/**
+ * Runs a task that consumes messages from a Cloud Pub/Sub subscription.
+ */
 class CPSSubscriberTask implements LoadtestTask, MessageReceiver {
-  private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
-  private final MetricsHandler metricsHandler;
-  private final Subscriber subscriber;
+    private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
+    private final MetricsHandler metricsHandler;
+    private final Subscriber subscriber;
 
-  private CPSSubscriberTask(StartRequest request, MetricsHandler metricsHandler, int workerCount) {
-    this.metricsHandler = metricsHandler;
-    ProjectSubscriptionName subscription =
-        ProjectSubscriptionName.of(request.getProject(), request.getPubsubOptions().getSubscription());
-    try {
-      this.subscriber =
-          Subscriber.newBuilder(subscription, this)
-              .setParallelPullCount(workerCount)
-              .build();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+    private CPSSubscriberTask(StartRequest request, MetricsHandler metricsHandler, int workerCount) {
+        this.metricsHandler = metricsHandler;
+        ProjectSubscriptionName subscription =
+                ProjectSubscriptionName.of(request.getProject(), request.getPubsubOptions().getSubscription());
+        try {
+            this.subscriber =
+                    Subscriber.newBuilder(subscription, this)
+                            .setParallelPullCount(workerCount)
+                            .build();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
-  }
 
-  @Override
-  public void receiveMessage(final PubsubMessage message, final AckReplyConsumer consumer) {
-
-    this.metricsHandler.add(
-            LoadtestProto.MessageIdentifier.newBuilder()
-                    .setPublisherClientId(Integer.parseInt(message.getAttributesMap().get("clientId")))
-                    .setSequenceNumber(Integer.parseInt(message.getAttributesMap().get("sequenceNumber")))
-                    .build(),
-            Duration.ofMillis(System.currentTimeMillis() - Long.parseLong(message.getAttributesMap().get("sendTime")))
-    );
-    consumer.ack();
-  }
-
-  @Override
-  public void start() {
-    try {
-      subscriber.startAsync().awaitRunning();
-    } catch (Exception e) {
-      log.error("Fatal error from subscriber.", e);
-      throw new RuntimeException(e);
-    }
-  }
-
-  @Override
-  public void stop() {
-    subscriber.stopAsync().awaitTerminated();
-  }
-
-  private static class CPSSubscriberFactory implements Factory {
     @Override
-    public LoadtestTask newTask(StartRequest request, MetricsHandler handler, int workerCount) {
-      return new CPSSubscriberTask(request, handler, workerCount);
-    }
-  }
+    public void receiveMessage(final PubsubMessage message, final AckReplyConsumer consumer) {
 
-  public static void main(String[] args) throws Exception {
-    JavaLoadtestWorker.Options options = new JavaLoadtestWorker.Options();
-    new JCommander(options, args);
-    new JavaLoadtestWorker(options, new CPSSubscriberFactory());
-  }
+        this.metricsHandler.add(
+                LoadtestProto.MessageIdentifier.newBuilder()
+                        .setPublisherClientId(Integer.parseInt(message.getAttributesMap().get("clientId")))
+                        .setSequenceNumber(Integer.parseInt(message.getAttributesMap().get("sequenceNumber")))
+                        .build(),
+                Duration.ofMillis(System.currentTimeMillis() - Long.parseLong(message.getAttributesMap().get("sendTime")))
+        );
+        consumer.ack();
+    }
+
+    @Override
+    public void start() {
+        try {
+            subscriber.startAsync().awaitRunning();
+        } catch (Exception e) {
+            log.error("Fatal error from subscriber.", e);
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
+    public void stop() {
+        subscriber.stopAsync().awaitTerminated();
+    }
+
+    private static class CPSSubscriberFactory implements Factory {
+        @Override
+        public LoadtestTask newTask(StartRequest request, MetricsHandler handler, int workerCount) {
+            return new CPSSubscriberTask(request, handler, workerCount);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        JavaLoadtestWorker.Options options = new JavaLoadtestWorker.Options();
+        new JCommander(options, args);
+        new JavaLoadtestWorker(options, new CPSSubscriberFactory());
+    }
 }

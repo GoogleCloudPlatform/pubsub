@@ -1,4 +1,4 @@
-package com.google.pubsub.flic.controllers;
+package com.google.pubsub.flic.controllers.resource_controllers;
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.pubsub.Pubsub;
@@ -22,7 +22,7 @@ public class PubsubResourceController extends ResourceController {
     private final List<String> subscriptions;
     private final Pubsub pubsub;
 
-    PubsubResourceController(
+    public PubsubResourceController(
             String project, String topic, List<String> subscriptions, ScheduledExecutorService executor,
             Pubsub pubsub) {
         super(executor);
@@ -31,6 +31,7 @@ public class PubsubResourceController extends ResourceController {
         this.subscriptions = subscriptions;
         this.pubsub = pubsub;
     }
+
     @Override
     protected void startAction() throws Exception {
         try {
@@ -43,8 +44,8 @@ public class PubsubResourceController extends ResourceController {
             }
             log.info("Topic already exists, reusing.");
         }
-        for (String subscription: subscriptions) {
-            log.error("Creating subscription: " + subscription.toString());
+        for (String subscription : subscriptions) {
+            log.error("Creating subscription: " + subscription);
             try {
                 pubsub.projects().subscriptions().delete("projects/" + project
                         + "/subscriptions/" + subscription).execute();
@@ -60,11 +61,13 @@ public class PubsubResourceController extends ResourceController {
 
     @Override
     protected void stopAction() throws Exception {
-        for (String subscription: subscriptions) {
+        log.info("Cleaning up pubsub resource_controllers.");
+        for (String subscription : subscriptions) {
             pubsub.projects().subscriptions().delete("projects/" + project
                     + "/subscriptions/" + subscription).execute();
         }
         pubsub.projects().topics()
                 .delete("projects/" + project + "/topics/" + topic).execute();
+        log.info("Cleaned up pubsub resource_controllers.");
     }
 }

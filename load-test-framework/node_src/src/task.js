@@ -6,7 +6,8 @@ const cp = require('child_process');
 let SettablePromise = require('./settable_promise.js');
 
 class SubtaskWorker {
-    constructor() {}
+    constructor() {
+    }
 
     start(startRequest) {
         this.metricsTracker = new metrics_tracker.MetricsTracker(startRequest.include_ids);
@@ -14,7 +15,10 @@ class SubtaskWorker {
     }
 
     // Returns void
-    childStart(startRequest) { throw new Error('Unimplemented.'); }
+    childStart(startRequest) {
+        throw new Error('Unimplemented.');
+    }
+
     check() {
         return this.metricsTracker.check();
     }
@@ -22,6 +26,7 @@ class SubtaskWorker {
     startHandler(call, callback) {
         callback(null, this.start(call.request));
     }
+
     checkHandler(call, callback) {
         callback(null, this.check());
     }
@@ -114,7 +119,9 @@ class Task {
         this.finished = false;
     }
 
-    getWorker() { throw new Error('Unimplemented.'); }
+    getWorker() {
+        throw new Error('Unimplemented.');
+    }
 
     async init() {
         this.workers.forEach(async worker => {
@@ -124,7 +131,7 @@ class Task {
 
     static toMillis(timeOrDuration) {
         return Math.round((timeOrDuration.seconds * 1000) +
-               (timeOrDuration.nanos / 1000000.0));
+            (timeOrDuration.nanos / 1000000.0));
     }
 
     async start(startRequest) {
@@ -163,7 +170,7 @@ class Task {
         let combined = metrics_tracker.MetricsTracker.combineResponses(
             checkResults);
         combined.running_duration = {
-          seconds: Math.floor(this.millisSinceStart() / 1000)
+            seconds: Math.floor(this.millisSinceStart() / 1000)
         };
         combined.is_finished = this.finished;
         return combined;
@@ -174,6 +181,7 @@ class Task {
             callback(null, {});
         });
     }
+
     checkHandler(call, callback) {
         this.check().then(checkResponse => {
             callback(null, checkResponse);

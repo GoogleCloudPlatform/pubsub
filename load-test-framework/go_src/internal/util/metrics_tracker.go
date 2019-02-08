@@ -4,16 +4,18 @@ import (
 	"google.com/cloud_pubsub_loadtest/internal/genproto"
 	"go/types"
 	"math"
+	"sync/atomic"
 )
 
 type MessageAndDuration struct {
-	PublisherId int64
+	PublisherId    int64
 	SequenceNumber int32
-	LatencyMs int
+	LatencyMs      int
 }
 
 type MetricsTracker interface {
 	Put(messageAndDuration MessageAndDuration)
+	PutFailure()
 	Check() genproto.CheckResponse
 }
 
@@ -24,6 +26,8 @@ type metricsTrackerImpl struct {
 	response genproto.CheckResponse
 	// The channel to put values in
 	putChannel chan MessageAndDuration
+	// The count of failed requests.  Only modify atomically
+	failedRequests int64
 	// The channel for check requests
 	checkRequestChannel chan types.Nil
 	// The channel to send check responses to
@@ -32,6 +36,10 @@ type metricsTrackerImpl struct {
 
 func (mt *metricsTrackerImpl) Put(messageAndDuration MessageAndDuration) {
 	mt.putChannel <- messageAndDuration
+}
+
+func (mt *metricsTrackerImpl) PutFailure() {
+	atomic.AddInt64(&mt.failedRequests, 1)
 }
 
 func (mt *metricsTrackerImpl) Check() genproto.CheckResponse {
@@ -50,16 +58,16 @@ func bucketFor(latencyMs int) int {
 
 func NewMetricsTracker(trackIds bool) MetricsTracker {
 	mt := &metricsTrackerImpl{
-		trackIds: trackIds,
-		putChannel: make(chan MessageAndDuration),
-		checkRequestChannel: make(chan types.Nil),
+		trackIds:             trackIds,
+		putChannel:           make(chan MessageAndDuration),
+		checkRequestChannel:  make(chan types.Nil),
 		checkResponseChannel: make(chan genproto.CheckResponse),
 	}
 	// updater
 	go func() {
 		for {
 			select {
-			case messageAndDuration := <- mt.putChannel:
+			case messageAndDuration := <-mt.putChannel:
 				bucket := bucketFor(messageAndDuration.LatencyMs)
 				for len(mt.response.BucketValues) <= bucket {
 					mt.response.BucketValues = append(mt.response.BucketValues, 0)
@@ -69,10 +77,11 @@ func NewMetricsTracker(trackIds bool) MetricsTracker {
 					mt.response.ReceivedMessages = append(
 						mt.response.ReceivedMessages, &genproto.MessageIdentifier{
 							PublisherClientId: messageAndDuration.PublisherId,
-							SequenceNumber: messageAndDuration.SequenceNumber,
+							SequenceNumber:    messageAndDuration.SequenceNumber,
 						})
 				}
-			case <- mt.checkRequestChannel:
+			case <-mt.checkRequestChannel:
+				mt.response.Failed = atomic.SwapInt64(&mt.failedRequests, 0)
 				mt.checkResponseChannel <- mt.response
 				mt.response = genproto.CheckResponse{}
 			}
@@ -80,5 +89,3 @@ func NewMetricsTracker(trackIds bool) MetricsTracker {
 	}()
 	return mt
 }
-
-

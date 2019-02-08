@@ -3,8 +3,13 @@ package com.google.pubsub.flic.controllers;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
+import com.google.protobuf.Timestamp;
+import com.google.protobuf.util.Durations;
+import com.google.protobuf.util.Timestamps;
 import com.google.pubsub.flic.common.LatencyTracker;
 import com.google.pubsub.flic.common.MessageTracker;
+import com.google.pubsub.flic.controllers.resource_controllers.ComputeResourceController;
+import com.google.pubsub.flic.controllers.resource_controllers.ResourceController;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -19,7 +24,9 @@ public abstract class ControllerBase implements Controller {
     protected final ScheduledExecutorService executor;
     private final List<ResourceController> controllers;
     private final List<ComputeResourceController> computeControllers;
-    private final Map<Client.ClientType, LatencyTracker> clientLatencyTrackers = new HashMap<>();
+    private final Map<ClientType, LatencyTracker> clientLatencyTrackers = new HashMap<>();
+
+    private Timestamp startTime = null;
 
     /**
      * Creates the given environments and starts the virtual machines. When this function returns,
@@ -50,19 +57,11 @@ public abstract class ControllerBase implements Controller {
     }
 
     @Override
-    public void waitForPublisherClients() throws Throwable {
-        try {
-            Futures.allAsList(clients.stream()
-                    .filter(c -> c.getClientType().isPublisher())
-                    .map(Client::getDoneFuture)
-                    .collect(Collectors.toList())
-            ).get();
-        } catch (ExecutionException e) {
-            throw e.getCause();
-        }
+    public Timestamp getStartTime() {
+        return startTime;
     }
 
-    private LatencyTracker getLatencyTrackerForType(Client.ClientType type) {
+    private LatencyTracker getLatencyTrackerForType(ClientType type) {
         if (!clientLatencyTrackers.containsKey(type)) {
             clientLatencyTrackers.put(type, new LatencyTracker());
         }
@@ -70,7 +69,7 @@ public abstract class ControllerBase implements Controller {
     }
 
     @Override
-    public Map<Client.ClientType, LatencyTracker> getClientLatencyTrackers() {
+    public Map<ClientType, LatencyTracker> getClientLatencyTrackers() {
         return clientLatencyTrackers;
     }
 
@@ -88,21 +87,11 @@ public abstract class ControllerBase implements Controller {
             stop();
             return;
         }
-        log.info("Started non-compute resources.");
+        log.info("Started non-compute resource_controllers.");
 
         // Create all clients
-        List<SettableFuture<List<Client>>> clientFutures = new ArrayList<>();
-        computeControllers.forEach(controller -> {
-            SettableFuture<List<Client>> future = SettableFuture.create();
-            executor.execute(() -> {
-                try {
-                    future.set(controller.startClients());
-                } catch (Exception e) {
-                    future.setException(e);
-                }
-            });
-            clientFutures.add(future);
-        });
+        List<ListenableFuture<List<Client>>> clientFutures = new ArrayList<>();
+        computeControllers.forEach(controller -> clientFutures.add(controller.startClients()));
         try {
             clients.addAll(Futures.allAsList(clientFutures).get().stream().flatMap(Collection::stream).collect(Collectors.toList()));
         } catch (Exception e) {
@@ -110,15 +99,16 @@ public abstract class ControllerBase implements Controller {
             stop();
             return;
         }
-        log.info("Started compute resources.");
+        log.info("Started compute resource_controllers.");
 
         // Start all clients
+        startTime = Timestamps.add(Timestamps.fromMillis(System.currentTimeMillis()), Durations.fromSeconds(120));
         List<ListenableFuture<Void>> clientStartFutures = new ArrayList<>();
         for (Client client : clients) {
             SettableFuture<Void> future = SettableFuture.create();
             executor.execute(() -> {
                 try {
-                    client.start(messageTracker, getLatencyTrackerForType(client.getClientType()));
+                    client.start(startTime, messageTracker, getLatencyTrackerForType(client.getClientType()));
                     future.set(null);
                 } catch (Throwable t) {
                     future.setException(t);
@@ -143,7 +133,9 @@ public abstract class ControllerBase implements Controller {
             futures.add(controller.stop());
         }
         try {
+            log.info("Stopping all controllers.");
             Futures.allAsList(futures).get();
+            log.info("Stopped all controllers.");
         } catch (Exception e) {
             log.error("Failed to stop: " + e);
         }

@@ -40,73 +40,73 @@ import org.threeten.bp.Duration;
  * Runs a task that publishes messages to a Cloud Pub/Sub topic.
  */
 class CPSPublisherTask extends AbstractPublisher {
-  private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
-  private final ByteString payload;
-  private final Publisher publisher;
+    private static final Logger log = LoggerFactory.getLogger(CPSPublisherTask.class);
+    private final ByteString payload;
+    private final Publisher publisher;
 
-  private CPSPublisherTask(StartRequest request, MetricsHandler metricsHandler, int workerCount) {
-    super(request, metricsHandler, workerCount);
-    log.warn("constructing CPS publisher");
-    this.payload = getPayload();
-    try {
-      this.publisher =
-          Publisher.newBuilder(ProjectTopicName.of(request.getProject(), request.getTopic()))
-              .setBatchingSettings(
-                  BatchingSettings.newBuilder()
-                      .setElementCountThreshold((long) request.getPublisherOptions().getBatchSize())
-                      .setRequestByteThreshold(9500000L)
-                      .setDelayThreshold(
-                          Duration.ofMillis(Durations.toMillis(request.getPublisherOptions().getBatchDuration())))
-                      .build())
-              .build();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
+    private CPSPublisherTask(StartRequest request, MetricsHandler metricsHandler, int workerCount) {
+        super(request, metricsHandler, workerCount);
+        log.warn("constructing CPS publisher");
+        this.payload = getPayload();
+        try {
+            this.publisher =
+                    Publisher.newBuilder(ProjectTopicName.of(request.getProject(), request.getTopic()))
+                            .setBatchingSettings(
+                                    BatchingSettings.newBuilder()
+                                            .setElementCountThreshold((long) request.getPublisherOptions().getBatchSize())
+                                            .setRequestByteThreshold(9500000L)
+                                            .setDelayThreshold(
+                                                    Duration.ofMillis(Durations.toMillis(request.getPublisherOptions().getBatchDuration())))
+                                            .build())
+                            .build();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
-  }
 
-  @Override
-  public ListenableFuture<Void> publish(int clientId, int sequenceNumber, long publishTimestampMillis) {
-    SettableFuture<Void> done = SettableFuture.create();
-    ApiFutures.addCallback(publisher
-            .publish(
-                    PubsubMessage.newBuilder()
-                            .setData(payload)
-                            .putAttributes("sendTime", Long.toString(publishTimestampMillis))
-                            .putAttributes("clientId", Integer.toString(clientId))
-                            .putAttributes("sequenceNumber", Integer.toString(sequenceNumber))
-                            .build()), new ApiFutureCallback<String>() {
-      @Override
-      public void onSuccess(String messageId) {
-        done.set(null);
-      }
-
-      @Override
-      public void onFailure(Throwable t) {
-        done.setException(t);
-      }
-    }, MoreExecutors.directExecutor());
-    return done;
-  }
-
-  @Override
-  public void cleanup() {
-    try {
-      publisher.shutdown();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-  }
-
-  private static class CPSPublisherFactory implements Factory {
     @Override
-    public LoadtestTask newTask(StartRequest request, MetricsHandler handler, int numWorkers) {
-      return new CPSPublisherTask(request, handler, numWorkers);
-    }
-  }
+    public ListenableFuture<Void> publish(int clientId, int sequenceNumber, long publishTimestampMillis) {
+        SettableFuture<Void> done = SettableFuture.create();
+        ApiFutures.addCallback(publisher
+                .publish(
+                        PubsubMessage.newBuilder()
+                                .setData(payload)
+                                .putAttributes("sendTime", Long.toString(publishTimestampMillis))
+                                .putAttributes("clientId", Integer.toString(clientId))
+                                .putAttributes("sequenceNumber", Integer.toString(sequenceNumber))
+                                .build()), new ApiFutureCallback<String>() {
+            @Override
+            public void onSuccess(String messageId) {
+                done.set(null);
+            }
 
-  public static void main(String[] args) throws Exception {
-    JavaLoadtestWorker.Options options = new JavaLoadtestWorker.Options();
-    new JCommander(options, args);
-    new JavaLoadtestWorker(options, new CPSPublisherFactory());
-  }
+            @Override
+            public void onFailure(Throwable t) {
+                done.setException(t);
+            }
+        }, MoreExecutors.directExecutor());
+        return done;
+    }
+
+    @Override
+    public void cleanup() {
+        try {
+            publisher.shutdown();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private static class CPSPublisherFactory implements Factory {
+        @Override
+        public LoadtestTask newTask(StartRequest request, MetricsHandler handler, int numWorkers) {
+            return new CPSPublisherTask(request, handler, numWorkers);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        JavaLoadtestWorker.Options options = new JavaLoadtestWorker.Options();
+        new JCommander(options, args);
+        new JavaLoadtestWorker(options, new CPSPublisherFactory());
+    }
 }

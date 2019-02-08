@@ -7,14 +7,17 @@ import com.google.common.util.concurrent.RateLimiter;
  */
 public class RateLimiterFlowController implements FlowController {
     private final RateLimiter limiter;
-   public RateLimiterFlowController(double rate) {
+
+    public RateLimiterFlowController(double rate) {
         this.limiter = RateLimiter.create(rate);
     }
+
     @Override
     public void requestStart() {
         limiter.acquire();
     }
 
     @Override
-    public void informFinished(boolean wasSuccessful) {}
+    public void informFinished(boolean wasSuccessful) {
+    }
 }

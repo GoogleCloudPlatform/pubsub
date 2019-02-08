@@ -1,4 +1,4 @@
-package com.google.pubsub.flic.controllers;
+package com.google.pubsub.flic.controllers.resource_controllers;
 
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.client.http.FileContent;
@@ -29,7 +29,7 @@ public class StorageResourceController extends ResourceController {
     private final boolean uploadJava;
     private final Storage storage;
 
-    StorageResourceController(String project, String resourceDirectory, boolean cleanUpOnShutdown, boolean uploadJava, ScheduledExecutorService executor, Storage storage) {
+    public StorageResourceController(String project, String resourceDirectory, boolean cleanUpOnShutdown, boolean uploadJava, ScheduledExecutorService executor, Storage storage) {
         super(executor);
         this.project = project;
         this.resourceDirectory = resourceDirectory;
@@ -47,7 +47,7 @@ public class StorageResourceController extends ResourceController {
         createStorageBucket();
         List<Path> paths = Files.walk(Paths.get(resourceDirectory))
                 .filter(Files::isRegularFile).collect(Collectors.toList());
-        for (Path path: paths) {
+        for (Path path : paths) {
             if (path.toString().endsWith(".sh")) {
                 uploadFile(path);
             }
@@ -111,6 +111,7 @@ public class StorageResourceController extends ResourceController {
     @Override
     protected void stopAction() throws Exception {
         if (cleanUpOnShutdown) {
+            log.info("Cleaning up storage buckets.");
             storage.buckets().delete(bucketName(project));
         }
     }

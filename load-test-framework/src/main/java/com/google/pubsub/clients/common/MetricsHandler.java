@@ -18,7 +18,9 @@ package com.google.pubsub.clients.common;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.pubsub.flic.common.LoadtestProto;
 import org.slf4j.Logger;
@@ -29,41 +31,52 @@ import org.slf4j.LoggerFactory;
  * are recorded using Google's Cloud Monitoring API.
  */
 public class MetricsHandler {
-  private static final Logger log = LoggerFactory.getLogger(MetricsHandler.class);
-  private final LinkedBlockingQueue<MessageAndLatency> messageQueue;
+    private static final Logger log = LoggerFactory.getLogger(MetricsHandler.class);
+    private final ConcurrentLinkedQueue<MessageAndLatency> messageQueue;
+    private final AtomicInteger failures;
+    private final boolean includeIds;
 
-  public MetricsHandler() {
-    this.messageQueue = new LinkedBlockingQueue<>();
-  }
-
-  class MessageAndLatency {
-    LoadtestProto.MessageIdentifier id;
-    Duration latency;
-  }
-
-  public void add(LoadtestProto.MessageIdentifier id, Duration latency) {
-    MessageAndLatency ml = new MessageAndLatency();
-    ml.id = id;
-    ml.latency = latency;
-    messageQueue.add(ml);
-  }
-
-  public LoadtestProto.CheckResponse check() {
-    LoadtestProto.CheckResponse.Builder builder = LoadtestProto.CheckResponse.newBuilder();
-
-    List<MessageAndLatency> values = new ArrayList<>();
-    messageQueue.drainTo(values);
-
-    for (MessageAndLatency value : values) {
-      builder.addReceivedMessages(value.id);
-      double raw_bucket = Math.log(value.latency.toMillis()) / Math.log(1.5);
-      int bucket = Math.max((int) Math.floor(raw_bucket), 0);
-      while (builder.getBucketValuesCount() - 1 < bucket) {
-        builder.addBucketValues(0);
-      }
-      builder.setBucketValues(bucket, builder.getBucketValues(bucket) + 1);
+    public MetricsHandler(boolean includeIds) {
+        this.includeIds = includeIds;
+        this.messageQueue = new ConcurrentLinkedQueue<>();
+        this.failures = new AtomicInteger(0);
     }
-    LoadtestProto.CheckResponse message = builder.build();
-    return message;
-  }
+
+    class MessageAndLatency {
+        LoadtestProto.MessageIdentifier id;
+        Duration latency;
+    }
+
+    public void add(LoadtestProto.MessageIdentifier id, Duration latency) {
+        MessageAndLatency ml = new MessageAndLatency();
+        if (includeIds) {
+            ml.id = id;
+        } else {
+            ml.id = null;
+        }
+        ml.latency = latency;
+        messageQueue.add(ml);
+    }
+
+    public void addFailure() {
+        failures.incrementAndGet();
+    }
+
+    public LoadtestProto.CheckResponse check() {
+        LoadtestProto.CheckResponse.Builder builder = LoadtestProto.CheckResponse.newBuilder();
+        builder.setFailed(failures.getAndSet(0));
+
+        for (MessageAndLatency value = messageQueue.poll(); value != null; value = messageQueue.poll()) {
+            if (value.id != null) {
+                builder.addReceivedMessages(value.id);
+            }
+            double raw_bucket = Math.log(value.latency.toMillis()) / Math.log(1.5);
+            int bucket = Math.max((int) Math.floor(raw_bucket), 0);
+            while (builder.getBucketValuesCount() - 1 < bucket) {
+                builder.addBucketValues(0);
+            }
+            builder.setBucketValues(bucket, builder.getBucketValues(bucket) + 1);
+        }
+        return builder.build();
+    }
 }

@@ -28,7 +28,9 @@ import com.google.pubsub.clients.common.LoadtestTask;
 import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
+
 import java.util.Properties;
+
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
@@ -39,78 +41,78 @@ import org.slf4j.LoggerFactory;
  * interface
  */
 class KafkaPublisherTask extends AbstractPublisher {
-  private static final Logger log = LoggerFactory.getLogger(KafkaPublisherTask.class);
-  private final String topic;
-  private final KafkaProducer<String, String> publisher;
+    private static final Logger log = LoggerFactory.getLogger(KafkaPublisherTask.class);
+    private final String topic;
+    private final KafkaProducer<String, String> publisher;
 
-  private KafkaPublisherTask(LoadtestProto.StartRequest request, MetricsHandler handler, int workerCount) {
-    super(request, handler, workerCount);
-    this.topic = request.getTopic();
-    Properties props = new Properties();
-    props.putAll(new ImmutableMap.Builder<>()
-        .put("max.block.ms", "30000")
-        .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-        .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
-        .put("acks", "all")
-        .put("bootstrap.servers", request.getKafkaOptions().getBroker())
-        .put("buffer.memory", Integer.toString(1000 * 1000 * 1000)) // 1 GB
-        .put("batch.size", Long.toString(getBatchSize(
-                request.getPublisherOptions().getBatchSize(),
-                request.getPublisherOptions().getMessageSize()
-        )))
-        .put("linger.ms", Long.toString(Durations.toMillis(request.getPublisherOptions().getBatchDuration())))
-        .build()
-    );
-    this.publisher = new KafkaProducer<>(props);
-  }
-
-  private static long getBatchSize(long messageBatchSize, long messageSize) {
-    return messageBatchSize * messageSize;
-  }
-
-  @Override
-  public ListenableFuture<Void> publish(int clientId, int sequenceNumber, long publishTimestampMillis) {
-    SettableFuture<Void> result = SettableFuture.create();
-    publisher.send(
-            new ProducerRecord<>(
-                    topic, null, System.currentTimeMillis(), null,
-                    makePayload(clientId, sequenceNumber, publishTimestampMillis)),
-            (metadata, exception) -> {
-              if (exception != null) {
-                result.setException(exception);
-                return;
-              }
-              result.set(null);
-            });
-    return result;
-  }
-
-  private String makePayload(int clientId, int sequenceNumber, long publishTimestampMillis) {
-    return new String(
-            LoadtestProto.KafkaMessage.newBuilder()
-            .setId(LoadtestProto.MessageIdentifier.newBuilder()
-                    .setPublisherClientId(clientId)
-                    .setSequenceNumber(sequenceNumber))
-            .setPublishTime(Timestamps.fromMillis(publishTimestampMillis))
-            .setPayload(getPayload())
-            .build().toByteArray());
-  }
-
-  @Override
-  public void cleanup() {
-    publisher.close();
-  }
-
-  private static class KafkaPublisherFactory implements Factory {
-    @Override
-    public LoadtestTask newTask(StartRequest request, MetricsHandler handler, int numWorkers) {
-      return new KafkaPublisherTask(request, handler, numWorkers);
+    private KafkaPublisherTask(LoadtestProto.StartRequest request, MetricsHandler handler, int workerCount) {
+        super(request, handler, workerCount);
+        this.topic = request.getTopic();
+        Properties props = new Properties();
+        props.putAll(new ImmutableMap.Builder<>()
+                .put("max.block.ms", "30000")
+                .put("key.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+                .put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer")
+                .put("acks", "all")
+                .put("bootstrap.servers", request.getKafkaOptions().getBroker())
+                .put("buffer.memory", Integer.toString(1000 * 1000 * 1000)) // 1 GB
+                .put("batch.size", Long.toString(getBatchSize(
+                        request.getPublisherOptions().getBatchSize(),
+                        request.getPublisherOptions().getMessageSize()
+                )))
+                .put("linger.ms", Long.toString(Durations.toMillis(request.getPublisherOptions().getBatchDuration())))
+                .build()
+        );
+        this.publisher = new KafkaProducer<>(props);
     }
-  }
 
-  public static void main(String[] args) throws Exception {
-    JavaLoadtestWorker.Options options = new JavaLoadtestWorker.Options();
-    new JCommander(options, args);
-    new JavaLoadtestWorker(options, new KafkaPublisherFactory());
-  }
+    private static long getBatchSize(long messageBatchSize, long messageSize) {
+        return messageBatchSize * messageSize;
+    }
+
+    @Override
+    public ListenableFuture<Void> publish(int clientId, int sequenceNumber, long publishTimestampMillis) {
+        SettableFuture<Void> result = SettableFuture.create();
+        publisher.send(
+                new ProducerRecord<>(
+                        topic, null, System.currentTimeMillis(), null,
+                        makePayload(clientId, sequenceNumber, publishTimestampMillis)),
+                (metadata, exception) -> {
+                    if (exception != null) {
+                        result.setException(exception);
+                        return;
+                    }
+                    result.set(null);
+                });
+        return result;
+    }
+
+    private String makePayload(int clientId, int sequenceNumber, long publishTimestampMillis) {
+        return new String(
+                LoadtestProto.KafkaMessage.newBuilder()
+                        .setId(LoadtestProto.MessageIdentifier.newBuilder()
+                                .setPublisherClientId(clientId)
+                                .setSequenceNumber(sequenceNumber))
+                        .setPublishTime(Timestamps.fromMillis(publishTimestampMillis))
+                        .setPayload(getPayload())
+                        .build().toByteArray());
+    }
+
+    @Override
+    public void cleanup() {
+        publisher.close();
+    }
+
+    private static class KafkaPublisherFactory implements Factory {
+        @Override
+        public LoadtestTask newTask(StartRequest request, MetricsHandler handler, int numWorkers) {
+            return new KafkaPublisherTask(request, handler, numWorkers);
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        JavaLoadtestWorker.Options options = new JavaLoadtestWorker.Options();
+        new JCommander(options, args);
+        new JavaLoadtestWorker(options, new KafkaPublisherFactory());
+    }
 }

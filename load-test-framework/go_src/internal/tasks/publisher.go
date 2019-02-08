@@ -10,7 +10,6 @@ import (
 	"google.com/cloud_pubsub_loadtest/internal/util"
 	"log"
 	"math/rand"
-	"runtime"
 	"strconv"
 )
 
@@ -18,17 +17,17 @@ import (
 const kStartingPerWorkerBytesPerSecond = float64(100000)
 
 type augmentedPublishResult struct {
-	result *pubsub.PublishResult
-	startTimeMs int64
+	result         *pubsub.PublishResult
+	startTimeMs    int64
 	sequenceNumber int32
 }
 
 type publisherWorker struct {
-	publisherId int64
-	metricsTracker util.MetricsTracker
-	stopChannel <-chan types.Nil
-	flowController flow_control.FlowController
-	resultChannel chan augmentedPublishResult
+	publisherId          int64
+	metricsTracker       util.MetricsTracker
+	stopChannel          <-chan types.Nil
+	flowController       flow_control.FlowController
+	resultChannel        chan augmentedPublishResult
 	collectorStopChannel chan types.Nil
 }
 
@@ -44,20 +43,21 @@ func (worker *publisherWorker) resultCollector() {
 				return
 			case result := <-worker.resultChannel:
 				results = append(results, result)
-			case <-results[0].result.Ready():  // a publish future completed
+			case <-results[0].result.Ready(): // a publish future completed
 				result := results[0]
 				results = results[1:]
 				_, err := result.result.Get(ctx)
 				if err != nil {
+					worker.metricsTracker.PutFailure()
 					worker.flowController.InformFinished(false)
 					continue
 				}
 				worker.flowController.InformFinished(true)
 				delta := int(util.CurrentTimeMs() - result.startTimeMs)
 				md := util.MessageAndDuration{
-					PublisherId: worker.publisherId,
+					PublisherId:    worker.publisherId,
 					SequenceNumber: result.sequenceNumber,
-					LatencyMs: delta,
+					LatencyMs:      delta,
 				}
 				worker.metricsTracker.Put(md)
 			}
@@ -106,14 +106,14 @@ func (worker *publisherWorker) loopingPublisher(request genproto.StartRequest) {
 			result := topic.Publish(ctx, &pubsub.Message{
 				Data: data,
 				Attributes: map[string]string{
-					"sendTime": strconv.FormatInt(publishTimeMs, 10),
-					"clientId": strconv.FormatInt(worker.publisherId, 10),
+					"sendTime":       strconv.FormatInt(publishTimeMs, 10),
+					"clientId":       strconv.FormatInt(worker.publisherId, 10),
 					"sequenceNumber": strconv.FormatInt(int64(sequenceNumber), 10),
 				},
 			})
 			worker.resultChannel <- augmentedPublishResult{
-				result: result,
-				startTimeMs: publishTimeMs,
+				result:         result,
+				startTimeMs:    publishTimeMs,
 				sequenceNumber: sequenceNumber,
 			}
 			sequenceNumber++
@@ -135,16 +135,16 @@ func newPublisherWorker(
 	}
 
 	return &publisherWorker{
-		publisherId: rand.Int63(),
-		metricsTracker: metricsTracker,
-		stopChannel: stopChannel,
-		flowController: flowController,
-		resultChannel: make(chan augmentedPublishResult),
+		publisherId:          rand.Int63(),
+		metricsTracker:       metricsTracker,
+		stopChannel:          stopChannel,
+		flowController:       flowController,
+		resultChannel:        make(chan augmentedPublishResult),
 		collectorStopChannel: make(chan types.Nil),
 	}
 }
 
-type publisherWorkerFactory struct {}
+type publisherWorkerFactory struct{}
 
 func (publisherWorkerFactory) runWorker(
 	request genproto.StartRequest,
@@ -155,7 +155,9 @@ func (publisherWorkerFactory) runWorker(
 	worker.loopingPublisher(request)
 }
 
-func (publisherWorkerFactory) numWorkers() int { return runtime.NumCPU() }
+func (publisherWorkerFactory) numWorkers(request genproto.StartRequest) int {
+	return util.ScaledNumWorkers(int(request.CpuScaling))
+}
 
 func NewPublisherTask() Task {
 	return newTask(publisherWorkerFactory{})

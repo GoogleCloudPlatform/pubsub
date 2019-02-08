@@ -11,6 +11,7 @@ class MetricsTracker {
         this.include_ids = include_ids;
         this.identifiers = [];
         this.latencies = [];
+        this.failed = 0
     }
 
     static logBase(value, base) {
@@ -37,19 +38,26 @@ class MetricsTracker {
         }
     }
 
+    putError() {
+        this.failed++;
+    }
+
     check() {
         let checkResponse = {
             bucket_values: this.latencies,
-            received_messages: this.identifiers
+            received_messages: this.identifiers,
+            failed: this.failed
         };
         this.identifiers = [];
         this.latencies = [];
+        this.failed = 0;
         return checkResponse;
     }
 
     static combineResponses(responses) {
         let combinedIdentifiers = [];
         let combinedLatencies = [];
+        let failed = 0;
         responses.forEach(response => {
             while (combinedLatencies.length <= response.bucket_values.length) {
                 combinedLatencies.push(0);
@@ -58,12 +66,14 @@ class MetricsTracker {
                 combinedLatencies[index] += Number(value);
             });
             response.received_messages.forEach(received => {
-               combinedIdentifiers.push(received);
+                combinedIdentifiers.push(received);
             });
+            failed += response.failed
         });
         return {
-          bucket_values: combinedLatencies,
-          received_messages: combinedIdentifiers
+            bucket_values: combinedLatencies,
+            received_messages: combinedIdentifiers,
+            failed: failed
         };
     }
 }

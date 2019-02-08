@@ -15,7 +15,7 @@ from clients.flow_control import FlowController, RateLimiterFlowController, Outs
 from clients.to_float_seconds import to_float_seconds
 
 # Start at 100 kB/s/worker
-starting_per_worker_bytes_per_second = 10**5
+starting_per_worker_bytes_per_second = 10 ** 5
 
 
 class PublisherSubtaskWorker(SubtaskWorker):

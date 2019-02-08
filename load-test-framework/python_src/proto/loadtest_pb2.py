@@ -21,7 +21,7 @@ DESCRIPTOR = _descriptor.FileDescriptor(
   package='google.pubsub.loadtest',
   syntax='proto3',
   serialized_options=_b('\n\035com.google.pubsub.flic.commonB\rLoadtestProto'),
-  serialized_pb=_b('\n\x0eloadtest.proto\x12\x16google.pubsub.loadtest\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd2\x03\n\x0cStartRequest\x12\x0f\n\x07project\x18\x01 \x01(\t\x12\r\n\x05topic\x18\x02 \x01(\t\x12.\n\nstart_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\rtest_duration\x18\x04 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x13\n\x0binclude_ids\x18\x05 \x01(\x08\x12?\n\x0epubsub_options\x18\x06 \x01(\x0b\x32%.google.pubsub.loadtest.PubsubOptionsH\x00\x12=\n\rkafka_options\x18\x07 \x01(\x0b\x32$.google.pubsub.loadtest.KafkaOptionsH\x00\x12\x45\n\x11publisher_options\x18\x08 \x01(\x0b\x32(.google.pubsub.loadtest.PublisherOptionsH\x01\x12G\n\x12subscriber_options\x18\t \x01(\x0b\x32).google.pubsub.loadtest.SubscriberOptionsH\x01\x42\t\n\x07optionsB\x10\n\x0e\x63lient_options\"\x0f\n\rStartResponse\"}\n\x10PublisherOptions\x12\x0c\n\x04rate\x18\x01 \x01(\x02\x12\x31\n\x0e\x62\x61tch_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x12\n\nbatch_size\x18\x03 \x01(\x05\x12\x14\n\x0cmessage_size\x18\x04 \x01(\x05\"\x13\n\x11SubscriberOptions\"%\n\rPubsubOptions\x12\x14\n\x0csubscription\x18\x01 \x01(\t\"\x9e\x01\n\x0cKafkaOptions\x12\x0e\n\x06\x62roker\x18\x01 \x01(\t\x12\x30\n\rpoll_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x1c\n\x14zookeeper_ip_address\x18\x03 \x01(\t\x12\x1a\n\x12replication_factor\x18\x04 \x01(\x05\x12\x12\n\npartitions\x18\x05 \x01(\x05\"I\n\x11MessageIdentifier\x12\x1b\n\x13publisher_client_id\x18\x01 \x01(\x03\x12\x17\n\x0fsequence_number\x18\x02 \x01(\x05\"\x88\x01\n\x0cKafkaMessage\x12\x35\n\x02id\x18\x01 \x01(\x0b\x32).google.pubsub.loadtest.MessageIdentifier\x12\x30\n\x0cpublish_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\"\x0e\n\x0c\x43heckRequest\"\xb6\x01\n\rCheckResponse\x12\x15\n\rbucket_values\x18\x01 \x03(\x03\x12\x33\n\x10running_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x13\n\x0bis_finished\x18\x03 \x01(\x08\x12\x44\n\x11received_messages\x18\x04 \x03(\x0b\x32).google.pubsub.loadtest.MessageIdentifier2\xbc\x01\n\x0eLoadtestWorker\x12T\n\x05Start\x12$.google.pubsub.loadtest.StartRequest\x1a%.google.pubsub.loadtest.StartResponse\x12T\n\x05\x43heck\x12$.google.pubsub.loadtest.CheckRequest\x1a%.google.pubsub.loadtest.CheckResponseB.\n\x1d\x63om.google.pubsub.flic.commonB\rLoadtestProtob\x06proto3')
+  serialized_pb=_b('\n\x0eloadtest.proto\x12\x16google.pubsub.loadtest\x1a\x1egoogle/protobuf/duration.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe7\x03\n\x0cStartRequest\x12\x0f\n\x07project\x18\x01 \x01(\t\x12\r\n\x05topic\x18\x02 \x01(\t\x12.\n\nstart_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x30\n\rtest_duration\x18\x04 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x13\n\x0binclude_ids\x18\x05 \x01(\x08\x12?\n\x0epubsub_options\x18\x06 \x01(\x0b\x32%.google.pubsub.loadtest.PubsubOptionsH\x00\x12=\n\rkafka_options\x18\x07 \x01(\x0b\x32$.google.pubsub.loadtest.KafkaOptionsH\x00\x12\x45\n\x11publisher_options\x18\x08 \x01(\x0b\x32(.google.pubsub.loadtest.PublisherOptionsH\x01\x12G\n\x12subscriber_options\x18\t \x01(\x0b\x32).google.pubsub.loadtest.SubscriberOptionsH\x01\x12\x13\n\x0b\x63pu_scaling\x18\n \x01(\x05\x42\t\n\x07optionsB\x10\n\x0e\x63lient_options\"\x0f\n\rStartResponse\"}\n\x10PublisherOptions\x12\x0c\n\x04rate\x18\x01 \x01(\x02\x12\x31\n\x0e\x62\x61tch_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x12\n\nbatch_size\x18\x03 \x01(\x05\x12\x14\n\x0cmessage_size\x18\x04 \x01(\x05\"\x13\n\x11SubscriberOptions\"%\n\rPubsubOptions\x12\x14\n\x0csubscription\x18\x01 \x01(\t\"\x9e\x01\n\x0cKafkaOptions\x12\x0e\n\x06\x62roker\x18\x01 \x01(\t\x12\x30\n\rpoll_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x1c\n\x14zookeeper_ip_address\x18\x03 \x01(\t\x12\x1a\n\x12replication_factor\x18\x04 \x01(\x05\x12\x12\n\npartitions\x18\x05 \x01(\x05\"I\n\x11MessageIdentifier\x12\x1b\n\x13publisher_client_id\x18\x01 \x01(\x03\x12\x17\n\x0fsequence_number\x18\x02 \x01(\x05\"\x88\x01\n\x0cKafkaMessage\x12\x35\n\x02id\x18\x01 \x01(\x0b\x32).google.pubsub.loadtest.MessageIdentifier\x12\x30\n\x0cpublish_time\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x0f\n\x07payload\x18\x03 \x01(\x0c\"\x0e\n\x0c\x43heckRequest\"\xc6\x01\n\rCheckResponse\x12\x15\n\rbucket_values\x18\x01 \x03(\x03\x12\x33\n\x10running_duration\x18\x02 \x01(\x0b\x32\x19.google.protobuf.Duration\x12\x13\n\x0bis_finished\x18\x03 \x01(\x08\x12\x44\n\x11received_messages\x18\x04 \x03(\x0b\x32).google.pubsub.loadtest.MessageIdentifier\x12\x0e\n\x06\x66\x61iled\x18\x05 \x01(\x03\x32\xbc\x01\n\x0eLoadtestWorker\x12T\n\x05Start\x12$.google.pubsub.loadtest.StartRequest\x1a%.google.pubsub.loadtest.StartResponse\x12T\n\x05\x43heck\x12$.google.pubsub.loadtest.CheckRequest\x1a%.google.pubsub.loadtest.CheckResponseB.\n\x1d\x63om.google.pubsub.flic.commonB\rLoadtestProtob\x06proto3')
   ,
   dependencies=[google_dot_protobuf_dot_duration__pb2.DESCRIPTOR,google_dot_protobuf_dot_timestamp__pb2.DESCRIPTOR,])
 
@@ -98,6 +98,13 @@ _STARTREQUEST = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='cpu_scaling', full_name='google.pubsub.loadtest.StartRequest.cpu_scaling', index=9,
+      number=10, type=5, cpp_type=1, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -117,7 +124,7 @@ _STARTREQUEST = _descriptor.Descriptor(
       index=1, containing_type=None, fields=[]),
   ],
   serialized_start=108,
-  serialized_end=574,
+  serialized_end=595,
 )
 
 
@@ -140,8 +147,8 @@ _STARTRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=576,
-  serialized_end=591,
+  serialized_start=597,
+  serialized_end=612,
 )
 
 
@@ -192,8 +199,8 @@ _PUBLISHEROPTIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=593,
-  serialized_end=718,
+  serialized_start=614,
+  serialized_end=739,
 )
 
 
@@ -216,8 +223,8 @@ _SUBSCRIBEROPTIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=720,
-  serialized_end=739,
+  serialized_start=741,
+  serialized_end=760,
 )
 
 
@@ -247,8 +254,8 @@ _PUBSUBOPTIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=741,
-  serialized_end=778,
+  serialized_start=762,
+  serialized_end=799,
 )
 
 
@@ -306,8 +313,8 @@ _KAFKAOPTIONS = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=781,
-  serialized_end=939,
+  serialized_start=802,
+  serialized_end=960,
 )
 
 
@@ -344,8 +351,8 @@ _MESSAGEIDENTIFIER = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=941,
-  serialized_end=1014,
+  serialized_start=962,
+  serialized_end=1035,
 )
 
 
@@ -389,8 +396,8 @@ _KAFKAMESSAGE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1017,
-  serialized_end=1153,
+  serialized_start=1038,
+  serialized_end=1174,
 )
 
 
@@ -413,8 +420,8 @@ _CHECKREQUEST = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1155,
-  serialized_end=1169,
+  serialized_start=1176,
+  serialized_end=1190,
 )
 
 
@@ -453,6 +460,13 @@ _CHECKRESPONSE = _descriptor.Descriptor(
       message_type=None, enum_type=None, containing_type=None,
       is_extension=False, extension_scope=None,
       serialized_options=None, file=DESCRIPTOR),
+    _descriptor.FieldDescriptor(
+      name='failed', full_name='google.pubsub.loadtest.CheckResponse.failed', index=4,
+      number=5, type=3, cpp_type=2, label=1,
+      has_default_value=False, default_value=0,
+      message_type=None, enum_type=None, containing_type=None,
+      is_extension=False, extension_scope=None,
+      serialized_options=None, file=DESCRIPTOR),
   ],
   extensions=[
   ],
@@ -465,8 +479,8 @@ _CHECKRESPONSE = _descriptor.Descriptor(
   extension_ranges=[],
   oneofs=[
   ],
-  serialized_start=1172,
-  serialized_end=1354,
+  serialized_start=1193,
+  serialized_end=1391,
 )
 
 _STARTREQUEST.fields_by_name['start_time'].message_type = google_dot_protobuf_dot_timestamp__pb2._TIMESTAMP
@@ -584,8 +598,8 @@ _LOADTESTWORKER = _descriptor.ServiceDescriptor(
   file=DESCRIPTOR,
   index=0,
   serialized_options=None,
-  serialized_start=1357,
-  serialized_end=1545,
+  serialized_start=1394,
+  serialized_end=1582,
   methods=[
   _descriptor.MethodDescriptor(
     name='Start',

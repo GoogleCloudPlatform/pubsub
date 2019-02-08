@@ -8,6 +8,7 @@ import com.google.pubsub.flic.common.LoadtestProto;
 public interface LoadtestTask {
     // Start the task
     void start();
+
     // Stop the task
     void stop();
 

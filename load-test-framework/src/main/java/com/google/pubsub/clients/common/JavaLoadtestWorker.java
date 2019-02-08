@@ -32,6 +32,7 @@ import com.google.pubsub.flic.common.LoadtestWorkerGrpc;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import io.grpc.stub.StreamObserver;
+
 import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -127,9 +128,9 @@ public class JavaLoadtestWorker {
     private void runTest(StartRequest request) {
         finishedFuture = SettableFuture.create();
         stopwatch.reset();
-        metricsHandler = new MetricsHandler();
+        metricsHandler = new MetricsHandler(request.getIncludeIds());
         log.info("Request received, starting up server.");
-        int poolSize = Runtime.getRuntime().availableProcessors() * 5;
+        int poolSize = Math.max(Runtime.getRuntime().availableProcessors() * request.getCpuScaling(), 1);
         task = taskFactory.newTask(request, metricsHandler, poolSize);
 
         long timeUntilStartMillis = -Durations.toMillis(getTimeSinceStart());

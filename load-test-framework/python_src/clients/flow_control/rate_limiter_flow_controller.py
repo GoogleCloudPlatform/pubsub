@@ -8,8 +8,9 @@ class RateLimiterFlowController(FlowController):
     """
     A FlowController that allows actions at a given per second rate.
     """
+
     def __init__(self, per_second_rate: float):
-        self.seconds_per_token = 1/per_second_rate
+        self.seconds_per_token = 1 / per_second_rate
         self.tokens = 0
         self.condition = Condition()
         self.executor: Executor = ThreadPoolExecutor(max_workers=1)

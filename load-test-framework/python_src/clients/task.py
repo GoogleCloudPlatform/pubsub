@@ -19,6 +19,7 @@ class SubtaskWorker(LoadtestWorkerServicer):
     """
     SubtaskWorker must be pickleable before Start is called.
     """
+
     def __init__(self):
         self._executor: Executor = None
         self.metrics_tracker: MetricsTracker = None
@@ -46,6 +47,7 @@ class Worker(ABC):
     """
     Processes must be forked before GRPC server starts due to a GRPC bug.
     """
+
     def __init__(self, worker: SubtaskWorker):
         port_queue = Queue()
         self._process = Process(target=self.run_worker, args=(port_queue, worker))

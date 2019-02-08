@@ -19,7 +19,7 @@ type cyclicBucketer struct {
 func newCyclicBucketer(size int) *cyclicBucketer {
 	return &cyclicBucketer{
 		buckets: make([]int, size),
-    }
+	}
 }
 
 // cycle the cyclicBucketer, returning the current sum of all buckets and whether the
@@ -48,18 +48,18 @@ func (cb *cyclicBucketer) add() {
 // goroutine.
 type outstandingCountFlowController struct {
 	// The channel to wait on to start
-    incrementChan chan types.Nil
+	incrementChan chan types.Nil
 	// The channel to submit completion to
 	decrementChan chan bool
-    
-    // The channel to update the rate per second
-    updateChan chan float64
-    // The current estimated publish rate per second
-    ratePerSecond float64
-    // The current outstanding entries
-    outstanding int64
-    // The bucketer controlling the rate change
-    bucketer* cyclicBucketer
+
+	// The channel to update the rate per second
+	updateChan chan float64
+	// The current estimated publish rate per second
+	ratePerSecond float64
+	// The current outstanding entries
+	outstanding int64
+	// The bucketer controlling the rate change
+	bucketer *cyclicBucketer
 }
 
 func (fc *outstandingCountFlowController) updateRate(newRate float64) {
@@ -81,9 +81,9 @@ func NewOutstandingCountFlowController(initialRate float64) FlowController {
 	fc := &outstandingCountFlowController{
 		incrementChan: make(chan types.Nil),
 		decrementChan: make(chan bool),
-		updateChan: make(chan float64),
+		updateChan:    make(chan float64),
 		ratePerSecond: initialRate,
-		bucketer: newCyclicBucketer(expiryLatencyMilliseconds / rateUpdateDelayMilliseconds),
+		bucketer:      newCyclicBucketer(expiryLatencyMilliseconds / rateUpdateDelayMilliseconds),
 	}
 	// Latency updater
 	go func() {
@@ -99,7 +99,7 @@ func NewOutstandingCountFlowController(initialRate float64) FlowController {
 	go func() {
 		for {
 			if float64(fc.outstanding) < (fc.ratePerSecond * 2) {
-				select{
+				select {
 				case fc.incrementChan <- types.Nil{}:
 					fc.outstanding++
 				case wasSuccessful := <-fc.decrementChan:

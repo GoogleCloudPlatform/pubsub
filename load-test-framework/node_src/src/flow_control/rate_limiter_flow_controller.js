@@ -5,7 +5,7 @@ class RateLimiterFlowController extends FlowController {
     // A FlowController that allows actions at a given per second rate.
     constructor(perSecondRate) {
         super();
-        let seconds_per_run = 1/perSecondRate;
+        let seconds_per_run = 1 / perSecondRate;
         this.callbacks = [];
         setInterval(() => {
             let cb = this.callbacks.pop();
@@ -17,12 +17,13 @@ class RateLimiterFlowController extends FlowController {
     async requestStart() {
         await new Promise(resolve => {
             this.callbacks.push(() => {
-               resolve(null);
+                resolve(null);
             });
         });
     }
 
-    informFinished(wasSuccessful) {}
+    informFinished(wasSuccessful) {
+    }
 }
 
 module.exports = RateLimiterFlowController;

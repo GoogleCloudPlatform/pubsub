@@ -1,5 +1,10 @@
-package com.google.pubsub.flic.controllers;
+package com.google.pubsub.flic.controllers.resource_controllers;
 
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.SettableFuture;
+import com.google.pubsub.flic.controllers.Client;
+import com.google.pubsub.flic.controllers.ClientParams;
+import com.google.pubsub.flic.controllers.ClientType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -13,28 +18,26 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 
 public class LocalComputeResourceController extends ComputeResourceController {
-    private static final AtomicInteger portTarget = new AtomicInteger(37298);
-
     private static final Logger log = LoggerFactory.getLogger(LocalComputeResourceController.class);
-    private final String project;
-    private final List<ClientParams> clients;
+    private final ClientParams params;
+    private final int numWorkers;
     private final ScheduledExecutorService executor;
     private final Set<Process> clientProcesses = new HashSet<>();
     private final AtomicBoolean shutdown = new AtomicBoolean(false);
 
-    LocalComputeResourceController(
-            String project, List<ClientParams> clients, ScheduledExecutorService executor) {
+    public LocalComputeResourceController(
+            ClientParams params, int numWorkers, ScheduledExecutorService executor) {
         super(executor);
-        this.project = project;
-        this.clients = clients;
+        this.params = params;
+        this.numWorkers = numWorkers;
         this.executor = executor;
     }
 
     @Override
-    protected void startAction() {}
+    protected void startAction() {
+    }
 
     private void runCpsProcess(ProcessBuilder builder) throws IOException {
         builder.environment().putAll(System.getenv());
@@ -59,26 +62,26 @@ public class LocalComputeResourceController extends ComputeResourceController {
         });
     }
 
-    private void runJavaProcess(Client.MessagingSide side, Integer port) throws IOException {
-        String sideInfix = side == Client.MessagingSide.SUBSCRIBER ? "Subscriber" : "Publisher";
+    private void runJavaProcess(ClientType.MessagingSide side, Integer port) throws IOException {
+        String sideInfix = side == ClientType.MessagingSide.SUBSCRIBER ? "Subscriber" : "Publisher";
         ProcessBuilder builder = new ProcessBuilder(
-                "java", "-Xmx5000M", "-cp", Client.resourceDirectory+"/driver.jar",
+                "java", "-Xmx5000M", "-cp", Client.RESOURCE_DIR + "/driver.jar",
                 "com.google.pubsub.clients.gcloud.CPS" + sideInfix + "Task", "--port=" + port);
         runCpsProcess(builder);
     }
 
-    private void runPythonProcess(Client.MessagingSide side, Integer port) throws IOException, InterruptedException {
+    private void runPythonProcess(ClientType.MessagingSide side, Integer port) throws IOException, InterruptedException {
         File tempDir = unzipToTemp();
-        String sideInfix = side == Client.MessagingSide.SUBSCRIBER ? "subscriber" : "publisher";
+        String sideInfix = side == ClientType.MessagingSide.SUBSCRIBER ? "subscriber" : "publisher";
         ProcessBuilder builder = new ProcessBuilder(
                 "python3", "-m", "clients.cps_" + sideInfix + "_task", "--port=" + port);
         builder.directory(new File(tempDir, "python_src"));
         runCpsProcess(builder);
     }
 
-    private void runNodeProcess(Client.MessagingSide side, Integer port) throws IOException, InterruptedException {
+    private void runNodeProcess(ClientType.MessagingSide side, Integer port) throws IOException, InterruptedException {
         File tempDir = unzipToTemp();
-        String isPublisher = side == Client.MessagingSide.PUBLISHER ? "true" : "false";
+        String isPublisher = side == ClientType.MessagingSide.PUBLISHER ? "true" : "false";
         File nodeDir = new File(tempDir, "node_src");
         int installResult = new ProcessBuilder("npm", "install")
                 .directory(nodeDir).start().waitFor();
@@ -92,9 +95,9 @@ public class LocalComputeResourceController extends ComputeResourceController {
         runCpsProcess(builder);
     }
 
-    private void runGoProcess(Client.MessagingSide side, Integer port) throws IOException, InterruptedException {
+    private void runGoProcess(ClientType.MessagingSide side, Integer port) throws IOException, InterruptedException {
         File tempDir = unzipToTemp();
-        String isPublisher = side == Client.MessagingSide.PUBLISHER ? "true" : "false";
+        String isPublisher = side == ClientType.MessagingSide.PUBLISHER ? "true" : "false";
         ProcessBuilder builder = new ProcessBuilder(
                 "go", "run", "main.go", "--port=" + port, "--publisher=" + isPublisher);
         builder.directory(new File(tempDir, "go_src/cmd"));
@@ -105,31 +108,29 @@ public class LocalComputeResourceController extends ComputeResourceController {
         File dir = Files.createTempDirectory("cps_unzip").toFile();
         dir.deleteOnExit();
         ProcessBuilder builder = new ProcessBuilder(
-                "unzip", Client.resourceDirectory + "/cps.zip", "-d", dir.getCanonicalPath());
+                "unzip", Client.RESOURCE_DIR + "/cps.zip", "-d", dir.getCanonicalPath());
         int retval = builder.start().waitFor();
         if (retval != 0) {
-            throw new IOException("Failed to unzip resources zip with error code: " + retval);
+            throw new IOException("Failed to unzip resource_controllers zip with error code: " + retval);
         }
         log.error("unzipped to: " + dir.getAbsolutePath());
         return dir;
     }
 
-    private void runClientProcess(Client.ClientType type, Integer port) throws Exception {
-        if (type.language == Client.Language.JAVA) {
-            runJavaProcess(type.side, port);
-            return;
-        }
-        if (type.language == Client.Language.PYTHON) {
-            runPythonProcess(type.side, port);
-            return;
-        }
-        if (type.language == Client.Language.NODE) {
-            runNodeProcess(type.side, port);
-            return;
-        }
-        if (type.language == Client.Language.GO) {
-            runGoProcess(type.side, port);
-            return;
+    private void runClientProcess(ClientType type, Integer port) throws Exception {
+        switch (type.language) {
+            case JAVA:
+                runJavaProcess(type.side, port);
+                return;
+            case PYTHON:
+                runPythonProcess(type.side, port);
+                return;
+            case NODE:
+                runNodeProcess(type.side, port);
+                return;
+            case GO:
+                runGoProcess(type.side, port);
+                return;
         }
         log.error("LocalController does not yet support language: " + type.language);
         System.exit(1);
@@ -143,18 +144,28 @@ public class LocalComputeResourceController extends ComputeResourceController {
     }
 
     @Override
-    public List<Client> startClients() throws Exception {
-        List<Client> toReturn = new ArrayList<>();
-        for (ClientParams params : clients) {
-            Integer port = getPort();
-            runClientProcess(params.clientType, port);
-            toReturn.add(new Client(params.clientType, "localhost", project, params.subscription, executor, port));
-        }
-        return toReturn;
+    public ListenableFuture<List<Client>> startClients() {
+        SettableFuture<List<Client>> future = SettableFuture.create();
+        executor.execute(() -> {
+            List<Client> toReturn = new ArrayList<>();
+            for (int i = 0; i < numWorkers; i++) {
+                try {
+                    Integer port = getPort();
+                    runClientProcess(params.getClientType(), port);
+                    toReturn.add(new Client("localhost", params, executor, port));
+                } catch (Exception e) {
+                    future.setException(e);
+                    return;
+                }
+            }
+
+            future.set(toReturn);
+        });
+        return future;
     }
 
     @Override
-    protected void stopAction() throws Exception {
+    protected void stopAction() {
         for (Process process : clientProcesses) {
             process.destroy();
         }

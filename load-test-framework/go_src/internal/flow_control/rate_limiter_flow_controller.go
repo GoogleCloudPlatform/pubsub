@@ -16,7 +16,7 @@ func (fc *rateLimiterFlowController) Start() <-chan types.Nil {
 func (fc *rateLimiterFlowController) InformFinished(wasSuccessful bool) {}
 
 func NewRateLimiterFlowController(requestsPerSecond float32) FlowController {
-	secondsPerRequest := 1/requestsPerSecond
+	secondsPerRequest := 1 / requestsPerSecond
 	ticker := time.NewTicker(time.Duration(secondsPerRequest) * time.Second)
 	startChan := make(chan types.Nil)
 	go func() {
@@ -28,6 +28,3 @@ func NewRateLimiterFlowController(requestsPerSecond float32) FlowController {
 		startChan: startChan,
 	}
 }
-
-
-

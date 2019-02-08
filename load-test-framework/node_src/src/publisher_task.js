@@ -1,6 +1,6 @@
 let task = require('./task.js');
 let metrics_tracker = require('./metrics_tracker.js');
-let { PubSub } = require('@google-cloud/pubsub');
+let {PubSub} = require('@google-cloud/pubsub');
 let RateLimiterFlowController = require('./flow_control/rate_limiter_flow_controller.js');
 let OutstandingCountFlowController = require('./flow_control/outstanding_count_flow_controller.js');
 
@@ -55,6 +55,7 @@ class PublisherSubtaskWorker extends task.SubtaskWorker {
             };
             this.publisher.publish(this.data, attributes, (err, {}) => {
                 if (err) {
+                    this.metricsTracker.putError();
                     this.flowController.informFinished(false);
                     return;
                 }
