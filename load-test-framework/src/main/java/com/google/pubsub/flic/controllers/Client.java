@@ -17,6 +17,7 @@
 package com.google.pubsub.flic.controllers;
 
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.protobuf.Duration;
 import com.google.protobuf.Timestamp;
@@ -26,6 +27,8 @@ import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
 import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
+import io.grpc.ConnectivityState;
+import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
@@ -56,6 +59,7 @@ public class Client {
     private final Integer port;
 
     private ClientStatus clientStatus;
+    private ManagedChannel channel;
     private LoadtestWorkerGrpc.LoadtestWorkerStub stub;
     private int errors = 0;
     private Duration runningDuration = Durations.fromMillis(0);
@@ -91,6 +95,24 @@ public class Client {
         this.params = params;
         this.executorService = executorService;
         this.port = port;
+        this.channel = ManagedChannelBuilder.forAddress(networkAddress, port)
+                .usePlaintext()
+                .maxInboundMessageSize(1000000000)
+                .build();
+        long startTimeMillis = System.currentTimeMillis();
+        while ((System.currentTimeMillis() - startTimeMillis) < 180000) {
+            ConnectivityState state = this.channel.getState(true);
+            if (state == ConnectivityState.READY) {
+                doneFuture.addListener(() -> this.channel.shutdownNow(), MoreExecutors.directExecutor());
+                return;
+            }
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        throw new RuntimeException("Unable to connect to client in 180 seconds.");
     }
 
     ClientType getClientType() {
@@ -102,11 +124,7 @@ public class Client {
     }
 
     private LoadtestWorkerGrpc.LoadtestWorkerStub getStub() {
-        return LoadtestWorkerGrpc.newStub(
-                ManagedChannelBuilder.forAddress(networkAddress, port)
-                        .usePlaintext()
-                        .maxInboundMessageSize(1000000000)
-                        .build());
+        return LoadtestWorkerGrpc.newStub(channel);
     }
 
     long getRunningSeconds() {

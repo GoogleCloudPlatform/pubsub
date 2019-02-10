@@ -21,7 +21,7 @@ import java.util.concurrent.ScheduledExecutorService;
 
 /**
  * A ResourceController which manages compute resource_controllers
- */
+ * */
 public class GCEComputeResourceController extends ComputeResourceController {
     private static final String MACHINE_TYPE = "n1-standard-"; // standard machine prefix
     private static final String SOURCE_FAMILY =
@@ -33,7 +33,6 @@ public class GCEComputeResourceController extends ComputeResourceController {
     private final Integer count;
     private final ScheduledExecutorService executor;
     private final Compute compute;
-
     public GCEComputeResourceController(String project, ClientParams params, Integer count, ScheduledExecutorService executor, Compute compute) {
         super(executor);
         this.project = project;
@@ -171,8 +170,8 @@ public class GCEComputeResourceController extends ComputeResourceController {
             } catch (GoogleJsonResponseException e1) {
                 if (e1.getStatusCode() == HttpStatus.SC_CONFLICT) {
                     log.info("Instance Group already exists for "
-                            + params.getClientType()
-                            + ", using existing template.");
+                             + params.getClientType()
+                             + ", using existing template.");
                     return;
                 }
                 if (!e1.getDetails().getErrors().get(0).getReason().equals("resourceNotReady")) {
