@@ -64,29 +64,31 @@ public abstract class AbstractPublisher extends PooledWorkerTask {
             flowController = new OutstandingCountFlowController(startingPerThreadRate);
         }
         while (!isShutdown.get()) {
-            flowController.requestStart();
-            long publishTimestampMillis = System.currentTimeMillis();
-            LoadtestProto.MessageIdentifier identifier =
-                    LoadtestProto.MessageIdentifier.newBuilder()
-                            .setSequenceNumber(sequence_number)
-                            .setPublisherClientId(id)
-                            .build();
-            Futures.addCallback(
-                    publish(id, sequence_number++, publishTimestampMillis),
-                    new FutureCallback<Void>() {
-                        public void onSuccess(Void result) {
-                            metricsHandler.add(
-                                    identifier, Duration.ofMillis(
-                                            System.currentTimeMillis() - publishTimestampMillis));
-                            flowController.informFinished(true);
-                        }
+            int permits = flowController.requestStart();
+            for (int i = 0; i < permits; i++) {
+                long publishTimestampMillis = System.currentTimeMillis();
+                LoadtestProto.MessageIdentifier identifier =
+                        LoadtestProto.MessageIdentifier.newBuilder()
+                                .setSequenceNumber(sequence_number)
+                                .setPublisherClientId(id)
+                                .build();
+                Futures.addCallback(
+                        publish(id, sequence_number++, publishTimestampMillis),
+                        new FutureCallback<Void>() {
+                            public void onSuccess(Void result) {
+                                metricsHandler.add(
+                                        identifier, Duration.ofMillis(
+                                                System.currentTimeMillis() - publishTimestampMillis));
+                                flowController.informFinished(true);
+                            }
 
-                        public void onFailure(Throwable t) {
-                            metricsHandler.addFailure();
-                            flowController.informFinished(false);
-                            logEveryN.error("Publisher error: " + t);
-                        }
-                    }, MoreExecutors.directExecutor());
+                            public void onFailure(Throwable t) {
+                                metricsHandler.addFailure();
+                                flowController.informFinished(false);
+                                logEveryN.error("Publisher error: " + t);
+                            }
+                        }, MoreExecutors.directExecutor());
+            }
         }
     }
 

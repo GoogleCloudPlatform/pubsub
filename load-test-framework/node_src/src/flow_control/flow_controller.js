@@ -3,6 +3,7 @@ class FlowController {
     }
 
     // Get a promise for when to start the next message.
+    // The value of the promise is the number of allowed messages.
     async requestStart() {
         throw new Error('Unimplemented.');
     }

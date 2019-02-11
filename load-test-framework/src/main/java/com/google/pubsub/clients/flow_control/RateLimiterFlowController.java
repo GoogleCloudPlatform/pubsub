@@ -13,8 +13,9 @@ public class RateLimiterFlowController implements FlowController {
     }
 
     @Override
-    public void requestStart() {
+    public int requestStart() {
         limiter.acquire();
+        return 1;
     }
 
     @Override

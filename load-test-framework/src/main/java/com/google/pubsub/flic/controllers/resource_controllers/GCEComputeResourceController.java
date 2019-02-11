@@ -4,10 +4,7 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.*;
 import com.google.common.collect.ImmutableList;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
-import com.google.common.util.concurrent.SettableFuture;
+import com.google.common.util.concurrent.*;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.ClientParams;
 import org.apache.http.HttpStatus;
@@ -102,7 +99,7 @@ public class GCEComputeResourceController extends ComputeResourceController {
             public void onFailure(Throwable throwable) {
                 clientsFuture.setException(throwable);
             }
-        });
+        }, MoreExecutors.directExecutor());
 
         return clientsFuture;
     }

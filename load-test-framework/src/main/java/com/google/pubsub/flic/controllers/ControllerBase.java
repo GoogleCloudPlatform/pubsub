@@ -102,7 +102,7 @@ public abstract class ControllerBase implements Controller {
         log.info("Started compute resource_controllers.");
 
         // Start all clients
-        startTime = Timestamps.add(Timestamps.fromMillis(System.currentTimeMillis()), Durations.fromSeconds(120));
+        startTime = Timestamps.add(Timestamps.fromMillis(System.currentTimeMillis()), Durations.fromSeconds(60));
         List<ListenableFuture<Void>> clientStartFutures = new ArrayList<>();
         for (Client client : clients) {
             SettableFuture<Void> future = SettableFuture.create();

@@ -43,14 +43,15 @@ class PublisherSubtaskWorker(SubtaskWorker):
         sequence_number = 0
 
         while True:
-            self._flow_controller.request_start()
-            publish_time = int(time.time() * 1000)
-            future: Future = client.publish(topic, data=data,
-                                            sendTime=str(publish_time),
-                                            clientId=str(self._pub_id),
-                                            sequenceNumber=str(sequence_number))
-            future.add_done_callback(lambda fut: self._on_publish(publish_time, sequence_number, fut))
-            sequence_number = sequence_number + 1
+            num_allowed = self._flow_controller.request_start()
+            for i in range(num_allowed):
+                publish_time = int(time.time() * 1000)
+                future: Future = client.publish(topic, data=data,
+                                                sendTime=str(publish_time),
+                                                clientId=str(self._pub_id),
+                                                sequenceNumber=str(sequence_number))
+                future.add_done_callback(lambda fut: self._on_publish(publish_time, sequence_number, fut))
+                sequence_number = sequence_number + 1
 
     def _on_publish(self, publish_time: int, sequence_number: int, future: Future):
         try:

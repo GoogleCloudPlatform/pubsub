@@ -36,7 +36,7 @@ public abstract class Mode {
                 .setMessageSize(1000)
                 .setPublishBatchDuration(Durations.fromMillis(50))
                 .setPublishBatchSize(1000)
-                .setBurnInDuration(Durations.fromSeconds(2 * 60))
+                .setBurnInDuration(Durations.fromSeconds(10 * 60))
                 .setLoadtestDuration(Durations.fromSeconds(10 * 60))
                 .setNumPublisherWorkers(1)
                 .setNumSubscriberWorkers(1)

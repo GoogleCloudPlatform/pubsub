@@ -32,11 +32,17 @@ class OutstandingCountFlowController(FlowController):
             self.condition.notify()
         self.reset_rate_in(rate_update_delay_seconds)
 
+    def _num_available(self):
+        return self.rate_per_second * 2 - self.outstanding
+
     def request_start(self):
         with self.condition:
-            while self.outstanding >= self.rate_per_second * 2:
+            num_available = self._num_available()
+            while num_available < 1:
                 self.condition.wait()
-            self.outstanding += 1
+                num_available = self._num_available()
+            self.outstanding += num_available
+            return num_available
 
     @staticmethod
     def _next_index(index: int):

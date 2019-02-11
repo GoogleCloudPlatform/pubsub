@@ -41,21 +41,20 @@ class OutstandingCountFlowController extends FlowController {
 
     async requestStart() {
         while (true) {
-            let canRunImmediately = this.tryToRequest();
-            if (canRunImmediately) return;
+            let availableTokens = this.tokensAvailable();
+            if (availableTokens >= 1) {
+                this.outstanding += availableTokens;
+                return availableTokens;
+            }
             let waiter = new SettablePromise();
             this.waiters.push(waiter);
             await waiter.promise;
         }
     }
 
-    // Return whether this request can proceed immediately.
-    tryToRequest() {
-        if (this.outstanding < this.ratePerSecond * 2) {
-            ++this.outstanding;
-            return true;
-        }
-        return false;
+    // Return the number of tokens currently available.
+    tokensAvailable() {
+        return Math.floor((this.ratePerSecond * 2) - this.outstanding);
     }
 
     triggerNext() {

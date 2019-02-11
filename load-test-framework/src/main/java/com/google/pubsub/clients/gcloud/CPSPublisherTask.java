@@ -44,7 +44,7 @@ class CPSPublisherTask extends AbstractPublisher {
     private final ByteString payload;
     private final Publisher publisher;
 
-    private CPSPublisherTask(StartRequest request, MetricsHandler metricsHandler, int workerCount) {
+    CPSPublisherTask(StartRequest request, MetricsHandler metricsHandler, int workerCount) {
         super(request, metricsHandler, workerCount);
         log.warn("constructing CPS publisher");
         this.payload = getPayload();
@@ -57,6 +57,7 @@ class CPSPublisherTask extends AbstractPublisher {
                                             .setRequestByteThreshold(9500000L)
                                             .setDelayThreshold(
                                                     Duration.ofMillis(Durations.toMillis(request.getPublisherOptions().getBatchDuration())))
+                                            .setIsEnabled(true)
                                             .build())
                             .build();
         } catch (Exception e) {

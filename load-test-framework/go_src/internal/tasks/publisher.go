@@ -101,22 +101,24 @@ func (worker *publisherWorker) loopingPublisher(request genproto.StartRequest) {
 		case <-worker.stopChannel:
 			worker.collectorStopChannel <- types.Nil{}
 			return
-		case <-worker.flowController.Start():
-			publishTimeMs := util.CurrentTimeMs()
-			result := topic.Publish(ctx, &pubsub.Message{
-				Data: data,
-				Attributes: map[string]string{
-					"sendTime":       strconv.FormatInt(publishTimeMs, 10),
-					"clientId":       strconv.FormatInt(worker.publisherId, 10),
-					"sequenceNumber": strconv.FormatInt(int64(sequenceNumber), 10),
-				},
-			})
-			worker.resultChannel <- augmentedPublishResult{
-				result:         result,
-				startTimeMs:    publishTimeMs,
-				sequenceNumber: sequenceNumber,
+		case count := <-worker.flowController.Start():
+			for i := 0; i < count; i++ {
+				publishTimeMs := util.CurrentTimeMs()
+				result := topic.Publish(ctx, &pubsub.Message{
+					Data: data,
+					Attributes: map[string]string{
+						"sendTime":       strconv.FormatInt(publishTimeMs, 10),
+						"clientId":       strconv.FormatInt(worker.publisherId, 10),
+						"sequenceNumber": strconv.FormatInt(int64(sequenceNumber), 10),
+					},
+				})
+				worker.resultChannel <- augmentedPublishResult{
+					result:         result,
+					startTimeMs:    publishTimeMs,
+					sequenceNumber: sequenceNumber,
+				}
+				sequenceNumber++
 			}
-			sequenceNumber++
 		}
 	}
 }

@@ -103,7 +103,15 @@ public class Client {
         while ((System.currentTimeMillis() - startTimeMillis) < 180000) {
             ConnectivityState state = this.channel.getState(true);
             if (state == ConnectivityState.READY) {
-                doneFuture.addListener(() -> this.channel.shutdownNow(), MoreExecutors.directExecutor());
+                doneFuture.addListener(() -> {
+                    this.channel.shutdownNow();
+                    try {
+                        this.channel.awaitTermination(1, TimeUnit.MINUTES);
+                    } catch (InterruptedException e) {
+                        // Failed to shutdown the channel.  Since the worker is being destroyed, this has no adverse
+                        // effects other than printing an error to stderr.
+                    }
+                }, MoreExecutors.directExecutor());
                 return;
             }
             try {

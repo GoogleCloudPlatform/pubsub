@@ -16,6 +16,7 @@
 package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.JCommander;
+import com.google.api.gax.batching.FlowControlSettings;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
@@ -36,6 +37,7 @@ import java.time.Duration;
  */
 class CPSSubscriberTask implements LoadtestTask, MessageReceiver {
     private static final Logger log = LoggerFactory.getLogger(CPSSubscriberTask.class);
+    private static final long BYTES_PER_WORKER = 100000000;  // 100MB per worker outstanding
     private final MetricsHandler metricsHandler;
     private final Subscriber subscriber;
 
@@ -47,6 +49,10 @@ class CPSSubscriberTask implements LoadtestTask, MessageReceiver {
             this.subscriber =
                     Subscriber.newBuilder(subscription, this)
                             .setParallelPullCount(workerCount)
+                            .setFlowControlSettings(FlowControlSettings.newBuilder()
+                                    .setMaxOutstandingElementCount(Long.MAX_VALUE)
+                                    .setMaxOutstandingRequestBytes(BYTES_PER_WORKER * workerCount)
+                                    .build())
                             .build();
         } catch (Exception e) {
             throw new RuntimeException(e);

@@ -10,6 +10,8 @@ import (
 	"strconv"
 )
 
+const kBytesPerWorker = 100000000 // 100 MB per worker
+
 type subscriberWorkerFactory struct{}
 
 func (subscriberWorkerFactory) runWorker(
@@ -23,8 +25,10 @@ func (subscriberWorkerFactory) runWorker(
 	}
 
 	subscriber := client.Subscription(request.GetPubsubOptions().Subscription)
-	subscriber.ReceiveSettings.MaxOutstandingMessages = 1e6
-	subscriber.ReceiveSettings.NumGoroutines = util.ScaledNumWorkers(int(request.CpuScaling))
+	subscriber.ReceiveSettings.MaxOutstandingMessages = -1
+	numWorkers := util.ScaledNumWorkers(int(request.CpuScaling))
+	subscriber.ReceiveSettings.MaxOutstandingBytes = kBytesPerWorker * numWorkers
+	subscriber.ReceiveSettings.NumGoroutines = numWorkers
 	cctx, cancel := context.WithCancel(ctx)
 	err = subscriber.Receive(cctx, func(ctx context.Context, msg *pubsub.Message) {
 		sendTimeMs, err := strconv.ParseInt(msg.Attributes["sendTime"], 10, 64)
@@ -49,7 +53,7 @@ func (subscriberWorkerFactory) runWorker(
 		})
 		msg.Ack()
 	})
-	if err != nil {
+	if err != context.Canceled {
 		log.Fatalf("Failed to create subscription: %v", err)
 	}
 	<-stopChannel

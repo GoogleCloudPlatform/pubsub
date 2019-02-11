@@ -17,7 +17,7 @@ class RateLimiterFlowController extends FlowController {
     async requestStart() {
         await new Promise(resolve => {
             this.callbacks.push(() => {
-                resolve(null);
+                resolve(1);
             });
         });
     }

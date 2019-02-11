@@ -1,7 +1,6 @@
 package flow_control
 
 import (
-	"go/types"
 	"sync"
 	"time"
 )
@@ -48,7 +47,7 @@ func (cb *cyclicBucketer) add() {
 // goroutine.
 type outstandingCountFlowController struct {
 	// The channel to wait on to start
-	incrementChan chan types.Nil
+	incrementChan chan int
 	// The channel to submit completion to
 	decrementChan chan bool
 
@@ -66,7 +65,7 @@ func (fc *outstandingCountFlowController) updateRate(newRate float64) {
 	fc.updateChan <- newRate
 }
 
-func (fc *outstandingCountFlowController) Start() <-chan types.Nil {
+func (fc *outstandingCountFlowController) Start() <-chan int {
 	return fc.incrementChan
 }
 
@@ -74,12 +73,16 @@ func (fc *outstandingCountFlowController) InformFinished(wasSuccessful bool) {
 	fc.decrementChan <- wasSuccessful
 }
 
+func (fc *outstandingCountFlowController) numAllowedPermits() int {
+	return int((fc.ratePerSecond * 2) - float64(fc.outstanding))
+}
+
 const expiryLatencyMilliseconds = 15000
 const rateUpdateDelayMilliseconds = 100
 
 func NewOutstandingCountFlowController(initialRate float64) FlowController {
 	fc := &outstandingCountFlowController{
-		incrementChan: make(chan types.Nil),
+		incrementChan: make(chan int),
 		decrementChan: make(chan bool),
 		updateChan:    make(chan float64),
 		ratePerSecond: initialRate,
@@ -98,10 +101,11 @@ func NewOutstandingCountFlowController(initialRate float64) FlowController {
 	// rate handler
 	go func() {
 		for {
-			if float64(fc.outstanding) < (fc.ratePerSecond * 2) {
+			allowedPermits := fc.numAllowedPermits()
+			if allowedPermits > 0 {
 				select {
-				case fc.incrementChan <- types.Nil{}:
-					fc.outstanding++
+				case fc.incrementChan <- allowedPermits:
+					fc.outstanding += int64(allowedPermits)
 				case wasSuccessful := <-fc.decrementChan:
 					fc.outstanding--
 					if wasSuccessful {

@@ -21,6 +21,10 @@ public class OutstandingCountFlowController implements FlowController {
         }
     }
 
+    private int numAllowedPermits() {
+        return (int)((ratePerSecond * 2) - outstanding);
+    }
+
     private int outstanding = 0;
     private double ratePerSecond;
     private final Monitor monitor = new Monitor();
@@ -28,7 +32,7 @@ public class OutstandingCountFlowController implements FlowController {
         // Allow if there are less than 2 seconds of throughput outstanding.
         @Override
         public boolean isSatisfied() {
-            return outstanding < (ratePerSecond * 2);
+            return numAllowedPermits() > 0;
         }
     };
     // ExpiryCache is a cache of counter value to None, used only for the expiration parameter to get the average
@@ -56,11 +60,14 @@ public class OutstandingCountFlowController implements FlowController {
 
     /**
      * Request starting a flow controlled action.
+     * Return the number of allowed actions.
      */
-    public void requestStart() {
+    public int requestStart() {
         monitor.enterWhenUninterruptibly(requestAllowed);
-        ++outstanding;
+        int allocated = numAllowedPermits();
+        outstanding += allocated;
         monitor.leave();
+        return allocated;
     }
 
     /**

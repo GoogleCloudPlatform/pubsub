@@ -44,28 +44,30 @@ class PublisherSubtaskWorker extends task.SubtaskWorker {
     }
 
     publishNext() {
-        this.flowController.requestStart().then(() => {
-            let publishTime = (new Date).getTime();
-            let sequenceNumber = this.sequenceNumber;
-            ++this.sequenceNumber;
-            let attributes = {
-                'sendTime': publishTime.toString(),
-                'clientId': this.pubId.toString(),
-                'sequenceNumber': sequenceNumber.toString()
-            };
-            this.publisher.publish(this.data, attributes, (err, {}) => {
-                if (err) {
-                    this.metricsTracker.putError();
-                    this.flowController.informFinished(false);
-                    return;
-                }
-                this.flowController.informFinished(true);
-                let recvTime = (new Date).getTime();
-                let latencyMs = recvTime - publishTime;
-                let out = new metrics_tracker.MessageAndDuration(this.pubId, sequenceNumber, latencyMs);
-                this.metricsTracker.put(out);
+        this.flowController.requestStart().then(count => {
+            Array(count).forEach(() => {
+                let publishTime = (new Date).getTime();
+                let sequenceNumber = this.sequenceNumber;
+                ++this.sequenceNumber;
+                let attributes = {
+                    'sendTime': publishTime.toString(),
+                    'clientId': this.pubId.toString(),
+                    'sequenceNumber': sequenceNumber.toString()
+                };
+                this.publisher.publish(this.data, attributes, (err, {}) => {
+                    if (err) {
+                        this.metricsTracker.putError();
+                        this.flowController.informFinished(false);
+                        return;
+                    }
+                    this.flowController.informFinished(true);
+                    let recvTime = (new Date).getTime();
+                    let latencyMs = recvTime - publishTime;
+                    let out = new metrics_tracker.MessageAndDuration(this.pubId, sequenceNumber, latencyMs);
+                    this.metricsTracker.put(out);
+                });
+                this.publishNext();
             });
-            this.publishNext();
         })
     }
 }
