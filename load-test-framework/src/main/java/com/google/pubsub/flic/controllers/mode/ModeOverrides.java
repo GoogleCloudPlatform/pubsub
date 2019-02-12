@@ -36,6 +36,12 @@ public class ModeOverrides {
     )
     private Integer numCores = null;
 
+    @Parameter(
+        names = {"--scaling_factor"},
+        description = "Set the subscriber scaling factor per core per worker."
+    )
+    private Integer scalingFactor = null;
+
     public Mode apply(Mode source) {
         Mode.Builder builder = source.toBuilder();
         if (messageSize != null) {
@@ -49,6 +55,9 @@ public class ModeOverrides {
         }
         if (numCores != null) {
             builder.setNumCoresPerWorker(numCores);
+        }
+        if (scalingFactor != null) {
+            builder.setSubscriberCpuScaling(scalingFactor);
         }
         return builder.build();
     }

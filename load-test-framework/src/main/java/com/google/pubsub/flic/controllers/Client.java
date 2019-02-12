@@ -100,7 +100,7 @@ public class Client {
                 .maxInboundMessageSize(1000000000)
                 .build();
         long startTimeMillis = System.currentTimeMillis();
-        while ((System.currentTimeMillis() - startTimeMillis) < 180000) {
+        while ((System.currentTimeMillis() - startTimeMillis) < 240000) {
             ConnectivityState state = this.channel.getState(true);
             if (state == ConnectivityState.READY) {
                 doneFuture.addListener(() -> {
@@ -120,7 +120,7 @@ public class Client {
                 throw new RuntimeException(e);
             }
         }
-        throw new RuntimeException("Unable to connect to client in 180 seconds.");
+        throw new RuntimeException("Unable to connect to client in 240 seconds.");
     }
 
     ClientType getClientType() {

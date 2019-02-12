@@ -17,7 +17,9 @@ public class ScalingFactorModeProvider implements ModeProvider {
                 baseMode.toBuilder().setSubscriberCpuScaling(0).build(),
                 baseMode.toBuilder().setSubscriberCpuScaling(1).build(),
                 baseMode.toBuilder().setSubscriberCpuScaling(2).build(),
-                baseMode.toBuilder().setSubscriberCpuScaling(4).build()
+                baseMode.toBuilder().setSubscriberCpuScaling(4).build(),
+                baseMode.toBuilder().setSubscriberCpuScaling(8).build(),
+                baseMode.toBuilder().setSubscriberCpuScaling(12).build()
         );
     }
 }

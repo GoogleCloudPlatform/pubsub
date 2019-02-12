@@ -17,9 +17,6 @@ package com.google.pubsub.clients.common;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import com.google.pubsub.flic.common.LoadtestProto;
@@ -32,13 +29,13 @@ import org.slf4j.LoggerFactory;
  */
 public class MetricsHandler {
     private static final Logger log = LoggerFactory.getLogger(MetricsHandler.class);
-    private final ConcurrentLinkedQueue<MessageAndLatency> messageQueue;
+    private final ShardedBlockingQueue<MessageAndLatency> messageQueue;
     private final AtomicInteger failures;
     private final boolean includeIds;
 
     public MetricsHandler(boolean includeIds) {
         this.includeIds = includeIds;
-        this.messageQueue = new ConcurrentLinkedQueue<>();
+        this.messageQueue = new ShardedBlockingQueue<>();
         this.failures = new AtomicInteger(0);
     }
 
@@ -66,7 +63,9 @@ public class MetricsHandler {
         LoadtestProto.CheckResponse.Builder builder = LoadtestProto.CheckResponse.newBuilder();
         builder.setFailed(failures.getAndSet(0));
 
-        for (MessageAndLatency value = messageQueue.poll(); value != null; value = messageQueue.poll()) {
+        ArrayList<MessageAndLatency> values = new ArrayList<>();
+        messageQueue.drainTo(values);
+        values.forEach(value -> {
             if (value.id != null) {
                 builder.addReceivedMessages(value.id);
             }
@@ -76,7 +75,8 @@ public class MetricsHandler {
                 builder.addBucketValues(0);
             }
             builder.setBucketValues(bucket, builder.getBucketValues(bucket) + 1);
-        }
+        });
+
         return builder.build();
     }
 }

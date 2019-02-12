@@ -27,7 +27,7 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 
 wait $PIDAPT
 
-# Run the loadtest binary.  15G is used but the client will ensure
+# Run the loadtest binary.  30G is used but the client will ensure
 # it never approaches that limit on smaller machines. Publisher
 # limit is dynamic and will back off if the messages start paging.
-java -Xmx15G -cp ${TMP}/driver.jar com.google.pubsub.clients.gcloud.CPSPublisherTask
+java -Xmx30G -cp ${TMP}/driver.jar com.google.pubsub.clients.gcloud.CPSPublisherTask

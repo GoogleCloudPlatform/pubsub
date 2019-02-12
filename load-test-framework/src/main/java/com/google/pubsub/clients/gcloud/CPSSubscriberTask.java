@@ -17,6 +17,8 @@ package com.google.pubsub.clients.gcloud;
 
 import com.beust.jcommander.JCommander;
 import com.google.api.gax.batching.FlowControlSettings;
+import com.google.api.gax.core.FixedExecutorProvider;
+import com.google.api.gax.core.InstantiatingExecutorProvider;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
@@ -31,6 +33,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.util.concurrent.Executors;
 
 /**
  * Runs a task that consumes messages from a Cloud Pub/Sub subscription.
