@@ -4,7 +4,6 @@
   "description": "",
   "dependencies": {
     "@google-cloud/pubsub": "0.24.1",
-    "keyv": "latest",
     "minimist": "latest"
   },
   "devDependencies": {},

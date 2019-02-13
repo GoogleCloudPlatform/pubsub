@@ -249,8 +249,12 @@ public class Client {
                         }
                         runningDuration = checkResponse.getRunningDuration();
                         // Has been running for longer than the burn in duration.
-                        if (Durations.comparator().compare(runningDuration, params.getMode().burnInDuration()) > 0) {
+                        if (Durations.compare(runningDuration, params.getMode().burnInDuration()) > 0) {
                             latencyTracker.addLatencies(checkResponse.getBucketValuesList());
+                            log.info("Approximate rate: " + StatsUtils.getThroughput(
+                                latencyTracker.getCount(),
+                                Durations.subtract(runningDuration, params.getMode().burnInDuration()),
+                                params.getMode().messageSize()) + " MB/s");
                         }
                     }
 

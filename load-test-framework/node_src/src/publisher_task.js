@@ -45,7 +45,7 @@ class PublisherSubtaskWorker extends task.SubtaskWorker {
 
     publishNext() {
         this.flowController.requestStart().then(count => {
-            Array(count).forEach(() => {
+            for (const _ of Array(count).keys()) {
                 let publishTime = (new Date).getTime();
                 let sequenceNumber = this.sequenceNumber;
                 ++this.sequenceNumber;
@@ -66,9 +66,9 @@ class PublisherSubtaskWorker extends task.SubtaskWorker {
                     let out = new metrics_tracker.MessageAndDuration(this.pubId, sequenceNumber, latencyMs);
                     this.metricsTracker.put(out);
                 });
-                this.publishNext();
-            });
-        })
+            }
+            this.publishNext();
+        });
     }
 }
 

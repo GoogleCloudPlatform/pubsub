@@ -162,17 +162,23 @@ class Task {
 
     // Returns a promise containing the CheckResponse
     async check() {
-        let checkPromises = [];
-        this.workers.forEach(worker => {
-            checkPromises.push(worker.check());
-        });
-        let checkResults = await Promise.all(checkPromises);
-        let combined = metrics_tracker.MetricsTracker.combineResponses(
-            checkResults);
+        let combined;
+        if (this.finished === true) {
+            combined = {
+                is_finished: this.finished
+            }
+        } else {
+            let checkPromises = [];
+            this.workers.forEach(worker => {
+                checkPromises.push(worker.check());
+            });
+            let checkResults = await Promise.all(checkPromises);
+            combined = metrics_tracker.MetricsTracker.combineResponses(checkResults);
+        }
+
         combined.running_duration = {
             seconds: Math.floor(this.millisSinceStart() / 1000)
         };
-        combined.is_finished = this.finished;
         return combined;
     }
 

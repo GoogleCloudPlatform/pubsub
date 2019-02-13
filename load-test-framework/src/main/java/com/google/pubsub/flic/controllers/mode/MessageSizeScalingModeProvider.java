@@ -17,7 +17,8 @@ public class MessageSizeScalingModeProvider implements ModeProvider {
                 baseMode.toBuilder().setMessageSize(1000).build(),
                 baseMode.toBuilder().setMessageSize(10000).build(),
                 baseMode.toBuilder().setMessageSize(100000).build(),
-                baseMode.toBuilder().setMessageSize(1000000).build()
+                baseMode.toBuilder().setMessageSize(1000000).build(),
+                baseMode.toBuilder().setMessageSize(9000000).build()
         );
     }
 }

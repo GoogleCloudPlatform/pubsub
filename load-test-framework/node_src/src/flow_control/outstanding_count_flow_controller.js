@@ -1,9 +1,36 @@
 let FlowController = require('./flow_controller.js');
-let Keyv = require('keyv');
 let SettablePromise = require('../settable_promise.js');
 
-let kExpiryLatencySeconds = 15;
-let kUpdateDelaySeconds = .1;
+let kUpdateDelayMilliseconds = 100;
+let kBuckets = 150;
+
+
+class CyclicBucketer {
+    constructor() {
+        // The array of buckets.
+        this.buckets = new Array(kBuckets);
+        // The current bucket's index.
+        this.bucketIndex = 0;
+        // Whether this has cycled one full rotation.
+        this.hasCycled = false;
+    }
+
+    // Cycle the bucketer, returning the current sum of all buckets and zeroing out the next one
+    cycle() {
+        let sum = 0;
+        this.buckets.forEach(value => {
+            sum += value;
+        });
+        this.bucketIndex = (this.bucketIndex + 1) % this.buckets.length;
+        this.hasCycled = this.hasCycled || (this.bucketIndex === 0);
+        this.buckets[this.bucketIndex] = 0;
+        return sum;
+    }
+
+    add() {
+        this.buckets[this.bucketIndex] += 1;
+    }
+}
 
 
 class OutstandingCountFlowController extends FlowController {
@@ -12,26 +39,21 @@ class OutstandingCountFlowController extends FlowController {
     constructor(initalPerSecondRate) {
         super();
         this.ratePerSecond = initalPerSecondRate;
-        this.underlyingMap = new Map();
-        this.expiryCache = new Keyv({
-            store: this.underlyingMap,
-            ttl: kExpiryLatencySeconds * 1000
-        });
-        this.nextIndex = 0;
+        this.bucketer = new CyclicBucketer();
         this.outstanding = 0;
 
         this.waiters = [];
 
-        setTimeout(() => {
+        setInterval(() => {
             this.resetRate();
-            setInterval(() => {
-                this.resetRate();
-            }, kUpdateDelaySeconds * 1000);
-        }, kExpiryLatencySeconds * 1000);
+        }, kUpdateDelayMilliseconds);
     }
 
     resetRate() {
-        this.ratePerSecond = this.underlyingMap.size / kExpiryLatencySeconds;
+        let sum = this.bucketer.cycle();
+        if (this.bucketer.hasCycled === false) return;
+        let ratePerMillisecond = sum / (kUpdateDelayMilliseconds * kBuckets);
+        this.ratePerSecond = ratePerMillisecond * 1000;
         let waiters = this.waiters;
         this.waiters = [];
         waiters.forEach(waiter => {
@@ -64,10 +86,7 @@ class OutstandingCountFlowController extends FlowController {
     }
 
     informFinished(wasSuccessful) {
-        if (wasSuccessful) {
-            this.expiryCache.set(this.nextIndex, null);
-            ++this.nextIndex;
-        }
+        if (wasSuccessful) { this.bucketer.add(); }
         --this.outstanding;
         this.triggerNext();
     }
