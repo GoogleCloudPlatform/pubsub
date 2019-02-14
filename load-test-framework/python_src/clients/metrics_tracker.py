@@ -43,7 +43,7 @@ class MetricsTracker:
                 message_id.publisher_client_id = value.publisher_id
                 message_id.sequence_number = value.sequence_number
 
-    def putError(self):
+    def put_error(self):
         with self.lock_:
             self.to_fill.failed += 1
 

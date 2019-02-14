@@ -57,6 +57,7 @@ class PublisherSubtaskWorker(SubtaskWorker):
         try:
             future.result()
         except:
+            self.metrics_tracker.put_error()
             self._flow_controller.inform_finished(False)
             return
         self._flow_controller.inform_finished(True)

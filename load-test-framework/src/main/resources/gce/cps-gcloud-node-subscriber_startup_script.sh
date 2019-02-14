@@ -32,4 +32,6 @@ cd ${TMP}
 unzip cps.zip
 cd node_src
 npm install
-node src/main.js --publisher=false
+# increase heap max to 16GB to prevent oom on large tests.
+# subscriber already limits messages outstanding to 500MB per core.
+node --max-old-space-size=16000 src/main.js --publisher=false

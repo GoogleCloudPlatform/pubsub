@@ -33,7 +33,7 @@ class OutstandingCountFlowController(FlowController):
         self.reset_rate_in(rate_update_delay_seconds)
 
     def _num_available(self):
-        return self.rate_per_second * 2 - self.outstanding
+        return int((self.rate_per_second * 2) - self.outstanding)
 
     def request_start(self):
         with self.condition:
