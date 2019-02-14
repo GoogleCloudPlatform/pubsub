@@ -56,10 +56,12 @@ func bucketFor(latencyMs int) int {
 	return int(math.Max(0, rawBucket))
 }
 
+const putChannelBufferSize = 1000
+
 func NewMetricsTracker(trackIds bool) MetricsTracker {
 	mt := &metricsTrackerImpl{
 		trackIds:             trackIds,
-		putChannel:           make(chan MessageAndDuration),
+		putChannel:           make(chan MessageAndDuration, putChannelBufferSize),
 		checkRequestChannel:  make(chan types.Nil),
 		checkResponseChannel: make(chan genproto.CheckResponse),
 	}
