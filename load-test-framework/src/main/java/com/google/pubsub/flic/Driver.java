@@ -104,8 +104,7 @@ public class Driver {
     @Parameter(
             names = {"--mode"},
             required = true,
-            description = "Mode to run in, one of 'latency', 'throughput', 'scaling' or the" +
-                    " previous with '-local' appended.",
+            description = "Mode to run in, one of 'latency', 'throughput', 'core-scaling', 'thread-scaling' or 'noop'.",
             converter = ModeProviderConverter.class
     )
     private ModeProvider modeProvider = null;
