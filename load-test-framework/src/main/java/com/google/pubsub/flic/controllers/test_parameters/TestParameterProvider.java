@@ -14,26 +14,29 @@
  * and limitations under the License.
  */
 
-package com.google.pubsub.flic.output;
+package com.google.pubsub.flic.controllers.test_parameters;
 
-import com.google.pubsub.flic.common.LatencyTracker;
-import com.google.pubsub.flic.controllers.ClientType;
-import com.google.pubsub.flic.controllers.test_parameters.TestParameters;
+import com.google.common.collect.ImmutableList;
 
 import java.util.List;
 
-public interface ResultsOutput {
-  class TrackedResult {
-    public TestParameters testParameters;
-    public ClientType type;
-    public LatencyTracker tracker;
+public interface TestParameterProvider {
+  List<TestParameters> parameters();
 
-    public TrackedResult(TestParameters testParameters, ClientType type, LatencyTracker tracker) {
-      this.testParameters = testParameters;
-      this.type = type;
-      this.tracker = tracker;
-    }
+  static TestParameterProvider of(TestParameters testParameters) {
+    return new OneTestParameterProvider(testParameters);
   }
 
-  void outputStats(List<TrackedResult> results);
+  class OneTestParameterProvider implements TestParameterProvider {
+    private final TestParameters testParameters;
+
+    protected OneTestParameterProvider(TestParameters testParameters) {
+      this.testParameters = testParameters;
+    }
+
+    @Override
+    public List<TestParameters> parameters() {
+      return ImmutableList.of(testParameters);
+    }
+  }
 }

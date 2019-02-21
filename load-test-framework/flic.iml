@@ -37,7 +37,7 @@
     <orderEntry type="library" name="Maven: jline:jline:0.9.94" level="project" />
     <orderEntry type="library" name="Maven: io.netty:netty:3.7.0.Final" level="project" />
     <orderEntry type="library" name="Maven: com.beust:jcommander:1.72" level="project" />
-    <orderEntry type="library" name="Maven: com.google.cloud:google-cloud-pubsub:1.62.0" level="project" />
+    <orderEntry type="library" name="Maven: com.google.cloud:google-cloud-pubsub:1.62.1-SNAPSHOT" level="project" />
     <orderEntry type="library" name="Maven: io.grpc:grpc-netty-shaded:1.17.1" level="project" />
     <orderEntry type="library" name="Maven: io.grpc:grpc-core:1.17.1" level="project" />
     <orderEntry type="library" name="Maven: io.opencensus:opencensus-contrib-grpc-metrics:0.17.0" level="project" />

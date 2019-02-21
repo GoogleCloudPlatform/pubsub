@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 #######################################
 # Query GCE for a provided metadata field.
@@ -26,6 +26,8 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 /usr/bin/gsutil cp "gs://${BUCKET}/driver.jar" "${TMP}"
 
 wait $PIDAPT
+
+ulimit -n 32768
 
 # Run the loadtest binary.  30G is used but the client will ensure
 # it never approaches that limit on smaller machines. Publisher

@@ -4,12 +4,12 @@ This load test framework, known as Flic (Framework of load & integration for
 Cloud Pub/Sub), for Cloud Pub/Sub is a tool targeted for developers and
 companies who wish to benchmark Cloud Pub/Sub and Kafka.
 
-The goal of this framework is to rovide users with a tool that allows them to see how Cloud Pub/Sub
+The goal of this framework is to provide users with a tool that allows them to see how Cloud Pub/Sub
 performs under various conditions.
 
 #### IMPORTANT NOTE:
 
-Running this loadtest framework in throughput mode on a 16 core machine can consume somewhere between 1 and 2 TB of
+Running this loadtest framework in throughput testParameters on a 16 core machine can consume somewhere between 1 and 2 TB of
 pubsub data usage, which will cost from 60 to 120 dollars.  Please take this into account before running this loadtest.
 
 ### Quickstart
@@ -19,7 +19,7 @@ and have the `zip` command line utility available.
 You can then run `python run.py --project=<your_project>` which will install the load test framework and run a basic
 load test.
 
-The `--mode` parameter changes the test type. The default is 'latency', but it can also be set to 'throughput' which
+The `--testParameters` parameter changes the test type. The default is 'latency', but it can also be set to 'throughput' which
 will test the maximum throughput on a single VM at different numbers of cores (defaulting to 16).
 
 The `--language` parameter sets what language should be tested, which can be one of `JAVA`, `GO`, `PYTHON` or `NODE`.

@@ -22,28 +22,28 @@ import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.jackson2.JacksonFactory;
 import com.google.api.services.pubsub.Pubsub;
 import com.google.common.collect.ImmutableList;
-import com.google.pubsub.flic.controllers.resource_controllers.ComputeResourceController;
-import com.google.pubsub.flic.controllers.resource_controllers.LocalComputeResourceController;
-import com.google.pubsub.flic.controllers.resource_controllers.PubsubResourceController;
-import com.google.pubsub.flic.controllers.resource_controllers.ResourceController;
+import com.google.pubsub.flic.controllers.resource_controllers.*;
 
 import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 
 /** This is a subclass of {@link Controller} that controls local load tests. */
-public class LocalController extends ControllerBase {
+public class InprocessController extends ControllerBase {
+  private final List<ClientParams> clients;
 
   /** Instantiates the load test on Google Compute Engine. */
-  private LocalController(
+  private InprocessController(
+      List<ClientParams> clients,
       ScheduledExecutorService executor,
       List<ResourceController> controllers,
       List<ComputeResourceController> computeControllers) {
     super(executor, controllers, computeControllers);
+    this.clients = clients;
   }
 
   /** Returns a LocalController using default application credentials. */
-  public static LocalController newLocalController(
-      String projectName, Map<ClientParams, Integer> clients, ScheduledExecutorService executor) {
+  public static InprocessController newController(
+      String projectName, List<ClientParams> clients, ScheduledExecutorService executor) {
     try {
       HttpTransport transport = GoogleNetHttpTransport.newTrustedTransport();
       JsonFactory jsonFactory = new JacksonFactory();
@@ -60,16 +60,20 @@ public class LocalController extends ControllerBase {
       ArrayList<ResourceController> controllers = new ArrayList<>();
       ArrayList<ComputeResourceController> computeControllers = new ArrayList<>();
       clients.forEach(
-          (params, numWorkers) -> {
+          params -> {
+            if (params.getClientType().language != ClientType.Language.JAVA
+                || params.getClientType().messaging != ClientType.MessagingType.CPS_GCLOUD) {
+              throw new RuntimeException("Invalid params for Inprocess Java Controller: " + params);
+            }
             ComputeResourceController computeController =
-                new LocalComputeResourceController(params, numWorkers, executor);
+                new InprocessJavaComputeResourceController(params, executor);
             controllers.add(computeController);
             computeControllers.add(computeController);
           });
       controllers.add(
           new PubsubResourceController(
               projectName, Client.TOPIC, ImmutableList.of(Client.SUBSCRIPTION), executor, pubsub));
-      return new LocalController(executor, controllers, computeControllers);
+      return new InprocessController(clients, executor, controllers, computeControllers);
     } catch (Throwable t) {
       log.error("Unable to initialize GCE: ", t);
       return null;

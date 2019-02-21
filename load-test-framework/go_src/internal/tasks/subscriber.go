@@ -1,3 +1,19 @@
+/*
+ * Copyright 2019 Google Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * You may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions
+ * and limitations under the License.
+ */
+
 package tasks
 
 import (
@@ -29,6 +45,7 @@ func (subscriberWorkerFactory) runWorker(
 	numWorkers := util.ScaledNumWorkers(int(request.CpuScaling))
 	subscriber.ReceiveSettings.MaxOutstandingBytes = kBytesPerWorker * numWorkers
 	subscriber.ReceiveSettings.NumGoroutines = numWorkers
+	subscriber.ReceiveSettings.WorkBufferSize = 100000
 	cctx, cancel := context.WithCancel(ctx)
 	err = subscriber.Receive(cctx, func(ctx context.Context, msg *pubsub.Message) {
 		sendTimeMs, err := strconv.ParseInt(msg.Attributes["sendTime"], 10, 64)
