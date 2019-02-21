@@ -54,9 +54,15 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";
   public static final String CPS_SUBSCRIPTION_CONFIG = "cps.subscription";
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
+  public static final String MAX_ACK_BATCH_SIZE_CONFIG = "max.ack.batch.size";
+  public static final String MAX_MESSAGES_IN_FLIGHT_CONFIG = "max.messages.in.flight";
+  public static final String BACKOFF_PULL_INTERVAL_MS_CONFIG = "backoff.pull.interval.ms";
   public static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
   public static final int DEFAULT_KAFKA_PARTITIONS = 1;
   public static final String DEFAULT_KAFKA_PARTITION_SCHEME = "round_robin";
+  public static final int DEFAULT_MAX_ACK_BATCH_SIZE = 1000;
+  public static final int DEFAULT_MAX_MESSAGES_IN_FLIGHT = 10000000;
+  public static final int DEFAULT_BACKOFF_PULL_INTERVAL_MS = 1000;
 
   /** Defines the accepted values for the {@link #KAFKA_PARTITION_SCHEME_CONFIG}. */
   public enum PartitionScheme {
@@ -184,7 +190,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             DEFAULT_CPS_MAX_BATCH_SIZE,
             ConfigDef.Range.between(1, Integer.MAX_VALUE),
             Importance.MEDIUM,
-            "The minimum number of messages to batch per pull request to Cloud Pub/Sub.")
+            "The maximum number of messages to batch per pull request to Cloud Pub/Sub.")
         .define(
             KAFKA_MESSAGE_KEY_CONFIG,
             Type.STRING,
@@ -224,7 +230,28 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.STRING,
             null,
             Importance.HIGH,
-            "GCP JSON credentials");
+            "GCP JSON credentials")
+        .define(
+            MAX_ACK_BATCH_SIZE_CONFIG,
+            Type.INT,
+            DEFAULT_MAX_ACK_BATCH_SIZE,
+            ConfigDef.Range.between(1, Integer.MAX_VALUE),
+            Importance.MEDIUM,
+            "The maximum number of ack ids to batch per ack request to Cloud Pub/Sub.")
+        .define(
+            MAX_MESSAGES_IN_FLIGHT_CONFIG,
+            Type.INT,
+            DEFAULT_MAX_MESSAGES_IN_FLIGHT,
+            ConfigDef.Range.between(1, Integer.MAX_VALUE),
+            Importance.MEDIUM,
+            "The maximum number of unacknowledged messages per task.")
+        .define(
+            BACKOFF_PULL_INTERVAL_MS_CONFIG,
+            Type.LONG,
+            DEFAULT_BACKOFF_PULL_INTERVAL_MS,
+            ConfigDef.Range.between(1, Integer.MAX_VALUE),
+            Importance.MEDIUM,
+            "Time in milliseconds to wait between polls in case the maximum number of unacknowledged messages has been reached.");
   }
 
   /**

@@ -17,12 +17,14 @@ package com.google.pubsub.kafka.source;
 
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNull;
-import static org.mockito.Matchers.any;
+import static org.junit.Assert.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -36,9 +38,6 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -47,8 +46,18 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.Before;
 import org.junit.Test;
 
+import org.mockito.ArgumentMatcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 /** Tests for {@link CloudPubSubSourceTask}. */
 public class CloudPubSubSourceTaskTest {
@@ -127,8 +136,7 @@ public class CloudPubSubSourceTaskTest {
   }
 
   /**
-   * Tests that when ackMessages() succeeds and the subsequent call to poll() has no messages, that
-   * the subscriber does not invoke ackMessages because there should be no acks.
+   * Tests message lifecycle.
    */
   @Test
   public void testPollInRegularCase() throws Exception {
@@ -136,18 +144,25 @@ public class CloudPubSubSourceTaskTest {
     ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm1).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
+    assertEquals(1, task.getInFlightMessagesCount());
+    assertTrue(task.isAlreadyInFlight(ACK_ID1));
+
     task.commitRecord(result.get(0));
-    stubbedPullResponse = PullResponse.newBuilder().build();
+    assertEquals(1, task.getInFlightMessagesCount());
+    assertTrue(task.isAlreadyInFlight(ACK_ID1));
+
     ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
     when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    result = task.poll();
-    assertEquals(0, result.size());
-    result = task.poll();
-    assertEquals(0, result.size());
-    verify(subscriber, times(1)).ackMessages(any(AcknowledgeRequest.class));
+
+    task.commit();
+
+    verify(subscriber).ackMessages(argThat(new HasAckIds(Collections.singletonList(ACK_ID1))));
+
+    assertEquals(0, task.getInFlightMessagesCount());
+    assertFalse(task.isAlreadyInFlight(ACK_ID1));
   }
 
 
@@ -473,10 +488,50 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(0, task.poll().size());
   }
 
+  @Test
+  public void testSplitAckIdsIntoSmallBatches() {
+    Collection<String> ackIds = Arrays.asList("a","b","c","d","e");
+    List<Set<String>> batches = CloudPubSubSourceTask.split(ackIds, 2);
+    assertEquals(3, batches.size());
+
+    assertEquals(new HashSet<>(Arrays.asList("a","b")), batches.get(0));
+    assertEquals(new HashSet<>(Arrays.asList("c","d")), batches.get(1));
+    assertEquals(new HashSet<>(Arrays.asList("e")), batches.get(2));
+  }
+
+  @Test
+  public void testSplitAckIdsIntoSingleBatch() {
+    Collection<String> ackIds = Arrays.asList("a","b","c","d","e");
+    List<Set<String>> batches = CloudPubSubSourceTask.split(ackIds, 5);
+    assertEquals(1, batches.size());
+
+    assertEquals(new HashSet<>(ackIds), batches.get(0));
+
+    batches = CloudPubSubSourceTask.split(ackIds, 7);
+    assertEquals(1, batches.size());
+
+    assertEquals(new HashSet<>(ackIds), batches.get(0));
+  }
+
   private ReceivedMessage createReceivedMessage(
       String ackId, ByteString data, Map<String, String> attributes) {
     PubsubMessage message =
         PubsubMessage.newBuilder().setData(data).putAllAttributes(attributes).build();
     return ReceivedMessage.newBuilder().setAckId(ackId).setMessage(message).build();
+  }
+
+  private static class HasAckIds implements ArgumentMatcher<AcknowledgeRequest> {
+
+    private final Set<String> ackIds;
+
+    public HasAckIds(Collection<String> ackIds) {
+      this.ackIds = new HashSet<>(ackIds);
+    }
+
+
+    @Override
+    public boolean matches(AcknowledgeRequest o) {
+      return new HashSet<>(o.getAckIdsList()).equals(ackIds);
+    }
   }
 }
