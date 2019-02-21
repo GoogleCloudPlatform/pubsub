@@ -91,6 +91,9 @@ Connector supports the following configs:
 | kafka.partition.scheme | round_robin, hash_key, hash_value, kafka_partitioner | round_robin | The scheme for assigning a message to a partition in Kafka. The scheme "round_robin" assigns partitions in a round robin fashion, while the schemes "hash_key" and "hash_value" find the partition by hashing the message key and message value respectively. "kafka_partitioner" scheme delegates partitioning logic to kafka producer, which by default detects number of partitions automatically and performs either murmur hash based partition mapping or round robin depending on whether message key is provided or not.|
 | gcp.credentials.file.path | String | Optional | The file path, which stores GCP credentials. If not defined, GOOGLE_APPLICATION_CREDENTIALS env is used. |
 | gcp.credentials.json | String | Optional | GCP credentials JSON blob. If specified, use the explicitly handed credentials. Consider using the externalized secrets feature in Kafka Connect for passing the value. |
+| max.ack.batch.size | Integer | 1000 | The maximum number of ack ids to batch per ack request to Cloud Pub/Sub. |
+| max.messages.in.flight | Integer | 10000000 | The maximum number of unacknowledged messages per task. |
+| backoff.pull.interval.ms | Long | 1000 | Time in milliseconds to wait between polls in case the maximum number of unacknowledged messages has been reached. |
 
 #### Sink Connector
 
