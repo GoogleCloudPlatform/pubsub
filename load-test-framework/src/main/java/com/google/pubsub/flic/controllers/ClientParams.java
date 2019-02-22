@@ -38,7 +38,7 @@ public abstract class ClientParams {
 
   @AutoValue.Builder
   public abstract static class Builder {
-    public abstract Builder setMode(TestParameters testParameters);
+    public abstract Builder setTestParameters(TestParameters testParameters);
 
     public abstract Builder setProject(String project);
 

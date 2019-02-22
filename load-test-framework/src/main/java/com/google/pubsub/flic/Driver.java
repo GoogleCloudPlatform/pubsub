@@ -95,10 +95,10 @@ public class Driver {
   private ClientType.Language language = ClientType.Language.JAVA;
 
   @Parameter(
-      names = {"--testParameters"},
+      names = {"--test_parameters"},
       required = true,
       description =
-          "TestParameters to run in, one of 'latency', 'throughput', 'core-scaling', 'thread-scaling' or 'noop'.",
+          "TestParameters to run with, one of 'latency', 'throughput', 'core-scaling', 'thread-scaling' or 'noop'.",
       converter = TestParameterProviderConverter.class)
   private TestParameterProvider testParameterProvider = null;
 
@@ -183,7 +183,7 @@ public class Driver {
       TestParameters testParameters, BiFunction<String, Map<ClientParams, Integer>, Controller> controllerFunction) {
     Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
     ClientParams.Builder params = ClientParams.builder();
-    params.setMode(testParameters);
+    params.setTestParameters(testParameters);
     params.setProject(project);
     params.setZone(zone);
 

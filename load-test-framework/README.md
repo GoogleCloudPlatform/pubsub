@@ -19,8 +19,8 @@ and have the `zip` command line utility available.
 You can then run `python run.py --project=<your_project>` which will install the load test framework and run a basic
 load test.
 
-The `--testParameters` parameter changes the test type. The default is 'latency', but it can also be set to 'throughput' which
-will test the maximum throughput on a single VM at different numbers of cores (defaulting to 16).
+The `--test_parameters` parameter changes the test type. The default is 'latency', but it can also be set to
+'throughput' which will test the maximum throughput on a single VM at different numbers of cores (defaulting to 16).
 
 The `--language` parameter sets what language should be tested, which can be one of `JAVA`, `GO`, `PYTHON` or `NODE`.
 

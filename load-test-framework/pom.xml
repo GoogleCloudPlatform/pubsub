@@ -42,7 +42,7 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <version>1.62.0</version>
+      <version>1.63.0</version>
     </dependency>
     <dependency>
       <groupId>com.google.guava</groupId>
@@ -129,12 +129,12 @@
     <dependency>
       <groupId>com.google.api</groupId>
       <artifactId>gax</artifactId>
-      <version>1.38.0</version>
+      <version>1.40.0</version>
     </dependency>
     <dependency>
       <groupId>com.google.api</groupId>
       <artifactId>gax-grpc</artifactId>
-      <version>1.38.0</version>
+      <version>1.40.0</version>
     </dependency>
     <dependency>
       <groupId>com.google.api.grpc</groupId>
@@ -154,12 +154,17 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-core</artifactId>
-      <version>1.62.0</version>
+      <version>1.63.0</version>
     </dependency>
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-core-grpc</artifactId>
-      <version>1.62.0</version>
+      <version>1.63.0</version>
+    </dependency>
+    <dependency>
+      <groupId>commons-codec</groupId>
+      <artifactId>commons-codec</artifactId>
+      <version>1.12</version>
     </dependency>
   </dependencies>
   <build>
