@@ -16,8 +16,6 @@
 
 package com.google.pubsub.clients.common;
 
-import com.google.common.util.concurrent.ForwardingBlockingQueue;
-
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.concurrent.BlockingQueue;

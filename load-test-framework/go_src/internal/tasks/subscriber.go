@@ -45,7 +45,6 @@ func (subscriberWorkerFactory) runWorker(
 	numWorkers := util.ScaledNumWorkers(int(request.CpuScaling))
 	subscriber.ReceiveSettings.MaxOutstandingBytes = kBytesPerWorker * numWorkers
 	subscriber.ReceiveSettings.NumGoroutines = numWorkers
-	subscriber.ReceiveSettings.WorkBufferSize = 100000
 	cctx, cancel := context.WithCancel(ctx)
 	err = subscriber.Receive(cctx, func(ctx context.Context, msg *pubsub.Message) {
 		sendTimeMs, err := strconv.ParseInt(msg.Attributes["sendTime"], 10, 64)

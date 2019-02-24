@@ -22,17 +22,8 @@ if __name__ == '__main__':
     subprocess.call(['cp', 'target/driver.jar', 'target/classes/gce/'])
 
     subprocess.call([
-        'mkdir', '-p', './go_helpers/cloud.google.com/go'
-    ])
-    subprocess.call([
-        'cp', '-R', '/Users/dpcollins/go/src/cloud.google.com/go/pubsub', './go_helpers/cloud.google.com/go/'
-    ])
-    subprocess.call([
         'zip', '-FSr', './target/classes/gce/cps.zip', './proto',
-        './python_src', './node_src/src', './node_src/package.json', './go_src', './go_helpers'
-    ])
-    subprocess.call([
-        'rm', '-r', './go_helpers'
+        './python_src', './node_src/src', './node_src/package.json', './go_src'
     ])
 
     subprocess.call(java_args)
