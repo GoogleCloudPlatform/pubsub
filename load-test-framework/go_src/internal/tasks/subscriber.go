@@ -28,6 +28,11 @@ import (
 
 const kBytesPerWorker = 100000000 // 100 MB per worker
 
+const kOverallMessages = 10 * 1000 * 1000
+// 10 million messages outstanding is necessary to prevent going OOM due to
+// https://github.com/googleapis/google-cloud-go/issues/1318 on a 16 core, 60GB
+// machine as numWorkers scales up.
+
 type subscriberWorkerFactory struct{}
 
 func (subscriberWorkerFactory) runWorker(
@@ -41,7 +46,7 @@ func (subscriberWorkerFactory) runWorker(
 	}
 
 	subscriber := client.Subscription(request.GetPubsubOptions().Subscription)
-	subscriber.ReceiveSettings.MaxOutstandingMessages = -1
+	subscriber.ReceiveSettings.MaxOutstandingMessages = kOverallMessages
 	numWorkers := util.ScaledNumWorkers(int(request.CpuScaling))
 	subscriber.ReceiveSettings.MaxOutstandingBytes = kBytesPerWorker * numWorkers
 	subscriber.ReceiveSettings.NumGoroutines = numWorkers
