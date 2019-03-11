@@ -32,6 +32,7 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -43,6 +44,8 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Schema.Type;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.header.Header;
+import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -154,6 +157,11 @@ public class CloudPubSubSinkTask extends SinkTask {
             ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
         attributes.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, Long.toString(record.kafkaOffset()));
         attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, record.timestamp().toString());
+      }
+      final Iterator<Header> headerIterator = record.headers().iterator();
+      while(headerIterator.hasNext()) {
+        final Header recordHeader = headerIterator.next();
+        attributes.put(recordHeader.key(), String.valueOf(recordHeader.value()));
       }
       PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
       publishMessage(record.topic(), record.kafkaPartition(), message);
