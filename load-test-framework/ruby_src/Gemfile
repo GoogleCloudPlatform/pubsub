@@ -1,3 +1,0 @@
-source "https://rubygems.org"
-
-gem "google-cloud-pubsub", github: "GoogleCloudPlatform/google-cloud-ruby", branch: "pubsub"

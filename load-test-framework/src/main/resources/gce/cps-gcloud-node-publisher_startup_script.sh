@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 #######################################
 # Query GCE for a provided metadata field.
@@ -21,24 +21,18 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 [[ "${TMP}" != "" ]] || error mktemp failed
 
 # Add the correct repo for nodejs
-curl -sL https://deb.nodesource.com/setup_6.x | sudo -E bash -
+curl -sL https://deb.nodesource.com/setup_11.x | sudo -E bash -
 
 # Download the loadtest binary to this machine and install Java 8.
 /usr/bin/apt-get update
-/usr/bin/apt-get install -y openjdk-8-jre-headless unzip nodejs & PIDAPT=$!
-/usr/bin/gsutil cp "gs://${BUCKET}/driver.jar" "${TMP}" & PIDDRIV=$1
-/usr/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}" & PIDCPS=$1
-
-wait $PIDAPT
-wait $PIDDRIV
-wait $PIDCPS
+/usr/bin/apt-get install -y unzip nodejs
+/usr/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}"
 
 cd ${TMP}
 unzip cps.zip
 cd node_src
 npm install
-node publisher_client.js &
-cd ..
-
-# Run the loadtest binary
-java -Xmx5000M -cp driver.jar com.google.pubsub.clients.adapter.PublisherAdapterTask
+# increase heap max to 16GB to prevent oom on large tests.
+# publisher already dynamically limits messages outstanding to
+# the amount needed for the next 2 seconds.
+node --max-old-space-size=16000 src/main.js --publisher=true

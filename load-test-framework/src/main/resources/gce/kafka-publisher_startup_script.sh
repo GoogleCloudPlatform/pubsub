@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 #######################################
 # Query GCE for a provided metadata field.

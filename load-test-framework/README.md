@@ -4,20 +4,28 @@ This load test framework, known as Flic (Framework of load & integration for
 Cloud Pub/Sub), for Cloud Pub/Sub is a tool targeted for developers and
 companies who wish to benchmark Cloud Pub/Sub and Kafka.
 
-The goal of this framework is twofold:
+The goal of this framework is to provide users with a tool that allows them to see how Cloud Pub/Sub
+performs under various conditions.
 
-1.  Provide users with a tool that allows them to see how Cloud Pub/Sub performs
-    under various conditions.
+#### IMPORTANT NOTE:
 
-2.  Provide users with a tool that allows them to benchmark their own Kafka
-    configuration.
+Running this loadtest framework in throughput testParameters on a 16 core machine can consume somewhere between 1 and 2 TB of
+pubsub data usage, which will cost from 60 to 120 dollars.  Please take this into account before running this loadtest.
 
 ### Quickstart
 
-You must have [Maven](https://maven.apache.org/) installed, be running on an Unix environment, either Linux or Mac OS X, and have the `zip` command line utility available.  
-You can then run `python run.py --project=<your_project>` which will install the load test framework and run a basic load test.  
-The `--test` parameter changes the test type. The default is 'latency', but it can also be set to 'throughput' which will test the maximum throughput on a single VM at different numbers of cores, and 'service' which will test maximum throughput on a 16 core VM.  
-The `--client_types` parameter to sets the clients to test. This is a comma deliminated list, valid options being 'gcloud_python', 'gcloud_java', and 'vtk'. 'experimental' requires you to be whitelisted for access to an experimental feature of Cloud Pub/Sub. You can contact cloud-pubsub@google.com to request access.
+You must have [Maven](https://maven.apache.org/) installed, be running on an Unix environment, either Linux or Mac OS X,
+and have the `zip` command line utility available.
+You can then run `python run.py --project=<your_project>` which will install the load test framework and run a basic
+load test.
+
+The `--test_parameters` parameter changes the test type. The default is 'latency', but it can also be set to
+'throughput' which will test the maximum throughput on a single VM at different numbers of cores (defaulting to 16).
+
+The `--language` parameter sets what language should be tested, which can be one of `JAVA`, `GO`, `PYTHON` or `NODE`.
+
+Many parameters made for the loadtest can be overridden using flags.  Run the loadtest with only the `--help` flag set
+to see all available options.  Note that RUBY and DOTNET clients have not yet been implemented.
 
 ### Pre-Running Steps
 
@@ -53,19 +61,3 @@ The `--client_types` parameter to sets the clients to test. This is a comma deli
     export this environment variable as part of your shell startup file).
 
     `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key/file`
-
-### Important Notes
-
-There are important differences in the clients used for Cloud Pub/Sub and Kafka
-in this framework. For Cloud Pub/Sub, we implemented a reasonably optimized
-client with parallelization of requests across multiple threads, asynchronous
-callback threads to increase client throughput, batching, and rate limitation.
-For Kafka, we used the Producer API released by Apache, which includes some of
-those same features or rate limits, batching, and asynchronous callback threads,
-but of course they're implemented slightly differently to better integrate with
-Kafka brokers.
-
-We took care to make sure the data recording was as similar as possible. Both clients
-measure total latency as the time a message is added to a batch to be sent until its
-callback method is called. Although exactly what load the service sees might differ
-slightly, the record of how it responds, its latency and throughput, are equivalent.
