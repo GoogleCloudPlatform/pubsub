@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import com.google.api.gax.core.CredentialsProvider;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
 import com.google.pubsub.kafka.common.ConnectorUtils;
@@ -39,8 +40,10 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
   private long nextSubscriberResetTime = 0;
   private SubscriberFutureStub subscriber;
   private Random rand = new Random(System.currentTimeMillis());
+  private CredentialsProvider gcpCredentialsProvider;
 
-  CloudPubSubGRPCSubscriber() {
+  CloudPubSubGRPCSubscriber(CredentialsProvider gcpCredentialsProvider) {
+    this.gcpCredentialsProvider = gcpCredentialsProvider;
     makeSubscriber();
   }
 
@@ -61,7 +64,7 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
   private void makeSubscriber() {
     try {
       log.info("Creating subscriber.");
-      subscriber = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
+      subscriber = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel(gcpCredentialsProvider));
       // We change the subscriber every 25 - 35 minutes in order to avoid GOAWAY errors.
       nextSubscriberResetTime =
           System.currentTimeMillis() + rand.nextInt(10 * 60 * 1000) + 25 * 60 * 1000;

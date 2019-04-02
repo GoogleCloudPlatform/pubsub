@@ -15,6 +15,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import com.google.api.gax.core.CredentialsProvider;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
 import com.google.pubsub.v1.AcknowledgeRequest;
@@ -32,10 +33,10 @@ public class CloudPubSubRoundRobinSubscriber implements CloudPubSubSubscriber {
   private List<CloudPubSubSubscriber> subscribers;
   private int currentSubscriberIndex = 0;
 
-  public CloudPubSubRoundRobinSubscriber(int subscriberCount) {
+  public CloudPubSubRoundRobinSubscriber(int subscriberCount, CredentialsProvider gcpCredentialsProvider) {
     subscribers = new ArrayList<>();
     for (int i = 0; i < subscriberCount; ++i) {
-      subscribers.add(new CloudPubSubGRPCSubscriber());
+      subscribers.add(new CloudPubSubGRPCSubscriber(gcpCredentialsProvider));
     }
   }
 

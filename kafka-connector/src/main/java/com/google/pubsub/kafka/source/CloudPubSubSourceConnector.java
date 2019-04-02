@@ -15,11 +15,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import com.google.api.gax.core.CredentialsProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.pubsub.kafka.common.ConnectorUtils;
+import com.google.pubsub.kafka.common.ConnectorCredentialsProvider;
 import com.google.pubsub.v1.GetSubscriptionRequest;
 import com.google.pubsub.v1.SubscriberGrpc;
 import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -119,7 +122,24 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     config().parse(props);
     String cpsProject = props.get(ConnectorUtils.CPS_PROJECT_CONFIG);
     String cpsSubscription = props.get(CPS_SUBSCRIPTION_CONFIG);
-    verifySubscription(cpsProject, cpsSubscription);
+    String credentialsPath = props.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
+    String credentialsJson = props.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
+    ConnectorCredentialsProvider credentialsProvider = new ConnectorCredentialsProvider();
+    if (credentialsPath != null) {
+      try {
+        credentialsProvider.loadFromFile(credentialsPath);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    } else if (credentialsJson != null) {
+      try {
+        credentialsProvider.loadJson(credentialsJson);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    verifySubscription(cpsProject, cpsSubscription, credentialsProvider);
     this.props = props;
     log.info("Started the CloudPubSubSourceConnector");
   }
@@ -192,7 +212,19 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             DEFAULT_KAFKA_PARTITION_SCHEME,
             new PartitionScheme.Validator(),
             Importance.MEDIUM,
-            "The scheme for assigning a message to a partition in Kafka.");
+            "The scheme for assigning a message to a partition in Kafka.")
+        .define(
+            ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG,
+            Type.STRING,
+            null,
+            Importance.HIGH,
+            "The path to the GCP credentials file")
+        .define(
+            ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG,
+            Type.STRING,
+            null,
+            Importance.HIGH,
+            "GCP JSON credentials");
   }
 
   /**
@@ -200,9 +232,9 @@ public class CloudPubSubSourceConnector extends SourceConnector {
    * #CPS_SUBSCRIPTION_CONFIG} exists or not.
    */
   @VisibleForTesting
-  public void verifySubscription(String cpsProject, String cpsSubscription) {
+  public void verifySubscription(String cpsProject, String cpsSubscription, CredentialsProvider credentialsProvider) {
     try {
-      SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel());
+      SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel(credentialsProvider));
       GetSubscriptionRequest request =
           GetSubscriptionRequest.newBuilder()
               .setSubscription(

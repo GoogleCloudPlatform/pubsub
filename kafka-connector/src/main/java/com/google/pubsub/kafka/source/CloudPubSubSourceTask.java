@@ -23,12 +23,14 @@ import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.protobuf.util.Timestamps;
 import com.google.pubsub.kafka.common.ConnectorUtils;
+import com.google.pubsub.kafka.common.ConnectorCredentialsProvider;
 import com.google.pubsub.kafka.source.CloudPubSubSourceConnector.PartitionScheme;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -70,6 +72,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   private CloudPubSubSubscriber subscriber;
   private Set<String> ackIdsInFlight = Collections.synchronizedSet(new HashSet<String>());
   private final Set<String> standardAttributes = new HashSet<>();
+  private ConnectorCredentialsProvider gcpCredentialsProvider;
 
   public CloudPubSubSourceTask() {}
 
@@ -103,9 +106,25 @@ public class CloudPubSubSourceTask extends SourceTask {
     kafkaPartitionScheme =
         PartitionScheme.getEnum(
             (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
+    gcpCredentialsProvider = new ConnectorCredentialsProvider();
+    String gcpCredentialsFilePath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
+    String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
+    if (gcpCredentialsFilePath != null) {
+      try {
+        gcpCredentialsProvider.loadFromFile(gcpCredentialsFilePath);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    } else if (credentialsJson != null) {
+      try {
+        gcpCredentialsProvider.loadJson(credentialsJson);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
     if (subscriber == null) {
       // Only do this if we did not set through the constructor.
-      subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS);
+      subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS, gcpCredentialsProvider);
     }
     standardAttributes.add(kafkaMessageKeyAttribute);
     standardAttributes.add(kafkaMessageTimestampAttribute);

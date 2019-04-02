@@ -23,8 +23,11 @@ import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
+import com.google.pubsub.kafka.common.ConnectorCredentialsProvider;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
+
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -32,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.connect.data.Field;
@@ -65,6 +69,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private int maxRequestTimeoutMs;
   private int maxTotalTimeoutMs;
   private boolean includeMetadata;
+  private ConnectorCredentialsProvider gcpCredentialsProvider;
   private com.google.cloud.pubsub.v1.Publisher publisher;
 
   /** Holds a list of the publishing futures that have not been processed for a single partition. */
@@ -108,6 +113,22 @@ public class CloudPubSubSinkTask extends SinkTask {
         (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_TOTAL_TIMEOUT_MS);
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
+    gcpCredentialsProvider = new ConnectorCredentialsProvider();
+    String credentialsPath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
+    String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
+    if (credentialsPath != null) {
+      try {
+        gcpCredentialsProvider.loadFromFile(credentialsPath);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    } else if (credentialsJson != null) {
+      try {
+        gcpCredentialsProvider.loadJson(credentialsJson);
+      } catch (IOException e) {
+        throw new RuntimeException(e);
+      }
+    }
     if (publisher == null) {
       // Only do this if we did not use the constructor.
       createPublisher();
@@ -298,6 +319,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     ProjectTopicName fullTopic = ProjectTopicName.of(cpsProject, cpsTopic);
     com.google.cloud.pubsub.v1.Publisher.Builder builder =
         com.google.cloud.pubsub.v1.Publisher.newBuilder(fullTopic)
+            .setCredentialsProvider(gcpCredentialsProvider)
             .setBatchingSettings(
                 BatchingSettings.newBuilder()
                     .setDelayThreshold(Duration.ofMillis(maxDelayThresholdMs))

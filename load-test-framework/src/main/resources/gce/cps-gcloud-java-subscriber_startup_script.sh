@@ -1,4 +1,4 @@
-#/bin/bash
+#!/bin/bash
 
 #######################################
 # Query GCE for a provided metadata field.
@@ -27,5 +27,10 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 
 wait $PIDAPT
 
-# Run the loadtest binary
-java -Xmx5000M -cp ${TMP}/driver.jar com.google.pubsub.clients.gcloud.CPSSubscriberTask
+ulimit -n 32768
+
+# Run the loadtest binary.  30G is used but the client will ensure
+# it never approaches that limit on smaller machines. Subscriber
+# is flow controlled to 100MB/worker thread, which is usually
+# 5x(number of cores).
+java -Xmx30G -cp ${TMP}/driver.jar com.google.pubsub.clients.gcloud.CPSSubscriberTask
