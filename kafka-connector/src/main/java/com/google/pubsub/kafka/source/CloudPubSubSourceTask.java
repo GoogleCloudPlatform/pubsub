@@ -42,6 +42,8 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.header.ConnectHeaders;
+import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
@@ -155,7 +157,7 @@ public class CloudPubSubSourceTask extends SourceTask {
           continue;
         }
         ackIds.add(ackId);
-        Map<String, String> messageAttributes = message.getAttributes();
+        Map<String, String> messageAttributes = message.getAttributesMap();
         String key = messageAttributes.get(kafkaMessageKeyAttribute);
         Long timestamp = getLongValue(messageAttributes.get(kafkaMessageTimestampAttribute));
         if (timestamp == null){
@@ -169,40 +171,26 @@ public class CloudPubSubSourceTask extends SourceTask {
         Map<String,String> ack = Collections.singletonMap(cpsSubscription, ackId);
         SourceRecord record = null;
         if (hasCustomAttributes) {
-          SchemaBuilder valueSchemaBuilder = SchemaBuilder.struct().field(
-              ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
-              Schema.BYTES_SCHEMA);
-
+          ConnectHeaders headers = new ConnectHeaders();
           for (Entry<String, String> attribute :
                messageAttributes.entrySet()) {
             if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
-              valueSchemaBuilder.field(attribute.getKey(),
-                                       Schema.STRING_SCHEMA);
+              headers.addString(attribute.getKey(), attribute.getValue());
             }
           }
 
-          Schema valueSchema = valueSchemaBuilder.build();
-          Struct value =
-              new Struct(valueSchema)
-                  .put(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
-                       messageBytes);
-          for (Field field : valueSchema.fields()) {
-            if (!field.name().equals(
-                    ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD)) {
-              value.put(field.name(), messageAttributes.get(field.name()));
-            }
-          }
           record =
             new SourceRecord(
                 null,
                 ack,
                 kafkaTopic,
-                selectPartition(key, value),
+                selectPartition(key, messageBytes),
                 Schema.OPTIONAL_STRING_SCHEMA,
                 key,
-                valueSchema,
-                value,
-                timestamp);
+                Schema.BYTES_SCHEMA,
+                messageBytes,
+                timestamp,
+                headers);
         } else {
           record =
             new SourceRecord(
