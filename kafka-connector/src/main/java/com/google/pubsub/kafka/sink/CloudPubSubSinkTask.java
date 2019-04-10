@@ -43,6 +43,7 @@ import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.Schema.Type;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
+import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -69,6 +70,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private int maxRequestTimeoutMs;
   private int maxTotalTimeoutMs;
   private boolean includeMetadata;
+  private boolean includeHeaders;
   private ConnectorCredentialsProvider gcpCredentialsProvider;
   private com.google.cloud.pubsub.v1.Publisher publisher;
 
@@ -113,6 +115,7 @@ public class CloudPubSubSinkTask extends SinkTask {
         (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_TOTAL_TIMEOUT_MS);
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
+    includeHeaders = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_HEADERS);
     gcpCredentialsProvider = new ConnectorCredentialsProvider();
     String credentialsPath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
     String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
@@ -139,9 +142,9 @@ public class CloudPubSubSinkTask extends SinkTask {
   @Override
   public void put(Collection<SinkRecord> sinkRecords) {
     log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
-    PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
       log.trace("Received record: " + record.toString());
+      PubsubMessage.Builder builder = PubsubMessage.newBuilder();
       Map<String, String> attributes = new HashMap<>();
       ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
       if (record.key() != null) {
@@ -154,6 +157,11 @@ public class CloudPubSubSinkTask extends SinkTask {
             ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
         attributes.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, Long.toString(record.kafkaOffset()));
         attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, record.timestamp().toString());
+      }
+      if (includeHeaders && record.headers() != null && !record.headers().isEmpty()) {
+        for (Header header : record.headers()) {
+          attributes.put(header.key(), header.value().toString());
+        }
       }
       PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
       publishMessage(record.topic(), record.kafkaPartition(), message);

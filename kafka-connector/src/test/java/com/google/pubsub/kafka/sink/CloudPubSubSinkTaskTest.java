@@ -19,7 +19,6 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -27,8 +26,6 @@ import static org.mockito.Mockito.when;
 
 import com.google.api.core.ApiFuture;
 import com.google.cloud.pubsub.v1.Publisher;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.PubsubMessage;
@@ -383,6 +380,56 @@ public class CloudPubSubSinkTaskTest {
         PubsubMessage.newBuilder().putAllAttributes(attributes2).setData(KAFKA_MESSAGE2).build());
 
     assertEquals(requestArgs, expectedMessages);
+  }
+
+  /**
+   * Tests that when requested, Kafka headers are included in the messages published to Cloud
+   * Pub/Sub.
+   */
+  @Test
+  public void testKafkaHeaders() {
+    props.put(CloudPubSubSinkConnector.PUBLISH_KAFKA_HEADERS, "true");
+    task.start(props);
+    List<SinkRecord> records = new ArrayList<SinkRecord>();
+    SinkRecord record = new SinkRecord(
+            KAFKA_TOPIC,
+            4,
+            STRING_SCHEMA,
+            KAFKA_MESSAGE_KEY,
+            BYTE_STRING_SCHEMA,
+            KAFKA_MESSAGE1,
+            1000);
+    record.headers().addString("myheader", "myvalue");
+    records.add(record);
+    record = new SinkRecord(
+            KAFKA_TOPIC,
+            4,
+            STRING_SCHEMA,
+            KAFKA_MESSAGE_KEY,
+            BYTE_STRING_SCHEMA,
+            KAFKA_MESSAGE2,
+            1001);
+    record.headers().addString("yourheader", "yourvalue");
+    records.add(record);
+    task.put(records);
+    ArgumentCaptor<PubsubMessage> captor = ArgumentCaptor.forClass(PubsubMessage.class);
+    verify(publisher, times(2)).publish(captor.capture());
+    List<PubsubMessage> requestArgs = captor.getAllValues();
+
+
+    List<PubsubMessage> expectedMessages = new ArrayList<>();
+    Map<String, String> attributes1 = new HashMap<>();
+    attributes1.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
+    attributes1.put("myheader", "myvalue");
+    expectedMessages.add(
+            PubsubMessage.newBuilder().putAllAttributes(attributes1).setData(KAFKA_MESSAGE1).build());
+    Map<String, String> attributes2 = new HashMap<>();
+    attributes2.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
+    attributes2.put("yourheader", "yourvalue");
+    expectedMessages.add(
+            PubsubMessage.newBuilder().putAllAttributes(attributes2).setData(KAFKA_MESSAGE2).build());
+
+    assertEquals(expectedMessages, requestArgs);
   }
 
   /**
