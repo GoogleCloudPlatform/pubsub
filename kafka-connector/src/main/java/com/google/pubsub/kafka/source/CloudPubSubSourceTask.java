@@ -178,29 +178,7 @@ public class CloudPubSubSourceTask extends SourceTask {
               headers.addString(attribute.getKey(), attribute.getValue());
             }
           }
-          /*SchemaBuilder valueSchemaBuilder = SchemaBuilder.struct().field(
-              ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
-              Schema.BYTES_SCHEMA);
 
-          for (Entry<String, String> attribute :
-               messageAttributes.entrySet()) {
-            if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
-              valueSchemaBuilder.field(attribute.getKey(),
-                                       Schema.STRING_SCHEMA);
-            }
-          }
-
-          Schema valueSchema = valueSchemaBuilder.build();
-          Struct value =
-              new Struct(valueSchema)
-                  .put(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
-                       messageBytes);
-          for (Field field : valueSchema.fields()) {
-            if (!field.name().equals(
-                    ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD)) {
-              value.put(field.name(), messageAttributes.get(field.name()));
-            }
-          }*/
           record =
             new SourceRecord(
                 null,

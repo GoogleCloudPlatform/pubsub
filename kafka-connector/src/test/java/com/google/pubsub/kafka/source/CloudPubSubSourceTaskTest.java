@@ -273,26 +273,7 @@ public class CloudPubSubSourceTaskTest {
     List<SourceRecord> result = task.poll();
     verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
     assertEquals(1, result.size());
-    /*Schema expectedSchema =
-        SchemaBuilder.struct()
-            .field(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD, Schema.BYTES_SCHEMA)
-            .field("attribute1", Schema.STRING_SCHEMA)
-            .field("attribute2", Schema.STRING_SCHEMA)
-            .build();
-    Struct expectedValue = new Struct(expectedSchema)
-                               .put(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD, KAFKA_VALUE)
-                               .put("attribute1", "attribute_value1")
-                               .put("attribute2", "attribute_value2");
-    SourceRecord expected =
-        new SourceRecord(
-            null,
-            null,
-            KAFKA_TOPIC,
-            0,
-            Schema.OPTIONAL_STRING_SCHEMA,
-            KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
-            expectedSchema,
-            expectedValue);*/
+
     ConnectHeaders headers = new ConnectHeaders();
     headers.addString("attribute1", "attribute_value1");
     headers.addString("attribute2", "attribute_value2");
