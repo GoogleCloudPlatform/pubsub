@@ -32,7 +32,6 @@ import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -45,7 +44,6 @@ import org.apache.kafka.connect.data.Schema.Type;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.errors.DataException;
 import org.apache.kafka.connect.header.Header;
-import org.apache.kafka.connect.header.Headers;
 import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import org.slf4j.Logger;
@@ -62,7 +60,7 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   // Maps a topic to another map which contains the outstanding futures per partition
   private Map<String, Map<Integer, OutstandingFuturesForPartition>> allOutstandingFutures =
-      new HashMap<>();
+          new HashMap<>();
   private String cpsProject;
   private String cpsTopic;
   private String messageBodyName;
@@ -72,6 +70,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private int maxRequestTimeoutMs;
   private int maxTotalTimeoutMs;
   private boolean includeMetadata;
+  private boolean includeHeaders;
   private ConnectorCredentialsProvider gcpCredentialsProvider;
   private com.google.cloud.pubsub.v1.Publisher publisher;
 
@@ -109,13 +108,14 @@ public class CloudPubSubSinkTask extends SinkTask {
     maxBufferSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG);
     maxBufferBytes = (Long) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_BYTES_CONFIG);
     maxDelayThresholdMs =
-        (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_DELAY_THRESHOLD_MS);
+            (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_DELAY_THRESHOLD_MS);
     maxRequestTimeoutMs =
-        (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_REQUEST_TIMEOUT_MS);
+            (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_REQUEST_TIMEOUT_MS);
     maxTotalTimeoutMs =
-        (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_TOTAL_TIMEOUT_MS);
+            (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_TOTAL_TIMEOUT_MS);
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
+    includeHeaders = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_HEADERS);
     gcpCredentialsProvider = new ConnectorCredentialsProvider();
     String credentialsPath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
     String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
@@ -142,9 +142,9 @@ public class CloudPubSubSinkTask extends SinkTask {
   @Override
   public void put(Collection<SinkRecord> sinkRecords) {
     log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
-    PubsubMessage.Builder builder = PubsubMessage.newBuilder();
     for (SinkRecord record : sinkRecords) {
       log.trace("Received record: " + record.toString());
+      PubsubMessage.Builder builder = PubsubMessage.newBuilder();
       Map<String, String> attributes = new HashMap<>();
       ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
       if (record.key() != null) {
@@ -154,14 +154,14 @@ public class CloudPubSubSinkTask extends SinkTask {
       if (includeMetadata) {
         attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, record.topic());
         attributes.put(
-            ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
+                ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
         attributes.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, Long.toString(record.kafkaOffset()));
         attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, record.timestamp().toString());
       }
-      final Iterator<Header> headerIterator = record.headers().iterator();
-      while(headerIterator.hasNext()) {
-        final Header recordHeader = headerIterator.next();
-        attributes.put(recordHeader.key(), String.valueOf(recordHeader.value()));
+      if (includeHeaders && record.headers() != null && !record.headers().isEmpty()) {
+        for (Header header : record.headers()) {
+          attributes.put(header.key(), header.value().toString());
+        }
       }
       PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
       publishMessage(record.topic(), record.kafkaPartition(), message);
@@ -223,7 +223,7 @@ public class CloudPubSubSinkTask extends SinkTask {
           Schema.Type fieldType = f.schema().type();
           if (fieldType == Type.MAP || fieldType == Type.STRUCT) {
             throw new DataException("Struct type does not support nested Map or Struct types, " +
-                "present in field " + f.name());
+                    "present in field " + f.name());
           }
 
           Object val = struct.get(f);
@@ -282,15 +282,15 @@ public class CloudPubSubSinkTask extends SinkTask {
     log.debug("Flushing...");
     // Process results of all the outstanding futures specified by each TopicPartition.
     for (Map.Entry<TopicPartition, OffsetAndMetadata> partitionOffset :
-        partitionOffsets.entrySet()) {
+            partitionOffsets.entrySet()) {
       log.trace("Received flush for partition " + partitionOffset.getKey().toString());
       Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =
-          allOutstandingFutures.get(partitionOffset.getKey().topic());
+              allOutstandingFutures.get(partitionOffset.getKey().topic());
       if (outstandingFuturesForTopic == null) {
         continue;
       }
       OutstandingFuturesForPartition outstandingFutures =
-          outstandingFuturesForTopic.get(partitionOffset.getKey().partition());
+              outstandingFuturesForTopic.get(partitionOffset.getKey().partition());
       if (outstandingFutures == null) {
         continue;
       }
@@ -309,7 +309,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private void publishMessage(String topic, Integer partition, PubsubMessage message) {
     // Get a map containing all futures per partition for the passed in topic.
     Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =
-        allOutstandingFutures.get(topic);
+            allOutstandingFutures.get(topic);
     if (outstandingFuturesForTopic == null) {
       outstandingFuturesForTopic = new HashMap<>();
       allOutstandingFutures.put(topic, outstandingFuturesForTopic);
@@ -326,26 +326,26 @@ public class CloudPubSubSinkTask extends SinkTask {
   private void createPublisher() {
     ProjectTopicName fullTopic = ProjectTopicName.of(cpsProject, cpsTopic);
     com.google.cloud.pubsub.v1.Publisher.Builder builder =
-        com.google.cloud.pubsub.v1.Publisher.newBuilder(fullTopic)
-            .setCredentialsProvider(gcpCredentialsProvider)
-            .setBatchingSettings(
-                BatchingSettings.newBuilder()
-                    .setDelayThreshold(Duration.ofMillis(maxDelayThresholdMs))
-                    .setElementCountThreshold(maxBufferSize)
-                    .setRequestByteThreshold(maxBufferBytes)
-                    .build())
-            .setRetrySettings(
-                RetrySettings.newBuilder()
-                    // All values that are not configurable come from the defaults for the publisher
-                    // client library.
-                    .setTotalTimeout(Duration.ofMillis(maxTotalTimeoutMs))
-                    .setMaxRpcTimeout(Duration.ofMillis(maxRequestTimeoutMs))
-                    .setInitialRetryDelay(Duration.ofMillis(5))
-                    .setRetryDelayMultiplier(2)
-                    .setMaxRetryDelay(Duration.ofMillis(Long.MAX_VALUE))
-                    .setInitialRpcTimeout(Duration.ofSeconds(10))
-                    .setRpcTimeoutMultiplier(2)
-                    .build());
+            com.google.cloud.pubsub.v1.Publisher.newBuilder(fullTopic)
+                    .setCredentialsProvider(gcpCredentialsProvider)
+                    .setBatchingSettings(
+                            BatchingSettings.newBuilder()
+                                    .setDelayThreshold(Duration.ofMillis(maxDelayThresholdMs))
+                                    .setElementCountThreshold(maxBufferSize)
+                                    .setRequestByteThreshold(maxBufferBytes)
+                                    .build())
+                    .setRetrySettings(
+                            RetrySettings.newBuilder()
+                                    // All values that are not configurable come from the defaults for the publisher
+                                    // client library.
+                                    .setTotalTimeout(Duration.ofMillis(maxTotalTimeoutMs))
+                                    .setMaxRpcTimeout(Duration.ofMillis(maxRequestTimeoutMs))
+                                    .setInitialRetryDelay(Duration.ofMillis(5))
+                                    .setRetryDelayMultiplier(2)
+                                    .setMaxRetryDelay(Duration.ofMillis(Long.MAX_VALUE))
+                                    .setInitialRpcTimeout(Duration.ofSeconds(10))
+                                    .setRpcTimeoutMultiplier(2)
+                                    .build());
     try {
       publisher = builder.build();
     } catch (Exception e) {
