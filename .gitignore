@@ -8,3 +8,8 @@ data
 *.iml
 *.out
 .metadata
+*.pyc
+node_modules/
+venv/
+.DS_Store
+.idea/
