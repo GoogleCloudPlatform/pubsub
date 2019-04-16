@@ -21,9 +21,6 @@ import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.ClientParams;
 import com.google.pubsub.flic.controllers.ClientType;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.File;
 import java.io.IOException;
 import java.net.ServerSocket;
@@ -34,6 +31,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class LocalComputeResourceController extends ComputeResourceController {
   private static final Logger log = LoggerFactory.getLogger(LocalComputeResourceController.class);

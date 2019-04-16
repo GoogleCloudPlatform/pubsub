@@ -15,11 +15,10 @@
  */
 package com.google.pubsub.clients.common;
 
+import com.google.pubsub.flic.common.LoadtestProto;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.concurrent.atomic.AtomicInteger;
-
-import com.google.pubsub.flic.common.LoadtestProto;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

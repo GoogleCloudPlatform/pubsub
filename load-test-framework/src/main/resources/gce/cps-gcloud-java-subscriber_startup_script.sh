@@ -29,8 +29,8 @@ wait $PIDAPT
 
 ulimit -n 32768
 
-# Run the loadtest binary.  30G is used but the client will ensure
-# it never approaches that limit on smaller machines. Subscriber
-# is flow controlled to 100MB/worker thread, which is usually
-# 5x(number of cores).
-java -Xmx30G -cp ${TMP}/driver.jar com.google.pubsub.clients.gcloud.CPSSubscriberTask
+# Limit the jvm to 2/3 available memory.
+MEM="$(cat /proc/meminfo | head -n 1 | awk '{print $2}')"
+let "MEMJAVA = (MEM * 2 / 3) / 1000"
+
+java -Xmx${MEMJAVA}m -cp ${TMP}/driver.jar com.google.pubsub.clients.gcloud.CPSSubscriberTask

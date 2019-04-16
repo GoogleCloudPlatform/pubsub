@@ -20,12 +20,11 @@ import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 import com.google.api.services.compute.Compute;
 import com.google.api.services.compute.model.Firewall;
 import com.google.common.collect.ImmutableList;
+import java.util.Collections;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Collections;
-import java.util.concurrent.ScheduledExecutorService;
 
 public class FirewallResourceController extends ResourceController {
   private static final Logger log = LoggerFactory.getLogger(FirewallResourceController.class);

@@ -17,7 +17,6 @@
 package com.google.pubsub.flic.controllers.test_parameters;
 
 import com.google.common.collect.ImmutableList;
-
 import java.util.List;
 
 public class CoreScalingTestParameterProvider implements TestParameterProvider {

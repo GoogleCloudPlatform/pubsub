@@ -23,14 +23,13 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.*;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.ClientParams;
-import org.apache.http.HttpStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import javax.annotation.Nullable;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
+import javax.annotation.Nullable;
+import org.apache.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** A ResourceController which manages compute resource_controllers */
 public class GCEComputeResourceController extends ComputeResourceController {
@@ -60,7 +59,10 @@ public class GCEComputeResourceController extends ComputeResourceController {
   }
 
   private String instanceName() {
-    return "cps-loadtest-" + params.getClientType() + "-" + params.getTestParameters().numCoresPerWorker();
+    return "cps-loadtest-"
+        + params.getClientType()
+        + "-"
+        + params.getTestParameters().numCoresPerWorker();
   }
 
   private void startInstances() throws Exception {
@@ -237,23 +239,28 @@ public class GCEComputeResourceController extends ComputeResourceController {
     ArrayList<Client> clients = new ArrayList<>();
     InstanceGroupManagersListManagedInstancesResponse response;
     while (true) {
-      response =
-          compute
-              .instanceGroupManagers()
-              .listManagedInstances(project, params.getZone(), instanceName())
-              .execute();
+      try {
+        response =
+            compute
+                .instanceGroupManagers()
+                .listManagedInstances(project, params.getZone(), instanceName())
+                .execute();
+      } catch (GoogleJsonResponseException e) {
+        log.warn("Unable to fetch response: ", e);
+        continue;
+      }
 
       if (response != null) {
         if (response.getManagedInstances() != null) {
           if (response.getManagedInstances().stream()
-              .allMatch(i -> "NONE".equals(i.getCurrentAction()))) {
+              .allMatch(i -> "RUNNING".equals(i.getInstanceStatus()))) {
             break;
           }
         }
       }
 
       log.warn("Instances not yet ready: " + (response == null ? "null" : response));
-      Thread.sleep(5000);
+      Thread.sleep(10000);
     }
 
     for (ManagedInstance managedInstance : response.getManagedInstances()) {
@@ -292,7 +299,7 @@ public class GCEComputeResourceController extends ComputeResourceController {
           throw e;
         }
       }
-      Thread.sleep(100);
+      Thread.sleep(1000);
     }
     compute.instanceTemplates().delete(project, instanceName());
     log.info("Cleaned up compute resource_controllers.");

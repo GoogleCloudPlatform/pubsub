@@ -16,9 +16,8 @@
 
 package com.google.pubsub.clients.common;
 
-import org.slf4j.Logger;
-
 import java.util.concurrent.atomic.AtomicInteger;
+import org.slf4j.Logger;
 
 public class LogEveryN {
   private final Logger logger;

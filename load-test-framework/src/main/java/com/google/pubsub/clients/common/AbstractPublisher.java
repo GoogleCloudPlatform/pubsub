@@ -18,16 +18,15 @@ package com.google.pubsub.clients.common;
 
 import com.google.common.util.concurrent.*;
 import com.google.protobuf.ByteString;
-import com.google.pubsub.clients.flow_control.OutstandingCountFlowController;
 import com.google.pubsub.clients.flow_control.FlowController;
+import com.google.pubsub.clients.flow_control.OutstandingCountFlowController;
 import com.google.pubsub.clients.flow_control.RateLimiterFlowController;
 import com.google.pubsub.flic.common.LoadtestProto;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.Random;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class AbstractPublisher extends PooledWorkerTask {
   private static final Logger log = LoggerFactory.getLogger(AbstractPublisher.class);

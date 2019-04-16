@@ -27,10 +27,9 @@ import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
+import java.time.Duration;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.time.Duration;
 
 /** Runs a task that consumes messages from a Cloud Pub/Sub subscription. */
 public class CPSSubscriberTask implements LoadtestTask, MessageReceiver {

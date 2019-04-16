@@ -54,7 +54,7 @@ class OutstandingCountFlowController extends FlowController {
     // the completion rate in the next two seconds.
     constructor(initalPerSecondRate) {
         super();
-        this.ratePerSecond = initalPerSecondRate;
+        this.ratePerSecond = Math.max(initalPerSecondRate, 1);
         this.bucketer = new CyclicBucketer();
         this.outstanding = 0;
 

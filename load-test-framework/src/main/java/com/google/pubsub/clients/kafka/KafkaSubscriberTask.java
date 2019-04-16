@@ -26,11 +26,9 @@ import com.google.pubsub.clients.common.MetricsHandler;
 import com.google.pubsub.clients.common.PooledWorkerTask;
 import com.google.pubsub.flic.common.LoadtestProto;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
-
 import java.time.Duration;
 import java.util.Collections;
 import java.util.Properties;
-
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;

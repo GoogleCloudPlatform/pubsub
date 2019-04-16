@@ -17,7 +17,6 @@
 package com.google.pubsub.flic.controllers.test_parameters;
 
 import com.google.protobuf.util.Durations;
-
 import java.util.Optional;
 
 public class StandardParameters {
@@ -29,7 +28,8 @@ public class StandardParameters {
           .setPublishBatchDuration(Durations.fromMillis(1))
           .setNumCoresPerWorker(1)
           .build();
-  public static TestParameters THROUGHPUT = TestParameters.builder().setNumCoresPerWorker(16).build();
+  public static TestParameters THROUGHPUT =
+      TestParameters.builder().setNumCoresPerWorker(16).build();
   public static TestParameters NOOP =
       TestParameters.builder()
           .setBurnInDuration(Durations.fromSeconds(0))

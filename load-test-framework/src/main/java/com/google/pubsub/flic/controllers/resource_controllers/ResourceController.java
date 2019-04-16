@@ -18,7 +18,6 @@ package com.google.pubsub.flic.controllers.resource_controllers;
 
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
-
 import java.util.concurrent.ScheduledExecutorService;
 
 /**
