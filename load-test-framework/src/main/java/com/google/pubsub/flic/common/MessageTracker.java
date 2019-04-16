@@ -17,7 +17,6 @@
 package com.google.pubsub.flic.common;
 
 import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
-
 import java.util.*;
 
 /** Ensures that no message loss has occurred. */

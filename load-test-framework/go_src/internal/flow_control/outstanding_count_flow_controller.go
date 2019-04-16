@@ -17,6 +17,7 @@
 package flow_control
 
 import (
+	"math"
 	"sync"
 	"time"
 )
@@ -104,7 +105,7 @@ func NewOutstandingCountFlowController(initialRate float64) FlowController {
 		incrementChan: make(chan int),
 		decrementChan: make(chan bool, finishedBufferSize),
 		updateChan:    make(chan float64),
-		ratePerSecond: initialRate,
+		ratePerSecond: math.Max(initialRate, 1),
 		bucketer:      newCyclicBucketer(expiryLatencyMilliseconds / rateUpdateDelayMilliseconds),
 	}
 	// Latency updater

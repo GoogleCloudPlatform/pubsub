@@ -17,11 +17,8 @@
 package com.google.pubsub.flic.common;
 
 import com.google.common.base.Preconditions;
-
 import java.util.ArrayList;
 import java.util.List;
-
-import com.google.protobuf.Int64Value;
 
 /**
  * Takes latency measurements and stores them in buckets for more efficient storage, along with

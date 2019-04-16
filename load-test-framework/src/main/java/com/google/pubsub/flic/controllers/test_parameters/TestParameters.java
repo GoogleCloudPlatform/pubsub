@@ -17,10 +17,8 @@
 package com.google.pubsub.flic.controllers.test_parameters;
 
 import com.google.auto.value.AutoValue;
-
 import com.google.protobuf.Duration;
 import com.google.protobuf.util.Durations;
-
 import java.util.Optional;
 
 @AutoValue

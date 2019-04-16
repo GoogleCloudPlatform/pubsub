@@ -24,13 +24,12 @@ import com.google.pubsub.clients.gcloud.CPSPublisherTask;
 import com.google.pubsub.clients.gcloud.CPSSubscriberTask;
 import com.google.pubsub.flic.controllers.Client;
 import com.google.pubsub.flic.controllers.ClientParams;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class InprocessJavaComputeResourceController extends ComputeResourceController {
   private static final Logger log = LoggerFactory.getLogger(LocalComputeResourceController.class);
