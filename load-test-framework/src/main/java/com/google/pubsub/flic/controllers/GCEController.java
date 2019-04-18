@@ -24,9 +24,7 @@ import com.google.api.services.compute.Compute;
 import com.google.api.services.pubsub.Pubsub;
 import com.google.api.services.storage.Storage;
 import com.google.common.collect.ImmutableList;
-import com.google.pubsub.flic.common.KafkaFlags;
 import com.google.pubsub.flic.controllers.resource_controllers.*;
-
 import java.util.*;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;

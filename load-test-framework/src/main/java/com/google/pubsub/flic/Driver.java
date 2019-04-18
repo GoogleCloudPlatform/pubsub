@@ -26,16 +26,15 @@ import com.google.protobuf.util.Timestamps;
 import com.google.pubsub.flic.common.KafkaFlags;
 import com.google.pubsub.flic.common.LatencyTracker;
 import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
+import com.google.pubsub.flic.common.MessageTracker;
 import com.google.pubsub.flic.common.StatsUtils;
 import com.google.pubsub.flic.controllers.*;
-import com.google.pubsub.flic.common.MessageTracker;
-import com.google.pubsub.flic.controllers.test_parameters.TestParameters;
 import com.google.pubsub.flic.controllers.test_parameters.ParameterOverrides;
 import com.google.pubsub.flic.controllers.test_parameters.TestParameterProvider;
 import com.google.pubsub.flic.controllers.test_parameters.TestParameterProviderConverter;
+import com.google.pubsub.flic.controllers.test_parameters.TestParameters;
 import com.google.pubsub.flic.output.CsvOutput;
 import com.google.pubsub.flic.output.ResultsOutput;
-
 import java.text.DecimalFormat;
 import java.util.HashMap;
 import java.util.List;
@@ -43,7 +42,6 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-
 import org.apache.log4j.BasicConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -180,7 +178,8 @@ public class Driver {
   }
 
   private Map<ClientType, LatencyTracker> run(
-      TestParameters testParameters, BiFunction<String, Map<ClientParams, Integer>, Controller> controllerFunction) {
+      TestParameters testParameters,
+      BiFunction<String, Map<ClientParams, Integer>, Controller> controllerFunction) {
     Map<ClientParams, Integer> clientParamsMap = new HashMap<>();
     ClientParams.Builder params = ClientParams.builder();
     params.setTestParameters(testParameters);
@@ -201,8 +200,10 @@ public class Driver {
     ClientType publisherType = new ClientType(type, language, ClientType.MessagingSide.PUBLISHER);
     ClientType subscriberType = new ClientType(type, language, ClientType.MessagingSide.SUBSCRIBER);
 
-    clientParamsMap.put(params.setClientType(publisherType).build(), testParameters.numPublisherWorkers());
-    clientParamsMap.put(params.setClientType(subscriberType).build(), testParameters.numSubscriberWorkers());
+    clientParamsMap.put(
+        params.setClientType(publisherType).build(), testParameters.numPublisherWorkers());
+    clientParamsMap.put(
+        params.setClientType(subscriberType).build(), testParameters.numSubscriberWorkers());
     try {
       controller = controllerFunction.apply(project, clientParamsMap);
       if (controller == null) {

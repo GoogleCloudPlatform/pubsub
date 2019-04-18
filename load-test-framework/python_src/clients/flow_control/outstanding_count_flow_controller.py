@@ -16,7 +16,7 @@ class OutstandingCountFlowController(FlowController):
     """
 
     def __init__(self, initial_per_second: float):
-        self.rate_per_second = initial_per_second
+        self.rate_per_second = max(initial_per_second, 1.0)
         self.index = 0
         self.outstanding = 0
         self.condition = Condition()

@@ -21,11 +21,6 @@ import com.google.api.client.http.FileContent;
 import com.google.api.client.util.Base64;
 import com.google.api.services.storage.Storage;
 import com.google.api.services.storage.model.Bucket;
-import org.apache.commons.codec.digest.DigestUtils;
-import org.apache.http.HttpStatus;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
@@ -36,6 +31,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.stream.Collectors;
+import org.apache.commons.codec.digest.DigestUtils;
+import org.apache.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class StorageResourceController extends ResourceController {
   protected static final Logger log = LoggerFactory.getLogger(StorageResourceController.class);

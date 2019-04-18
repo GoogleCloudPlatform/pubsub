@@ -18,9 +18,6 @@ package com.google.pubsub.clients.common;
 
 import com.google.common.util.concurrent.SettableFuture;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
@@ -28,6 +25,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.IntStream;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /** A LoadtestTask that manages its actions using a thread pool. */
 public abstract class PooledWorkerTask implements LoadtestTask {

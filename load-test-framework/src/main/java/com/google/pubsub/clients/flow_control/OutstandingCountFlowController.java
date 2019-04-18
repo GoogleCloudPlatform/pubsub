@@ -19,7 +19,6 @@ package com.google.pubsub.clients.flow_control;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.Monitor;
-
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -63,7 +62,7 @@ public class OutstandingCountFlowController implements FlowController {
       Executors.newSingleThreadScheduledExecutor();
 
   public OutstandingCountFlowController(double startingPerSecond) {
-    this.ratePerSecond = startingPerSecond;
+    this.ratePerSecond = Math.max(startingPerSecond, 1);
     this.expiryCache =
         CacheBuilder.newBuilder().expireAfterWrite(expiryLatencySeconds, TimeUnit.SECONDS).build();
     updateExecutor.scheduleAtFixedRate(
@@ -76,7 +75,7 @@ public class OutstandingCountFlowController implements FlowController {
   private void updateRate() {
     expiryCache.cleanUp();
     monitor.enter();
-    ratePerSecond = expiryCache.size() * 1.0 / expiryLatencySeconds;
+    ratePerSecond = Math.max(expiryCache.size() * 1.0 / expiryLatencySeconds, 1);
     monitor.leave();
   }
 

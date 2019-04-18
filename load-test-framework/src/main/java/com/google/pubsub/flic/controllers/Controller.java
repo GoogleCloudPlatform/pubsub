@@ -19,7 +19,6 @@ package com.google.pubsub.flic.controllers;
 import com.google.protobuf.Timestamp;
 import com.google.pubsub.flic.common.LatencyTracker;
 import com.google.pubsub.flic.common.MessageTracker;
-
 import java.util.Map;
 
 public interface Controller {
