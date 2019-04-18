@@ -19,7 +19,6 @@ package com.google.pubsub.flic.output;
 import com.google.pubsub.flic.common.LatencyTracker;
 import com.google.pubsub.flic.controllers.ClientType;
 import com.google.pubsub.flic.controllers.test_parameters.TestParameters;
-
 import java.util.List;
 
 public interface ResultsOutput {

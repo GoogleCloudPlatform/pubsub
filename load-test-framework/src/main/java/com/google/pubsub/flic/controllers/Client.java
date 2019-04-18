@@ -31,12 +31,10 @@ import io.grpc.ConnectivityState;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
-
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -99,7 +97,7 @@ public class Client {
             .maxInboundMessageSize(1000000000)
             .build();
     long startTimeMillis = System.currentTimeMillis();
-    while ((System.currentTimeMillis() - startTimeMillis) < 300000) {
+    while ((System.currentTimeMillis() - startTimeMillis) < 600000) {
       ConnectivityState state = this.channel.getState(true);
       if (state == ConnectivityState.READY) {
         doneFuture.addListener(
@@ -122,7 +120,7 @@ public class Client {
         throw new RuntimeException(e);
       }
     }
-    throw new RuntimeException("Unable to connect to client in 300 seconds.");
+    throw new RuntimeException("Unable to connect to client in 600 seconds.");
   }
 
   ClientType getClientType() {
@@ -155,7 +153,8 @@ public class Client {
             .setStartTime(startTime)
             .setTestDuration(
                 Durations.add(
-                    params.getTestParameters().loadtestDuration(), params.getTestParameters().burnInDuration()))
+                    params.getTestParameters().loadtestDuration(),
+                    params.getTestParameters().burnInDuration()))
             .setIncludeIds(params.getTestParameters().publishRatePerSec().isPresent());
     if (params.getClientType().isPublisher()) {
       LoadtestProto.PublisherOptions.Builder publisherOptions =
@@ -261,13 +260,15 @@ public class Client {
             }
             runningDuration = checkResponse.getRunningDuration();
             // Has been running for longer than the burn in duration.
-            if (Durations.compare(runningDuration, params.getTestParameters().burnInDuration()) > 0) {
+            if (Durations.compare(runningDuration, params.getTestParameters().burnInDuration())
+                > 0) {
               latencyTracker.addLatencies(checkResponse.getBucketValuesList());
               log.info(
                   "Approximate rate: "
                       + StatsUtils.getThroughput(
                           latencyTracker.getCount(),
-                          Durations.subtract(runningDuration, params.getTestParameters().burnInDuration()),
+                          Durations.subtract(
+                              runningDuration, params.getTestParameters().burnInDuration()),
                           params.getTestParameters().messageSize())
                       + " MB/s");
             }

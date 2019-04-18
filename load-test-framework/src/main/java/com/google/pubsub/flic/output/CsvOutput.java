@@ -17,7 +17,7 @@
 package com.google.pubsub.flic.output;
 
 import com.google.pubsub.flic.common.StatsUtils;
-
+import com.google.pubsub.flic.controllers.Client;
 import java.io.BufferedWriter;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -27,8 +27,6 @@ import java.nio.charset.StandardCharsets;
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.stream.Collectors;
-
-import com.google.pubsub.flic.controllers.Client;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
