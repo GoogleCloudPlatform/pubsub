@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import org.apache.kafka.clients.consumer.OffsetAndMetadata;
 import org.apache.kafka.common.TopicPartition;
@@ -68,6 +69,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private int maxDelayThresholdMs;
   private int maxRequestTimeoutMs;
   private int maxTotalTimeoutMs;
+  private int maxShutdownTimeoutMs;
   private boolean includeMetadata;
   private ConnectorCredentialsProvider gcpCredentialsProvider;
   private com.google.cloud.pubsub.v1.Publisher publisher;
@@ -111,6 +113,8 @@ public class CloudPubSubSinkTask extends SinkTask {
         (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_REQUEST_TIMEOUT_MS);
     maxTotalTimeoutMs =
         (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_TOTAL_TIMEOUT_MS);
+    maxShutdownTimeoutMs =
+        (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_SHUTDOWN_TIMEOUT_MS);
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
     gcpCredentialsProvider = new ConnectorCredentialsProvider();
@@ -346,5 +350,21 @@ public class CloudPubSubSinkTask extends SinkTask {
   }
 
   @Override
-  public void stop() {}
+  public void stop() {
+    log.info("Stopping CloudPubSubSinkTask");
+
+    if (publisher != null) {
+      log.info("Shutting down PubSub publisher");
+      try {
+        publisher.shutdown();
+        boolean terminated = publisher.awaitTermination(maxShutdownTimeoutMs, TimeUnit.MILLISECONDS);
+        if (!terminated) {
+          log.warn(String.format("PubSub publisher did not terminate cleanly in %d ms", maxShutdownTimeoutMs));
+        }
+      } catch (Exception e) {
+        // There is not much we can do here besides logging it as an error
+        log.error("An exception occurred while shutting down PubSub publisher", e);
+      }
+    }
+  }
 }
