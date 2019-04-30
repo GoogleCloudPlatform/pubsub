@@ -42,11 +42,13 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   public static final String MAX_DELAY_THRESHOLD_MS = "delayThresholdMs";
   public static final String MAX_REQUEST_TIMEOUT_MS = "maxRequestTimeoutMs";
   public static final String MAX_TOTAL_TIMEOUT_MS = "maxTotalTimeoutMs";
+  public static final String MAX_SHUTDOWN_TIMEOUT_MS = "maxShutdownTimeoutMs";
   public static final int DEFAULT_MAX_BUFFER_SIZE = 100;
   public static final long DEFAULT_MAX_BUFFER_BYTES = 10000000L;
   public static final int DEFAULT_DELAY_THRESHOLD_MS = 100;
   public static final int DEFAULT_REQUEST_TIMEOUT_MS = 10000;
   public static final int DEFAULT_TOTAL_TIMEOUT_MS = 60000;
+  public static final int DEFAULT_SHUTDOWN_TIMEOUT_MS = 60000;
   public static final String CPS_MESSAGE_BODY_NAME = "messageBodyName";
   public static final String DEFAULT_MESSAGE_BODY_NAME = "cps_message_body";
   public static final String PUBLISH_KAFKA_METADATA = "metadata.publish";
@@ -131,6 +133,14 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             Importance.MEDIUM,
             "The maximum amount of time to wait for a publish to complete (including retries) in "
                 + "Cloud Pub/Sub.")
+        .define(
+            MAX_SHUTDOWN_TIMEOUT_MS,
+            Type.INT,
+            DEFAULT_SHUTDOWN_TIMEOUT_MS,
+            ConfigDef.Range.between(10000, Integer.MAX_VALUE),
+            Importance.MEDIUM,
+            "The maximum amount of time to wait for a publisher to shutdown when stopping task "
+                + "in Kafka Connect.")
         .define(
             PUBLISH_KAFKA_METADATA,
             Type.BOOLEAN,

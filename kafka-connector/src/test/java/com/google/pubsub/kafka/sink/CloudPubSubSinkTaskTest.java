@@ -412,6 +412,18 @@ public class CloudPubSubSinkTaskTest {
     verify(goodFuture, times(2)).addListener(any(Runnable.class), any(Executor.class));
   }
 
+  @Test
+  public void testPublisherShutdownOnStop() throws Exception {
+    int maxShutdownTimeoutMs = 20000;
+    props.put(CloudPubSubSinkConnector.MAX_SHUTDOWN_TIMEOUT_MS, Integer.toString(maxShutdownTimeoutMs));
+
+    task.start(props);
+    task.stop();
+
+    verify(publisher, times(1)).shutdown();
+    verify(publisher, times(1)).awaitTermination(maxShutdownTimeoutMs, TimeUnit.MILLISECONDS);
+  }
+
   /** Get some sample SinkRecords's to use in the tests. */
   private List<SinkRecord> getSampleRecords() {
     List<SinkRecord> records = new ArrayList<>();
