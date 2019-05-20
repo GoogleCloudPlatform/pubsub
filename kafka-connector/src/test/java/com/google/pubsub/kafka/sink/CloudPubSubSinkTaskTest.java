@@ -398,8 +398,10 @@ public class CloudPubSubSinkTaskTest {
             KAFKA_MESSAGE_KEY,
             BYTE_STRING_SCHEMA,
             KAFKA_MESSAGE1,
-            1000);
-    record.headers().addString("myheader", "myvalue");
+            1000,
+            50000L,
+        TimestampType.CREATE_TIME);
+    record.headers().addString("myHeader", "myValue");
     records.add(record);
     record = new SinkRecord(
             KAFKA_TOPIC,
@@ -408,8 +410,10 @@ public class CloudPubSubSinkTaskTest {
             KAFKA_MESSAGE_KEY,
             BYTE_STRING_SCHEMA,
             KAFKA_MESSAGE2,
-            1001);
-    record.headers().addString("yourheader", "yourvalue");
+            1001,
+            50001L,
+        TimestampType.CREATE_TIME);
+    record.headers().addString("yourHeader", "yourValue");
     records.add(record);
     task.put(records);
     ArgumentCaptor<PubsubMessage> captor = ArgumentCaptor.forClass(PubsubMessage.class);
@@ -420,15 +424,88 @@ public class CloudPubSubSinkTaskTest {
     List<PubsubMessage> expectedMessages = new ArrayList<>();
     Map<String, String> attributes1 = new HashMap<>();
     attributes1.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
-    attributes1.put("myheader", "myvalue");
+    attributes1.put("myHeader", "myValue");
     expectedMessages.add(
             PubsubMessage.newBuilder().putAllAttributes(attributes1).setData(KAFKA_MESSAGE1).build());
     Map<String, String> attributes2 = new HashMap<>();
     attributes2.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
-    attributes2.put("yourheader", "yourvalue");
+    attributes2.put("yourHeader", "yourValue");
     expectedMessages.add(
             PubsubMessage.newBuilder().putAllAttributes(attributes2).setData(KAFKA_MESSAGE2).build());
 
+    assertEquals(expectedMessages, requestArgs);
+  }
+
+  /**
+   * Tests that when requested, Kafka headers are included in the messages published to Cloud
+   * Pub/Sub but if some of these headers are unsupported either if its key has more than 256 bytes long
+   * or its value has more than 1024 bytes it will be discarded.
+   */
+  @Test
+  public void testUnsupportedKafkaHeaders() {
+    props.put(CloudPubSubSinkConnector.PUBLISH_KAFKA_HEADERS, "true");
+    task.start(props);
+    String veryLongHeaderName;
+    String veryLongValue;
+    StringBuilder stringBuilder = new StringBuilder();
+    for (int i = 0; i < 257; i++) {
+      stringBuilder.append("-");
+    }
+    veryLongHeaderName = stringBuilder.toString();
+    stringBuilder.setLength(0);
+    for (int i = 0; i < 1025; i++) {
+      stringBuilder.append(".");
+    }
+    veryLongValue = stringBuilder.toString();
+    stringBuilder.setLength(0);
+    List<SinkRecord> records = new ArrayList<SinkRecord>();
+    SinkRecord record = new SinkRecord(
+        KAFKA_TOPIC,
+        4,
+        STRING_SCHEMA,
+        KAFKA_MESSAGE_KEY,
+        BYTE_STRING_SCHEMA,
+        KAFKA_MESSAGE1,
+        1000,
+        50000L,
+        TimestampType.CREATE_TIME);
+    record.headers().addString("myHeader", "myValue");
+    record.headers().addString(veryLongHeaderName, "anotherValue");
+    record.headers().addString("anotherHeader", veryLongValue);
+    record.headers().addString(veryLongHeaderName, veryLongValue);
+    records.add(record);
+    record = new SinkRecord(
+        KAFKA_TOPIC,
+        4,
+        STRING_SCHEMA,
+        KAFKA_MESSAGE_KEY,
+        BYTE_STRING_SCHEMA,
+        KAFKA_MESSAGE2,
+        1001,
+        50001L,
+        TimestampType.CREATE_TIME);
+    record.headers().addString("yourHeader", "yourValue");
+    records.add(record);
+    task.put(records);
+    ArgumentCaptor<PubsubMessage> captor = ArgumentCaptor.forClass(PubsubMessage.class);
+    verify(publisher, times(2)).publish(captor.capture());
+    List<PubsubMessage> requestArgs = captor.getAllValues();
+
+
+    List<PubsubMessage> expectedMessages = new ArrayList<>();
+    Map<String, String> attributes1 = new HashMap<>();
+    attributes1.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
+    attributes1.put("myHeader", "myValue");
+    expectedMessages.add(
+        PubsubMessage.newBuilder().putAllAttributes(attributes1).setData(KAFKA_MESSAGE1).build());
+    Map<String, String> attributes2 = new HashMap<>();
+    attributes2.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
+    attributes2.put("yourHeader", "yourValue");
+    expectedMessages.add(
+        PubsubMessage.newBuilder().putAllAttributes(attributes2).setData(KAFKA_MESSAGE2).build());
+
+    assertEquals(257, veryLongHeaderName.getBytes().length);
+    assertEquals(1025, veryLongValue.getBytes().length);
     assertEquals(expectedMessages, requestArgs);
   }
 

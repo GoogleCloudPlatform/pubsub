@@ -258,10 +258,11 @@ public class CloudPubSubSourceTaskTest {
 
   /**
    * Tests when the message retrieved from Cloud Pub/Sub have several attributes, including
-   * one that matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
+   * one that matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE} and uses Kafka Record Headers to store them
    */
   @Test
-  public void testPollWithMultipleAttributes() throws Exception {
+  public void testPollWithMultipleAttributesAndRecordHeaders() throws Exception {
+    props.put(CloudPubSubSourceConnector.USE_KAFKA_HEADERS, "true");
     task.start(props);
     Map<String, String> attributes = new HashMap<>();
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
@@ -290,6 +291,46 @@ public class CloudPubSubSourceTaskTest {
             KAFKA_VALUE,
             Long.parseLong(KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE_VALUE),
             headers);
+    assertRecordsEqual(expected, result.get(0));
+  }
+
+  /**
+   * Tests when the message retrieved from Cloud Pub/Sub have several attributes, including
+   * one that matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}
+   */
+  @Test
+  public void testPollWithMultipleAttributes() throws Exception {
+    task.start(props);
+    Map<String, String> attributes = new HashMap<>();
+    attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
+    attributes.put("attribute1", "attribute_value1");
+    attributes.put("attribute2", "attribute_value2");
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes);
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    assertEquals(1, result.size());
+    Schema expectedSchema =
+        SchemaBuilder.struct()
+            .field(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD, Schema.BYTES_SCHEMA)
+            .field("attribute1", Schema.STRING_SCHEMA)
+            .field("attribute2", Schema.STRING_SCHEMA)
+            .build();
+    Struct expectedValue = new Struct(expectedSchema)
+                               .put(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD, KAFKA_VALUE)
+                               .put("attribute1", "attribute_value1")
+                               .put("attribute2", "attribute_value2");
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            0,
+            Schema.OPTIONAL_STRING_SCHEMA,
+            KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
+            expectedSchema,
+            expectedValue);
     assertRecordsEqual(expected, result.get(0));
   }
 

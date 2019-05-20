@@ -69,12 +69,13 @@ public class CloudPubSubSourceTask extends SourceTask {
   // Keeps track of the current partition to publish to if the partition scheme is round robin.
   private int currentRoundRobinPartition = -1;
   // Keep track of all ack ids that have not been sent correctly acked yet.
-  private Set<String> deliveredAckIds = Collections.synchronizedSet(new HashSet<String>());
+  private final Set<String> deliveredAckIds = Collections.synchronizedSet(new HashSet<String>());
   private Set<String> ackIds = Collections.synchronizedSet(new HashSet<String>());
   private CloudPubSubSubscriber subscriber;
   private Set<String> ackIdsInFlight = Collections.synchronizedSet(new HashSet<String>());
   private final Set<String> standardAttributes = new HashSet<>();
   private ConnectorCredentialsProvider gcpCredentialsProvider;
+  private boolean useKafkaHeaders;
 
   public CloudPubSubSourceTask() {}
 
@@ -108,6 +109,7 @@ public class CloudPubSubSourceTask extends SourceTask {
     kafkaPartitionScheme =
         PartitionScheme.getEnum(
             (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
+    useKafkaHeaders = (Boolean) validatedProps.get(CloudPubSubSourceConnector.USE_KAFKA_HEADERS);
     gcpCredentialsProvider = new ConnectorCredentialsProvider();
     String gcpCredentialsFilePath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
     String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
@@ -171,26 +173,11 @@ public class CloudPubSubSourceTask extends SourceTask {
         Map<String,String> ack = Collections.singletonMap(cpsSubscription, ackId);
         SourceRecord record = null;
         if (hasCustomAttributes) {
-          ConnectHeaders headers = new ConnectHeaders();
-          for (Entry<String, String> attribute :
-               messageAttributes.entrySet()) {
-            if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
-              headers.addString(attribute.getKey(), attribute.getValue());
-            }
+          if (useKafkaHeaders) {
+            record = createRecordWithHeaders(messageAttributes, ack, key, messageBytes, timestamp);
+          } else {
+            record = createRecordWithStruct(messageAttributes, ack, key, messageBytes, timestamp);
           }
-
-          record =
-            new SourceRecord(
-                null,
-                ack,
-                kafkaTopic,
-                selectPartition(key, messageBytes),
-                Schema.OPTIONAL_STRING_SCHEMA,
-                key,
-                Schema.BYTES_SCHEMA,
-                messageBytes,
-                timestamp,
-                headers);
         } else {
           record =
             new SourceRecord(
@@ -211,6 +198,66 @@ public class CloudPubSubSourceTask extends SourceTask {
       log.info("Error while retrieving records, treating as an empty poll. " + e);
       return new ArrayList<>();
     }
+  }
+
+  private SourceRecord createRecordWithHeaders(Map<String, String> messageAttributes, Map<String,String> ack,
+                                               String key, byte[] messageBytes, Long timestamp) {
+    ConnectHeaders headers = new ConnectHeaders();
+    for (Entry<String, String> attribute :
+            messageAttributes.entrySet()) {
+      if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
+        headers.addString(attribute.getKey(), attribute.getValue());
+      }
+    }
+
+    return new SourceRecord(
+            null,
+            ack,
+            kafkaTopic,
+            selectPartition(key, messageBytes),
+            Schema.OPTIONAL_STRING_SCHEMA,
+            key,
+            Schema.BYTES_SCHEMA,
+            messageBytes,
+            timestamp,
+            headers);
+  }
+
+  private SourceRecord createRecordWithStruct(Map<String, String> messageAttributes, Map<String,String> ack,
+                                              String key, byte[] messageBytes, Long timestamp) {
+    SchemaBuilder valueSchemaBuilder = SchemaBuilder.struct().field(
+        ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
+        Schema.BYTES_SCHEMA);
+
+    for (Entry<String, String> attribute :
+        messageAttributes.entrySet()) {
+      if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
+        valueSchemaBuilder.field(attribute.getKey(),
+            Schema.STRING_SCHEMA);
+      }
+    }
+
+    Schema valueSchema = valueSchemaBuilder.build();
+    Struct value =
+        new Struct(valueSchema)
+            .put(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
+                messageBytes);
+    for (Field field : valueSchema.fields()) {
+      if (!field.name().equals(
+          ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD)) {
+        value.put(field.name(), messageAttributes.get(field.name()));
+      }
+    }
+    return new SourceRecord(
+            null,
+            ack,
+            kafkaTopic,
+            selectPartition(key, value),
+            Schema.OPTIONAL_STRING_SCHEMA,
+            key,
+            valueSchema,
+            value,
+            timestamp);
   }
 
   @Override
