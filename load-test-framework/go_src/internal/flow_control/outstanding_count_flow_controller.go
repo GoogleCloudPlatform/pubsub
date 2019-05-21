@@ -97,8 +97,8 @@ func (fc *outstandingCountFlowController) numAllowedPermits() int {
 const expiryLatencyMilliseconds = 15000
 const rateUpdateDelayMilliseconds = 100
 
-// The size of one 10MB batch of 1KB messages
-const finishedBufferSize = 10000
+// The size of 100 10MB batches of 1KB messages
+const finishedBufferSize = 1000000
 
 func NewOutstandingCountFlowController(initialRate float64) FlowController {
 	fc := &outstandingCountFlowController{

@@ -72,7 +72,8 @@ func bucketFor(latencyMs int) int {
 	return int(math.Max(0, rawBucket))
 }
 
-const putChannelBufferSize = 1000
+// The size of 100 10MB batches of 1KB messages
+const putChannelBufferSize = 1000000
 
 func NewMetricsTracker(trackIds bool) MetricsTracker {
 	mt := &metricsTrackerImpl{
