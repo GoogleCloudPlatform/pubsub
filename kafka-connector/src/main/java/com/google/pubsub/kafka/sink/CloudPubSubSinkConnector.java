@@ -52,6 +52,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   public static final String CPS_MESSAGE_BODY_NAME = "messageBodyName";
   public static final String DEFAULT_MESSAGE_BODY_NAME = "cps_message_body";
   public static final String PUBLISH_KAFKA_METADATA = "metadata.publish";
+  public static final String PUBLISH_KAFKA_HEADERS = "headers.publish";
   private Map<String, String> props;
 
   @Override
@@ -148,6 +149,12 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             Importance.MEDIUM,
             "When true, include the Kafka topic, partition, offset, and timestamp as message "
                 + "attributes when a message is published to Cloud Pub/Sub.")
+        .define(
+           PUBLISH_KAFKA_HEADERS,
+           Type.BOOLEAN,
+           false,
+           Importance.MEDIUM,
+           "When true, include any headers as attributes when a message is published to Cloud Pub/Sub.")
         .define(CPS_MESSAGE_BODY_NAME,
             Type.STRING,
             DEFAULT_MESSAGE_BODY_NAME,

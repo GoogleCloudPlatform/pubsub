@@ -43,6 +43,7 @@ import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.header.ConnectHeaders;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.junit.Before;
 import org.junit.Test;
@@ -257,7 +258,45 @@ public class CloudPubSubSourceTaskTest {
 
   /**
    * Tests when the message retrieved from Cloud Pub/Sub have several attributes, including
-   * one that matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
+   * one that matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE} and uses Kafka Record Headers to store them
+   */
+  @Test
+  public void testPollWithMultipleAttributesAndRecordHeaders() throws Exception {
+    props.put(CloudPubSubSourceConnector.USE_KAFKA_HEADERS, "true");
+    task.start(props);
+    Map<String, String> attributes = new HashMap<>();
+    attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
+    attributes.put("attribute1", "attribute_value1");
+    attributes.put("attribute2", "attribute_value2");
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes);
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    assertEquals(1, result.size());
+
+    ConnectHeaders headers = new ConnectHeaders();
+    headers.addString("attribute1", "attribute_value1");
+    headers.addString("attribute2", "attribute_value2");
+
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            0,
+            Schema.OPTIONAL_STRING_SCHEMA,
+            KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE,
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE,
+            Long.parseLong(KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE_VALUE),
+            headers);
+    assertRecordsEqual(expected, result.get(0));
+  }
+
+  /**
+   * Tests when the message retrieved from Cloud Pub/Sub have several attributes, including
+   * one that matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}
    */
   @Test
   public void testPollWithMultipleAttributes() throws Exception {

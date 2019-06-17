@@ -57,6 +57,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
   public static final int DEFAULT_KAFKA_PARTITIONS = 1;
   public static final String DEFAULT_KAFKA_PARTITION_SCHEME = "round_robin";
+  public static final String USE_KAFKA_HEADERS = "kafka.record.headers";
 
   /** Defines the accepted values for the {@link #KAFKA_PARTITION_SCHEME_CONFIG}. */
   public enum PartitionScheme {
@@ -224,7 +225,13 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.STRING,
             null,
             Importance.HIGH,
-            "GCP JSON credentials");
+            "GCP JSON credentials")
+        .define(
+            USE_KAFKA_HEADERS,
+            Type.BOOLEAN,
+            false,
+            Importance.LOW,
+            "Use Kafka record headers to store Pub/Sub message attributes");
   }
 
   /**
