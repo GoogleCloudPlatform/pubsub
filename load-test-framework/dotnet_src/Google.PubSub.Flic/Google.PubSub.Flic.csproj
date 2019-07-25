@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <LangVersion>latest</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.5.0" />
+    <PackageReference Include="Google.Cloud.PubSub.V1" Version="1.1.0-beta04" />
+    <PackageReference Include="Grpc.Core" Version="1.22.0" />
+    <PackageReference Include="Grpc.Tools" Version="1.21.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\proto\loadtest.proto">
+      <Link>loadtest.proto</Link>
+    </Protobuf>
+  </ItemGroup>
+
+</Project>
