@@ -126,6 +126,15 @@ public class LocalComputeResourceController extends ComputeResourceController {
     runCpsProcess(builder);
   }
 
+  private void runDotNetProcess(ClientType.MessagingSide side, Integer port)
+      throws IOException, InterruptedException {
+    File tempDir = unzipToTemp();
+    ProcessBuilder builder =
+        new ProcessBuilder("dotnet", "run", "--port=" + port);
+    builder.directory(new File(tempDir, "dotnet_src/Google.PubSub.Flic"));
+    runCpsProcess(builder);
+  }
+
   private File unzipToTemp() throws IOException, InterruptedException {
     File dir = Files.createTempDirectory("cps_unzip").toFile();
     dir.deleteOnExit();
@@ -152,6 +161,9 @@ public class LocalComputeResourceController extends ComputeResourceController {
         return;
       case GO:
         runGoProcess(type.side, port);
+        return;
+      case DOTNET:
+        runDotNetProcess(type.side, port);
         return;
     }
     log.error("LocalController does not yet support language: " + type.language);
