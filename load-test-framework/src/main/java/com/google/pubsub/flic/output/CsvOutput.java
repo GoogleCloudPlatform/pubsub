@@ -54,6 +54,7 @@ public class CsvOutput implements ResultsOutput {
     switch (result.type.language) {
       case JAVA:
       case GO:
+      case DOTNET:
         cpuScaling = Integer.toString(rawCpuScaling);
         break;
       case PYTHON:
