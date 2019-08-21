@@ -23,7 +23,7 @@ if __name__ == '__main__':
 
     subprocess.call([
         'zip', '-FSr', './target/classes/gce/cps.zip', './proto',
-        './python_src', './node_src/src', './node_src/package.json', './go_src'
+        './python_src', './node_src/src', './node_src/package.json', './go_src', './dotnet_src'
     ])
 
     subprocess.call(java_args)
