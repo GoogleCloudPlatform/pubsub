@@ -25,6 +25,7 @@ import io.grpc.netty.NegotiationType;
 import io.grpc.netty.NettyChannelBuilder;
 import java.io.IOException;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /** Utility methods and constants that are repeated across one or more classes. */
 public class ConnectorUtils {
@@ -52,6 +53,8 @@ public class ConnectorUtils {
             .negotiationType(NegotiationType.TLS)
             // Maximum Pub/Sub message size is 10MB.
             .maxInboundMessageSize(10 * 1024 * 1024)
+            // Send keepAlive message to ensure GRPC channel active up.
+            .keepAliveTime(60000, TimeUnit.MILLISECONDS)
             .build();
     final ClientAuthInterceptor interceptor =
         new ClientAuthInterceptor(
