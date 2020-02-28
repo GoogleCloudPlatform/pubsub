@@ -3,9 +3,9 @@ language: java
 matrix:
   include:
     - os: linux
-      jdk: oraclejdk8
+      jdk: oraclejdk9
     - os: linux
-      jdk: openjdk7
+      jdk: openjdk9
 
 script:
   - mvn -q -B -f kafka-connector/pom.xml clean verify
