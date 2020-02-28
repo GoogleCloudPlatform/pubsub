@@ -4,6 +4,7 @@ matrix:
   include:
     - os: linux
       jdk: oraclejdk9
+      dist: trusty
     - os: linux
       jdk: openjdk9
 
