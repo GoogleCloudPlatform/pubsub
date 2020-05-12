@@ -15,10 +15,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import com.google.api.core.ApiFuture;
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.util.concurrent.FutureCallback;
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.protobuf.util.Timestamps;
@@ -30,6 +28,8 @@ import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -76,6 +76,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   private final Set<String> standardAttributes = new HashSet<>();
   private ConnectorCredentialsProvider gcpCredentialsProvider;
   private boolean useKafkaHeaders;
+  private Executor ackExecutor = Executors.newCachedThreadPool();
 
   public CloudPubSubSourceTask() {}
 
@@ -279,23 +280,21 @@ public class CloudPubSubSourceTask extends SourceTask {
         ackIdsBatch.addAll(deliveredAckIds);
         deliveredAckIds.clear();
       }
-      ListenableFuture<Empty> response = subscriber.ackMessages(requestBuilder.build());
-      Futures.addCallback(
-          response,
-          new FutureCallback<Empty>() {
-            @Override
-            public void onSuccess(Empty result) {
-              ackIdsInFlight.removeAll(ackIdsBatch);
-              log.trace("Successfully acked a set of messages. {}", ackIdsBatch.size());
-            }
-
-            @Override
-            public void onFailure(Throwable t) {
-              deliveredAckIds.addAll(ackIdsBatch);
-              ackIdsInFlight.removeAll(ackIdsBatch);
-              log.error("An exception occurred acking messages: " + t);
-            }
-          });
+      final ApiFuture<Empty> response = subscriber.ackMessages(requestBuilder.build());
+      response.addListener(new Runnable() {
+        @Override
+        public void run() {
+          try {
+            response.get();
+            log.trace("Successfully acked a set of messages. {}", ackIdsBatch.size());
+          } catch (Exception e) {
+            deliveredAckIds.addAll(ackIdsBatch);
+            log.error("An exception occurred acking messages: " + e);
+          } finally {
+            ackIdsInFlight.removeAll(ackIdsBatch);
+          }
+        }
+      }, ackExecutor);
     }
   }
 

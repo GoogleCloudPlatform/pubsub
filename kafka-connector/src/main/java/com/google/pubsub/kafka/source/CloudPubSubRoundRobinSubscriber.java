@@ -15,8 +15,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import com.google.api.core.ApiFuture;
 import com.google.api.gax.core.CredentialsProvider;
-import com.google.common.util.concurrent.ListenableFuture;
 import com.google.protobuf.Empty;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PullRequest;
@@ -41,13 +41,13 @@ public class CloudPubSubRoundRobinSubscriber implements CloudPubSubSubscriber {
   }
 
   @Override
-  public ListenableFuture<PullResponse> pull(PullRequest request) {
+  public ApiFuture<PullResponse> pull(PullRequest request) {
     currentSubscriberIndex = (currentSubscriberIndex + 1) % subscribers.size();
     return subscribers.get(currentSubscriberIndex).pull(request);
   }
 
   @Override
-  public ListenableFuture<Empty> ackMessages(AcknowledgeRequest request) {
+  public ApiFuture<Empty> ackMessages(AcknowledgeRequest request) {
     currentSubscriberIndex = (currentSubscriberIndex + 1) % subscribers.size();
     return subscribers.get(currentSubscriberIndex).ackMessages(request);
   }

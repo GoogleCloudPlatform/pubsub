@@ -26,8 +26,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.common.util.concurrent.Futures;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.api.core.ApiFuture;
+import com.google.api.core.SettableApiFuture;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.pubsub.kafka.common.ConnectorUtils;
@@ -141,7 +141,8 @@ public class CloudPubSubSourceTaskTest {
     assertEquals(1, result.size());
     task.commitRecord(result.get(0));
     stubbedPullResponse = PullResponse.newBuilder().build();
-    ListenableFuture<Empty> goodFuture = Futures.immediateFuture(Empty.getDefaultInstance());
+    SettableApiFuture<Empty> goodFuture = SettableApiFuture.create();
+    goodFuture.set(Empty.getDefaultInstance());
     when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     result = task.poll();

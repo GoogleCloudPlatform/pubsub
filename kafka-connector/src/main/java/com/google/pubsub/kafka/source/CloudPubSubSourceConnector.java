@@ -16,12 +16,12 @@
 package com.google.pubsub.kafka.source;
 
 import com.google.api.gax.core.CredentialsProvider;
+import com.google.cloud.pubsub.v1.stub.GrpcSubscriberStub;
+import com.google.cloud.pubsub.v1.stub.SubscriberStubSettings;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.common.ConnectorCredentialsProvider;
 import com.google.pubsub.v1.GetSubscriptionRequest;
-import com.google.pubsub.v1.SubscriberGrpc;
-import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.ArrayList;
@@ -241,14 +241,22 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   @VisibleForTesting
   public void verifySubscription(String cpsProject, String cpsSubscription, CredentialsProvider credentialsProvider) {
     try {
-      SubscriberFutureStub stub = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel(credentialsProvider));
+      SubscriberStubSettings subscriberStubSettings =
+      SubscriberStubSettings.newBuilder()
+        .setTransportChannelProvider(
+            SubscriberStubSettings.defaultGrpcTransportProviderBuilder()
+                .setMaxInboundMessageSize(20 << 20) // 20MB
+                .build())
+        .setCredentialsProvider(credentialsProvider)
+        .build();
+      GrpcSubscriberStub stub = GrpcSubscriberStub.create(subscriberStubSettings);
       GetSubscriptionRequest request =
           GetSubscriptionRequest.newBuilder()
               .setSubscription(
                   String.format(
                       ConnectorUtils.CPS_SUBSCRIPTION_FORMAT, cpsProject, cpsSubscription))
               .build();
-      stub.getSubscription(request).get();
+      stub.getSubscriptionCallable().call(request);
     } catch (Exception e) {
       throw new ConnectException(
           "Error verifying the subscription " + cpsSubscription + " for project " + cpsProject, e);
