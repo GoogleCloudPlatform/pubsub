@@ -15,15 +15,15 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import com.google.api.core.ApiFuture;
 import com.google.api.gax.core.CredentialsProvider;
-import com.google.common.util.concurrent.ListenableFuture;
+import com.google.cloud.pubsub.v1.stub.GrpcSubscriberStub;
+import com.google.cloud.pubsub.v1.stub.SubscriberStubSettings;
 import com.google.protobuf.Empty;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PullRequest;
 import com.google.pubsub.v1.PullResponse;
-import com.google.pubsub.v1.SubscriberGrpc;
-import com.google.pubsub.v1.SubscriberGrpc.SubscriberFutureStub;
 import java.io.IOException;
 import java.util.Random;
 import org.slf4j.Logger;
@@ -38,7 +38,7 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubGRPCSubscriber.class);
   private long nextSubscriberResetTime = 0;
-  private SubscriberFutureStub subscriber;
+  private GrpcSubscriberStub subscriber;
   private Random rand = new Random(System.currentTimeMillis());
   private CredentialsProvider gcpCredentialsProvider;
 
@@ -47,24 +47,32 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
     makeSubscriber();
   }
 
-  public ListenableFuture<PullResponse> pull(PullRequest request) {
+  public ApiFuture<PullResponse> pull(PullRequest request) {
     if (System.currentTimeMillis() > nextSubscriberResetTime) {
       makeSubscriber();
     }
-    return subscriber.pull(request);
+    return subscriber.pullCallable().futureCall(request);
   }
 
-  public ListenableFuture<Empty> ackMessages(AcknowledgeRequest request) {
+  public ApiFuture<Empty> ackMessages(AcknowledgeRequest request) {
     if (System.currentTimeMillis() > nextSubscriberResetTime) {
       makeSubscriber();
     }
-    return subscriber.acknowledge(request);
+    return subscriber.acknowledgeCallable().futureCall(request);
   }
 
   private void makeSubscriber() {
     try {
       log.info("Creating subscriber.");
-      subscriber = SubscriberGrpc.newFutureStub(ConnectorUtils.getChannel(gcpCredentialsProvider));
+      SubscriberStubSettings subscriberStubSettings =
+      SubscriberStubSettings.newBuilder()
+        .setTransportChannelProvider(
+            SubscriberStubSettings.defaultGrpcTransportProviderBuilder()
+                .setMaxInboundMessageSize(20 << 20) // 20MB
+                .build())
+        .setCredentialsProvider(gcpCredentialsProvider)
+        .build();
+      subscriber = GrpcSubscriberStub.create(subscriberStubSettings);
       // We change the subscriber every 25 - 35 minutes in order to avoid GOAWAY errors.
       nextSubscriberResetTime =
           System.currentTimeMillis() + rand.nextInt(10 * 60 * 1000) + 25 * 60 * 1000;
