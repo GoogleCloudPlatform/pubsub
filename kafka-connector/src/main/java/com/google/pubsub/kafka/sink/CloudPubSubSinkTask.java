@@ -17,6 +17,7 @@ package com.google.pubsub.kafka.sink;
 
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
+import com.google.api.core.SettableApiFuture;
 import com.google.api.gax.batching.BatchingSettings;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.pubsub.v1.Publisher;
@@ -150,7 +151,6 @@ public class CloudPubSubSinkTask extends SinkTask {
     log.debug("Received " + sinkRecords.size() + " messages to send to CPS.");
     for (SinkRecord record : sinkRecords) {
       log.trace("Received record: " + record.toString());
-      PubsubMessage.Builder builder = PubsubMessage.newBuilder();
       Map<String, String> attributes = new HashMap<>();
       ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
       if (record.key() != null) {
@@ -169,7 +169,19 @@ public class CloudPubSubSinkTask extends SinkTask {
           attributes.put(header.key(), header.value().toString());
         }
       }
-      PubsubMessage message = builder.setData(value).putAllAttributes(attributes).build();
+      if (attributes.size() == 0 && value == null) {
+        log.warn("Message received with no value and no attributes. Not publishing message");
+        SettableApiFuture<String> nullMessageFuture = SettableApiFuture.<String>create();
+        nullMessageFuture.set("No message");
+        addPendingMessageFuture(record.topic(), record.kafkaPartition(), nullMessageFuture);
+        return;
+      }
+      PubsubMessage.Builder builder = PubsubMessage.newBuilder();
+      builder.putAllAttributes(attributes);
+      if (value != null) {
+        builder.setData(value);
+      }
+      PubsubMessage message = builder.build();
       publishMessage(record.topic(), record.kafkaPartition(), message);
     }
   }
@@ -193,6 +205,9 @@ public class CloudPubSubSinkTask extends SinkTask {
   }
 
   private ByteString handleValue(Schema schema, Object value, Map<String, String> attributes) {
+    if (value == null) {
+      return null;
+    }
     if (schema == null) {
       String str = value.toString();
       return ByteString.copyFromUtf8(str);
@@ -331,6 +346,10 @@ public class CloudPubSubSinkTask extends SinkTask {
 
   /** Publish all the messages in a partition and store the Future's for each publish request. */
   private void publishMessage(String topic, Integer partition, PubsubMessage message) {
+    addPendingMessageFuture(topic, partition, publisher.publish(message));
+  }
+
+  private void addPendingMessageFuture(String topic, Integer partition, ApiFuture<String> future) {
     // Get a map containing all futures per partition for the passed in topic.
     Map<Integer, OutstandingFuturesForPartition> outstandingFuturesForTopic =
         allOutstandingFutures.get(topic);
@@ -344,7 +363,7 @@ public class CloudPubSubSinkTask extends SinkTask {
       outstandingFutures = new OutstandingFuturesForPartition();
       outstandingFuturesForTopic.put(partition, outstandingFutures);
     }
-    outstandingFutures.futures.add(publisher.publish(message));
+    outstandingFutures.futures.add(future);
   }
 
   private void createPublisher() {
