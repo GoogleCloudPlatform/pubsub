@@ -21,8 +21,8 @@ import time
 from clients.metrics_tracker import MessageAndDuration
 import grpc
 from concurrent import futures
-from proto.loadtest_pb2 import StartRequest
-from proto.loadtest_pb2_grpc import add_LoadtestWorkerServicer_to_server
+from proto_dir.loadtest_pb2 import StartRequest
+from proto_dir.loadtest_pb2_grpc import add_LoadtestWorkerServicer_to_server
 from clients.loadtest_worker_servicer import LoadtestWorkerServicer
 import sys
 from clients.flow_control import FlowController, RateLimiterFlowController, OutstandingCountFlowController

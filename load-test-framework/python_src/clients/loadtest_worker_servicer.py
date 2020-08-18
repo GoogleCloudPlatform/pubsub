@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from proto.loadtest_pb2 import StartResponse
-from proto import loadtest_pb2_grpc
+from proto_dir.loadtest_pb2 import StartResponse
+from proto_dir import loadtest_pb2_grpc
 from clients.task import Task
 from concurrent.futures import Executor, ThreadPoolExecutor
 import time

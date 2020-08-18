@@ -21,12 +21,12 @@ from typing import Optional
 
 import grpc
 
-from proto.loadtest_pb2 import StartRequest, StartResponse, CheckRequest, CheckResponse
+from proto_dir.loadtest_pb2 import StartRequest, StartResponse, CheckRequest, CheckResponse
 from multiprocessing import Queue, Process, cpu_count
 from clients.metrics_tracker import MetricsTracker, combine_responses
 import sys
 
-from proto.loadtest_pb2_grpc import LoadtestWorkerServicer, add_LoadtestWorkerServicer_to_server, LoadtestWorkerStub
+from proto_dir.loadtest_pb2_grpc import LoadtestWorkerServicer, add_LoadtestWorkerServicer_to_server, LoadtestWorkerStub
 
 
 class SubtaskWorker(LoadtestWorkerServicer):
