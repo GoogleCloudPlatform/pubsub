@@ -17,7 +17,7 @@ from threading import Lock
 from typing import List
 import sys
 
-from proto.loadtest_pb2 import CheckResponse
+from proto_dir.loadtest_pb2 import CheckResponse
 
 
 class MessageAndDuration:
