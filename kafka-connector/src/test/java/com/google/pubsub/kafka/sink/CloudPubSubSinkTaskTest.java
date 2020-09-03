@@ -407,9 +407,20 @@ public class CloudPubSubSinkTaskTest {
             1001,
             50001L,
             TimestampType.CREATE_TIME));
+    records.add(
+        new SinkRecord(
+            KAFKA_TOPIC,
+            4,
+            STRING_SCHEMA,
+            KAFKA_MESSAGE_KEY,
+            BYTE_STRING_SCHEMA,
+            KAFKA_MESSAGE2,
+            1002,
+            null,
+            TimestampType.CREATE_TIME));
     task.put(records);
     ArgumentCaptor<PubsubMessage> captor = ArgumentCaptor.forClass(PubsubMessage.class);
-    verify(publisher, times(2)).publish(captor.capture());
+    verify(publisher, times(3)).publish(captor.capture());
     List<PubsubMessage> requestArgs = captor.getAllValues();
 
 
@@ -430,6 +441,13 @@ public class CloudPubSubSinkTaskTest {
     attributes2.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, "50001");
     expectedMessages.add(
         PubsubMessage.newBuilder().putAllAttributes(attributes2).setData(KAFKA_MESSAGE2).build());
+    Map<String, String> attributes3 = new HashMap<>();
+    attributes3.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY);
+    attributes3.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, KAFKA_TOPIC);
+    attributes3.put(ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, "4");
+    attributes3.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, "1002");
+    expectedMessages.add(
+        PubsubMessage.newBuilder().putAllAttributes(attributes3).setData(KAFKA_MESSAGE2).build());
 
     assertEquals(requestArgs, expectedMessages);
   }

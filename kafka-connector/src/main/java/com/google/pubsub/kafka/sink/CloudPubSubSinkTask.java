@@ -162,7 +162,9 @@ public class CloudPubSubSinkTask extends SinkTask {
         attributes.put(
             ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
         attributes.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, Long.toString(record.kafkaOffset()));
-        attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, record.timestamp().toString());
+        if (record.timestamp() != null) {
+          attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, record.timestamp().toString());
+        }
       }
       if (includeHeaders) {
         for (Header header : getRecordHeaders(record)) {
