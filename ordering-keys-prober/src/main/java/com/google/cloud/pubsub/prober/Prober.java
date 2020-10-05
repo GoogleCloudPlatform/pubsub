@@ -266,13 +266,8 @@ public class Prober {
     this.shutdown = false;
     this.executor = MoreExecutors.listeningDecorator(Executors.newScheduledThreadPool(threadCount));
 
-    String now = Long.toString(DateTime.now().getMillis());
-    String topicNameToUse = topicName;
-    String subscriptionNameToUse = subscriptionName;
-
-    this.fullTopicName = TopicName.of(project, topicNameToUse + "-" + now);
-    this.fullSubscriptionName =
-        ProjectSubscriptionName.of(project, subscriptionNameToUse + "-" + now);
+    this.fullTopicName = TopicName.of(project, topicName);
+    this.fullSubscriptionName = ProjectSubscriptionName.of(project, subscriptionName);
 
     try {
       TopicAdminSettings.Builder topicAdminClientBuilder = TopicAdminSettings.newBuilder();
