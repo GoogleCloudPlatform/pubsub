@@ -28,6 +28,16 @@ After building the prober, use the following command to run it:
 
 `java -cp target/pubsub-ordered-prober.jar com.google.cloud.pubsub.prober.ProberStarter --project <project ID>`
 
+When the prober starts up, it does the following:
+
+1.  Deletes the topic and subscription provided if they already exist.
+
+2.  Creates the topic and subscription provided.
+
+3.  Sets up subscribers to receive messages.
+
+4.  Continuously publishes messages.
+
 ### Prober Properties
 
 The prober has many properties that can be set to test different scenario. The
