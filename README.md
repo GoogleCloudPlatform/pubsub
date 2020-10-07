@@ -12,6 +12,8 @@ available are:
   between different clients on the same stack (e.g. Http/Json and gRPC clients
   for CPS). Currently, we only support maven version 3 and Java 8.
   If you're having a problem building with those versions, please reach out to us with your issue or solution.
+* [Ordering Keys Prober](https://github.com/GoogleCloudPlatform/pubsub/tree/master/ordering-keys-prober):
+  A reference implementation for how to use ordering keys effectively.
 * [DEPRECATED Experimental high-performance client library](https://github.com/GoogleCloudPlatform/pubsub/tree/master/client):
   For Java along with [samples](https://github.com/GoogleCloudPlatform/google-cloud-java/tree/master/google-cloud-examples/src/main/java/com/google/cloud/examples/pubsub/snippets).
 
