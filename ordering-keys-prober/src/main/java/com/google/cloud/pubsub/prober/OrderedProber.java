@@ -30,9 +30,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 /**
- * Manages a load test on a single topic and a single subscription with a configurable number of
- * subscriber clients that receives messages in order. Checks for the correctness of the message
- * order received.
+ * Manages an ordered test on a single topic and a single subscription with a configurable number of
+ * subscriber clients. `enable_message_ordering` is set to true on the subscription and messages are
+ * sent with an ordering key. Checks for the correctness of the message order received.
  */
 public class OrderedProber extends Prober {
   enum KeyChoiceStrategy {
@@ -225,6 +225,7 @@ public class OrderedProber extends Prober {
       return ack;
     }
 
+    // Affinity changes are expected to happen, but it is still useful to track when they happen.
     Integer previousSubscriber = orderingKeyAffinity.put(orderingKey, subscriberIndex);
     if (previousSubscriber != null && !previousSubscriber.equals(subscriberIndex)) {
       logger.info(
