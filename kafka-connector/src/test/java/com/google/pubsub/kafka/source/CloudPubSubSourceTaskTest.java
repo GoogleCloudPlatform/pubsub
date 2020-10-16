@@ -300,6 +300,78 @@ public class CloudPubSubSourceTaskTest {
   }
 
   /**
+   * Tests when the message has an ordering key that should be stored as an attribute.
+   */
+  @Test
+  public void testPollWithOrderingKeyAsAttribute() throws Exception {
+    props.put(CloudPubSubSourceConnector.CPS_MAKE_ORDERING_KEY_ATTRIBUTE, "true");
+    task.start(props);
+    ReceivedMessage rm =
+        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), "my-key");
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    assertEquals(1, result.size());
+
+    Schema expectedSchema =
+        SchemaBuilder.struct()
+            .field(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD, Schema.BYTES_SCHEMA)
+            .field(ConnectorUtils.CPS_ORDERING_KEY_ATTRIBUTE, Schema.STRING_SCHEMA)
+            .build();
+    Struct expectedValue = new Struct(expectedSchema)
+                               .put(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD, KAFKA_VALUE)
+                               .put(ConnectorUtils.CPS_ORDERING_KEY_ATTRIBUTE, "my-key");
+
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            0,
+            Schema.OPTIONAL_STRING_SCHEMA,
+            null,
+            expectedSchema,
+            expectedValue);
+    assertRecordsEqual(expected, result.get(0));
+  }
+
+  /**
+   * Tests when the message has an ordering key that should be stored as an attribute in the Kafka
+   * Record Headers.
+   */
+  @Test
+  public void testPollWithOrderingKeyAsRecordHeader() throws Exception {
+    props.put(CloudPubSubSourceConnector.USE_KAFKA_HEADERS, "true");
+    props.put(CloudPubSubSourceConnector.CPS_MAKE_ORDERING_KEY_ATTRIBUTE, "true");
+    task.start(props);
+    ReceivedMessage rm =
+        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), "my-key");
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    assertEquals(1, result.size());
+
+    ConnectHeaders headers = new ConnectHeaders();
+    headers.addString(ConnectorUtils.CPS_ORDERING_KEY_ATTRIBUTE, "my-key3");
+
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            0,
+            Schema.OPTIONAL_STRING_SCHEMA,
+            null,
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE,
+            Long.parseLong(KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE_VALUE),
+            headers);
+    assertRecordsEqual(expected, result.get(0));
+  }
+
+  /**
    * Tests when the message retrieved from Cloud Pub/Sub have several attributes, including
    * one that matches {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}
    */
@@ -550,7 +622,7 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testSetOrderingKeyAsKey() throws Exception {
     String orderingKey = "my-key";
-    props.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG, "orderingKey");
+    props.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG, ConnectorUtils.CPS_ORDERING_KEY_ATTRIBUTE);
     task.start(props);
     Map<String, String> attributes = new HashMap<>();
     ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, orderingKey);

@@ -52,6 +52,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String KAFKA_MESSAGE_KEY_CONFIG = "kafka.key.attribute";
   public static final String KAFKA_MESSAGE_TIMESTAMP_CONFIG = "kafka.timestamp.attribute";
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";
+  public static final String CPS_MAKE_ORDERING_KEY_ATTRIBUTE = "cps.makeOrderingKeyAttribute";
   public static final String CPS_SUBSCRIPTION_CONFIG = "cps.subscription";
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
   public static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
@@ -237,7 +238,14 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.BOOLEAN,
             false,
             Importance.LOW,
-            "Use Kafka record headers to store Pub/Sub message attributes");
+            "Use Kafka record headers to store Pub/Sub message attributes")
+        .define(
+            CPS_MAKE_ORDERING_KEY_ATTRIBUTE,
+            Type.BOOLEAN,
+            false,
+            Importance.LOW,
+            "When true, add the ordering key to the set of attributes with the key \"orderingKey\" "
+                + "if it is non-empty.");
   }
 
   /**

@@ -63,6 +63,7 @@ public class CloudPubSubSourceTask extends SourceTask {
   private String cpsSubscription;
   private String kafkaMessageKeyAttribute;
   private String kafkaMessageTimestampAttribute;
+  private boolean makeOrderingKeyAttribute;
   private int kafkaPartitions;
   private PartitionScheme kafkaPartitionScheme;
   private int cpsMaxBatchSize;
@@ -111,6 +112,8 @@ public class CloudPubSubSourceTask extends SourceTask {
         PartitionScheme.getEnum(
             (String) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG));
     useKafkaHeaders = (Boolean) validatedProps.get(CloudPubSubSourceConnector.USE_KAFKA_HEADERS);
+    makeOrderingKeyAttribute =
+        (Boolean) validatedProps.get(CloudPubSubSourceConnector.CPS_MAKE_ORDERING_KEY_ATTRIBUTE);
     gcpCredentialsProvider = new ConnectorCredentialsProvider();
     String gcpCredentialsFilePath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
     String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
@@ -162,8 +165,9 @@ public class CloudPubSubSourceTask extends SourceTask {
         ackIds.add(ackId);
         Map<String, String> messageAttributes = message.getAttributesMap();
         String key;
-        if ("orderingKey".equals(kafkaMessageKeyAttribute)) {
-          key = message.getOrderingKey();
+        String orderingKey = message.getOrderingKey();
+        if (ConnectorUtils.CPS_ORDERING_KEY_ATTRIBUTE.equals(kafkaMessageKeyAttribute)) {
+          key = orderingKey;
         } else {
           key = messageAttributes.get(kafkaMessageKeyAttribute);
         }
@@ -174,7 +178,8 @@ public class CloudPubSubSourceTask extends SourceTask {
         ByteString messageData = message.getData();
         byte[] messageBytes = messageData.toByteArray();
 
-        boolean hasCustomAttributes = !standardAttributes.containsAll(messageAttributes.keySet());
+        boolean hasCustomAttributes = !standardAttributes.containsAll(messageAttributes.keySet())
+            || (makeOrderingKeyAttribute && orderingKey != null && !orderingKey.isEmpty());
 
         Map<String,String> ack = Collections.singletonMap(cpsSubscription, ackId);
         SourceRecord record = null;
@@ -182,11 +187,11 @@ public class CloudPubSubSourceTask extends SourceTask {
           if (useKafkaHeaders) {
             record =
                 createRecordWithHeaders(
-                    messageAttributes, ack, key, message.getOrderingKey(), messageBytes, timestamp);
+                    messageAttributes, ack, key, orderingKey, messageBytes, timestamp);
           } else {
             record =
                 createRecordWithStruct(
-                    messageAttributes, ack, key, message.getOrderingKey(), messageBytes, timestamp);
+                    messageAttributes, ack, key, orderingKey, messageBytes, timestamp);
           }
         } else {
           record =
@@ -194,7 +199,7 @@ public class CloudPubSubSourceTask extends SourceTask {
                 null,
                 ack,
                 kafkaTopic,
-                selectPartition(key, messageBytes, message.getOrderingKey()),
+                selectPartition(key, messageBytes, orderingKey),
                 Schema.OPTIONAL_STRING_SCHEMA,
                 key,
                 Schema.BYTES_SCHEMA,
@@ -223,6 +228,9 @@ public class CloudPubSubSourceTask extends SourceTask {
       if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
         headers.addString(attribute.getKey(), attribute.getValue());
       }
+    }
+    if (makeOrderingKeyAttribute && orderingKey != null && !orderingKey.isEmpty()) {
+      headers.addString(ConnectorUtils.CPS_ORDERING_KEY_ATTRIBUTE, orderingKey);
     }
 
     return new SourceRecord(
@@ -256,6 +264,9 @@ public class CloudPubSubSourceTask extends SourceTask {
             Schema.STRING_SCHEMA);
       }
     }
+    if (makeOrderingKeyAttribute && orderingKey != null && !orderingKey.isEmpty()) {
+      valueSchemaBuilder.field(ConnectorUtils.CPS_ORDERING_KEY_ATTRIBUTE, Schema.STRING_SCHEMA);
+    }
 
     Schema valueSchema = valueSchemaBuilder.build();
     Struct value =
@@ -263,7 +274,9 @@ public class CloudPubSubSourceTask extends SourceTask {
             .put(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
                 messageBytes);
     for (Field field : valueSchema.fields()) {
-      if (!field.name().equals(
+      if (field.name().equals(ConnectorUtils.CPS_ORDERING_KEY_ATTRIBUTE)) {
+        value.put(field.name(), orderingKey);
+      } else if (!field.name().equals(
           ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD)) {
         value.put(field.name(), messageAttributes.get(field.name()));
       }
