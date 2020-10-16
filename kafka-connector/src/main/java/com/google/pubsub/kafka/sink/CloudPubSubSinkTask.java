@@ -189,7 +189,7 @@ public class CloudPubSubSinkTask extends SinkTask {
       if (value != null) {
         builder.setData(value);
       }
-      if (orderingKeySource == OrderingKeySource.KEY && key != null) {
+      if (orderingKeySource == OrderingKeySource.KEY && key != null && !key.isEmpty()) {
         builder.setOrderingKey(key);
       } else if (orderingKeySource == OrderingKeySource.PARTITION) {
         builder.setOrderingKey(partition);

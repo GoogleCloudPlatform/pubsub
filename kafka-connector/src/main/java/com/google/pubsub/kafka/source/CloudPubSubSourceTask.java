@@ -325,7 +325,8 @@ public class CloudPubSubSourceTask extends SourceTask {
       return Math.abs(value.hashCode()) % kafkaPartitions;
     } else if (kafkaPartitionScheme.equals(PartitionScheme.KAFKA_PARTITIONER)) {
       return null;
-    } else if (kafkaPartitionScheme.equals(PartitionScheme.ORDERING_KEY)) {
+    } else if (kafkaPartitionScheme.equals(PartitionScheme.ORDERING_KEY) && orderingKey != null &&
+          !orderingKey.isEmpty()) {
       return Math.abs(orderingKey.hashCode()) % kafkaPartitions;
     } else {
       currentRoundRobinPartition = ++currentRoundRobinPartition % kafkaPartitions;
