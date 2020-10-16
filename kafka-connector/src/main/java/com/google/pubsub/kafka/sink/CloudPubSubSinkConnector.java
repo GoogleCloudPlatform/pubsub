@@ -17,6 +17,7 @@ package com.google.pubsub.kafka.sink;
 
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -25,6 +26,7 @@ import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
 import org.apache.kafka.common.utils.AppInfoParser;
 import org.apache.kafka.connect.connector.Task;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -54,6 +56,55 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   public static final String PUBLISH_KAFKA_METADATA = "metadata.publish";
   public static final String PUBLISH_KAFKA_HEADERS = "headers.publish";
   public static final String ORDERING_KEY_SOURCE = "orderingKeySource";
+  public static final String DEFAULT_ORDERING_KEY_SOURCE = "none";
+
+  /** Defines the accepted values for the {@link #ORDERING_KEY_SOURCE}. */
+  public enum OrderingKeySource {
+    NONE("none"),
+    KEY("key"),
+    PARTITION("partition");
+
+    private String value;
+
+    OrderingKeySource(String value) {
+      this.value = value;
+    }
+
+    public String toString() {
+      return value;
+    }
+
+    public static OrderingKeySource getEnum(String value) {
+      if (value.equals("none")) {
+        return OrderingKeySource.NONE;
+      } else if (value.equals("key")) {
+        return OrderingKeySource.KEY;
+      } else if (value.equals("partition")) {
+        return OrderingKeySource.PARTITION;
+      } else {
+        return null;
+      }
+    }
+
+    /** Validator class for {@link CloudPubSubSinkConnector.OrderingKeySource}. */
+    public static class Validator implements ConfigDef.Validator {
+
+      @Override
+      public void ensureValid(String name, Object o) {
+        String value = (String) o;
+        if (!value.equals(CloudPubSubSinkConnector.OrderingKeySource.NONE.toString())
+            && !value.equals(CloudPubSubSinkConnector.OrderingKeySource.KEY.toString())
+            && !value.equals(CloudPubSubSinkConnector.OrderingKeySource.PARTITION.toString())) {
+          throw new ConfigException(
+              "Valid values for "
+                  + CloudPubSubSinkConnector.ORDERING_KEY_SOURCE
+                  + " are " + Arrays.toString(OrderingKeySource.values()));
+        }
+      }
+    }
+  }
+
+
   private Map<String, String> props;
 
   @Override
@@ -174,8 +225,8 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             "GCP JSON credentials")
         .define(ORDERING_KEY_SOURCE,
             Type.STRING,
-            "none",
-            ConfigDef.ValidString.in("none", "key", "partition"),
+            DEFAULT_ORDERING_KEY_SOURCE,
+            new OrderingKeySource.Validator(),
             Importance.MEDIUM,
             "What to use to populate the Pub/Sub message ordering key. Possible values are "
                 + "\"none\", \"key\", or \"partition\".");

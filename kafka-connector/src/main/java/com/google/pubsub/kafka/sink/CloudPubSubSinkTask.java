@@ -25,6 +25,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.common.ConnectorCredentialsProvider;
+import com.google.pubsub.kafka.sink.CloudPubSubSinkConnector.OrderingKeySource;
 import com.google.pubsub.v1.ProjectTopicName;
 import com.google.pubsub.v1.PubsubMessage;
 
@@ -59,12 +60,6 @@ import org.threeten.bp.Duration;
  * href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public class CloudPubSubSinkTask extends SinkTask {
-  enum OrderingKeySource {
-    NONE,
-    KEY,
-    PARTITION
-  };
-
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
 
   // Maps a topic to another map which contains the outstanding futures per partition
@@ -129,20 +124,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
     includeHeaders = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_HEADERS);
-    String orderingKeySourceStr = (String) validatedProps.get(CloudPubSubSinkConnector.ORDERING_KEY_SOURCE);
-    switch (orderingKeySourceStr) {
-      case "none":
-        orderingKeySource = OrderingKeySource.NONE;
-        break;
-      case "key":
-        orderingKeySource = OrderingKeySource.KEY;
-        break;
-      case "partition":
-        orderingKeySource = OrderingKeySource.PARTITION;
-        break;
-      default:
-        throw new RuntimeException("Unexpected ordering key source " + orderingKeySourceStr);
-    }
+    orderingKeySource = OrderingKeySource.getEnum((String) validatedProps.get(CloudPubSubSinkConnector.ORDERING_KEY_SOURCE));
     gcpCredentialsProvider = new ConnectorCredentialsProvider();
     String credentialsPath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
     String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
