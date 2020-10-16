@@ -134,7 +134,7 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testPollInRegularCase() throws Exception {
     task.start(props);
-    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
+    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm1).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -161,12 +161,12 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testPollWithDuplicateReceivedMessages() throws Exception {
     task.start(props);
-    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
+    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm1).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
-    ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<String, String>());
+    ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<String, String>(), null);
     stubbedPullResponse =
         PullResponse.newBuilder().addReceivedMessages(0, rm1).addReceivedMessages(1, rm2).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
@@ -181,7 +181,7 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testPollWithNoMessageKeyAttribute() throws Exception {
     task.start(props);
-    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -209,7 +209,7 @@ public class CloudPubSubSourceTaskTest {
     task.start(props);
     Map<String, String> attributes = new HashMap<>();
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
-    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes);
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, null);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -238,7 +238,7 @@ public class CloudPubSubSourceTaskTest {
     Map<String, String> attributes = new HashMap<>();
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
     attributes.put(KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE, KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE_VALUE);
-    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes);
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, null);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -269,7 +269,7 @@ public class CloudPubSubSourceTaskTest {
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
     attributes.put("attribute1", "attribute_value1");
     attributes.put("attribute2", "attribute_value2");
-    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes);
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, null);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -306,7 +306,7 @@ public class CloudPubSubSourceTaskTest {
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
     attributes.put("attribute1", "attribute_value1");
     attributes.put("attribute2", "attribute_value2");
-    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes);
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, null);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -347,8 +347,8 @@ public class CloudPubSubSourceTaskTest {
     task.start(props);
     Map<String, String> attributes = new HashMap<>();
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
-    ReceivedMessage withoutKey = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
-    ReceivedMessage withKey = createReceivedMessage(ACK_ID2, CPS_MESSAGE, attributes);
+    ReceivedMessage withoutKey = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
+    ReceivedMessage withKey = createReceivedMessage(ACK_ID2, CPS_MESSAGE, attributes, null);
     PullResponse stubbedPullResponse =
         PullResponse.newBuilder()
             .addReceivedMessages(0, withKey)
@@ -390,7 +390,7 @@ public class CloudPubSubSourceTaskTest {
         CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
         CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString());
     task.start(props);
-    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -416,7 +416,7 @@ public class CloudPubSubSourceTaskTest {
             CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
             CloudPubSubSourceConnector.PartitionScheme.KAFKA_PARTITIONER.toString());
     task.start(props);
-    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
     PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
     when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
     List<SourceRecord> result = task.poll();
@@ -436,6 +436,33 @@ public class CloudPubSubSourceTaskTest {
     assertNull(result.get(0).kafkaPartition());
   }
 
+  /** Tests that the correct partition is assigned when the partition scheme is "ordering_key". */
+  @Test
+  public void testPollWithPartitionSchemaOrderingKey() throws Exception {
+    String orderingKey = "my-key";
+    props.put(
+        CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
+        CloudPubSubSourceConnector.PartitionScheme.ORDERING_KEY.toString());
+    task.start(props);
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), orderingKey);
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    assertEquals(1, result.size());
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            orderingKey.hashCode() % Integer.parseInt(KAFKA_PARTITIONS),
+            Schema.OPTIONAL_STRING_SCHEMA,
+            null,
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
+    assertRecordsEqual(expected, result.get(0));
+  }
+
   /**
    * Tests that the correct partition is assigned when the partition scheme is "round_robin". The
    * tests makes sure to submit an approrpriate number of messages to poll() so that all partitions
@@ -444,10 +471,10 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testPollWithPartitionSchemeRoundRobin() throws Exception {
     task.start(props);
-    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>());
-    ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<String, String>());
-    ReceivedMessage rm3 = createReceivedMessage(ACK_ID3, CPS_MESSAGE, new HashMap<String, String>());
-    ReceivedMessage rm4 = createReceivedMessage(ACK_ID4, CPS_MESSAGE, new HashMap<String, String>());
+    ReceivedMessage rm1 = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
+    ReceivedMessage rm2 = createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<String, String>(), null);
+    ReceivedMessage rm3 = createReceivedMessage(ACK_ID3, CPS_MESSAGE, new HashMap<String, String>(), null);
+    ReceivedMessage rm4 = createReceivedMessage(ACK_ID4, CPS_MESSAGE, new HashMap<String, String>(), null);
     PullResponse stubbedPullResponse =
         PullResponse.newBuilder()
             .addReceivedMessages(0, rm1)
@@ -505,6 +532,36 @@ public class CloudPubSubSourceTaskTest {
     assertRecordsEqual(expected4, result.get(3));
   }
 
+  /**
+   * Tests when the message retrieved from Cloud Pub/Sub has an ordering key set and
+   * {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE} is set to "orderingKey".
+   */
+  @Test
+  public void testSetOrderingKeyAsKey() throws Exception {
+    String orderingKey = "my-key";
+    props.put(CloudPubSubSourceConnector.KAFKA_MESSAGE_KEY_CONFIG, "orderingKey");
+    task.start(props);
+    Map<String, String> attributes = new HashMap<>();
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, orderingKey);
+    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
+    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    List<SourceRecord> result = task.poll();
+    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    assertEquals(1, result.size());
+
+    SourceRecord expected =
+        new SourceRecord(
+            null,
+            null,
+            KAFKA_TOPIC,
+            0,
+            Schema.OPTIONAL_STRING_SCHEMA,
+            orderingKey,
+            Schema.BYTES_SCHEMA,
+            KAFKA_VALUE);
+    assertRecordsEqual(expected, result.get(0));
+  }
+
   @Test
   public void testPollExceptionCase() throws Exception {
     task.start(props);
@@ -514,9 +571,11 @@ public class CloudPubSubSourceTaskTest {
   }
 
   private ReceivedMessage createReceivedMessage(
-      String ackId, ByteString data, Map<String, String> attributes) {
-    PubsubMessage message =
-        PubsubMessage.newBuilder().setData(data).putAllAttributes(attributes).build();
-    return ReceivedMessage.newBuilder().setAckId(ackId).setMessage(message).build();
+      String ackId, ByteString data, Map<String, String> attributes, String orderingKey) {
+    PubsubMessage.Builder builder = PubsubMessage.newBuilder().setData(data).putAllAttributes(attributes);
+    if (orderingKey != null) {
+      builder.setOrderingKey(orderingKey);
+    }
+    return ReceivedMessage.newBuilder().setAckId(ackId).setMessage(builder.build()).build();
   }
 }

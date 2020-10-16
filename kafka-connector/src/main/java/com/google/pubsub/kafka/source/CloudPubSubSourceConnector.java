@@ -64,7 +64,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     ROUND_ROBIN("round_robin"),
     HASH_KEY("hash_key"),
     HASH_VALUE("hash_value"),
-    KAFKA_PARTITIONER("kafka_partitioner");
+    KAFKA_PARTITIONER("kafka_partitioner"),
+    ORDERING_KEY("ordering_key");
 
     private String value;
 
@@ -85,6 +86,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         return PartitionScheme.HASH_VALUE;
       } else if (value.equals("kafka_partitioner")) {
         return PartitionScheme.KAFKA_PARTITIONER;
+      }  else if (value.equals("ordering_key")) {
+        return PartitionScheme.ORDERING_KEY;
       } else {
         return null;
       }
@@ -99,7 +102,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         if (!value.equals(CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString())
             && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString())
             && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString())
-            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.KAFKA_PARTITIONER.toString())) {
+            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.KAFKA_PARTITIONER.toString())
+            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.ORDERING_KEY.toString())) {
           throw new ConfigException(
               "Valid values for "
                   + CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG
@@ -191,7 +195,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.STRING,
             null,
             Importance.MEDIUM,
-            "The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka.")
+            "The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka. If set to \"orderingKey\", use the message's ordering key.")
         .define(
             KAFKA_MESSAGE_TIMESTAMP_CONFIG,
             Type.STRING,
