@@ -59,6 +59,11 @@ import org.threeten.bp.Duration;
  * href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
 public class CloudPubSubSinkTask extends SinkTask {
+  enum OrderingKeySource {
+    NONE,
+    KEY,
+    PARTITION
+  };
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSinkTask.class);
 
@@ -76,6 +81,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private int maxShutdownTimeoutMs;
   private boolean includeMetadata;
   private boolean includeHeaders;
+  private OrderingKeySource orderingKeySource;
   private ConnectorCredentialsProvider gcpCredentialsProvider;
   private com.google.cloud.pubsub.v1.Publisher publisher;
 
@@ -123,6 +129,20 @@ public class CloudPubSubSinkTask extends SinkTask {
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
     includeHeaders = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_HEADERS);
+    String orderingKeySourceStr = (String) validatedProps.get(CloudPubSubSinkConnector.ORDERING_KEY_SOURCE);
+    switch (orderingKeySourceStr) {
+      case "none":
+        orderingKeySource = OrderingKeySource.NONE;
+        break;
+      case "key":
+        orderingKeySource = OrderingKeySource.KEY;
+        break;
+      case "partition":
+        orderingKeySource = OrderingKeySource.PARTITION;
+        break;
+      default:
+        throw new RuntimeException("Unexpected ordering key source " + orderingKeySourceStr);
+    }
     gcpCredentialsProvider = new ConnectorCredentialsProvider();
     String credentialsPath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
     String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
@@ -153,14 +173,16 @@ public class CloudPubSubSinkTask extends SinkTask {
       log.trace("Received record: " + record.toString());
       Map<String, String> attributes = new HashMap<>();
       ByteString value = handleValue(record.valueSchema(), record.value(), attributes);
+      String key = null;
+      String partition = record.kafkaPartition().toString();
       if (record.key() != null) {
-        String key = record.key().toString();
+        key = record.key().toString();
         attributes.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, key);
       }
       if (includeMetadata) {
         attributes.put(ConnectorUtils.KAFKA_TOPIC_ATTRIBUTE, record.topic());
         attributes.put(
-            ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, record.kafkaPartition().toString());
+            ConnectorUtils.KAFKA_PARTITION_ATTRIBUTE, partition);
         attributes.put(ConnectorUtils.KAFKA_OFFSET_ATTRIBUTE, Long.toString(record.kafkaOffset()));
         if (record.timestamp() != null) {
           attributes.put(ConnectorUtils.KAFKA_TIMESTAMP_ATTRIBUTE, record.timestamp().toString());
@@ -183,6 +205,12 @@ public class CloudPubSubSinkTask extends SinkTask {
       if (value != null) {
         builder.setData(value);
       }
+      if (orderingKeySource == OrderingKeySource.KEY && key != null) {
+        builder.setOrderingKey(key);
+      } else if (orderingKeySource == OrderingKeySource.PARTITION) {
+        builder.setOrderingKey(partition);
+      }
+
       PubsubMessage message = builder.build();
       publishMessage(record.topic(), record.kafkaPartition(), message);
     }

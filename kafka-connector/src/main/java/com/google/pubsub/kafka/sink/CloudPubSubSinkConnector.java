@@ -53,6 +53,7 @@ public class CloudPubSubSinkConnector extends SinkConnector {
   public static final String DEFAULT_MESSAGE_BODY_NAME = "cps_message_body";
   public static final String PUBLISH_KAFKA_METADATA = "metadata.publish";
   public static final String PUBLISH_KAFKA_HEADERS = "headers.publish";
+  public static final String ORDERING_KEY_SOURCE = "orderingKeySource";
   private Map<String, String> props;
 
   @Override
@@ -170,7 +171,14 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             Type.STRING,
             null,
             Importance.HIGH,
-            "GCP JSON credentials");
+            "GCP JSON credentials")
+        .define(ORDERING_KEY_SOURCE,
+            Type.STRING,
+            "none",
+            ConfigDef.ValidString.in("none", "key", "partition"),
+            Importance.MEDIUM,
+            "What to use to populate the Pub/Sub message ordering key. Possible values are "
+                + "\"none\", \"key\", or \"partition\".");
   }
 
   @Override
