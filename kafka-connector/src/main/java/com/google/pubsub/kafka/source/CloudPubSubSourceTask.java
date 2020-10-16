@@ -162,7 +162,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         ackIds.add(ackId);
         Map<String, String> messageAttributes = message.getAttributesMap();
         String key;
-        if("orderingKey".equals(kafkaMessageKeyAttribute)) {
+        if ("orderingKey".equals(kafkaMessageKeyAttribute)) {
           key = message.getOrderingKey();
         } else {
           key = messageAttributes.get(kafkaMessageKeyAttribute);
@@ -180,9 +180,13 @@ public class CloudPubSubSourceTask extends SourceTask {
         SourceRecord record = null;
         if (hasCustomAttributes) {
           if (useKafkaHeaders) {
-            record = createRecordWithHeaders(messageAttributes, ack, key, message.getOrderingKey(), messageBytes, timestamp);
+            record =
+                createRecordWithHeaders(
+                    messageAttributes, ack, key, message.getOrderingKey(), messageBytes, timestamp);
           } else {
-            record = createRecordWithStruct(messageAttributes, ack, key, message.getOrderingKey(), messageBytes, timestamp);
+            record =
+                createRecordWithStruct(
+                    messageAttributes, ack, key, message.getOrderingKey(), messageBytes, timestamp);
           }
         } else {
           record =
@@ -206,8 +210,13 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
   }
 
-  private SourceRecord createRecordWithHeaders(Map<String, String> messageAttributes, Map<String,String> ack,
-                                               String key, String orderingKey, byte[] messageBytes, Long timestamp) {
+  private SourceRecord createRecordWithHeaders(
+      Map<String, String> messageAttributes,
+      Map<String, String> ack,
+      String key,
+      String orderingKey,
+      byte[] messageBytes,
+      Long timestamp) {
     ConnectHeaders headers = new ConnectHeaders();
     for (Entry<String, String> attribute :
             messageAttributes.entrySet()) {
@@ -229,11 +238,16 @@ public class CloudPubSubSourceTask extends SourceTask {
             headers);
   }
 
-  private SourceRecord createRecordWithStruct(Map<String, String> messageAttributes, Map<String,String> ack,
-                                              String key, String orderingKey, byte[] messageBytes, Long timestamp) {
-    SchemaBuilder valueSchemaBuilder = SchemaBuilder.struct().field(
-        ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD,
-        Schema.BYTES_SCHEMA);
+  private SourceRecord createRecordWithStruct(
+      Map<String, String> messageAttributes,
+      Map<String, String> ack,
+      String key,
+      String orderingKey,
+      byte[] messageBytes,
+      Long timestamp) {
+    SchemaBuilder valueSchemaBuilder =
+        SchemaBuilder.struct()
+            .field(ConnectorUtils.KAFKA_MESSAGE_CPS_BODY_FIELD, Schema.BYTES_SCHEMA);
 
     for (Entry<String, String> attribute :
         messageAttributes.entrySet()) {

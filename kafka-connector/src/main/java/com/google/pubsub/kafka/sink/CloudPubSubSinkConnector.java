@@ -24,9 +24,9 @@ import java.util.Map;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.config.ConfigDef.Importance;
 import org.apache.kafka.common.config.ConfigDef.Type;
+import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.common.utils.AppInfoParser;
 import org.apache.kafka.connect.connector.Task;
-import org.apache.kafka.common.config.ConfigException;
 import org.apache.kafka.connect.sink.SinkConnector;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -98,12 +98,12 @@ public class CloudPubSubSinkConnector extends SinkConnector {
           throw new ConfigException(
               "Valid values for "
                   + CloudPubSubSinkConnector.ORDERING_KEY_SOURCE
-                  + " are " + Arrays.toString(OrderingKeySource.values()));
+                  + " are "
+                  + Arrays.toString(OrderingKeySource.values()));
         }
       }
     }
   }
-
 
   private Map<String, String> props;
 

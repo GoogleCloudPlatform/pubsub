@@ -23,8 +23,8 @@ import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.common.ConnectorCredentialsProvider;
 import com.google.pubsub.v1.GetSubscriptionRequest;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -86,7 +86,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         return PartitionScheme.HASH_VALUE;
       } else if (value.equals("kafka_partitioner")) {
         return PartitionScheme.KAFKA_PARTITIONER;
-      }  else if (value.equals("ordering_key")) {
+      } else if (value.equals("ordering_key")) {
         return PartitionScheme.ORDERING_KEY;
       } else {
         return null;
@@ -102,12 +102,14 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         if (!value.equals(CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString())
             && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString())
             && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString())
-            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.KAFKA_PARTITIONER.toString())
+            && !value.equals(
+                CloudPubSubSourceConnector.PartitionScheme.KAFKA_PARTITIONER.toString())
             && !value.equals(CloudPubSubSourceConnector.PartitionScheme.ORDERING_KEY.toString())) {
           throw new ConfigException(
               "Valid values for "
                   + CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG
-                  + " are " + Arrays.toString(PartitionScheme.values()));
+                  + " are "
+                  + Arrays.toString(PartitionScheme.values()));
         }
       }
     }

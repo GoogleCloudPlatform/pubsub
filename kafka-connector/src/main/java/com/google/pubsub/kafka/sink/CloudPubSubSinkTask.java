@@ -124,7 +124,9 @@ public class CloudPubSubSinkTask extends SinkTask {
     messageBodyName = (String) validatedProps.get(CloudPubSubSinkConnector.CPS_MESSAGE_BODY_NAME);
     includeMetadata = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_METADATA);
     includeHeaders = (Boolean) validatedProps.get(CloudPubSubSinkConnector.PUBLISH_KAFKA_HEADERS);
-    orderingKeySource = OrderingKeySource.getEnum((String) validatedProps.get(CloudPubSubSinkConnector.ORDERING_KEY_SOURCE));
+    orderingKeySource =
+        OrderingKeySource.getEnum(
+            (String) validatedProps.get(CloudPubSubSinkConnector.ORDERING_KEY_SOURCE));
     gcpCredentialsProvider = new ConnectorCredentialsProvider();
     String credentialsPath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
     String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);

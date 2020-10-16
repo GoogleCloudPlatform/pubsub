@@ -672,23 +672,30 @@ public class CloudPubSubSinkTaskTest {
             KAFKA_MESSAGE2,
             1001,
             50001L,
-        TimestampType.CREATE_TIME);
+            TimestampType.CREATE_TIME);
     records.add(record);
     task.put(records);
     ArgumentCaptor<PubsubMessage> captor = ArgumentCaptor.forClass(PubsubMessage.class);
     verify(publisher, times(2)).publish(captor.capture());
     List<PubsubMessage> requestArgs = captor.getAllValues();
 
-
     List<PubsubMessage> expectedMessages = new ArrayList<>();
     Map<String, String> attributes1 = new HashMap<>();
     attributes1.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY1);
     expectedMessages.add(
-            PubsubMessage.newBuilder().putAllAttributes(attributes1).setOrderingKey(KAFKA_MESSAGE_KEY1).setData(KAFKA_MESSAGE1).build());
+        PubsubMessage.newBuilder()
+            .putAllAttributes(attributes1)
+            .setOrderingKey(KAFKA_MESSAGE_KEY1)
+            .setData(KAFKA_MESSAGE1)
+            .build());
     Map<String, String> attributes2 = new HashMap<>();
     attributes2.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY2);
     expectedMessages.add(
-            PubsubMessage.newBuilder().putAllAttributes(attributes2).setOrderingKey(KAFKA_MESSAGE_KEY2).setData(KAFKA_MESSAGE2).build());
+        PubsubMessage.newBuilder()
+            .putAllAttributes(attributes2)
+            .setOrderingKey(KAFKA_MESSAGE_KEY2)
+            .setData(KAFKA_MESSAGE2)
+            .build());
 
     assertEquals(expectedMessages, requestArgs);
   }
@@ -722,23 +729,30 @@ public class CloudPubSubSinkTaskTest {
             KAFKA_MESSAGE2,
             1001,
             50001L,
-        TimestampType.CREATE_TIME);
+            TimestampType.CREATE_TIME);
     records.add(record);
     task.put(records);
     ArgumentCaptor<PubsubMessage> captor = ArgumentCaptor.forClass(PubsubMessage.class);
     verify(publisher, times(2)).publish(captor.capture());
     List<PubsubMessage> requestArgs = captor.getAllValues();
 
-
     List<PubsubMessage> expectedMessages = new ArrayList<>();
     Map<String, String> attributes1 = new HashMap<>();
     attributes1.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY1);
     expectedMessages.add(
-            PubsubMessage.newBuilder().putAllAttributes(attributes1).setOrderingKey("4").setData(KAFKA_MESSAGE1).build());
+        PubsubMessage.newBuilder()
+            .putAllAttributes(attributes1)
+            .setOrderingKey("4")
+            .setData(KAFKA_MESSAGE1)
+            .build());
     Map<String, String> attributes2 = new HashMap<>();
     attributes2.put(ConnectorUtils.CPS_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY2);
     expectedMessages.add(
-            PubsubMessage.newBuilder().putAllAttributes(attributes2).setOrderingKey("5").setData(KAFKA_MESSAGE2).build());
+        PubsubMessage.newBuilder()
+            .putAllAttributes(attributes2)
+            .setOrderingKey("5")
+            .setData(KAFKA_MESSAGE2)
+            .build());
 
     assertEquals(expectedMessages, requestArgs);
   }
