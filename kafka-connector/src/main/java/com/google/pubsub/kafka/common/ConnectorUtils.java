@@ -37,6 +37,7 @@ public class ConnectorUtils {
   public static final String CPS_PROJECT_CONFIG = "cps.project";
   public static final String CPS_TOPIC_CONFIG = "cps.topic";
   public static final String CPS_MESSAGE_KEY_ATTRIBUTE = "key";
+  public static final String CPS_ORDERING_KEY_ATTRIBUTE = "orderingKey";
   public static final String GCP_CREDENTIALS_FILE_PATH_CONFIG  = "gcp.credentials.file.path";
   public static final String GCP_CREDENTIALS_JSON_CONFIG  = "gcp.credentials.json";
   public static final String KAFKA_MESSAGE_CPS_BODY_FIELD = "message";

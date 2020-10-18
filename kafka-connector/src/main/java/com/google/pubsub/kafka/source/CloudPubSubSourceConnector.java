@@ -23,8 +23,8 @@ import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.common.ConnectorCredentialsProvider;
 import com.google.pubsub.v1.GetSubscriptionRequest;
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -52,6 +52,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String KAFKA_MESSAGE_KEY_CONFIG = "kafka.key.attribute";
   public static final String KAFKA_MESSAGE_TIMESTAMP_CONFIG = "kafka.timestamp.attribute";
   public static final String KAFKA_TOPIC_CONFIG = "kafka.topic";
+  public static final String CPS_MAKE_ORDERING_KEY_ATTRIBUTE = "cps.makeOrderingKeyAttribute";
   public static final String CPS_SUBSCRIPTION_CONFIG = "cps.subscription";
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
   public static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
@@ -64,7 +65,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
     ROUND_ROBIN("round_robin"),
     HASH_KEY("hash_key"),
     HASH_VALUE("hash_value"),
-    KAFKA_PARTITIONER("kafka_partitioner");
+    KAFKA_PARTITIONER("kafka_partitioner"),
+    ORDERING_KEY("ordering_key");
 
     private String value;
 
@@ -85,6 +87,8 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         return PartitionScheme.HASH_VALUE;
       } else if (value.equals("kafka_partitioner")) {
         return PartitionScheme.KAFKA_PARTITIONER;
+      } else if (value.equals("ordering_key")) {
+        return PartitionScheme.ORDERING_KEY;
       } else {
         return null;
       }
@@ -99,11 +103,14 @@ public class CloudPubSubSourceConnector extends SourceConnector {
         if (!value.equals(CloudPubSubSourceConnector.PartitionScheme.ROUND_ROBIN.toString())
             && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString())
             && !value.equals(CloudPubSubSourceConnector.PartitionScheme.HASH_KEY.toString())
-            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.KAFKA_PARTITIONER.toString())) {
+            && !value.equals(
+                CloudPubSubSourceConnector.PartitionScheme.KAFKA_PARTITIONER.toString())
+            && !value.equals(CloudPubSubSourceConnector.PartitionScheme.ORDERING_KEY.toString())) {
           throw new ConfigException(
               "Valid values for "
                   + CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG
-                  + " are " + Arrays.toString(PartitionScheme.values()));
+                  + " are "
+                  + Arrays.toString(PartitionScheme.values()));
         }
       }
     }
@@ -191,7 +198,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.STRING,
             null,
             Importance.MEDIUM,
-            "The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka.")
+            "The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka. If set to \"orderingKey\", use the message's ordering key.")
         .define(
             KAFKA_MESSAGE_TIMESTAMP_CONFIG,
             Type.STRING,
@@ -231,7 +238,14 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Type.BOOLEAN,
             false,
             Importance.LOW,
-            "Use Kafka record headers to store Pub/Sub message attributes");
+            "Use Kafka record headers to store Pub/Sub message attributes")
+        .define(
+            CPS_MAKE_ORDERING_KEY_ATTRIBUTE,
+            Type.BOOLEAN,
+            false,
+            Importance.LOW,
+            "When true, add the ordering key to the set of attributes with the key \"orderingKey\" "
+                + "if it is non-empty.");
   }
 
   /**
