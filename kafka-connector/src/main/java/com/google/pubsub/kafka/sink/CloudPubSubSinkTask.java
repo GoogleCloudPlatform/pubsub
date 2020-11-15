@@ -182,7 +182,7 @@ public class CloudPubSubSinkTask extends SinkTask {
         SettableApiFuture<String> nullMessageFuture = SettableApiFuture.<String>create();
         nullMessageFuture.set("No message");
         addPendingMessageFuture(record.topic(), record.kafkaPartition(), nullMessageFuture);
-        return;
+        continue;
       }
       PubsubMessage.Builder builder = PubsubMessage.newBuilder();
       builder.putAllAttributes(attributes);
