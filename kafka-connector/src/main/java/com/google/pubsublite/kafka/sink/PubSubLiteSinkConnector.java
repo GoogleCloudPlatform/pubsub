@@ -9,6 +9,7 @@ import org.apache.kafka.connect.connector.Task;
 import org.apache.kafka.connect.sink.SinkConnector;
 
 public class PubSubLiteSinkConnector extends SinkConnector {
+
   private Map<String, String> props;
 
   @Override
