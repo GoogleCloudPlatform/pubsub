@@ -22,7 +22,7 @@ import org.apache.kafka.connect.sink.SinkRecord;
 import org.apache.kafka.connect.sink.SinkTask;
 import com.google.cloud.pubsublite.internal.Publisher;
 
-class PubSubLiteSinkTask extends SinkTask {
+public class PubSubLiteSinkTask extends SinkTask {
 
   private final PublisherFactory factory;
   private @Nullable
@@ -33,7 +33,7 @@ class PubSubLiteSinkTask extends SinkTask {
     this.factory = factory;
   }
 
-  PubSubLiteSinkTask() {
+  public PubSubLiteSinkTask() {
     this(new PublisherFactoryImpl());
   }
 
@@ -112,7 +112,9 @@ class PubSubLiteSinkTask extends SinkTask {
   @Override
   public void flush(Map<TopicPartition, OffsetAndMetadata> currentOffsets) {
     try {
-      publisher.flush();
+      if (publisher != null) {
+        publisher.flush();
+      }
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
