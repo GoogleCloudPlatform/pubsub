@@ -221,6 +221,7 @@ public class PubSubLiteSinkTaskTest {
   public void testFlushBeforeStart() throws Exception {
     task = new PubSubLiteSinkTask();
     task.flush(ImmutableMap.of());
+    task = null;
   }
 
   /**
