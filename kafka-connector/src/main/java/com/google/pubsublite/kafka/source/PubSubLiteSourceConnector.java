@@ -1,4 +1,4 @@
-package com.google.pubsublite.kafka.sink;
+package com.google.pubsublite.kafka.source;
 
 import java.util.Collections;
 import java.util.List;
@@ -6,9 +6,10 @@ import java.util.Map;
 import org.apache.kafka.common.config.ConfigDef;
 import org.apache.kafka.common.utils.AppInfoParser;
 import org.apache.kafka.connect.connector.Task;
-import org.apache.kafka.connect.sink.SinkConnector;
+import org.apache.kafka.connect.source.SourceConnector;
 
-public class PubSubLiteSinkConnector extends SinkConnector {
+public class PubSubLiteSourceConnector extends SourceConnector {
+
   private Map<String, String> props;
 
   @Override
@@ -23,7 +24,7 @@ public class PubSubLiteSinkConnector extends SinkConnector {
 
   @Override
   public Class<? extends Task> taskClass() {
-    return PubSubLiteSinkTask.class;
+    return PubSubLiteSourceTask.class;
   }
 
   @Override
@@ -32,7 +33,8 @@ public class PubSubLiteSinkConnector extends SinkConnector {
   }
 
   @Override
-  public void stop() {}
+  public void stop() {
+  }
 
   @Override
   public ConfigDef config() {

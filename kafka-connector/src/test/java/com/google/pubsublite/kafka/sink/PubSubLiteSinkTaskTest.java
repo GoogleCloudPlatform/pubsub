@@ -218,7 +218,7 @@ public class PubSubLiteSinkTaskTest {
    * Tests that a call to flush() before start() is fine.
    */
   @Test
-  public void testFlushBeforeStart() throws Exception {
+  public void testFlushBeforeStart() {
     task = new PubSubLiteSinkTask();
     task.flush(ImmutableMap.of());
     task = null;
