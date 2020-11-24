@@ -1,9 +1,19 @@
 ### Introduction
 
-The CloudPubSubConnector is a connector to be used with [Kafka Connect](http://kafka.apache.org/documentation.html#connect) to publish messages from
-[Kafka](http://kafka.apache.org) to [Google Cloud Pub/Sub](https://cloud.google.com/pubsub/) and vice versa. CloudPubSubConnector provides
-both a sink connector (to copy messages from Kafka to Cloud Pub/Sub) and a
-source connector (to copy messages from Cloud Pub/Sub to Kafka).
+The CloudPubSubConnector is a connector to be used with
+[Kafka Connect](http://kafka.apache.org/documentation.html#connect) to publish
+messages from [Kafka](http://kafka.apache.org) to
+[Google Cloud Pub/Sub](https://cloud.google.com/pubsub/) or
+[Pub/Sub Lite](https://cloud.google.com/pubsub/lite) and vice versa.
+
+CloudPubSubSinkConnector provides a sink connector to copy messages from Kafka
+to Google Cloud Pub/Sub.
+CloudPubSubSourceConnector provides a source connector to copy messages from
+Google Cloud Pub/Sub to Kafka.
+PubSubLiteSinkConnector provides a sink connector to copy messages from Kafka
+to Pub/Sub Lite.
+PubSubLiteSourceConnector provides a source connector to copy messages from
+Pub/Sub Lite to Kafka.
 
 ### Building
 
@@ -27,7 +37,7 @@ These instructions assume you are using [Maven](https://maven.apache.org/).
 
     `mvn package`
 
-The resulting jar is at target/cps-kafka-connector.jar.
+The resulting jar is at target/pubsub-kafka-connector.jar.
 
 ### Pre-Running Steps
 
@@ -53,12 +63,13 @@ The resulting jar is at target/cps-kafka-connector.jar.
 
 ### Running a Connector
 
-1.  Copy the cps-kafka-connector.jar to the place where you will run your Kafka
+1.  Copy the pubsub-kafka-connector.jar to the place where you will run your Kafka
     connector.
 
-2.  Create a configuration file for the Cloud Pub/Sub connector and copy it to
-    the place where you will run Kafka connect. The configuration should set up
-    the proper Kafka topics, Cloud Pub/Sub topic, and Cloud Pub/Sub project.
+2.  Create a configuration file for the Pub/Sub connector and copy it to the
+    place where you will run Kafka connect. The configuration should set up the
+    proper Kafka topics, Pub/Sub topic, and Pub/Sub project. For Pub/Sub Lite,
+    this should also set the correct location (google cloud zone).
     Sample configuration files for the source and sink connectors are provided
     at configs/.
 
@@ -75,7 +86,7 @@ The resulting jar is at target/cps-kafka-connector.jar.
 
 ### CloudPubSubConnector Configs
 
-In addition to the configs supplied by the Kafka Connect API, the Pubsub
+In addition to the configs supplied by the Kafka Connect API, the Cloud Pub/Sub
 Connector supports the following configs:
 
 #### Source Connector
@@ -111,7 +122,22 @@ Connector supports the following configs:
 | headers.publish | Boolean | false | When true, include any headers as attributes when a message is published to Cloud Pub/Sub. |
 | orderingKeySource | String | none, key, partition | none | When set to "none", do not set the ordering key. When set to "key", uses a message's key as the ordering key. If set to "partition", converts the partition number to a String and uses that as the ordering key. |
 
-#### Schema Support and Data Model
+### PubSubLiteConnector Configs
+
+In addition to the configs supplied by the Kafka Connect API, the Pub/Sub Lite
+Connector supports the following configs:
+
+#### Sink Connector
+
+| Config | Value Range | Default | Description |
+|---------------|-------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| pubsublite.topic | String | REQUIRED (No default) | The topic in Pub/Sub Lite to publish to, e.g. "foo" for topic "/projects/bar/locations/europe-south7-q/topics/foo". |
+| pubsublite.project | String | REQUIRED (No default) | The project in Pub/Sub Lite containing the topic, e.g. "bar" from above. |
+| pubsublite.location | String | REQUIRED (No default) | The location in Pub/Sub Lite containing the topic, e.g. "europe-south7-q" from above. |
+
+### Schema Support and Data Model
+
+#### Cloud Pub/Sub Connector
 
 A pubsub message has two main parts: the message body and attributes. The
 message body is a [ByteString](https://developers.google.com/protocol-buffers/docs/reference/java/com/google/protobuf/ByteString)
@@ -169,4 +195,51 @@ from a Pubsub message into a SourceRecord with a relevant Schema.
     *   In these cases, to carry forward the structure of data stored in
         attributes, we recommend using a converter that can represent a struct
         schema type in a useful way, e.g. JsonConverter.
+        
+        
+#### Pub/Sub Lite Connector
+
+Pub/Sub Lite's messages have the following structure:
+
+```java
+class Message {
+  ByteString key;
+  ByteString data;
+  ListMultimap<String, ByteString> attributes;
+  Optional<Timestamp> eventTime;
+}
+```
  
+This maps quite closely to the SinkRecord class, except for serialization. The
+table below shows how each field in SinkRecord will be mapped to the underlying
+message:
+
+| SinkRecord | Message |
+|---|---|
+| key{Schema} | key |
+| value{Schema} | data |
+| headers | attributes |
+| topic | attributes["x-goog-pubsublite-source-kafka-topic"] |
+| kafkaPartition | attributes["x-goog-pubsublite-source-kafka-partition"] |
+| kafkaOffset | attributes["x-goog-pubsublite-source-kafka-offset"] |
+| timestamp | eventTime |
+| timestampType | attributes["x-goog-pubsublite-source-kafka-event-time-type"] |
+
+When a key, value or header value with a schema is encoded as a ByteString, the
+following logic will be used:
+
+- null schemas are treated as Schema.STRING_SCHEMA
+- Top level BYTES payloads are unmodified.
+- Top level STRING payloads are encoded using copyFromUtf8.
+- Top level Integral payloads are converted using
+copyFromUtf8(Long.toString(x.longValue()))
+- Top level Floating point payloads are converted using
+copyFromUtf8(Double.toString(x.doubleValue()))
+- All other payloads are encoded into a protobuf Value, then converted to a ByteString.
+  - Nested STRING fields are encoded into a protobuf Value.
+  - Nested BYTES fields are encoded to a protobuf Value holding the base64 encoded bytes.
+  - Nested Numeric fields are encoded as a double into a protobuf Value.
+  - Maps with Array, Map, or Struct keys are not supported.
+    - BYTES keys in maps are base64 encoded.
+    - Integral keys are converted using Long.toString(x.longValue())
+    - Floating point keys are converted using Double.toString(x.doubleValue())

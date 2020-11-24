@@ -45,6 +45,11 @@
       <artifactId>google-cloud-pubsub</artifactId>
       <version>1.108.3</version>
     </dependency>
+    <dependency>
+      <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-pubsublite</artifactId>
+      <version>0.6.0</version>
+    </dependency>
     <!-- https://mvnrepository.com/artifact/com.google.protobuf/protobuf-java -->
     <dependency>
         <groupId>com.google.protobuf</groupId>
@@ -66,6 +71,12 @@
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <version>3.3.3</version>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>com.google.truth</groupId>
+      <artifactId>truth</artifactId>
+      <version>1.1</version>
       <scope>test</scope>
     </dependency>
   </dependencies>
@@ -113,7 +124,7 @@
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer" />
               </transformers>
-              <finalName>cps-kafka-connector</finalName>
+              <finalName>pubsub-kafka-connector</finalName>
             </configuration>
           </execution>
         </executions>
@@ -122,8 +133,8 @@
         <groupId>org.apache.maven.plugins</groupId>
         <artifactId>maven-compiler-plugin</artifactId>
         <configuration>
-          <source>1.7</source>
-          <target>1.7</target>
+          <source>8</source>
+          <target>8</target>
         </configuration>
       </plugin>
       <plugin>
