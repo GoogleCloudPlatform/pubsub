@@ -41,9 +41,11 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
   private GrpcSubscriberStub subscriber;
   private Random rand = new Random(System.currentTimeMillis());
   private CredentialsProvider gcpCredentialsProvider;
+  private String endpoint;
 
-  CloudPubSubGRPCSubscriber(CredentialsProvider gcpCredentialsProvider) {
+  CloudPubSubGRPCSubscriber(CredentialsProvider gcpCredentialsProvider, String endpoint) {
     this.gcpCredentialsProvider = gcpCredentialsProvider;
+    this.endpoint = endpoint;
     makeSubscriber();
   }
 
@@ -64,15 +66,17 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
   private void makeSubscriber() {
     try {
       log.info("Creating subscriber.");
-      SubscriberStubSettings subscriberStubSettings =
+      SubscriberStubSettings.Builder subscriberStubSettings =
       SubscriberStubSettings.newBuilder()
         .setTransportChannelProvider(
             SubscriberStubSettings.defaultGrpcTransportProviderBuilder()
                 .setMaxInboundMessageSize(20 << 20) // 20MB
                 .build())
-        .setCredentialsProvider(gcpCredentialsProvider)
-        .build();
-      subscriber = GrpcSubscriberStub.create(subscriberStubSettings);
+        .setCredentialsProvider(gcpCredentialsProvider);
+      if (endpoint != null && !endpoint.isEmpty()) {
+        subscriberStubSettings.setEndpoint(endpoint);
+      }
+      subscriber = GrpcSubscriberStub.create(subscriberStubSettings.build());
       // We change the subscriber every 25 - 35 minutes in order to avoid GOAWAY errors.
       nextSubscriberResetTime =
           System.currentTimeMillis() + rand.nextInt(10 * 60 * 1000) + 25 * 60 * 1000;

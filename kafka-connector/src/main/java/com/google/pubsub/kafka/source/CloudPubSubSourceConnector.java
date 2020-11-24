@@ -245,7 +245,12 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             false,
             Importance.LOW,
             "When true, add the ordering key to the set of attributes with the key \"orderingKey\" "
-                + "if it is non-empty.");
+                + "if it is non-empty.")
+        .define(ConnectorUtils.CPS_ENDPOINT,
+            Type.STRING,
+            null,
+            Importance.LOW,
+            "The Pub/Sub endpoint to use. If not provided, use the global endpoint");
   }
 
   /**
