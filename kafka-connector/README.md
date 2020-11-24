@@ -134,8 +134,8 @@ Connector supports the following configs:
 | Config | Value Range | Default | Description |
 |---------------|-------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
 | pubsublite.subscription | String | REQUIRED (No default) | The name of the subscription to Pub/Sub Lite, e.g. "sub" for subscription "/projects/bar/locations/europe-south7-q/subscriptions/sub". |
-| pubsublite.project | String | REQUIRED (No default) | The project in Pub/Sub Lite containing the topic, e.g. "bar" from above. |
-| pubsublite.location | String | REQUIRED (No default) | The location in Pub/Sub Lite containing the topic, e.g. "europe-south7-q" from above. |
+| pubsublite.project | String | REQUIRED (No default) | The project in Pub/Sub Lite containing the subscription, e.g. "bar" from above. |
+| pubsublite.location | String | REQUIRED (No default) | The location in Pub/Sub Lite containing the subscription, e.g. "europe-south7-q" from above. |
 | kafka.topic | String | REQUIRED (No default) | The topic in Kafka which will receive messages that were pulled from Pub/Sub Lite. |
 | pubsublite.partition_flow_control.messages | Long | Long.MAX_VALUE | The maximum number of outstanding messages per Pub/Sub Lite partition. |
 | pubsublite.partition_flow_control.bytes | Long | 20,000,000 | The maximum number of outstanding bytes per Pub/Sub Lite partition. |
