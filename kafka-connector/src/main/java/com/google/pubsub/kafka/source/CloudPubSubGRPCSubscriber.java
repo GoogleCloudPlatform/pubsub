@@ -41,9 +41,11 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
   private GrpcSubscriberStub subscriber;
   private Random rand = new Random(System.currentTimeMillis());
   private CredentialsProvider gcpCredentialsProvider;
+  private String endpoint;
 
-  CloudPubSubGRPCSubscriber(CredentialsProvider gcpCredentialsProvider) {
+  CloudPubSubGRPCSubscriber(CredentialsProvider gcpCredentialsProvider, String endpoint) {
     this.gcpCredentialsProvider = gcpCredentialsProvider;
+    this.endpoint = endpoint;
     makeSubscriber();
   }
 
@@ -71,6 +73,7 @@ public class CloudPubSubGRPCSubscriber implements CloudPubSubSubscriber {
                 .setMaxInboundMessageSize(20 << 20) // 20MB
                 .build())
         .setCredentialsProvider(gcpCredentialsProvider)
+        .setEndpoint(endpoint)
         .build();
       subscriber = GrpcSubscriberStub.create(subscriberStubSettings);
       // We change the subscriber every 25 - 35 minutes in order to avoid GOAWAY errors.

@@ -229,7 +229,12 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             new OrderingKeySource.Validator(),
             Importance.MEDIUM,
             "What to use to populate the Pub/Sub message ordering key. Possible values are "
-                + "\"none\", \"key\", or \"partition\".");
+                + "\"none\", \"key\", or \"partition\".")
+        .define(ConnectorUtils.CPS_ENDPOINT,
+            Type.STRING,
+            ConnectorUtils.CPS_DEFAULT_ENDPOINT,
+            Importance.LOW,
+            "The Pub/Sub endpoint to use.");
   }
 
   @Override
