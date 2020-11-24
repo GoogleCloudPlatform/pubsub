@@ -248,9 +248,9 @@ public class CloudPubSubSourceConnector extends SourceConnector {
                 + "if it is non-empty.")
         .define(ConnectorUtils.CPS_ENDPOINT,
             Type.STRING,
-            null,
+            ConnectorUtils.CPS_DEFAULT_ENDPOINT,
             Importance.LOW,
-            "The Pub/Sub endpoint to use. If not provided, use the global endpoint");
+            "The Pub/Sub endpoint to use.");
   }
 
   /**
