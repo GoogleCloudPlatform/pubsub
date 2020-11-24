@@ -1,9 +1,19 @@
 ### Introduction
 
-The CloudPubSubConnector is a connector to be used with [Kafka Connect](http://kafka.apache.org/documentation.html#connect) to publish messages from
-[Kafka](http://kafka.apache.org) to [Google Cloud Pub/Sub](https://cloud.google.com/pubsub/) and vice versa. CloudPubSubConnector provides
-both a sink connector (to copy messages from Kafka to Cloud Pub/Sub) and a
-source connector (to copy messages from Cloud Pub/Sub to Kafka).
+The CloudPubSubConnector is a connector to be used with
+[Kafka Connect](http://kafka.apache.org/documentation.html#connect) to publish
+messages from [Kafka](http://kafka.apache.org) to
+[Google Cloud Pub/Sub](https://cloud.google.com/pubsub/) or
+[Pub/Sub Lite](https://cloud.google.com/pubsub/lite) and vice versa.
+
+CloudPubSubSinkConnector provides a sink connector to copy messages from Kafka
+to Google Cloud Pub/Sub.
+CloudPubSubSourceConnector provides a source connector to copy messages from
+Google Cloud Pub/Sub to Kafka.
+PubSubLiteSinkConnector provides a sink connector to copy messages from Kafka
+to Pub/Sub Lite.
+PubSubLiteSourceConnector provides a source connector to copy messages from
+Pub/Sub Lite to Kafka.
 
 ### Building
 

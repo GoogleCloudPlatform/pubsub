@@ -94,16 +94,8 @@ public class PubSubLiteSinkTask extends SinkTask {
   private Iterable<? extends Header> getRecordHeaders(SinkRecord record) {
     ConnectHeaders headers = new ConnectHeaders();
     if (record.headers() != null) {
-      int headerCount = 0;
       for (Header header : record.headers()) {
-        if (header.key().getBytes().length < 257 &&
-            String.valueOf(header.value()).getBytes().length < 1025) {
-          headers.add(header);
-          headerCount++;
-        }
-        if (headerCount > 100) {
-          break;
-        }
+        headers.add(header);
       }
     }
     return headers;
