@@ -93,8 +93,9 @@ Connector supports the following configs:
 
 | Config | Value Range | Default | Description |
 |------------------------|-----------------------------------|-----------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| cps.subscription | String | REQUIRED (No default) | The name of the subscription to Cloud Pub/Sub, e.g. "sub" for topic "/projects/bar/subscriptions/sub". |
+| cps.subscription | String | REQUIRED (No default) | The name of the subscription to Cloud Pub/Sub, e.g. "sub" for subscription "/projects/bar/subscriptions/sub". |
 | cps.project | String | REQUIRED (No default) | The project containing the topic from which to pull messages, e.g. "bar" from above. |
+| cps.endpoint | String | "pubsub.googleapis.com:443" | The [Cloud Pub/Sub endpoint](https://cloud.google.com/pubsub/docs/reference/service_apis_overview#service_endpoints) to use. |
 | kafka.topic | String | REQUIRED (No default) | The topic in Kafka which will receive messages that were pulled from Cloud Pub/Sub. |
 | cps.maxBatchSize | Integer | 100 | The minimum number of messages to batch per pull request to Cloud Pub/Sub. |
 | cps.makeOrderingKeyAttribute | Boolean | false | When true, copy the ordering key to the set of attributes set in the Kafka message. |
@@ -111,6 +112,7 @@ Connector supports the following configs:
 |---------------|-------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
 | cps.topic | String | REQUIRED (No default) | The topic in Cloud Pub/Sub to publish to, e.g. "foo" for topic "/projects/bar/topics/foo". |
 | cps.project | String | REQUIRED (No default) | The project in Cloud Pub/Sub containing the topic, e.g. "bar" from above. |
+| cps.endpoint | String | "pubsub.googleapis.com:443" | The [Cloud Pub/Sub endpoint](https://cloud.google.com/pubsub/docs/reference/service_apis_overview#service_endpoints) to use. |
 | maxBufferSize | Integer | 100 | The maximum number of messages that can be received for the messages on a topic partition before publishing them to Cloud Pub/Sub. |
 | maxBufferBytes | Long | 10000000 | The maximum number of bytes that can be received for the messages on a topic partition before publishing them to Cloud Pub/Sub. |
 | maxDelayThresholdMs | Integer | 100 | The maximum amount of time to wait to reach maxBufferSize or maxBufferBytes before publishing outstanding messages to Cloud Pub/Sub. |
@@ -126,6 +128,17 @@ Connector supports the following configs:
 
 In addition to the configs supplied by the Kafka Connect API, the Pub/Sub Lite
 Connector supports the following configs:
+
+#### Source Connector
+
+| Config | Value Range | Default | Description |
+|---------------|-------------|-----------------------|------------------------------------------------------------------------------------------------------------------------------------|
+| pubsublite.subscription | String | REQUIRED (No default) | The name of the subscription to Pub/Sub Lite, e.g. "sub" for subscription "/projects/bar/locations/europe-south7-q/subscriptions/sub". |
+| pubsublite.project | String | REQUIRED (No default) | The project in Pub/Sub Lite containing the subscription, e.g. "bar" from above. |
+| pubsublite.location | String | REQUIRED (No default) | The location in Pub/Sub Lite containing the subscription, e.g. "europe-south7-q" from above. |
+| kafka.topic | String | REQUIRED (No default) | The topic in Kafka which will receive messages that were pulled from Pub/Sub Lite. |
+| pubsublite.partition_flow_control.messages | Long | Long.MAX_VALUE | The maximum number of outstanding messages per Pub/Sub Lite partition. |
+| pubsublite.partition_flow_control.bytes | Long | 20,000,000 | The maximum number of outstanding bytes per Pub/Sub Lite partition. |
 
 #### Sink Connector
 
@@ -243,3 +256,21 @@ copyFromUtf8(Double.toString(x.doubleValue()))
     - BYTES keys in maps are base64 encoded.
     - Integral keys are converted using Long.toString(x.longValue())
     - Floating point keys are converted using Double.toString(x.doubleValue())
+    
+The source connector will perform a one to one mapping from SequencedMessage
+fields to their SourceRecord counterparts.
+
+In addition, empty `message.key` fields will be converted to `null` and assigned
+round-robin to kafka partitions. Messages with identical, non-empty keys will be
+routed to the same kafka partition.
+
+| SequencedMessage | SourceRecord field | SourceRecord schema |
+|---|---|---|
+| message.key | key | BYTES |
+| message.data | value | BYTES |
+| message.attributes | headers | BYTES |
+| <source topic> | sourcePartition["topic"] | String field in map |
+| <source partition> | sourcePartition["partition"] | Integer field in map |
+| cursor.offset | sourceOffset["offset"] | Long field in map |
+| message.event_time | timestamp | long milliseconds since unix epoch if present |
+| publish_time | timestamp | long milliseconds since unix epoch if no event_time exists |

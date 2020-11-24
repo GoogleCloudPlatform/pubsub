@@ -67,6 +67,7 @@ public class CloudPubSubSinkTask extends SinkTask {
       new HashMap<>();
   private String cpsProject;
   private String cpsTopic;
+  private String cpsEndpoint;
   private String messageBodyName;
   private long maxBufferSize;
   private long maxBufferBytes;
@@ -111,6 +112,7 @@ public class CloudPubSubSinkTask extends SinkTask {
     Map<String, Object> validatedProps = new CloudPubSubSinkConnector().config().parse(props);
     cpsProject = validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG).toString();
     cpsTopic = validatedProps.get(ConnectorUtils.CPS_TOPIC_CONFIG).toString();
+    cpsEndpoint = validatedProps.get(ConnectorUtils.CPS_ENDPOINT).toString();
     maxBufferSize = (Integer) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG);
     maxBufferBytes = (Long) validatedProps.get(CloudPubSubSinkConnector.MAX_BUFFER_BYTES_CONFIG);
     maxDelayThresholdMs =
@@ -402,7 +404,8 @@ public class CloudPubSubSinkTask extends SinkTask {
                     .setMaxRetryDelay(Duration.ofMillis(Long.MAX_VALUE))
                     .setInitialRpcTimeout(Duration.ofSeconds(10))
                     .setRpcTimeoutMultiplier(2)
-                    .build());
+                    .build())
+            .setEndpoint(cpsEndpoint);
     try {
       publisher = builder.build();
     } catch (Exception e) {

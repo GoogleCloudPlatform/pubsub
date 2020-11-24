@@ -61,6 +61,7 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   private String kafkaTopic;
   private String cpsSubscription;
+  private String cpsEndpoint;
   private String kafkaMessageKeyAttribute;
   private String kafkaMessageTimestampAttribute;
   private boolean makeOrderingKeyAttribute;
@@ -99,6 +100,7 @@ public class CloudPubSubSourceTask extends SourceTask {
             ConnectorUtils.CPS_SUBSCRIPTION_FORMAT,
             validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG).toString(),
             validatedProps.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG).toString());
+    cpsEndpoint = (String) validatedProps.get(ConnectorUtils.CPS_ENDPOINT);
     kafkaTopic = validatedProps.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG).toString();
     cpsMaxBatchSize =
         (Integer) validatedProps.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG);
@@ -132,7 +134,7 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
     if (subscriber == null) {
       // Only do this if we did not set through the constructor.
-      subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS, gcpCredentialsProvider);
+      subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS, gcpCredentialsProvider, cpsEndpoint);
     }
     standardAttributes.add(kafkaMessageKeyAttribute);
     standardAttributes.add(kafkaMessageTimestampAttribute);
