@@ -15,13 +15,6 @@ to Pub/Sub Lite.
 PubSubLiteSourceConnector provides a source connector to copy messages from
 Pub/Sub Lite to Kafka.
 
-### Acquring the connector
-
-A pre-built uber-jar is available for download with the
-[latest release](https://github.com/GoogleCloudPlatform/pubsub/releases).
-
-You can also build the connector from head, as described [below](#building).
-
 ### Pre-Running Steps
 
 1.  Regardless of whether you are running on Google Cloud Platform or not, you
@@ -43,6 +36,39 @@ You can also build the connector from head, as described [below](#building).
     export this environment variable as part of your shell startup file).
 
     `export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key/file`
+    
+### Quickstart: copy_tool.py
+
+You can download `copy_tool.py`, a single-file python script which downloads,
+sets up and runs the kafka connector in a single-machine configuration. This
+script requires:
+
+1. python >= 3.5
+1. [requests](https://requests.readthedocs.io/en/master/user/install/#python-m-pip-install-requests)
+   installed
+1. `JAVA_HOME` configured properly
+1. `GOOGLE_APPLICATION_CREDENTIALS` set
+1. A [properties file](#cloudpubsubconnector-configs) with connector.class and
+   other properties set
+   
+It can be invoked on mac/linux with:
+
+```bash
+python3 path/to/copy_tool.py --bootstrap_servers=MY_KAFKA_SERVER,OTHER_SERVER --connector_properties_file=path/to/connector.properties
+```
+
+or windows with:
+
+```bash
+python3 path\to\copy_tool.py --bootstrap_servers=MY_KAFKA_SERVER,OTHER_SERVER --connector_properties_file=path\to\connector.properties
+```
+
+### Acquiring the connector
+
+A pre-built uber-jar is available for download with the
+[latest release](https://github.com/GoogleCloudPlatform/pubsub/releases).
+
+You can also build the connector from head, as described [below](#building).
 
 ### Running a Connector
 
