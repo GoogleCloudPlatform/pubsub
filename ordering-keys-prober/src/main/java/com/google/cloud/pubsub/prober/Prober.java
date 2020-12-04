@@ -270,11 +270,12 @@ public class Prober {
     this.fullSubscriptionName = ProjectSubscriptionName.of(project, subscriptionName);
 
     try {
-      TopicAdminSettings.Builder topicAdminClientBuilder = TopicAdminSettings.newBuilder();
+      TopicAdminSettings.Builder topicAdminClientBuilder = TopicAdminSettings.newBuilder()
+          .setEndpoint(endpoint);
       this.topicAdminClient = TopicAdminClient.create(topicAdminClientBuilder.build());
 
       SubscriptionAdminSettings.Builder subscriptionAdminClientBuilder =
-          SubscriptionAdminSettings.newBuilder();
+          SubscriptionAdminSettings.newBuilder().setEndpoint(endpoint);
       this.subscriptionAdminClient =
           SubscriptionAdminClient.create(subscriptionAdminClientBuilder.build());
     } catch (Exception e) {
@@ -498,7 +499,7 @@ public class Prober {
 
   private void createPublisher() {
     try {
-      Publisher.Builder builder = Publisher.newBuilder(fullTopicName);
+      Publisher.Builder builder = Publisher.newBuilder(fullTopicName).setEndpoint(endpoint);
       builder = updatePublisherBuilder(builder);
       publisher = builder.build();
       logger.log(Level.INFO, "Created Publisher");
@@ -546,7 +547,8 @@ public class Prober {
         Subscriber.Builder builder =
             Subscriber.newBuilder(fullSubscriptionName, receiver)
                 .setParallelPullCount(subscriberStreamCount)
-                .setFlowControlSettings(flowControlSettings);
+                .setFlowControlSettings(flowControlSettings)
+                .setEndpoint(endpoint);;
         builder = updateSubscriberBuilder(builder);
         Subscriber subscriber = builder.build();
         subscribers[i] = subscriber;
@@ -615,7 +617,7 @@ public class Prober {
           executor.submit(
               () -> {
                 SubscriberStubSettings.Builder subscriberStubSettings =
-                    SubscriberStubSettings.newBuilder();
+                    SubscriberStubSettings.newBuilder().setEndpoint(endpoint);
                 try (final GrpcSubscriberStub subscriber =
                     GrpcSubscriberStub.create(subscriberStubSettings.build())) {
                   for (int j = 0; j < pullCount; ++j) {
