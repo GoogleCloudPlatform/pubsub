@@ -406,6 +406,9 @@ public class CloudPubSubSinkTask extends SinkTask {
                     .setRpcTimeoutMultiplier(2)
                     .build())
             .setEndpoint(cpsEndpoint);
+    if (orderingKeySource != OrderingKeySource.NONE) {
+      builder.setEnableMessageOrdering(true); 
+    }
     try {
       publisher = builder.build();
     } catch (Exception e) {
