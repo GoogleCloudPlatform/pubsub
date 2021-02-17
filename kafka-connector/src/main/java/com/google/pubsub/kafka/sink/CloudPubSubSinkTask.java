@@ -407,7 +407,7 @@ public class CloudPubSubSinkTask extends SinkTask {
                     .build())
             .setEndpoint(cpsEndpoint);
     if (orderingKeySource != OrderingKeySource.NONE) {
-      builder.setEnableMessageOrdering(true) 
+      builder.setEnableMessageOrdering(true); 
     }
     try {
       publisher = builder.build();
