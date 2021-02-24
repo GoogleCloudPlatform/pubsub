@@ -1,0 +1,30 @@
+{
+  "name": "Streaming SQL Copier",
+  "description": "An Apache Beam streaming pipeline copies data from a streaming source in a standard format without parsing the payload and writes it to a streaming sink.",
+  "parameters": [
+    {
+      "name": "sourceType",
+      "helpText": "REQUIRED. Type of the source. Valid types are: [pubsub, pubsublite, kafka]"
+    },
+    {
+      "name": "sourceLocation",
+      "helpText": "REQUIRED. Location within the source to read from. See README."
+    },
+    {
+      "name": "sourceOptions",
+      "helpText": "Additional options for configuring the source. See README."
+    },
+    {
+      "name": "sinkType",
+      "helpText": "REQUIRED. Type of the sink. Valid types are: [pubsub, pubsublite, kafka, bigquery]"
+    },
+    {
+      "name": "sinkLocation",
+      "helpText": "REQUIRED. Location within the sink to write to. See README."
+    },
+    {
+      "name": "sinkOptions",
+      "helpText": "Additional options for configuring the sink. See README."
+    }
+  ]
+}
