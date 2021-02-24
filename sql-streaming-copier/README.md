@@ -48,7 +48,9 @@ can be provided using the `sourceOptions` and `sinkOptions` parameters.
 -------- BUILD NOTES --------------
 
 To regenerate the shaded jar, put the following into a `custom-shadowjar`
-package in the beam source tree and run `./gradlew :custom-shadowjar:shadowJar`
+package in the beam source tree and run `./gradlew :custom-shadowjar:shadowJar`.
+
+Then, copy the resulting jar to `third_party/beam-custom-shadowjar.jar`
 
 ```groovy
 plugins {
