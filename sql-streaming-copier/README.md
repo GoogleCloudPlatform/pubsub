@@ -23,6 +23,10 @@ CREATE EXTERNAL TABLE <tabletype>(
 )
 ```
 
+If copying to Pub/Sub, all attribute values must be interpretable as UTF-8
+strings. If multiple values are provided for an attribute, they will be joined
+with commas in the Pub/Sub Message.
+
 If copying to BigQuery, the table must accept the above format if it already
 exists.
 

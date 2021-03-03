@@ -32,7 +32,7 @@ public class CloudPubsubProvider implements StandardSourceProvider, StandardSink
         return String.join(
             "\n",
             "SELECT event_timestamp, payload, ARRAY(",
-            "  SELECT kv.key AS key, CAST(STRING_AGG(kv.values, \"|\") AS STRING) AS value",
+            "  SELECT kv.key AS key, STRING_AGG(CAST(kv.values) AS STRING) AS value",
             "  FROM UNNEST(attributes) AS kv) as attributes");
       }
     };
