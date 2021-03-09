@@ -17,17 +17,18 @@ package com.google.pubsub.kafka.source;
 
 import com.google.api.core.ApiFuture;
 import com.google.protobuf.Empty;
-import com.google.pubsub.v1.AcknowledgeRequest;
-import com.google.pubsub.v1.PullRequest;
-import com.google.pubsub.v1.PullResponse;
+import com.google.pubsub.v1.ReceivedMessage;
+import java.util.Collection;
+import java.util.List;
 
 /**
  * An interface for clients that want to subscribe to messages from to <a
  * href="https://cloud.google.com/pubsub">Google Cloud Pub/Sub</a>.
  */
-public interface CloudPubSubSubscriber {
+public interface CloudPubSubSubscriber extends AutoCloseable {
+  ApiFuture<List<ReceivedMessage>> pull();
 
-  public ApiFuture<PullResponse> pull(PullRequest request);
+  ApiFuture<Empty> ackMessages(Collection<String> ackIds);
 
-  public ApiFuture<Empty> ackMessages(AcknowledgeRequest request);
+  void close();
 }
