@@ -57,6 +57,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
   public static final String CPS_SUBSCRIPTION_CONFIG = "cps.subscription";
   public static final String CPS_MAX_BATCH_SIZE_CONFIG = "cps.maxBatchSize";
   public static final String CPS_STREAMING_PULL_ENABLED = "cps.streamingPull.enabled";
+  public static final String CPS_STREAMING_PULL_PARALLEL_PULL_COUNT = "cps.streamingPull.parallelPullCount";
   public static final String CPS_STREAMING_PULL_FLOW_CONTROL_MESSAGES = "cps.streamingPull.flowControlMessages";
   public static final String CPS_STREAMING_PULL_FLOW_CONTROL_BYTES = "cps.streamingPull.flowControlBytes";
   public static final int DEFAULT_CPS_MAX_BATCH_SIZE = 100;
@@ -203,6 +204,12 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             false,
             Importance.MEDIUM,
             "Whether to use streaming pull for the connector to connect to Cloud Pub/Sub. If provided, cps.maxBatchSize is ignored.")
+        .define(
+            CPS_STREAMING_PULL_PARALLEL_PULL_COUNT,
+            Type.INT,
+            10,
+            Importance.MEDIUM,
+            "The number of streams to open per task when using streaming pull, defaults to 10.")
         .define(
             CPS_STREAMING_PULL_FLOW_CONTROL_MESSAGES,
             Type.LONG,

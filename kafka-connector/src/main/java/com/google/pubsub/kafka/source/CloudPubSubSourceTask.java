@@ -124,6 +124,8 @@ public class CloudPubSubSourceTask extends SourceTask {
         .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_FLOW_CONTROL_BYTES);
     long streamingPullMessages = (Long) validatedProps
         .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_FLOW_CONTROL_MESSAGES);
+    int streamingPullParallelPullCount = (Integer) validatedProps.get(
+        CloudPubSubSourceConnector.CPS_STREAMING_PULL_PARALLEL_PULL_COUNT);
     if (gcpCredentialsFilePath != null) {
       try {
         gcpCredentialsProvider.loadFromFile(gcpCredentialsFilePath);
@@ -149,6 +151,7 @@ public class CloudPubSubSourceTask extends SourceTask {
                         .setMaxOutstandingElementCount(streamingPullMessages)
                         .setMaxOutstandingRequestBytes(streamingPullBytes).build())
                 .setEndpoint(cpsEndpoint)
+                .setParallelPullCount(streamingPullParallelPullCount)
                 .build());
       } else {
         subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS,
