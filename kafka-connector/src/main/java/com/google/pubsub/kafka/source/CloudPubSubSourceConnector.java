@@ -192,7 +192,7 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             DEFAULT_CPS_MAX_BATCH_SIZE,
             ConfigDef.Range.between(1, Integer.MAX_VALUE),
             Importance.MEDIUM,
-            "The minimum number of messages to batch per pull request to Cloud Pub/Sub.")
+            "The maximum number of messages to batch per pull request to Cloud Pub/Sub.")
         .define(
             KAFKA_MESSAGE_KEY_CONFIG,
             Type.STRING,
