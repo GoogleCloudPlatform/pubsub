@@ -96,14 +96,22 @@ public class StreamingPullSubscriber implements CloudPubSubSubscriber {
   }
 
   private synchronized void fail(ApiException e) {
-    error = Optional.of(e);
+    if (!error.isPresent()) {
+      error = Optional.of(e);
+    }
     if (notification.isPresent()) {
       notification.get().setException(e);
       notification = Optional.empty();
     }
+    ackConsumers.values().forEach(AckReplyConsumer::nack);
+    ackConsumers.clear();
   }
 
   private synchronized void addMessage(PubsubMessage message, AckReplyConsumer consumer) {
+    if (error.isPresent()) {
+      consumer.nack();
+      return;
+    }
     String ackId = Long.toString(nextId++);
     messages.add(ReceivedMessage.newBuilder().setMessage(message).setAckId(ackId).build());
     ackConsumers.put(ackId, consumer);
@@ -135,9 +143,7 @@ public class StreamingPullSubscriber implements CloudPubSubSubscriber {
   @Override
   public void close() {
     synchronized (this) {
-      if (!error.isPresent()) {
-        error = Optional.of(toApiException(new Throwable("Subscriber client shut down")));
-      }
+      fail(toApiException(new Throwable("Subscriber client shut down")));
     }
     underlying.stopAsync().awaitTerminated();
   }

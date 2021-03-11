@@ -131,6 +131,30 @@ public class StreamingPullSubscriberTest {
   }
 
   @Test
+  public void messageAfterErrorNacked() {
+    ApiException expected = new CheckedApiException(Code.INTERNAL).underlying;
+    errorListener.failed(null, expected);
+    ExecutionException e = assertThrows(ExecutionException.class, () -> subscriber.pull().get());
+    assertThat(e.getCause()).isEqualTo(expected);
+    PubsubMessage message1 = PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("abc")).build();
+    AckReplyConsumer consumer = mock(AckReplyConsumer.class);
+    messageReceiver.receiveMessage(message1, consumer);
+    verify(consumer, times(1)).nack();
+  }
+
+  @Test
+  public void messagesNackedOnError() {
+    PubsubMessage message1 = PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("abc")).build();
+    AckReplyConsumer consumer = mock(AckReplyConsumer.class);
+    messageReceiver.receiveMessage(message1, consumer);
+    ApiException expected = new CheckedApiException(Code.INTERNAL).underlying;
+    errorListener.failed(null, expected);
+    ExecutionException e = assertThrows(ExecutionException.class, () -> subscriber.pull().get());
+    assertThat(e.getCause()).isEqualTo(expected);
+    verify(consumer, times(1)).nack();
+  }
+
+  @Test
   public void pullMessagePrioritizeErrorOverExistingMessage() {
     ApiException expected = new CheckedApiException(Code.INTERNAL).underlying;
     errorListener.failed(null, expected);
