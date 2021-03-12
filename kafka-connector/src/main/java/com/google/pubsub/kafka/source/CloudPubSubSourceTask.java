@@ -70,7 +70,6 @@ public class CloudPubSubSourceTask extends SourceTask {
   private int currentRoundRobinPartition = -1;
   // Keep track of all ack ids that have not been sent correctly acked yet.
   private final Set<String> deliveredAckIds = Collections.synchronizedSet(new HashSet<String>());
-  private final Set<String> ackIds = Collections.synchronizedSet(new HashSet<String>());
   private CloudPubSubSubscriber subscriber;
   private final Set<String> ackIdsInFlight = Collections.synchronizedSet(new HashSet<String>());
   private final Set<String> standardAttributes = new HashSet<>();
@@ -91,6 +90,8 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   @Override
   public void start(Map<String, String> props) {
+    deliveredAckIds.clear();
+    ackIdsInFlight.clear();
     Map<String, Object> validatedProps = new CloudPubSubSourceConnector().config().parse(props);
     cpsSubscription = ProjectSubscriptionName.newBuilder()
         .setProject(validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG).toString())
@@ -175,14 +176,6 @@ public class CloudPubSubSourceTask extends SourceTask {
       for (ReceivedMessage rm : response) {
         PubsubMessage message = rm.getMessage();
         String ackId = rm.getAckId();
-        // If we are receiving this message a second (or more) times because the ack for it failed
-        // then do not create a SourceRecord for this message. In case we are waiting for ack
-        // response we also skip the message
-        if (ackIds.contains(ackId) || deliveredAckIds.contains(ackId) || ackIdsInFlight
-            .contains(ackId)) {
-          continue;
-        }
-        ackIds.add(ackId);
         Map<String, String> messageAttributes = message.getAttributesMap();
         String key;
         String orderingKey = message.getOrderingKey();
@@ -384,7 +377,6 @@ public class CloudPubSubSourceTask extends SourceTask {
   public void commitRecord(SourceRecord record) {
     String ackId = record.sourceOffset().get(cpsSubscription.toString()).toString();
     deliveredAckIds.add(ackId);
-    ackIds.remove(ackId);
     log.trace("Committed {}", ackId);
   }
 }
