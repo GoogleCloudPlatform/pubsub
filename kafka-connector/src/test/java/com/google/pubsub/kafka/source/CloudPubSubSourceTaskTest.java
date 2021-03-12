@@ -147,27 +147,6 @@ public class CloudPubSubSourceTaskTest {
     verify(subscriber, times(1)).ackMessages(any());
   }
 
-
-  /**
-   * Tests that when a call to ackMessages() fails, that the message is not redelivered to Kafka if
-   * the message is received again by Cloud Pub/Sub. Also tests that ack ids are added properly if
-   * the ack id has not been seen before.
-   */
-  @Test
-  public void testPollWithDuplicateReceivedMessages() throws Exception {
-    task.start(props);
-    ReceivedMessage rm1 =
-        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>(), null);
-    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm1));
-    List<SourceRecord> result = task.poll();
-    assertEquals(1, result.size());
-    ReceivedMessage rm2 =
-        createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<>(), null);
-    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm1, rm2));
-    result = task.poll();
-    assertEquals(1, result.size());
-  }
-
   /**
    * Tests when the message(s) retrieved from Cloud Pub/Sub do not have an attribute that matches
    * {@link #KAFKA_MESSAGE_KEY_ATTRIBUTE}.
