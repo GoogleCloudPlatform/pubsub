@@ -1,18 +1,28 @@
 package com.google.cloud.pubsub.sql.providers;
 
-import com.google.cloud.pubsub.sql.Rows;
-import org.apache.beam.sdk.schemas.Schema;
+import com.google.cloud.pubsub.sql.MakePtransform;
+import org.apache.beam.sdk.extensions.sql.SqlTransform;
+import org.apache.beam.sdk.transforms.PTransform;
+import org.apache.beam.sdk.values.PCollection;
+import org.apache.beam.sdk.values.Row;
 
-/** Produces a row conforming to the standard row definition. */
-public interface StandardSqlSource {
-  default Schema nativeSchema() {
-    return Rows.STANDARD_SCHEMA;
-  }
+public interface StandardSqlSource extends StandardSource {
+
   /**
-   * A statement transforming to the standard schema from the native schema if needed. The empty
-   * string if no statement is required.
+   * A statement transforming from the native schema to the standard schema if needed. The empty
+   * string if no statement is required. The provided table is PCOLLECTION.
    */
-  default String selectStatement() {
+  default String query() {
     return "";
+  }
+
+  @Override
+  default PTransform<PCollection<Row>, PCollection<Row>> transform() {
+    return MakePtransform.from(rows -> {
+      if (!query().isEmpty()) {
+        rows = rows.apply(SqlTransform.query(query()));
+      }
+      return rows;
+    }, "StandardSqlSink Transform");
   }
 }

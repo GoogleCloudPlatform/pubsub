@@ -1,4 +1,7 @@
-A beam template which performs copies to and from streaming systems using beam SQL.
+# Pub/Sub Copy Pipeline
+
+A dataflow template which performs copies to and from streaming systems using
+beam SQL.
 
 This can perform copies from any of:
 1) Cloud Pub/Sub
@@ -36,25 +39,32 @@ It requires the following options:
 * sourceLocation:
   * `pubsub`: The topic (discouraged) or subscription to read from
   * `pubsublite`: The subscription to read from
-  * `kafka`: The topic URL to read from
+  * `kafka`: The broker URL to read from
 * sinkType: [`pubsub`, `pubsublite`, `kafka`, `bigquery`]
 * sinkLocation:
   * `pubsub`: The topic to write to
   * `pubsublite`: The topic to write to
-  * `kafka`: The topic URL to write to
+  * `kafka`: The broker URL to write to
   * `bigquery`: Location of the table in the BigQuery CLI format
+  
+When running with kafka, you must also set the following parameters:
 
+```bash
+--parameters='[source/sink]Options=^NOT_IN_JSON^{"topics":["<kafka topic name>"],"bootstrap.servers":"<broker URL>"}'
+```
 
 Additional options from
 [beam documentation](https://beam.apache.org/documentation/dsls/sql/extensions/create-external-table)
 can be provided using the `sourceOptions` and `sinkOptions` parameters.
 
--------- BUILD NOTES --------------
+## How to build
 
-To regenerate the shaded jar, put the following into a `custom-shadowjar`
-package in the beam source tree and run `./gradlew :custom-shadowjar:shadowJar`.
+### Shaded jar generation
 
-Then, copy the resulting jar to `third_party/beam-custom-shadowjar.jar`
+To regenerate the shaded jar, put the following into a
+`custom-shadowjar/build.gradle` package in the beam source tree, add
+`include(":custom-shadowjar")` to `settings.gradle.kts` and run
+`./gradlew :custom-shadowjar:shadowJar`.
 
 ```groovy
 plugins {
@@ -72,9 +82,47 @@ dependencies {
     implementation project(":sdks:java:io:google-cloud-platform")
     implementation project(":runners:direct-java")
     implementation project(":runners:google-cloud-dataflow-java")
+    implementation project(":sdks:java:io:kafka")
 }
 
 shadowJar {
+    mergeServiceFiles()
     zip64 true
 }
 ```
+
+Then, run the following command:
+
+```bash
+export BUILT_JAR_PATH="<path to full beam jar>"
+export THIRD_PARTY_PATH="<path to git repo>/sql-streaming-copier/third_party"
+
+mvn org.apache.maven.plugins:maven-install-plugin:2.3.1:install-file
+-Dfile="$BUILT_JAR_PATH" 
+-DgroupId=com.google.cloud.pubsub
+-DartifactId=beam-custom-shadowjar
+-Dversion=1.0.0
+-Dpackaging=jar 
+-DlocalRepositoryPath="$THIRD_PARTY_PATH"
+```
+
+### Deploying
+
+First, from the `sql-streaming-copier` directory, run `mvn package`.
+
+Then, run the following to upload the new version of the template.
+
+```bash
+export TEMPLATE_PATH="gs://<TEMPLATE JSON FILE NAME>.json"
+export TEMPLATE_IMAGE="gcr.io/<PROJECT>/<CONTAINER PATH>:latest"
+
+gcloud dataflow flex-template build $TEMPLATE_PATH \
+    --image-gcr-path "$TEMPLATE_IMAGE" \
+    --sdk-language "JAVA" \
+    --flex-template-base-image JAVA11 \
+    --metadata-file "metadata.json" \
+    --jar "target/sql-streaming-copier-1.0.0.jar" \
+    --env FLEX_TEMPLATE_JAVA_MAIN_CLASS="com.google.cloud.pubsub.sql.TemplateMain"
+```
+
+

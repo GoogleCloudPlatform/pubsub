@@ -8,7 +8,6 @@ import org.apache.beam.sdk.schemas.Schema.FieldType;
 
 @AutoService({StandardSourceProvider.class, StandardSinkProvider.class})
 public class KafkaProvider implements StandardSourceProvider, StandardSinkProvider {
-  private KafkaProvider() {}
 
   static final Schema SCHEMA =
       Schema.builder()
@@ -19,7 +18,7 @@ public class KafkaProvider implements StandardSourceProvider, StandardSinkProvid
           .build();
 
   @Override
-  public StandardSqlSink getSink() {
+  public StandardSink getSink() {
     return new StandardSqlSink() {
       @Override
       public Schema nativeSchema() {
@@ -27,14 +26,17 @@ public class KafkaProvider implements StandardSourceProvider, StandardSinkProvid
       }
 
       @Override
-      public String selectStatement() {
-        return "SELECT event_timestamp, payload, attributes AS headers, message_key";
+      public String query() {
+        // Beam does not support null keys (https://issues.apache.org/jira/browse/BEAM-12008)
+        // So generate a random float and convert it to a string to get random routing for unkeyed
+        // messages (all messages with empty keys route to the same partition).
+        return "SELECT event_timestamp, payload, attributes AS headers, IF(LENGTH(message_key) = 0, CAST(CAST(RAND() AS STRING) AS BYTES), message_key) AS message_key FROM PCOLLECTION";
       }
     };
   }
 
   @Override
-  public StandardSqlSource getSource() {
+  public StandardSource getSource() {
     return new StandardSqlSource() {
       @Override
       public Schema nativeSchema() {
@@ -42,8 +44,8 @@ public class KafkaProvider implements StandardSourceProvider, StandardSinkProvid
       }
 
       @Override
-      public String selectStatement() {
-        return "SELECT event_timestamp, payload, headers AS attributes, message_key";
+      public String query() {
+        return "SELECT event_timestamp, payload, headers AS attributes, message_key FROM PCOLLECTION";
       }
     };
   }

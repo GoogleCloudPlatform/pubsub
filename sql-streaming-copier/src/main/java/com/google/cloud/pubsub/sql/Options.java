@@ -8,6 +8,7 @@ import org.apache.beam.sdk.options.StreamingOptions;
 import org.apache.beam.sdk.options.Validation.Required;
 
 public interface Options extends StreamingOptions, BeamSqlPipelineOptions {
+
   @Description("Type of the source. Valid types are: [pubsub, pubsublite, kafka]")
   @Required()
   String getSourceType();
@@ -22,9 +23,9 @@ public interface Options extends StreamingOptions, BeamSqlPipelineOptions {
 
   @Description("Additional options to pass to the source.")
   @Nullable
-  Map<String, String> getSourceOptions();
+  Map<String, Object> getSourceOptions();
 
-  void setSourceOptions(Map<String, String> options);
+  void setSourceOptions(Map<String, Object> options);
 
   @Description("Type of the sink. Valid types are: [pubsub, pubsublite, kafka, bigquery]")
   @Required()
@@ -40,7 +41,7 @@ public interface Options extends StreamingOptions, BeamSqlPipelineOptions {
 
   @Description("Additional options to pass to the sink.")
   @Nullable
-  Map<String, String> getSinkOptions();
+  Map<String, Object> getSinkOptions();
 
-  void setSinkOptions(Map<String, String> options);
+  void setSinkOptions(Map<String, Object> options);
 }

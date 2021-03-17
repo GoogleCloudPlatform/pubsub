@@ -1,9 +1,12 @@
 package com.google.cloud.pubsub.sql;
 
 import org.apache.beam.sdk.schemas.Schema;
+import org.apache.beam.sdk.schemas.Schema.FieldType;
 
 public class Rows {
-  private Rows() {}
+
+  private Rows() {
+  }
 
   public static final String MESSAGE_KEY_FIELD = "message_key";
   public static final String EVENT_TIMESTAMP_FIELD = "event_timestamp";
@@ -22,8 +25,8 @@ public class Rows {
       Schema.FieldType.array(Schema.FieldType.row(ATTRIBUTES_ENTRY_SCHEMA));
   public static final Schema STANDARD_SCHEMA =
       Schema.builder()
-          .addByteArrayField(MESSAGE_KEY_FIELD)
-          .addDateTimeField(EVENT_TIMESTAMP_FIELD)
+          .addField(MESSAGE_KEY_FIELD, FieldType.BYTES)
+          .addField(EVENT_TIMESTAMP_FIELD, FieldType.DATETIME.withNullable(true))
           .addArrayField(ATTRIBUTES_FIELD, Schema.FieldType.row(ATTRIBUTES_ENTRY_SCHEMA))
           .addByteArrayField(PAYLOAD_FIELD)
           .build();

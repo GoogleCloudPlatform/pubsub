@@ -7,7 +7,9 @@ import org.apache.beam.sdk.extensions.sql.meta.provider.TableProvider;
 import org.apache.beam.sdk.extensions.sql.meta.store.InMemoryMetaStore;
 
 public class TableLoader {
-  private TableLoader() {}
+
+  private TableLoader() {
+  }
 
   private static final InMemoryMetaStore META_STORE = new InMemoryMetaStore();
 

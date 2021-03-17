@@ -4,27 +4,35 @@
   "parameters": [
     {
       "name": "sourceType",
+      "label": "sourceType",
       "helpText": "REQUIRED. Type of the source. Valid types are: [pubsub, pubsublite, kafka]"
     },
     {
       "name": "sourceLocation",
+      "label": "sourceLocation",
       "helpText": "REQUIRED. Location within the source to read from. See README."
     },
     {
       "name": "sourceOptions",
-      "helpText": "Additional options for configuring the source. See README."
+      "label": "sourceOptions",
+      "helpText": "Additional options for configuring the source. See README.",
+      "isOptional": true
     },
     {
       "name": "sinkType",
+      "label": "sinkType",
       "helpText": "REQUIRED. Type of the sink. Valid types are: [pubsub, pubsublite, kafka, bigquery]"
     },
     {
       "name": "sinkLocation",
+      "label": "sinkLocation",
       "helpText": "REQUIRED. Location within the sink to write to. See README."
     },
     {
       "name": "sinkOptions",
-      "helpText": "Additional options for configuring the sink. See README."
+      "label": "sinkOptions",
+      "helpText": "Additional options for configuring the sink. See README.",
+      "isOptional": true
     }
   ]
 }

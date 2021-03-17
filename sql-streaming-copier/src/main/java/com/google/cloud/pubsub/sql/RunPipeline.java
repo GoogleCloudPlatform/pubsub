@@ -6,14 +6,19 @@ import org.apache.beam.sdk.Pipeline;
 import org.apache.beam.sdk.extensions.sql.zetasql.ZetaSQLQueryPlanner;
 import org.apache.beam.sdk.options.PipelineOptionsFactory;
 
-public class Main {
-  private static Map<String, String> getNonNull(@Nullable Map<String, String> map) {
-    if (map == null) return Map.of();
+/**
+ * A main class for running the pipeline locally.
+ */
+public class RunPipeline {
+
+  private static Map<String, Object> getNonNull(@Nullable Map<String, Object> map) {
+    if (map == null) {
+      return Map.of();
+    }
     return map;
   }
 
-  public static void main(final String[] args) {
-    Options options = PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class);
+  public static void run(Options options) {
     options.setStreaming(true);
     options.setPlannerName(ZetaSQLQueryPlanner.class.getName());
     TableSpec sourceSpec =
@@ -32,5 +37,9 @@ public class Main {
     Compiler.compile(pipeline, sourceSpec, sinkSpec);
     // For a Dataflow Flex Template, do NOT waitUntilFinish().
     pipeline.run();
+  }
+
+  public static void main(final String[] args) {
+    run(PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class));
   }
 }
