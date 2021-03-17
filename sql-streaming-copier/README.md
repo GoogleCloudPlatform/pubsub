@@ -125,4 +125,3 @@ gcloud dataflow flex-template build $TEMPLATE_PATH \
     --env FLEX_TEMPLATE_JAVA_MAIN_CLASS="com.google.cloud.pubsub.sql.TemplateMain"
 ```
 
-

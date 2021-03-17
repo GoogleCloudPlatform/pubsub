@@ -36,7 +36,7 @@ public class PubsubLiteProvider implements StandardSourceProvider, StandardSinkP
     return new StandardSqlSource() {
       @Override
       public String query() {
-        return "SELECT payload, message_key, attributes, IFNULL(event_timestamp, publish_timestamp) FROM PCOLLECTION";
+        return "SELECT payload, message_key, attributes, IFNULL(event_timestamp, publish_timestamp) AS event_timestamp FROM PCOLLECTION";
       }
 
       @Override
