@@ -43,7 +43,7 @@ public class PubsubLiteProvider implements StandardSourceProvider, StandardSinkP
       public Schema nativeSchema() {
         return READ_SCHEMA;
       }
-    }; // Pub/Sub lite uses the standard schema.
+    };
   }
 
   @Override
