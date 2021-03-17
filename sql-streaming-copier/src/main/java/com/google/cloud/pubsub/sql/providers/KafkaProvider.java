@@ -30,7 +30,7 @@ public class KafkaProvider implements StandardSourceProvider, StandardSinkProvid
         // Beam does not support null keys (https://issues.apache.org/jira/browse/BEAM-12008)
         // So generate a random float and convert it to a string to get random routing for unkeyed
         // messages (all messages with empty keys route to the same partition).
-        return "SELECT event_timestamp, payload, attributes AS headers, IF(LENGTH(message_key) = 0, CAST(CAST(RAND() AS STRING) AS BYTES), message_key) AS message_key FROM PCOLLECTION";
+        return "SELECT event_timestamp, payload, attributes AS headers, IF(message_key = b'', CAST(CAST(RAND() AS STRING) AS BYTES), message_key) AS message_key FROM PCOLLECTION";
       }
     };
   }
