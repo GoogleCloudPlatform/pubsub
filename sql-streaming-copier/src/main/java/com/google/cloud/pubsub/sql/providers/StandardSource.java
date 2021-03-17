@@ -11,9 +11,7 @@ import org.apache.beam.sdk.values.Row;
  */
 public interface StandardSource {
 
-  default Schema nativeSchema() {
-    return Rows.STANDARD_SCHEMA;
-  }
+  Schema nativeSchema();
 
   /**
    * Transform from the native schema to the standard schema.

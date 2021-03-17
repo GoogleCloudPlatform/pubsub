@@ -1,6 +1,5 @@
 package com.google.cloud.pubsub.sql.providers;
 
-import com.google.cloud.pubsub.sql.Rows;
 import org.apache.beam.sdk.schemas.Schema;
 import org.apache.beam.sdk.transforms.PTransform;
 import org.apache.beam.sdk.values.PCollection;
@@ -11,9 +10,7 @@ import org.apache.beam.sdk.values.Row;
  */
 public interface StandardSink {
 
-  default Schema nativeSchema() {
-    return Rows.STANDARD_SCHEMA;
-  }
+  Schema nativeSchema();
 
   /**
    * Transform from the standard schema to the native schema.

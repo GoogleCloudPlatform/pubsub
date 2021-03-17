@@ -40,21 +40,22 @@ public class CloudPubsubProvider implements StandardSourceProvider, StandardSink
       attributesBuilder.put(key, String.join("|", values.build()));
     }
     return Row.withSchema(SCHEMA)
-        .withFieldValue("payload", input.getBytes("payload"))
-        .withFieldValue("attributes", attributesBuilder.build())
-        .withFieldValue("event_timestamp", input.getDateTime("event_timestamp"))
+        .withFieldValue(Rows.PAYLOAD_FIELD, input.getBytes("payload"))
+        .withFieldValue(Rows.ATTRIBUTES_FIELD, attributesBuilder.build())
+        .withFieldValue(Rows.EVENT_TIMESTAMP_FIELD, input.getDateTime("event_timestamp"))
         .build();
   }
 
   private static Row fromPubsubRow(Row input) {
     ImmutableList.Builder<Row> entries = ImmutableList.builder();
-    input.getMap("attributes")
+    input.getMap(Rows.ATTRIBUTES_FIELD)
         .forEach((key, value) -> entries.add(Row.withSchema(Rows.ATTRIBUTES_ENTRY_SCHEMA)
             .attachValues(key, ImmutableList.of(value.toString().getBytes(UTF_8)))));
     return Row.withSchema(Rows.STANDARD_SCHEMA)
-        .withFieldValue("payload", input.getBytes("payload"))
-        .withFieldValue("attributes", entries.build())
-        .withFieldValue("event_timestamp", input.getDateTime("event_timestamp"))
+        .withFieldValue(Rows.PAYLOAD_FIELD, input.getBytes("payload"))
+        .withFieldValue(Rows.ATTRIBUTES_FIELD, entries.build())
+        .withFieldValue(Rows.EVENT_TIMESTAMP_FIELD, input.getDateTime("event_timestamp"))
+        .withFieldValue(Rows.MESSAGE_KEY_FIELD, new byte[]{})
         .build();
   }
 

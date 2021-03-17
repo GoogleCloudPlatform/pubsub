@@ -25,9 +25,9 @@ public class Rows {
       Schema.FieldType.array(Schema.FieldType.row(ATTRIBUTES_ENTRY_SCHEMA));
   public static final Schema STANDARD_SCHEMA =
       Schema.builder()
-          .addField(MESSAGE_KEY_FIELD, FieldType.BYTES)
-          .addField(EVENT_TIMESTAMP_FIELD, FieldType.DATETIME.withNullable(true))
-          .addArrayField(ATTRIBUTES_FIELD, Schema.FieldType.row(ATTRIBUTES_ENTRY_SCHEMA))
           .addByteArrayField(PAYLOAD_FIELD)
+          .addByteArrayField(MESSAGE_KEY_FIELD)
+          .addDateTimeField(EVENT_TIMESTAMP_FIELD)
+          .addArrayField(ATTRIBUTES_FIELD, Schema.FieldType.row(ATTRIBUTES_ENTRY_SCHEMA))
           .build();
 }

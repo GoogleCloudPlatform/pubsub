@@ -9,20 +9,14 @@ import org.apache.beam.sdk.values.Row;
 public interface StandardSqlSource extends StandardSource {
 
   /**
-   * A statement transforming from the native schema to the standard schema if needed. The empty
-   * string if no statement is required. The provided table is PCOLLECTION.
+   * A statement transforming from the native schema to the standard schema if needed. The provided
+   * table is PCOLLECTION.
    */
-  default String query() {
-    return "";
-  }
+  String query();
 
   @Override
   default PTransform<PCollection<Row>, PCollection<Row>> transform() {
-    return MakePtransform.from(rows -> {
-      if (!query().isEmpty()) {
-        rows = rows.apply(SqlTransform.query(query()));
-      }
-      return rows;
-    }, "StandardSqlSink Transform");
+    return MakePtransform
+        .from(rows -> rows.apply(SqlTransform.query(query())), "StandardSqlSink Transform");
   }
 }
