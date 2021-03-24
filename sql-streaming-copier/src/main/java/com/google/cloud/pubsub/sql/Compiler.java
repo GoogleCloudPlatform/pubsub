@@ -49,7 +49,7 @@ public class Compiler {
   private static PTransform<PCollection<Row>, PDone> getSink(TableSpec spec) {
     StandardSink sink =
         Providers.loadProviders(StandardSinkProvider.class).get(spec.id()).getSink();
-    String name = spec.id() + "_sql_source";
+    String name = spec.id() + "_sql_sink";
     Table table =
         Table.builder()
             .name(name)
@@ -61,7 +61,7 @@ public class Compiler {
     PTransform<PCollection<Row>, PCollection<Row>> fromStandard = sink.transform();
     return MakePtransform.from(input -> {
       PCollection<Row> output = input.apply("Map to sink format", fromStandard);
-      TableLoader.buildBeamSqlTable(table).buildIOWriter(output).expand();
+      TableLoader.buildBeamSqlTable(table).buildIOWriter(output);
       return PDone.in(output.getPipeline());
     }, name);
   }

@@ -15,7 +15,7 @@ public interface Options extends StreamingOptions, BeamSqlPipelineOptions {
 
   void setSourceType(String type);
 
-  @Description("Location within the source to read from.")
+  @Description("Location within the source to read from. For example, a Cloud Pub/Sub topic.")
   @Required()
   String getSourceLocation();
 

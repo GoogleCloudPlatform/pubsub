@@ -10,6 +10,9 @@ public class MakePtransform {
   private MakePtransform() {
   }
 
+  /**
+   * Creates a PTransform from a SerializableFunction from PInput to POutput.
+   */
   public static <InputT extends PInput, OutputT extends POutput> PTransform<InputT, OutputT> from(
       SerializableFunction<InputT, OutputT> transform, String name) {
     return new PTransform<>(name) {

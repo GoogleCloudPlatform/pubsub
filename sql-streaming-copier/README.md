@@ -28,7 +28,7 @@ CREATE EXTERNAL TABLE <tabletype>(
 
 If copying to Pub/Sub, all attribute values must be interpretable as UTF-8
 strings. If multiple values are provided for an attribute, they will be joined
-with commas in the Pub/Sub Message.
+with `|` in the Pub/Sub Message.
 
 If copying to BigQuery, the table must accept the above format if it already
 exists.
@@ -57,12 +57,26 @@ Additional options from
 [beam documentation](https://beam.apache.org/documentation/dsls/sql/extensions/create-external-table)
 can be provided using the `sourceOptions` and `sinkOptions` parameters.
 
+## Example run command
+
+```bash
+export TEMPLATE_PATH="gs://<deployed template>/metadata.json"
+
+gcloud dataflow flex-template run "streaming-copier-`date +%Y%m%d-%H%M%S`" \
+    --template-file-gcs-location "$TEMPLATE_PATH" \
+    --region "us-central1" \
+    --parameters sourceType=pubsub \
+    --parameters sourceLocation="projects/pubsub-public-data/topics/taxirides-realtime" \
+    --parameters sinkType=pubsublite \
+    --parameters sinkLocation="projects/<my project>/locations/us-central1-a/topics/taxirides-realtime-clone"
+```
+
 ## How to build
 
 ### Shaded jar generation
 
-To regenerate the shaded jar, put the following into a
-`custom-shadowjar/build.gradle` package in the beam source tree, add
+To regenerate the shaded jar, clone the beam repo locally and put the following
+into a `custom-shadowjar/build.gradle` package in the beam source tree. Add
 `include(":custom-shadowjar")` to `settings.gradle.kts` and run
 `./gradlew :custom-shadowjar:shadowJar`.
 
@@ -91,11 +105,12 @@ shadowJar {
 }
 ```
 
-Then, run the following command:
+Then, run the following command which will properly set up the third_party
+maven repo:
 
 ```bash
-export BUILT_JAR_PATH="<path to full beam jar>"
-export THIRD_PARTY_PATH="<path to git repo>/sql-streaming-copier/third_party"
+export BUILT_JAR_PATH="<path to beam git clone>/custom-shadowjar/target/<jarname>"
+export THIRD_PARTY_PATH="<path to this cloned git repo>/sql-streaming-copier/third_party"
 
 mvn org.apache.maven.plugins:maven-install-plugin:2.3.1:install-file
 -Dfile="$BUILT_JAR_PATH" 
@@ -113,7 +128,7 @@ First, from the `sql-streaming-copier` directory, run `mvn package`.
 Then, run the following to upload the new version of the template.
 
 ```bash
-export TEMPLATE_PATH="gs://<TEMPLATE JSON FILE NAME>.json"
+export TEMPLATE_PATH="gs://<TEMPLATE UPLOAD LOCATION>.json"
 export TEMPLATE_IMAGE="gcr.io/<PROJECT>/<CONTAINER PATH>:latest"
 
 gcloud dataflow flex-template build $TEMPLATE_PATH \

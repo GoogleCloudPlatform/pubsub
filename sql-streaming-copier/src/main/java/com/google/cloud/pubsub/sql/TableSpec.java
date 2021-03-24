@@ -5,11 +5,13 @@ import java.util.Map;
 
 @AutoValue
 public abstract class TableSpec {
-
+  // The id for the table type in beam sql.
   public abstract String id();
 
+  // The location string for the resource in beam sql.
   public abstract String location();
 
+  // Additional properties to be passed to the beam sql table.
   public abstract Map<String, Object> properties();
 
   public static Builder builder() {
@@ -18,7 +20,6 @@ public abstract class TableSpec {
 
   @AutoValue.Builder
   public static abstract class Builder {
-
     public abstract Builder setId(String id);
 
     public abstract Builder setLocation(String location);

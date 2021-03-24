@@ -10,17 +10,7 @@ public class PubsubLiteProvider implements StandardSourceProvider, StandardSinkP
 
   @Override
   public StandardSink getSink() {
-    return new StandardSqlSink() {
-      @Override
-      public Schema nativeSchema() {
-        return Rows.STANDARD_SCHEMA;
-      }
-
-      @Override
-      public String query() {
-        return "SELECT * FROM PCOLLECTION";
-      }
-    };
+    return (StandardSqlSink) () -> Rows.STANDARD_SCHEMA;
   }
 
   private static final Schema READ_SCHEMA = Schema.builder()

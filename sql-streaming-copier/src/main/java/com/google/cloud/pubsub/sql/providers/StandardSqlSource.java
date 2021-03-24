@@ -12,11 +12,17 @@ public interface StandardSqlSource extends StandardSource {
    * A statement transforming from the native schema to the standard schema if needed. The provided
    * table is PCOLLECTION.
    */
-  String query();
+  default String query() {
+    return "";
+  }
 
   @Override
   default PTransform<PCollection<Row>, PCollection<Row>> transform() {
-    return MakePtransform
-        .from(rows -> rows.apply(SqlTransform.query(query())), "StandardSqlSink Transform");
+    return MakePtransform.from(rows -> {
+      if (!query().isEmpty()) {
+        rows = rows.apply(SqlTransform.query(query()));
+      }
+      return rows;
+    }, "StandardSqlSink Transform");
   }
 }

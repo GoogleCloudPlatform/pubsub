@@ -6,6 +6,9 @@ import org.apache.beam.sdk.extensions.sql.meta.Table;
 import org.apache.beam.sdk.extensions.sql.meta.provider.TableProvider;
 import org.apache.beam.sdk.extensions.sql.meta.store.InMemoryMetaStore;
 
+/**
+ * Loads all TableProviders on the classpath, then looks up the correct one based on the table id.
+ */
 public class TableLoader {
 
   private TableLoader() {
