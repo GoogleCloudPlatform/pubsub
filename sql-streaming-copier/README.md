@@ -26,9 +26,15 @@ CREATE EXTERNAL TABLE <tabletype>(
 )
 ```
 
-If copying to Pub/Sub, all attribute values must be interpretable as UTF-8
+If copying to Pub/Sub:
+* All attribute values must be interpretable as UTF-8
 strings. If multiple values are provided for an attribute, they will be joined
 with `|` in the Pub/Sub Message.
+* The message_key field must be interpretable as UTF-8, and will be stored as
+the `beam-sql-copier-message-key` attribute.
+  
+If copying from Pub/Sub, the `ordering_key` field will be dropped, as it is not
+supported by Beam.
 
 If copying to BigQuery, the table must accept the above format if it already
 exists.

@@ -17,7 +17,7 @@ import org.apache.beam.sdk.values.TypeDescriptor;
 
 @AutoService({StandardSourceProvider.class, StandardSinkProvider.class})
 public class CloudPubsubProvider implements StandardSourceProvider, StandardSinkProvider {
-
+  static final String ROW_MESSAGE_KEY_ATTRIBUTE = "beam-sql-copier-message-key";
   static final Schema.FieldType ATTRIBUTE_MAP_FIELD_TYPE =
       Schema.FieldType.map(FieldType.STRING, FieldType.STRING);
   static final Schema SCHEMA =
@@ -38,6 +38,10 @@ public class CloudPubsubProvider implements StandardSourceProvider, StandardSink
         values.add(new String(bytes, UTF_8));
       }
       attributesBuilder.put(key, String.join("|", values.build()));
+    }
+    byte[] key = input.getBytes(Rows.MESSAGE_KEY_FIELD);
+    if (key.length != 0) {
+      attributesBuilder.put(ROW_MESSAGE_KEY_ATTRIBUTE, new String(key, UTF_8));
     }
     return Row.withSchema(SCHEMA)
         .withFieldValue(Rows.PAYLOAD_FIELD, input.getBytes("payload"))
