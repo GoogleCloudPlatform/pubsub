@@ -60,10 +60,8 @@ can be provided using the `sourceOptions` and `sinkOptions` parameters.
 ## Example run command
 
 ```bash
-export TEMPLATE_PATH="gs://<deployed template>/metadata.json"
-
 gcloud dataflow flex-template run "streaming-copier-`date +%Y%m%d-%H%M%S`" \
-    --template-file-gcs-location "$TEMPLATE_PATH" \
+    --template-file-gcs-location "gs://pubsub-streaming-sql-copier/template/copier.json" \
     --region "us-central1" \
     --parameters sourceType=pubsub \
     --parameters sourceLocation="projects/pubsub-public-data/topics/taxirides-realtime" \
