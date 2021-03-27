@@ -13,22 +13,24 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.Future;
 import org.apache.commons.lang3.tuple.Pair;
 
 public class AckBatchingSubscriber implements CloudPubSubSubscriber {
+  interface AlarmFactory {
+    Future<?> newAlarm(Runnable runnable);
+  }
 
   private final CloudPubSubSubscriber underlying;
   @GuardedBy("this")
   private final Deque<Pair<Collection<String>, SettableApiFuture<Empty>>> toSend = new ArrayDeque<>();
-  private final ScheduledFuture<?> alarm;
+  private final Future<?> alarm;
 
-  public AckBatchingSubscriber(CloudPubSubSubscriber underlying,
-      ScheduledExecutorService executor) {
+  public AckBatchingSubscriber(
+      CloudPubSubSubscriber underlying,
+      AlarmFactory alarmFactory) {
     this.underlying = underlying;
-    this.alarm = executor.scheduleAtFixedRate(this::flush, 100, 100, TimeUnit.MILLISECONDS);
+    this.alarm = alarmFactory.newAlarm(this::flush);
   }
 
   @Override
@@ -73,6 +75,9 @@ public class AckBatchingSubscriber implements CloudPubSubSubscriber {
   @Override
   public void close() {
     alarm.cancel(false);
+    try {
+      alarm.get();
+    } catch (Throwable ignored) {}
     flush();
     underlying.close();
   }

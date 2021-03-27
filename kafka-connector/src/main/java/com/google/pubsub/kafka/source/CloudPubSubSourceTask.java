@@ -15,8 +15,10 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import com.google.api.core.ApiFutures;
 import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.batching.FlowController.LimitExceededBehavior;
+import com.google.api.gax.rpc.ApiException;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -39,6 +41,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
@@ -152,7 +155,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         subscriber = new AckBatchingSubscriber(
             new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS,
                 gcpCredentialsProvider,
-                cpsEndpoint, cpsSubscription, cpsMaxBatchSize), ACK_EXECUTOR);
+                cpsEndpoint, cpsSubscription, cpsMaxBatchSize), runnable -> ACK_EXECUTOR.scheduleAtFixedRate(runnable, 100, 100, TimeUnit.MILLISECONDS));
       }
     }
     standardAttributes.add(kafkaMessageKeyAttribute);
@@ -341,7 +344,10 @@ public class CloudPubSubSourceTask extends SourceTask {
   @Override
   public void commitRecord(SourceRecord record) {
     String ackId = record.sourceOffset().get(cpsSubscription.toString()).toString();
-    subscriber.ackMessages(ImmutableList.of(ackId));
+    ApiFutures.catching(subscriber.ackMessages(ImmutableList.of(ackId)), ApiException.class, e -> {
+      log.warn("Failed to acknowledge message: " + e);
+      return null;
+    }, MoreExecutors.directExecutor());
     log.trace("Committed {}", ackId);
   }
 }

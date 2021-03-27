@@ -216,24 +216,6 @@ public class CloudPubSubSourceConnector extends SourceConnector {
             Importance.MEDIUM,
             "The maximum number of outstanding message bytes per task when using streaming pull.")
         .define(
-            CPS_STREAMING_PULL_ENABLED,
-            Type.BOOLEAN,
-            false,
-            Importance.MEDIUM,
-            "Whether to use streaming pull for the connector to connect to Cloud Pub/Sub. If provided, cps.maxBatchSize is ignored.")
-        .define(
-            CPS_STREAMING_PULL_FLOW_CONTROL_MESSAGES,
-            Type.LONG,
-            1000L,
-            Importance.MEDIUM,
-            "The maximum number of outstanding messages per task when using streaming pull.")
-        .define(
-            CPS_STREAMING_PULL_FLOW_CONTROL_BYTES,
-            Type.LONG,
-            100L * 1024 * 1024,
-            Importance.MEDIUM,
-            "The maximum number of outstanding message bytes per task when using streaming pull.")
-        .define(
             KAFKA_MESSAGE_KEY_CONFIG,
             Type.STRING,
             null,
