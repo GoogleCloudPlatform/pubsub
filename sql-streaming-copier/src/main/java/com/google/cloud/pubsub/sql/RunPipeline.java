@@ -18,9 +18,7 @@ public class RunPipeline {
     return map;
   }
 
-  public static void run(Options options) {
-    options.setStreaming(true);
-    options.setPlannerName(ZetaSQLQueryPlanner.class.getName());
+  public static void run(TemplateOptions options) {
     TableSpec sourceSpec =
         TableSpec.builder()
             .setId(options.getSourceType())
@@ -33,6 +31,12 @@ public class RunPipeline {
             .setLocation(options.getSinkLocation())
             .setProperties(getNonNull(options.getSinkOptions()))
             .build();
+    run(options, sourceSpec, sinkSpec);
+  }
+
+  public static void run(SqlStreamingOptions options, TableSpec sourceSpec, TableSpec sinkSpec) {
+    options.setStreaming(true);
+    options.setPlannerName(ZetaSQLQueryPlanner.class.getName());
     Pipeline pipeline = Pipeline.create(options);
     Compiler.compile(pipeline, sourceSpec, sinkSpec);
     // For a Dataflow Flex Template, do NOT waitUntilFinish().
@@ -40,6 +44,6 @@ public class RunPipeline {
   }
 
   public static void main(final String[] args) {
-    run(PipelineOptionsFactory.fromArgs(args).withValidation().as(Options.class));
+    run(PipelineOptionsFactory.fromArgs(args).withValidation().as(TemplateOptions.class));
   }
 }
