@@ -145,7 +145,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         throw new RuntimeException(e);
       }
     }
-    // Only do this if we did not set through the constructor.
+    // Only do this if we did not set it through the constructor.
     if (subscriber == null) {
       if (useStreamingPull) {
         subscriber = new StreamingPullSubscriber(
