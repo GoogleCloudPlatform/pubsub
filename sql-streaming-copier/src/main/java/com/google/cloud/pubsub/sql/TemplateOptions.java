@@ -2,12 +2,10 @@ package com.google.cloud.pubsub.sql;
 
 import java.util.Map;
 import javax.annotation.Nullable;
-import org.apache.beam.sdk.extensions.sql.impl.BeamSqlPipelineOptions;
 import org.apache.beam.sdk.options.Description;
-import org.apache.beam.sdk.options.StreamingOptions;
 import org.apache.beam.sdk.options.Validation.Required;
 
-public interface Options extends StreamingOptions, BeamSqlPipelineOptions {
+public interface TemplateOptions extends SqlStreamingOptions {
 
   @Description("Type of the source. Valid types are: [pubsub, pubsublite, kafka]")
   @Required()
