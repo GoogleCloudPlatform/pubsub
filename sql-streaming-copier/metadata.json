@@ -5,12 +5,12 @@
     {
       "name": "sourceType",
       "label": "sourceType",
-      "helpText": "REQUIRED. Type of the source. Valid types are: [pubsub, pubsublite, kafka]"
+      "helpText": "Type of the source. Valid types are: [pubsub, pubsublite, kafka]"
     },
     {
       "name": "sourceLocation",
       "label": "sourceLocation",
-      "helpText": "REQUIRED. Location within the source to read from. See README."
+      "helpText": "Location within the source to read from. See README."
     },
     {
       "name": "sourceOptions",
@@ -21,12 +21,12 @@
     {
       "name": "sinkType",
       "label": "sinkType",
-      "helpText": "REQUIRED. Type of the sink. Valid types are: [pubsub, pubsublite, kafka, bigquery]"
+      "helpText": "Type of the sink. Valid types are: [pubsub, pubsublite, kafka, bigquery]"
     },
     {
       "name": "sinkLocation",
       "label": "sinkLocation",
-      "helpText": "REQUIRED. Location within the sink to write to. See README."
+      "helpText": "Location within the sink to write to. See README."
     },
     {
       "name": "sinkOptions",
