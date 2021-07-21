@@ -14,16 +14,20 @@ import java.util.Collection;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.Future;
-import org.apache.commons.lang3.tuple.Pair;
 
 public class AckBatchingSubscriber implements CloudPubSubSubscriber {
   interface AlarmFactory {
     Future<?> newAlarm(Runnable runnable);
   }
 
+  private static class IdsAndFuture {
+    Collection<String> ids;
+    SettableApiFuture<Empty> future;
+  };
+
   private final CloudPubSubSubscriber underlying;
   @GuardedBy("this")
-  private final Deque<Pair<Collection<String>, SettableApiFuture<Empty>>> toSend = new ArrayDeque<>();
+  private final Deque<IdsAndFuture> toSend = new ArrayDeque<>();
   private final Future<?> alarm;
 
   public AckBatchingSubscriber(
@@ -40,9 +44,11 @@ public class AckBatchingSubscriber implements CloudPubSubSubscriber {
 
   @Override
   public synchronized ApiFuture<Empty> ackMessages(Collection<String> ackIds) {
-    SettableApiFuture<Empty> result = SettableApiFuture.create();
-    toSend.add(Pair.of(ackIds, result));
-    return result;
+    IdsAndFuture idsAndFuture = new IdsAndFuture();
+    idsAndFuture.ids = ackIds;
+    idsAndFuture.future = SettableApiFuture.create();
+    toSend.add(idsAndFuture);
+    return idsAndFuture.future;
   }
 
   private void flush() {
@@ -53,8 +59,8 @@ public class AckBatchingSubscriber implements CloudPubSubSubscriber {
         return;
       }
       toSend.forEach(pair -> {
-        ackIds.addAll(pair.getLeft());
-        futures.add(pair.getRight());
+        ackIds.addAll(pair.ids);
+        futures.add(pair.future);
       });
       toSend.clear();
     }

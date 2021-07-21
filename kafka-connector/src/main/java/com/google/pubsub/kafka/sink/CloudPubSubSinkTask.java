@@ -15,10 +15,13 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.sink;
 
+import static com.google.pubsub.kafka.common.ConnectorUtils.getSystemExecutor;
+
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
 import com.google.api.core.SettableApiFuture;
 import com.google.api.gax.batching.BatchingSettings;
+import com.google.api.gax.core.FixedExecutorProvider;
 import com.google.api.gax.retrying.RetrySettings;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.common.annotations.VisibleForTesting;
@@ -405,6 +408,7 @@ public class CloudPubSubSinkTask extends SinkTask {
                     .setInitialRpcTimeout(Duration.ofSeconds(10))
                     .setRpcTimeoutMultiplier(2)
                     .build())
+            .setExecutorProvider(FixedExecutorProvider.create(getSystemExecutor()))
             .setEndpoint(cpsEndpoint);
     if (orderingKeySource != OrderingKeySource.NONE) {
       builder.setEnableMessageOrdering(true); 

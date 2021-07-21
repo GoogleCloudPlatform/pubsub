@@ -15,9 +15,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import static com.google.pubsub.kafka.common.ConnectorUtils.getSystemExecutor;
+
 import com.google.api.core.ApiFutures;
 import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.batching.FlowController.LimitExceededBehavior;
+import com.google.api.gax.core.FixedExecutorProvider;
 import com.google.api.gax.rpc.ApiException;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.annotations.VisibleForTesting;
@@ -39,8 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
@@ -62,8 +63,6 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceTask.class);
   private static final int NUM_CPS_SUBSCRIBERS = 10;
-  private static final ScheduledExecutorService ACK_EXECUTOR =
-      MoreExecutors.getExitingScheduledExecutorService(new ScheduledThreadPoolExecutor(4));
 
   private String kafkaTopic;
   private ProjectSubscriptionName cpsSubscription;
@@ -158,7 +157,8 @@ public class CloudPubSubSourceTask extends SourceTask {
                           .setMaxOutstandingElementCount(streamingPullMessages)
                           .setMaxOutstandingRequestBytes(streamingPullBytes).build())
                   .setParallelPullCount(streamingPullParallelStreams)
-                  .setEndpoint(cpsEndpoint);
+                  .setEndpoint(cpsEndpoint)
+                  .setExecutorProvider(FixedExecutorProvider.create(getSystemExecutor()));
               if (streamingPullMaxAckDeadlineMs > 0) {
                 builder.setMaxAckExtensionPeriod(Duration.ofMillis(streamingPullMaxAckDeadlineMs));
               }
@@ -172,7 +172,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         subscriber = new AckBatchingSubscriber(
             new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS,
                 gcpCredentialsProvider,
-                cpsEndpoint, cpsSubscription, cpsMaxBatchSize), runnable -> ACK_EXECUTOR
+                cpsEndpoint, cpsSubscription, cpsMaxBatchSize), runnable -> getSystemExecutor()
             .scheduleAtFixedRate(runnable, 100, 100, TimeUnit.MILLISECONDS));
       }
     }
