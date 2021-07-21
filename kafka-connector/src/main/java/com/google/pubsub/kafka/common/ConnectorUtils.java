@@ -41,7 +41,7 @@ public class ConnectorUtils {
 
   private static ScheduledExecutorService newDaemonExecutor(String prefix) {
     return Executors.newScheduledThreadPool(
-        Math.max(4, Runtime.getRuntime().availableProcessors()),
+        Math.max(4, Runtime.getRuntime().availableProcessors() * 5),
         new ThreadFactoryBuilder().setDaemon(true).setNameFormat(prefix + "-%d").build());
   }
 
