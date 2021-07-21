@@ -15,9 +15,12 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
+import static com.google.pubsub.kafka.common.ConnectorUtils.getSystemExecutor;
+
 import com.google.api.core.ApiFutures;
 import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.batching.FlowController.LimitExceededBehavior;
+import com.google.api.gax.core.FixedExecutorProvider;
 import com.google.api.gax.rpc.ApiException;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.annotations.VisibleForTesting;
@@ -39,8 +42,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
@@ -51,6 +52,7 @@ import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.threeten.bp.Duration;
 
 /**
  * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to <a
@@ -61,8 +63,6 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   private static final Logger log = LoggerFactory.getLogger(CloudPubSubSourceTask.class);
   private static final int NUM_CPS_SUBSCRIBERS = 10;
-  private static final ScheduledExecutorService ACK_EXECUTOR =
-      MoreExecutors.getExitingScheduledExecutorService(new ScheduledThreadPoolExecutor(4));
 
   private String kafkaTopic;
   private ProjectSubscriptionName cpsSubscription;
@@ -125,6 +125,12 @@ public class CloudPubSubSourceTask extends SourceTask {
         .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_FLOW_CONTROL_BYTES);
     long streamingPullMessages = (Long) validatedProps
         .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_FLOW_CONTROL_MESSAGES);
+    int streamingPullParallelStreams = (Integer) validatedProps
+        .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_PARALLEL_STREAMS);
+    long streamingPullMaxAckDeadlineMs = (Long) validatedProps
+        .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_MAX_ACK_EXTENSION_MS);
+    long streamingPullMaxMsPerAckDeadlineExtension = (Long) validatedProps
+        .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_MAX_MS_PER_ACK_EXTENSION);
     if (gcpCredentialsFilePath != null) {
       try {
         gcpCredentialsProvider.loadFromFile(gcpCredentialsFilePath);
@@ -138,24 +144,36 @@ public class CloudPubSubSourceTask extends SourceTask {
         throw new RuntimeException(e);
       }
     }
-    // Only do this if we did not set through the constructor.
+    // Only do this if we did not set it through the constructor.
     if (subscriber == null) {
       if (useStreamingPull) {
         subscriber = new StreamingPullSubscriber(
-            receiver -> Subscriber.newBuilder(cpsSubscription, receiver)
-                .setCredentialsProvider(gcpCredentialsProvider)
-                .setFlowControlSettings(
-                    FlowControlSettings.newBuilder()
-                        .setLimitExceededBehavior(LimitExceededBehavior.Block)
-                        .setMaxOutstandingElementCount(streamingPullMessages)
-                        .setMaxOutstandingRequestBytes(streamingPullBytes).build())
-                .setEndpoint(cpsEndpoint)
-                .build());
+            receiver -> {
+              Subscriber.Builder builder = Subscriber.newBuilder(cpsSubscription, receiver)
+                  .setCredentialsProvider(gcpCredentialsProvider)
+                  .setFlowControlSettings(
+                      FlowControlSettings.newBuilder()
+                          .setLimitExceededBehavior(LimitExceededBehavior.Block)
+                          .setMaxOutstandingElementCount(streamingPullMessages)
+                          .setMaxOutstandingRequestBytes(streamingPullBytes).build())
+                  .setParallelPullCount(streamingPullParallelStreams)
+                  .setEndpoint(cpsEndpoint)
+                  .setExecutorProvider(FixedExecutorProvider.create(getSystemExecutor()));
+              if (streamingPullMaxAckDeadlineMs > 0) {
+                builder.setMaxAckExtensionPeriod(Duration.ofMillis(streamingPullMaxAckDeadlineMs));
+              }
+              if (streamingPullMaxMsPerAckDeadlineExtension > 0) {
+                builder.setMaxDurationPerAckExtension(
+                    Duration.ofMillis(streamingPullMaxMsPerAckDeadlineExtension));
+              }
+              return builder.build();
+            });
       } else {
         subscriber = new AckBatchingSubscriber(
             new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS,
                 gcpCredentialsProvider,
-                cpsEndpoint, cpsSubscription, cpsMaxBatchSize), runnable -> ACK_EXECUTOR.scheduleAtFixedRate(runnable, 100, 100, TimeUnit.MILLISECONDS));
+                cpsEndpoint, cpsSubscription, cpsMaxBatchSize), runnable -> getSystemExecutor()
+            .scheduleAtFixedRate(runnable, 100, 100, TimeUnit.MILLISECONDS));
       }
     }
     standardAttributes.add(kafkaMessageKeyAttribute);

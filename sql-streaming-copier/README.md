@@ -45,19 +45,13 @@ It requires the following options:
 * sourceLocation:
   * `pubsub`: The topic (discouraged) or subscription to read from
   * `pubsublite`: The subscription to read from
-  * `kafka`: The broker URL to read from
+  * `kafka`: `<host:port>/<topic name>` like `111.128.2.22:8000/my-topic`
 * sinkType: [`pubsub`, `pubsublite`, `kafka`, `bigquery`]
 * sinkLocation:
   * `pubsub`: The topic to write to
   * `pubsublite`: The topic to write to
   * `kafka`: The broker URL to write to
   * `bigquery`: Location of the table in the BigQuery CLI format
-  
-When running with kafka, you must also set the following parameters:
-
-```bash
---parameters='[source/sink]Options=^NOT_IN_JSON^{"topics":["<kafka topic name>"],"bootstrap.servers":"<broker URL>"}'
-```
 
 Additional options from
 [beam documentation](https://beam.apache.org/documentation/dsls/sql/extensions/create-external-table)
@@ -116,12 +110,12 @@ maven repo:
 export BUILT_JAR_PATH="<path to beam git clone>/custom-shadowjar/target/<jarname>"
 export THIRD_PARTY_PATH="<path to this cloned git repo>/sql-streaming-copier/third_party"
 
-mvn org.apache.maven.plugins:maven-install-plugin:2.3.1:install-file
--Dfile="$BUILT_JAR_PATH" 
--DgroupId=com.google.cloud.pubsub
--DartifactId=beam-custom-shadowjar
--Dversion=1.0.0
--Dpackaging=jar 
+mvn org.apache.maven.plugins:maven-install-plugin:2.3.1:install-file \
+-Dfile="$BUILT_JAR_PATH" \
+-DgroupId=com.google.cloud.pubsub \
+-DartifactId=beam-custom-shadowjar \
+-Dversion=1.0.0 \
+-Dpackaging=jar \
 -DlocalRepositoryPath="$THIRD_PARTY_PATH"
 ```
 
@@ -143,4 +137,3 @@ gcloud dataflow flex-template build $TEMPLATE_PATH \
     --jar "target/sql-streaming-copier-1.0.0.jar" \
     --env FLEX_TEMPLATE_JAVA_MAIN_CLASS="com.google.cloud.pubsub.sql.TemplateMain"
 ```
-
