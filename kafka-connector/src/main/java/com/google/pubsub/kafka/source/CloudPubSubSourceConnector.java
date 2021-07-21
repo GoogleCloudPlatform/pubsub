@@ -16,7 +16,6 @@
 package com.google.pubsub.kafka.source;
 
 import com.google.api.gax.core.CredentialsProvider;
-import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.cloud.pubsub.v1.stub.GrpcSubscriberStub;
 import com.google.cloud.pubsub.v1.stub.SubscriberStubSettings;
 import com.google.common.annotations.VisibleForTesting;
