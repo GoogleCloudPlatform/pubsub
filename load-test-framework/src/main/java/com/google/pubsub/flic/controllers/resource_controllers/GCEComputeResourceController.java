@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 public class GCEComputeResourceController extends ComputeResourceController {
   private static final String MACHINE_TYPE = "n1-standard-"; // standard machine prefix
   private static final String SOURCE_FAMILY =
-      "projects/ubuntu-os-cloud/global/images/ubuntu-1604-xenial-v20171026a"; // Ubuntu 16.04 LTS
+      "projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20210720"; // Ubuntu 20.04 LTS
 
   protected static final Logger log = LoggerFactory.getLogger(GCEComputeResourceController.class);
   private final String project;
