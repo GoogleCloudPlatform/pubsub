@@ -58,13 +58,13 @@ public class PubsubResourceController extends ResourceController {
           .execute();
     } catch (GoogleJsonResponseException e) {
       if (e.getStatusCode() != HttpStatus.SC_CONFLICT) {
-        log.error("Error creating subscription");
+        log.error("Error creating topic {}", topic);
         throw e;
       }
-      log.info("Topic already exists, reusing.");
+      log.info("Topic {} already exists, reusing.", topic);
     }
     for (String subscription : subscriptions) {
-      log.error("Creating subscription: " + subscription);
+      log.error("Creating subscription: {}", subscription);
       try {
         pubsub
             .projects()
@@ -72,7 +72,7 @@ public class PubsubResourceController extends ResourceController {
             .delete("projects/" + project + "/subscriptions/" + subscription)
             .execute();
       } catch (IOException e) {
-        log.debug("Error deleting subscription, assuming it has not yet been created.", e);
+        log.debug("Error deleting subscription {}: {}", subscription, e);
       }
       pubsub
           .projects()
