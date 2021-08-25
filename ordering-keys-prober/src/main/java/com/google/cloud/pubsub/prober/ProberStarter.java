@@ -145,6 +145,7 @@ public class ProberStarter {
 
     @Parameter(
         names = "--ordered_delivery",
+        arity = 1,
         description = "Whether or not to deliver messages in order.")
     private boolean orderedDelivery = true;
   }
