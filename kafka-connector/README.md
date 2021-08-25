@@ -106,7 +106,7 @@ Connector supports the following configs:
 | cps.project | String | REQUIRED (No default) | The project containing the topic from which to pull messages, e.g. "bar" from above. |
 | cps.endpoint | String | "pubsub.googleapis.com:443" | The [Cloud Pub/Sub endpoint](https://cloud.google.com/pubsub/docs/reference/service_apis_overview#service_endpoints) to use. |
 | kafka.topic | String | REQUIRED (No default) | The topic in Kafka which will receive messages that were pulled from Cloud Pub/Sub. |
-| cps.maxBatchSize | Integer | 100 | The minimum number of messages to batch per pull request to Cloud Pub/Sub. |
+| cps.maxBatchSize | Integer | 100 | The maximum number of messages to batch per pull request to Cloud Pub/Sub. |
 | cps.makeOrderingKeyAttribute | Boolean | false | When true, copy the ordering key to the set of attributes set in the Kafka message. |
 | kafka.key.attribute | String | null | The Cloud Pub/Sub message attribute to use as a key for messages published to Kafka. If set to "orderingKey", use the message's ordering key. |
 | kafka.partition.count | Integer | 1 | The number of Kafka partitions for the Kafka topic in which messages will be published to. NOTE: this parameter is ignored if partition scheme is "kafka_partitioner".|
@@ -124,6 +124,8 @@ Connector supports the following configs:
 | cps.endpoint | String | "pubsub.googleapis.com:443" | The [Cloud Pub/Sub endpoint](https://cloud.google.com/pubsub/docs/reference/service_apis_overview#service_endpoints) to use. |
 | maxBufferSize | Integer | 100 | The maximum number of messages that can be received for the messages on a topic partition before publishing them to Cloud Pub/Sub. |
 | maxBufferBytes | Long | 10000000 | The maximum number of bytes that can be received for the messages on a topic partition before publishing them to Cloud Pub/Sub. |
+| maxOutstandingRequestBytes | Long | Long.MAX_VALUE | The maximum number of total bytes that can be outstanding (including incomplete and pending batches) before the publisher will block further publishing. |
+| maxOutstandingMessages | Long | Long.MAX_VALUE | The maximum number of messages that can be outstanding (including incomplete and pending batches) before the publisher will block further publishing. |
 | maxDelayThresholdMs | Integer | 100 | The maximum amount of time to wait to reach maxBufferSize or maxBufferBytes before publishing outstanding messages to Cloud Pub/Sub. |
 | maxRequestTimeoutMs | Integer | 10000 | The timeout for individual publish requests to Cloud Pub/Sub. |
 | maxTotalTimeoutMs | Integer | 60000| The total timeout for a call to publish (including retries) to Cloud Pub/Sub. |

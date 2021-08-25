@@ -26,15 +26,12 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.google.api.core.ApiFuture;
 import com.google.api.core.SettableApiFuture;
+import com.google.common.collect.ImmutableList;
 import com.google.protobuf.ByteString;
 import com.google.protobuf.Empty;
 import com.google.pubsub.kafka.common.ConnectorUtils;
-import com.google.pubsub.v1.AcknowledgeRequest;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.v1.PullRequest;
-import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
 import java.util.HashMap;
 import java.util.List;
@@ -121,10 +118,9 @@ public class CloudPubSubSourceTaskTest {
   @Test
   public void testPollCaseWithNoMessages() throws Exception {
     task.start(props);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of());
     assertEquals(0, task.poll().size());
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
   }
 
   /**
@@ -135,46 +131,20 @@ public class CloudPubSubSourceTaskTest {
   public void testPollInRegularCase() throws Exception {
     task.start(props);
     ReceivedMessage rm1 =
-        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm1).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>(), null);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm1));
     List<SourceRecord> result = task.poll();
     assertEquals(1, result.size());
     task.commitRecord(result.get(0));
-    stubbedPullResponse = PullResponse.newBuilder().build();
     SettableApiFuture<Empty> goodFuture = SettableApiFuture.create();
     goodFuture.set(Empty.getDefaultInstance());
-    when(subscriber.ackMessages(any(AcknowledgeRequest.class))).thenReturn(goodFuture);
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    when(subscriber.ackMessages(any())).thenReturn(goodFuture);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of());
     result = task.poll();
     assertEquals(0, result.size());
     result = task.poll();
     assertEquals(0, result.size());
-    verify(subscriber, times(1)).ackMessages(any(AcknowledgeRequest.class));
-  }
-
-
-  /**
-   * Tests that when a call to ackMessages() fails, that the message is not redelivered to Kafka if
-   * the message is received again by Cloud Pub/Sub. Also tests that ack ids are added properly if
-   * the ack id has not been seen before.
-   */
-  @Test
-  public void testPollWithDuplicateReceivedMessages() throws Exception {
-    task.start(props);
-    ReceivedMessage rm1 =
-        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm1).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    List<SourceRecord> result = task.poll();
-    assertEquals(1, result.size());
-    ReceivedMessage rm2 =
-        createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<String, String>(), null);
-    stubbedPullResponse =
-        PullResponse.newBuilder().addReceivedMessages(0, rm1).addReceivedMessages(1, rm2).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
-    result = task.poll();
-    assertEquals(1, result.size());
+    verify(subscriber, times(1)).ackMessages(any());
   }
 
   /**
@@ -185,11 +155,10 @@ public class CloudPubSubSourceTaskTest {
   public void testPollWithNoMessageKeyAttribute() throws Exception {
     task.start(props);
     ReceivedMessage rm =
-        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>(), null);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
     SourceRecord expected =
         new SourceRecord(
@@ -214,10 +183,9 @@ public class CloudPubSubSourceTaskTest {
     Map<String, String> attributes = new HashMap<>();
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
     ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, null);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
     SourceRecord expected =
         new SourceRecord(
@@ -243,10 +211,9 @@ public class CloudPubSubSourceTaskTest {
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
     attributes.put(KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE, KAFKA_MESSAGE_TIMESTAMP_ATTRIBUTE_VALUE);
     ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, null);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
     SourceRecord expected =
             new SourceRecord(
@@ -274,10 +241,9 @@ public class CloudPubSubSourceTaskTest {
     attributes.put("attribute1", "attribute_value1");
     attributes.put("attribute2", "attribute_value2");
     ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, null);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
 
     ConnectHeaders headers = new ConnectHeaders();
@@ -307,11 +273,10 @@ public class CloudPubSubSourceTaskTest {
     props.put(CloudPubSubSourceConnector.CPS_MAKE_ORDERING_KEY_ATTRIBUTE, "true");
     task.start(props);
     ReceivedMessage rm =
-        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), "my-key");
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>(), "my-key");
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
 
     Schema expectedSchema =
@@ -346,11 +311,10 @@ public class CloudPubSubSourceTaskTest {
     props.put(CloudPubSubSourceConnector.CPS_MAKE_ORDERING_KEY_ATTRIBUTE, "true");
     task.start(props);
     ReceivedMessage rm =
-        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), "my-key");
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>(), "my-key");
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
 
     ConnectHeaders headers = new ConnectHeaders();
@@ -383,10 +347,9 @@ public class CloudPubSubSourceTaskTest {
     attributes.put("attribute1", "attribute_value1");
     attributes.put("attribute2", "attribute_value2");
     ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, null);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
     Schema expectedSchema =
         SchemaBuilder.struct()
@@ -424,16 +387,11 @@ public class CloudPubSubSourceTaskTest {
     Map<String, String> attributes = new HashMap<>();
     attributes.put(KAFKA_MESSAGE_KEY_ATTRIBUTE, KAFKA_MESSAGE_KEY_ATTRIBUTE_VALUE);
     ReceivedMessage withoutKey =
-        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
+        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>(), null);
     ReceivedMessage withKey = createReceivedMessage(ACK_ID2, CPS_MESSAGE, attributes, null);
-    PullResponse stubbedPullResponse =
-        PullResponse.newBuilder()
-            .addReceivedMessages(0, withKey)
-            .addReceivedMessages(1, withoutKey)
-            .build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(withKey, withoutKey));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(2, result.size());
     SourceRecord expectedForMessageWithKey =
         new SourceRecord(
@@ -468,11 +426,10 @@ public class CloudPubSubSourceTaskTest {
         CloudPubSubSourceConnector.PartitionScheme.HASH_VALUE.toString());
     task.start(props);
     ReceivedMessage rm =
-        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>(), null);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
     SourceRecord expected =
         new SourceRecord(
@@ -494,11 +451,10 @@ public class CloudPubSubSourceTaskTest {
             CloudPubSubSourceConnector.KAFKA_PARTITION_SCHEME_CONFIG,
             CloudPubSubSourceConnector.PartitionScheme.KAFKA_PARTITIONER.toString());
     task.start(props);
-    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>(), null);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
     SourceRecord expected =
             new SourceRecord(
@@ -523,11 +479,10 @@ public class CloudPubSubSourceTaskTest {
         CloudPubSubSourceConnector.PartitionScheme.ORDERING_KEY.toString());
     task.start(props);
     ReceivedMessage rm =
-        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), orderingKey);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>(), orderingKey);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
     SourceRecord expected =
         new SourceRecord(
@@ -551,23 +506,16 @@ public class CloudPubSubSourceTaskTest {
   public void testPollWithPartitionSchemeRoundRobin() throws Exception {
     task.start(props);
     ReceivedMessage rm1 =
-        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<String, String>(), null);
+        createReceivedMessage(ACK_ID1, CPS_MESSAGE, new HashMap<>(), null);
     ReceivedMessage rm2 =
-        createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<String, String>(), null);
+        createReceivedMessage(ACK_ID2, CPS_MESSAGE, new HashMap<>(), null);
     ReceivedMessage rm3 =
-        createReceivedMessage(ACK_ID3, CPS_MESSAGE, new HashMap<String, String>(), null);
+        createReceivedMessage(ACK_ID3, CPS_MESSAGE, new HashMap<>(), null);
     ReceivedMessage rm4 =
-        createReceivedMessage(ACK_ID4, CPS_MESSAGE, new HashMap<String, String>(), null);
-    PullResponse stubbedPullResponse =
-        PullResponse.newBuilder()
-            .addReceivedMessages(0, rm1)
-            .addReceivedMessages(1, rm2)
-            .addReceivedMessages(2, rm3)
-            .addReceivedMessages(3, rm4)
-            .build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+        createReceivedMessage(ACK_ID4, CPS_MESSAGE, new HashMap<>(), null);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm1, rm2, rm3, rm4));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(4, result.size());
     SourceRecord expected1 =
         new SourceRecord(
@@ -626,10 +574,9 @@ public class CloudPubSubSourceTaskTest {
     task.start(props);
     Map<String, String> attributes = new HashMap<>();
     ReceivedMessage rm = createReceivedMessage(ACK_ID1, CPS_MESSAGE, attributes, orderingKey);
-    PullResponse stubbedPullResponse = PullResponse.newBuilder().addReceivedMessages(rm).build();
-    when(subscriber.pull(any(PullRequest.class)).get()).thenReturn(stubbedPullResponse);
+    when(subscriber.pull().get()).thenReturn(ImmutableList.of(rm));
     List<SourceRecord> result = task.poll();
-    verify(subscriber, never()).ackMessages(any(AcknowledgeRequest.class));
+    verify(subscriber, never()).ackMessages(any());
     assertEquals(1, result.size());
 
     SourceRecord expected =
@@ -649,7 +596,7 @@ public class CloudPubSubSourceTaskTest {
   public void testPollExceptionCase() throws Exception {
     task.start(props);
     // Could also throw ExecutionException if we wanted to...
-    when(subscriber.pull(any(PullRequest.class)).get()).thenThrow(new InterruptedException());
+    when(subscriber.pull().get()).thenThrow(new InterruptedException());
     assertEquals(0, task.poll().size());
   }
 

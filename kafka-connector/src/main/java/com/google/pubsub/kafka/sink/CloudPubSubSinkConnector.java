@@ -41,16 +41,20 @@ public class CloudPubSubSinkConnector extends SinkConnector {
 
   public static final String MAX_BUFFER_SIZE_CONFIG = "maxBufferSize";
   public static final String MAX_BUFFER_BYTES_CONFIG = "maxBufferBytes";
+  public static final String MAX_OUTSTANDING_REQUEST_BYTES = "maxOutstandingRequestBytes";
+  public static final String MAX_OUTSTANDING_MESSAGES = "maxOutstandingMessages";
   public static final String MAX_DELAY_THRESHOLD_MS = "delayThresholdMs";
   public static final String MAX_REQUEST_TIMEOUT_MS = "maxRequestTimeoutMs";
   public static final String MAX_TOTAL_TIMEOUT_MS = "maxTotalTimeoutMs";
   public static final String MAX_SHUTDOWN_TIMEOUT_MS = "maxShutdownTimeoutMs";
   public static final int DEFAULT_MAX_BUFFER_SIZE = 100;
-  public static final long DEFAULT_MAX_BUFFER_BYTES = 10000000L;
+  public static final long DEFAULT_MAX_BUFFER_BYTES = 9500000L;
   public static final int DEFAULT_DELAY_THRESHOLD_MS = 100;
   public static final int DEFAULT_REQUEST_TIMEOUT_MS = 10000;
   public static final int DEFAULT_TOTAL_TIMEOUT_MS = 60000;
   public static final int DEFAULT_SHUTDOWN_TIMEOUT_MS = 60000;
+  public static final long DEFAULT_MAX_OUTSTANDING_REQUEST_BYTES = Long.MAX_VALUE;
+  public static final long DEFAULT_MAX_OUTSTANDING_MESSAGES = Long.MAX_VALUE;
   public static final String CPS_MESSAGE_BODY_NAME = "messageBodyName";
   public static final String DEFAULT_MESSAGE_BODY_NAME = "cps_message_body";
   public static final String PUBLISH_KAFKA_METADATA = "metadata.publish";
@@ -163,6 +167,18 @@ public class CloudPubSubSinkConnector extends SinkConnector {
             Importance.MEDIUM,
             "The maximum number of bytes that can be received for the messages on a topic "
                 + "partition before publishing the messages to Cloud Pub/Sub.")
+        .define(MAX_OUTSTANDING_REQUEST_BYTES,
+            Type.LONG,
+            DEFAULT_MAX_OUTSTANDING_REQUEST_BYTES,
+            Importance.MEDIUM,
+            "The maximum outstanding bytes from incomplete requests before the task blocks."
+        )
+        .define(MAX_OUTSTANDING_MESSAGES,
+            Type.LONG,
+            DEFAULT_MAX_OUTSTANDING_MESSAGES,
+            Importance.MEDIUM,
+            "The maximum outstanding incomplete messages before the task blocks."
+        )
         .define(
             MAX_DELAY_THRESHOLD_MS,
             Type.INT,

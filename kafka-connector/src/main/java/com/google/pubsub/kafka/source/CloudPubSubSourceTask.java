@@ -15,21 +15,25 @@
 ////////////////////////////////////////////////////////////////////////////////
 package com.google.pubsub.kafka.source;
 
-import com.google.api.core.ApiFuture;
+import static com.google.pubsub.kafka.common.ConnectorUtils.getSystemExecutor;
+
+import com.google.api.core.ApiFutures;
+import com.google.api.gax.batching.FlowControlSettings;
+import com.google.api.gax.batching.FlowController.LimitExceededBehavior;
+import com.google.api.gax.core.FixedExecutorProvider;
+import com.google.api.gax.rpc.ApiException;
+import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
+import com.google.common.util.concurrent.MoreExecutors;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.Empty;
 import com.google.protobuf.util.Timestamps;
 import com.google.pubsub.kafka.common.ConnectorUtils;
 import com.google.pubsub.kafka.common.ConnectorCredentialsProvider;
 import com.google.pubsub.kafka.source.CloudPubSubSourceConnector.PartitionScheme;
-import com.google.pubsub.v1.AcknowledgeRequest;
+import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
-import com.google.pubsub.v1.PullRequest;
-import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.ReceivedMessage;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -38,21 +42,22 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import org.apache.kafka.connect.data.Field;
 import org.apache.kafka.connect.data.Schema;
 import org.apache.kafka.connect.data.SchemaBuilder;
 import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.header.ConnectHeaders;
-import org.apache.kafka.connect.header.Header;
 import org.apache.kafka.connect.source.SourceRecord;
 import org.apache.kafka.connect.source.SourceTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.threeten.bp.Duration;
 
 /**
  * A {@link SourceTask} used by a {@link CloudPubSubSourceConnector} to write messages to <a
- * href="http://kafka.apache.org/">Apache Kafka</a>. Due to at-last-once semantics in Google
- * Cloud Pub/Sub duplicates in Kafka are possible.
+ * href="http://kafka.apache.org/">Apache Kafka</a>. Due to at-last-once semantics in Google Cloud
+ * Pub/Sub duplicates in Kafka are possible.
  */
 public class CloudPubSubSourceTask extends SourceTask {
 
@@ -60,27 +65,20 @@ public class CloudPubSubSourceTask extends SourceTask {
   private static final int NUM_CPS_SUBSCRIBERS = 10;
 
   private String kafkaTopic;
-  private String cpsSubscription;
-  private String cpsEndpoint;
+  private ProjectSubscriptionName cpsSubscription;
   private String kafkaMessageKeyAttribute;
   private String kafkaMessageTimestampAttribute;
   private boolean makeOrderingKeyAttribute;
   private int kafkaPartitions;
   private PartitionScheme kafkaPartitionScheme;
-  private int cpsMaxBatchSize;
   // Keeps track of the current partition to publish to if the partition scheme is round robin.
   private int currentRoundRobinPartition = -1;
-  // Keep track of all ack ids that have not been sent correctly acked yet.
-  private final Set<String> deliveredAckIds = Collections.synchronizedSet(new HashSet<String>());
-  private Set<String> ackIds = Collections.synchronizedSet(new HashSet<String>());
   private CloudPubSubSubscriber subscriber;
-  private Set<String> ackIdsInFlight = Collections.synchronizedSet(new HashSet<String>());
   private final Set<String> standardAttributes = new HashSet<>();
-  private ConnectorCredentialsProvider gcpCredentialsProvider;
   private boolean useKafkaHeaders;
-  private Executor ackExecutor = Executors.newCachedThreadPool();
 
-  public CloudPubSubSourceTask() {}
+  public CloudPubSubSourceTask() {
+  }
 
   @VisibleForTesting
   public CloudPubSubSourceTask(CloudPubSubSubscriber subscriber) {
@@ -95,15 +93,15 @@ public class CloudPubSubSourceTask extends SourceTask {
   @Override
   public void start(Map<String, String> props) {
     Map<String, Object> validatedProps = new CloudPubSubSourceConnector().config().parse(props);
-    cpsSubscription =
-        String.format(
-            ConnectorUtils.CPS_SUBSCRIPTION_FORMAT,
-            validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG).toString(),
-            validatedProps.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG).toString());
-    cpsEndpoint = (String) validatedProps.get(ConnectorUtils.CPS_ENDPOINT);
+    cpsSubscription = ProjectSubscriptionName.newBuilder()
+        .setProject(validatedProps.get(ConnectorUtils.CPS_PROJECT_CONFIG).toString())
+        .setSubscription(
+            validatedProps.get(CloudPubSubSourceConnector.CPS_SUBSCRIPTION_CONFIG).toString())
+        .build();
+    String cpsEndpoint = (String) validatedProps.get(ConnectorUtils.CPS_ENDPOINT);
     kafkaTopic = validatedProps.get(CloudPubSubSourceConnector.KAFKA_TOPIC_CONFIG).toString();
-    cpsMaxBatchSize =
-        (Integer) validatedProps.get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG);
+    int cpsMaxBatchSize = (Integer) validatedProps
+        .get(CloudPubSubSourceConnector.CPS_MAX_BATCH_SIZE_CONFIG);
     kafkaPartitions =
         (Integer) validatedProps.get(CloudPubSubSourceConnector.KAFKA_PARTITIONS_CONFIG);
     kafkaMessageKeyAttribute =
@@ -116,9 +114,23 @@ public class CloudPubSubSourceTask extends SourceTask {
     useKafkaHeaders = (Boolean) validatedProps.get(CloudPubSubSourceConnector.USE_KAFKA_HEADERS);
     makeOrderingKeyAttribute =
         (Boolean) validatedProps.get(CloudPubSubSourceConnector.CPS_MAKE_ORDERING_KEY_ATTRIBUTE);
-    gcpCredentialsProvider = new ConnectorCredentialsProvider();
-    String gcpCredentialsFilePath = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
-    String credentialsJson = (String) validatedProps.get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
+    ConnectorCredentialsProvider gcpCredentialsProvider = new ConnectorCredentialsProvider();
+    String gcpCredentialsFilePath = (String) validatedProps
+        .get(ConnectorUtils.GCP_CREDENTIALS_FILE_PATH_CONFIG);
+    String credentialsJson = (String) validatedProps
+        .get(ConnectorUtils.GCP_CREDENTIALS_JSON_CONFIG);
+    boolean useStreamingPull = (Boolean) validatedProps
+        .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_ENABLED);
+    long streamingPullBytes = (Long) validatedProps
+        .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_FLOW_CONTROL_BYTES);
+    long streamingPullMessages = (Long) validatedProps
+        .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_FLOW_CONTROL_MESSAGES);
+    int streamingPullParallelStreams = (Integer) validatedProps
+        .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_PARALLEL_STREAMS);
+    long streamingPullMaxAckDeadlineMs = (Long) validatedProps
+        .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_MAX_ACK_EXTENSION_MS);
+    long streamingPullMaxMsPerAckDeadlineExtension = (Long) validatedProps
+        .get(CloudPubSubSourceConnector.CPS_STREAMING_PULL_MAX_MS_PER_ACK_EXTENSION);
     if (gcpCredentialsFilePath != null) {
       try {
         gcpCredentialsProvider.loadFromFile(gcpCredentialsFilePath);
@@ -132,9 +144,37 @@ public class CloudPubSubSourceTask extends SourceTask {
         throw new RuntimeException(e);
       }
     }
+    // Only do this if we did not set it through the constructor.
     if (subscriber == null) {
-      // Only do this if we did not set through the constructor.
-      subscriber = new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS, gcpCredentialsProvider, cpsEndpoint);
+      if (useStreamingPull) {
+        subscriber = new StreamingPullSubscriber(
+            receiver -> {
+              Subscriber.Builder builder = Subscriber.newBuilder(cpsSubscription, receiver)
+                  .setCredentialsProvider(gcpCredentialsProvider)
+                  .setFlowControlSettings(
+                      FlowControlSettings.newBuilder()
+                          .setLimitExceededBehavior(LimitExceededBehavior.Block)
+                          .setMaxOutstandingElementCount(streamingPullMessages)
+                          .setMaxOutstandingRequestBytes(streamingPullBytes).build())
+                  .setParallelPullCount(streamingPullParallelStreams)
+                  .setEndpoint(cpsEndpoint)
+                  .setExecutorProvider(FixedExecutorProvider.create(getSystemExecutor()));
+              if (streamingPullMaxAckDeadlineMs > 0) {
+                builder.setMaxAckExtensionPeriod(Duration.ofMillis(streamingPullMaxAckDeadlineMs));
+              }
+              if (streamingPullMaxMsPerAckDeadlineExtension > 0) {
+                builder.setMaxDurationPerAckExtension(
+                    Duration.ofMillis(streamingPullMaxMsPerAckDeadlineExtension));
+              }
+              return builder.build();
+            });
+      } else {
+        subscriber = new AckBatchingSubscriber(
+            new CloudPubSubRoundRobinSubscriber(NUM_CPS_SUBSCRIBERS,
+                gcpCredentialsProvider,
+                cpsEndpoint, cpsSubscription, cpsMaxBatchSize), runnable -> getSystemExecutor()
+            .scheduleAtFixedRate(runnable, 100, 100, TimeUnit.MILLISECONDS));
+      }
     }
     standardAttributes.add(kafkaMessageKeyAttribute);
     standardAttributes.add(kafkaMessageTimestampAttribute);
@@ -143,28 +183,14 @@ public class CloudPubSubSourceTask extends SourceTask {
 
   @Override
   public List<SourceRecord> poll() throws InterruptedException {
-    ackMessages();
     log.debug("Polling...");
-    PullRequest request =
-        PullRequest.newBuilder()
-            .setSubscription(cpsSubscription)
-            .setReturnImmediately(false)
-            .setMaxMessages(cpsMaxBatchSize)
-            .build();
     try {
-      PullResponse response = subscriber.pull(request).get();
+      List<ReceivedMessage> response = subscriber.pull().get();
       List<SourceRecord> sourceRecords = new ArrayList<>();
-      log.trace("Received " + response.getReceivedMessagesList().size() + " messages");
-      for (ReceivedMessage rm : response.getReceivedMessagesList()) {
+      log.trace("Received " + response.size() + " messages");
+      for (ReceivedMessage rm : response) {
         PubsubMessage message = rm.getMessage();
         String ackId = rm.getAckId();
-        // If we are receiving this message a second (or more) times because the ack for it failed
-        // then do not create a SourceRecord for this message. In case we are waiting for ack
-        // response we also skip the message
-        if (ackIds.contains(ackId) || deliveredAckIds.contains(ackId) || ackIdsInFlight.contains(ackId)) {
-          continue;
-        }
-        ackIds.add(ackId);
         Map<String, String> messageAttributes = message.getAttributesMap();
         String key;
         String orderingKey = message.getOrderingKey();
@@ -174,7 +200,7 @@ public class CloudPubSubSourceTask extends SourceTask {
           key = messageAttributes.get(kafkaMessageKeyAttribute);
         }
         Long timestamp = getLongValue(messageAttributes.get(kafkaMessageTimestampAttribute));
-        if (timestamp == null){
+        if (timestamp == null) {
           timestamp = Timestamps.toMillis(message.getPublishTime());
         }
         ByteString messageData = message.getData();
@@ -183,7 +209,7 @@ public class CloudPubSubSourceTask extends SourceTask {
         boolean hasCustomAttributes = !standardAttributes.containsAll(messageAttributes.keySet())
             || (makeOrderingKeyAttribute && orderingKey != null && !orderingKey.isEmpty());
 
-        Map<String,String> ack = Collections.singletonMap(cpsSubscription, ackId);
+        Map<String, String> ack = Collections.singletonMap(cpsSubscription.toString(), ackId);
         SourceRecord record = null;
         if (hasCustomAttributes) {
           if (useKafkaHeaders) {
@@ -197,16 +223,16 @@ public class CloudPubSubSourceTask extends SourceTask {
           }
         } else {
           record =
-            new SourceRecord(
-                null,
-                ack,
-                kafkaTopic,
-                selectPartition(key, messageBytes, orderingKey),
-                Schema.OPTIONAL_STRING_SCHEMA,
-                key,
-                Schema.BYTES_SCHEMA,
-                messageBytes,
-                timestamp);
+              new SourceRecord(
+                  null,
+                  ack,
+                  kafkaTopic,
+                  selectPartition(key, messageBytes, orderingKey),
+                  Schema.OPTIONAL_STRING_SCHEMA,
+                  key,
+                  Schema.BYTES_SCHEMA,
+                  messageBytes,
+                  timestamp);
         }
         sourceRecords.add(record);
       }
@@ -226,7 +252,7 @@ public class CloudPubSubSourceTask extends SourceTask {
       Long timestamp) {
     ConnectHeaders headers = new ConnectHeaders();
     for (Entry<String, String> attribute :
-            messageAttributes.entrySet()) {
+        messageAttributes.entrySet()) {
       if (!attribute.getKey().equals(kafkaMessageKeyAttribute)) {
         headers.addString(attribute.getKey(), attribute.getValue());
       }
@@ -236,16 +262,16 @@ public class CloudPubSubSourceTask extends SourceTask {
     }
 
     return new SourceRecord(
-            null,
-            ack,
-            kafkaTopic,
-            selectPartition(key, messageBytes, orderingKey),
-            Schema.OPTIONAL_STRING_SCHEMA,
-            key,
-            Schema.BYTES_SCHEMA,
-            messageBytes,
-            timestamp,
-            headers);
+        null,
+        ack,
+        kafkaTopic,
+        selectPartition(key, messageBytes, orderingKey),
+        Schema.OPTIONAL_STRING_SCHEMA,
+        key,
+        Schema.BYTES_SCHEMA,
+        messageBytes,
+        timestamp,
+        headers);
   }
 
   private SourceRecord createRecordWithStruct(
@@ -284,55 +310,20 @@ public class CloudPubSubSourceTask extends SourceTask {
       }
     }
     return new SourceRecord(
-            null,
-            ack,
-            kafkaTopic,
-            selectPartition(key, value, orderingKey),
-            Schema.OPTIONAL_STRING_SCHEMA,
-            key,
-            valueSchema,
-            value,
-            timestamp);
-  }
-
-  @Override
-  public void commit() throws InterruptedException {
-    ackMessages();
+        null,
+        ack,
+        kafkaTopic,
+        selectPartition(key, value, orderingKey),
+        Schema.OPTIONAL_STRING_SCHEMA,
+        key,
+        valueSchema,
+        value,
+        timestamp);
   }
 
   /**
-   * Attempt to ack all ids in {@link #deliveredAckIds}.
+   * Return the partition a message should go to based on {@link #kafkaPartitionScheme}.
    */
-  private void ackMessages() {
-    if (deliveredAckIds.size() != 0) {
-      AcknowledgeRequest.Builder requestBuilder = AcknowledgeRequest.newBuilder()
-          .setSubscription(cpsSubscription);
-      final Set<String> ackIdsBatch = new HashSet<>();
-      synchronized (deliveredAckIds) {
-        requestBuilder.addAllAckIds(deliveredAckIds);
-        ackIdsInFlight.addAll(deliveredAckIds);
-        ackIdsBatch.addAll(deliveredAckIds);
-        deliveredAckIds.clear();
-      }
-      final ApiFuture<Empty> response = subscriber.ackMessages(requestBuilder.build());
-      response.addListener(new Runnable() {
-        @Override
-        public void run() {
-          try {
-            response.get();
-            log.trace("Successfully acked a set of messages. {}", ackIdsBatch.size());
-          } catch (Exception e) {
-            deliveredAckIds.addAll(ackIdsBatch);
-            log.error("An exception occurred acking messages: " + e);
-          } finally {
-            ackIdsInFlight.removeAll(ackIdsBatch);
-          }
-        }
-      }, ackExecutor);
-    }
-  }
-
-  /** Return the partition a message should go to based on {@link #kafkaPartitionScheme}. */
   private Integer selectPartition(Object key, Object value, String orderingKey) {
     if (kafkaPartitionScheme.equals(PartitionScheme.HASH_KEY)) {
       return key == null ? 0 : Math.abs(key.hashCode()) % kafkaPartitions;
@@ -341,7 +332,7 @@ public class CloudPubSubSourceTask extends SourceTask {
     } else if (kafkaPartitionScheme.equals(PartitionScheme.KAFKA_PARTITIONER)) {
       return null;
     } else if (kafkaPartitionScheme.equals(PartitionScheme.ORDERING_KEY) && orderingKey != null &&
-          !orderingKey.isEmpty()) {
+        !orderingKey.isEmpty()) {
       return Math.abs(orderingKey.hashCode()) % kafkaPartitions;
     } else {
       currentRoundRobinPartition = ++currentRoundRobinPartition % kafkaPartitions;
@@ -362,13 +353,19 @@ public class CloudPubSubSourceTask extends SourceTask {
   }
 
   @Override
-  public void stop() {}
+  public void stop() {
+    if (subscriber != null) {
+      subscriber.close();
+    }
+  }
 
   @Override
   public void commitRecord(SourceRecord record) {
-    String ackId = record.sourceOffset().get(cpsSubscription).toString();
-    deliveredAckIds.add(ackId);
-    ackIds.remove(ackId);
+    String ackId = record.sourceOffset().get(cpsSubscription.toString()).toString();
+    ApiFutures.catching(subscriber.ackMessages(ImmutableList.of(ackId)), ApiException.class, e -> {
+      log.warn("Failed to acknowledge message: " + e);
+      return null;
+    }, MoreExecutors.directExecutor());
     log.trace("Committed {}", ackId);
   }
 }

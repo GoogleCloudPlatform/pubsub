@@ -120,7 +120,8 @@ public class Client {
         throw new RuntimeException(e);
       }
     }
-    throw new RuntimeException("Unable to connect to client in 600 seconds.");
+    throw new RuntimeException(String.format("Unable to connect to client %s:%d in 600 seconds.",
+        networkAddress, port));
   }
 
   ClientType getClientType() {
