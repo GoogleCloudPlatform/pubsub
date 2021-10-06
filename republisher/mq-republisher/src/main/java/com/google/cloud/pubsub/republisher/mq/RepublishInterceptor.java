@@ -84,6 +84,7 @@ public class RepublishInterceptor implements PublishInboundInterceptor {
           @Override
           public void onSuccess(String s) {
             asyncOutput.getOutput().preventPublishDelivery(); // Return success but don't persist.
+            asyncOutput.resume();
           }
         },
         SystemExecutors.getFuturesExecutor());
