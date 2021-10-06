@@ -1,0 +1,37 @@
+<hivemq>
+  <listeners>
+    <tcp-listener>
+      <port>1883</port>
+      <bind-address>0.0.0.0</bind-address>
+    </tcp-listener>
+  </listeners>
+  <mqtt>
+    <max-client-id-length>65535</max-client-id-length>
+    <retry-interval>0</retry-interval>
+    <no-connect-packet-idle-timeout-millis>10000</no-connect-packet-idle-timeout-millis>
+    <max-queued-messages>1000</max-queued-messages>
+  </mqtt>
+  <throttling>
+    <!-- 3 MiB max -->
+    <max-message-size>3145728</max-message-size>
+    <max-connections>-1</max-connections>
+    <outgoing-limit>0</outgoing-limit>
+    <incoming-limit>0</incoming-limit>
+  </throttling>
+  <!-- Full in-memory mode -->
+  <persistence>
+    <client-session>
+      <general><mode>in-memory</mode></general>
+      <queued-messages><mode>in-memory</mode></queued-messages>
+      <subscriptions><mode>in-memory</mode></subscriptions>
+    </client-session>
+    <message-flow>
+      <incoming><mode>in-memory</mode></incoming>
+      <outgoing><mode>in-memory</mode></outgoing>
+    </message-flow>
+    <retained-messages><mode>in-memory</mode></retained-messages>
+    <publish-payloads><mode>in-memory</mode></publish-payloads>
+    <attribute><mode>in-memory</mode></attribute>
+    <client-group><mode>in-memory</mode></client-group>
+  </persistence>
+</hivemq>

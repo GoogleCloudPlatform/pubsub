@@ -14,6 +14,9 @@ available are:
   If you're having a problem building with those versions, please reach out to us with your issue or solution.
 * [Ordering Keys Prober](https://github.com/GoogleCloudPlatform/pubsub/tree/master/ordering-keys-prober):
   A reference implementation for how to use ordering keys effectively.
+* [Republisher](https://github.com/GoogleCloudPlatform/pubsub/tree/master/republisher):
+  An experimental server which can be run on GKE to accept publishes in MQTT
+  protocol and send them to Cloud Pub/Sub or Pub/Sub Lite.
 * [DEPRECATED Experimental high-performance client library](https://github.com/GoogleCloudPlatform/pubsub/tree/master/client):
   For Java along with [samples](https://github.com/GoogleCloudPlatform/google-cloud-java/tree/master/google-cloud-examples/src/main/java/com/google/cloud/examples/pubsub/snippets).
 
