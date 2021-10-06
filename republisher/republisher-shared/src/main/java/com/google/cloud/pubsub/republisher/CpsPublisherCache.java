@@ -29,18 +29,21 @@ import java.time.Duration;
 public class CpsPublisherCache implements PublisherCache {
   @GuardedBy("this")
   private final Publisher.Builder builder;
+
   private final LoadingCache<TopicName, PublisherInterface> cache;
 
   public CpsPublisherCache(Publisher.Builder builder) {
     this.builder = builder;
-    this.cache = CacheBuilder.newBuilder()
-        .expireAfterAccess(Duration.ofMinutes(1))
-        .build(new CacheLoader<TopicName, PublisherInterface>() {
-          @Override
-          public PublisherInterface load(TopicName name) throws Exception {
-            return create(name);
-          }
-        });
+    this.cache =
+        CacheBuilder.newBuilder()
+            .expireAfterAccess(Duration.ofMinutes(1))
+            .build(
+                new CacheLoader<TopicName, PublisherInterface>() {
+                  @Override
+                  public PublisherInterface load(TopicName name) throws Exception {
+                    return create(name);
+                  }
+                });
   }
 
   private synchronized PublisherInterface create(TopicName name) throws IOException {

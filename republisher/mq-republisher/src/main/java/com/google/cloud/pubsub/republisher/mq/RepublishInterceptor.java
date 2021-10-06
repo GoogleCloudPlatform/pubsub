@@ -41,7 +41,8 @@ public class RepublishInterceptor implements PublishInboundInterceptor {
   private static final String CONTENT_TYPE = "mq-republisher-content-type";
 
   // Cloud Pub/Sub does not allow publishing empty payloads.
-  private static final ByteBuffer EMPTY_BUFFER = ByteBuffer.wrap("<empty>".getBytes(StandardCharsets.UTF_8));
+  private static final ByteBuffer EMPTY_BUFFER =
+      ByteBuffer.wrap("<empty>".getBytes(StandardCharsets.UTF_8));
 
   private final GoogleLogger logger = GoogleLogger.forEnclosingClass();
   private final PublisherCache cache;
@@ -52,33 +53,40 @@ public class RepublishInterceptor implements PublishInboundInterceptor {
 
   @Override
   public void onInboundPublish(
-      PublishInboundInput publishInboundInput,
-      PublishInboundOutput publishInboundOutput) {
+      PublishInboundInput publishInboundInput, PublishInboundOutput publishInboundOutput) {
     PublishPacket packet = publishInboundInput.getPublishPacket();
     PublisherInterface publisher;
     try {
       publisher = cache.getPublisher(packet.getTopic());
     } catch (Throwable t) {
       logger.atWarning().withCause(t).log("Failed to create publisher:\n{}", packet);
-      publishInboundOutput.preventPublishDelivery(AckReasonCode.IMPLEMENTATION_SPECIFIC_ERROR, "Failed to create publisher: " + t.getMessage());
+      publishInboundOutput.preventPublishDelivery(
+          AckReasonCode.IMPLEMENTATION_SPECIFIC_ERROR,
+          "Failed to create publisher: " + t.getMessage());
       return;
     }
-    final Async<PublishInboundOutput> asyncOutput = publishInboundOutput.async(Duration.ofMinutes(1));
+    final Async<PublishInboundOutput> asyncOutput =
+        publishInboundOutput.async(Duration.ofMinutes(1));
     ApiFutures.addCallback(
         publisher.publish(parse(packet)),
         new ApiFutureCallback<String>() {
           @Override
           public void onFailure(Throwable t) {
             logger.atWarning().withCause(t).log("Failed to publish message:\n{}", packet);
-            asyncOutput.getOutput().preventPublishDelivery(AckReasonCode.IMPLEMENTATION_SPECIFIC_ERROR, "Failed to publish: " + t.getMessage());
+            asyncOutput
+                .getOutput()
+                .preventPublishDelivery(
+                    AckReasonCode.IMPLEMENTATION_SPECIFIC_ERROR,
+                    "Failed to publish: " + t.getMessage());
             asyncOutput.resume();
           }
 
           @Override
           public void onSuccess(String s) {
-            asyncOutput.getOutput().preventPublishDelivery();  // Return success but don't persist.
+            asyncOutput.getOutput().preventPublishDelivery(); // Return success but don't persist.
           }
-        }, SystemExecutors.getFuturesExecutor());
+        },
+        SystemExecutors.getFuturesExecutor());
   }
 
   @VisibleForTesting
@@ -89,13 +97,21 @@ public class RepublishInterceptor implements PublishInboundInterceptor {
     builder.setData(payload);
     ImmutableListMultimap.Builder<String, String> mapBuilder = ImmutableListMultimap.builder();
     packet.getContentType().ifPresent(val -> mapBuilder.put(CONTENT_TYPE, val));
-    packet.getUserProperties().asList().forEach(prop -> {
-      mapBuilder.put(prop.getName(), prop.getValue());
-    });
+    packet
+        .getUserProperties()
+        .asList()
+        .forEach(
+            prop -> {
+              mapBuilder.put(prop.getName(), prop.getValue());
+            });
     // Format attributes as comma separated http headers
-    mapBuilder.build().asMap().forEach((key, values) -> {
-      builder.putAttributes(key, String.join(", ", values));
-    });
+    mapBuilder
+        .build()
+        .asMap()
+        .forEach(
+            (key, values) -> {
+              builder.putAttributes(key, String.join(", ", values));
+            });
     return builder.build();
   }
 }

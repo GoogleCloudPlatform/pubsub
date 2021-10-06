@@ -40,18 +40,19 @@ public class MqRepublisherMain {
     if (Strings.isNullOrEmpty(config)) {
       throw new Exception("HIVE_MQ_CONFIG_FOLDER must be set.");
     }
-    final EmbeddedHiveMQBuilder embeddedHiveMQBuilder = EmbeddedHiveMQ.builder()
-        .withConfigurationFolder(Paths.get(config))
-        .withEmbeddedExtension(
-            EmbeddedExtension.builder()
-                .withId("PubSubExtension")
-                .withName("PubSub Republisher")
-                .withVersion("1.0.0")
-                .withPriority(0)
-                .withStartPriority(1000)
-                .withAuthor("Pub/Sub Team")
-                .withExtensionMain(new PubSubExtensionMain())
-                .build());
+    final EmbeddedHiveMQBuilder embeddedHiveMQBuilder =
+        EmbeddedHiveMQ.builder()
+            .withConfigurationFolder(Paths.get(config))
+            .withEmbeddedExtension(
+                EmbeddedExtension.builder()
+                    .withId("PubSubExtension")
+                    .withName("PubSub Republisher")
+                    .withVersion("1.0.0")
+                    .withPriority(0)
+                    .withStartPriority(1000)
+                    .withAuthor("Pub/Sub Team")
+                    .withExtensionMain(new PubSubExtensionMain())
+                    .build());
     try (final EmbeddedHiveMQ hiveMQ = embeddedHiveMQBuilder.build()) {
       // We disable rocksdb since it isn't needed.
       InternalConfigurations.PAYLOAD_PERSISTENCE_TYPE.set(PersistenceType.FILE);
@@ -62,17 +63,21 @@ public class MqRepublisherMain {
 
   private static final class PubSubExtensionMain implements ExtensionMain {
     @Override
-    public void extensionStart(ExtensionStartInput extensionStartInput, ExtensionStartOutput extensionStartOutput) {
+    public void extensionStart(
+        ExtensionStartInput extensionStartInput, ExtensionStartOutput extensionStartOutput) {
       final RepublishInterceptor publishInterceptor =
           new RepublishInterceptor(PublisherCaches.create(Framework.of("MQ_REPUBLISHER")));
       final StopSubscribeInterceptor subscribeInterceptor = new StopSubscribeInterceptor();
-      Services.initializerRegistry().setClientInitializer((initializerInput, clientContext) -> {
-        clientContext.addPublishInboundInterceptor(publishInterceptor);
-        clientContext.addSubscribeInboundInterceptor(subscribeInterceptor);
-      });
+      Services.initializerRegistry()
+          .setClientInitializer(
+              (initializerInput, clientContext) -> {
+                clientContext.addPublishInboundInterceptor(publishInterceptor);
+                clientContext.addSubscribeInboundInterceptor(subscribeInterceptor);
+              });
     }
 
     @Override
-    public void extensionStop(ExtensionStopInput extensionStopInput, ExtensionStopOutput extensionStopOutput) {}
+    public void extensionStop(
+        ExtensionStopInput extensionStopInput, ExtensionStopOutput extensionStopOutput) {}
   }
 }

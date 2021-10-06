@@ -34,7 +34,8 @@ public class RoutingPublisherCache implements PublisherCache {
     try {
       TopicPath ignoredPath = TopicPath.parse(topic);
       isLite = true;
-    } catch (Throwable ignored) {}
+    } catch (Throwable ignored) {
+    }
     if (isLite) {
       return liteCache.getPublisher(topic);
     }

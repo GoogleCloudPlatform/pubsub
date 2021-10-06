@@ -28,9 +28,13 @@ public final class PublisherCaches {
   private PublisherCaches() {}
 
   public static PublisherCache create(Framework framework) {
-    PublisherCache cpsCache = new CpsPublisherCache(Publisher.newBuilder(TopicName.newBuilder().setTopic("fake").setProject("fake").build()).setExecutorProvider(
-        FixedExecutorProvider.create(SystemExecutors.getFuturesExecutor())));
-    PublisherCache liteCache = new LitePublisherCache(PublisherSettings.newBuilder().setFramework(framework));
+    PublisherCache cpsCache =
+        new CpsPublisherCache(
+            Publisher.newBuilder(TopicName.newBuilder().setTopic("fake").setProject("fake").build())
+                .setExecutorProvider(
+                    FixedExecutorProvider.create(SystemExecutors.getFuturesExecutor())));
+    PublisherCache liteCache =
+        new LitePublisherCache(PublisherSettings.newBuilder().setFramework(framework));
     return new RoutingPublisherCache(cpsCache, liteCache);
   }
 }

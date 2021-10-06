@@ -26,9 +26,10 @@ public class StopSubscribeInterceptor implements SubscribeInboundInterceptor {
 
   @Override
   public void onInboundSubscribe(
-      SubscribeInboundInput subscribeInboundInput,
-      SubscribeInboundOutput subscribeInboundOutput) {
-    logger.atSevere().log("Subscribe sent with {} to pubsub republisher- this is not allowed.", subscribeInboundInput.getSubscribePacket());
+      SubscribeInboundInput subscribeInboundInput, SubscribeInboundOutput subscribeInboundOutput) {
+    logger.atSevere().log(
+        "Subscribe sent with {} to pubsub republisher- this is not allowed.",
+        subscribeInboundInput.getSubscribePacket());
     subscribeInboundOutput.getSubscribePacket().getSubscriptions().clear();
   }
 }

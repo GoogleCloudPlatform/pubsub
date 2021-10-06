@@ -18,10 +18,10 @@ package com.google.cloud.pubsub.republisher;
 
 import com.google.api.core.ApiService.Listener;
 import com.google.api.core.ApiService.State;
+import com.google.cloud.pubsub.v1.PublisherInterface;
 import com.google.cloud.pubsublite.TopicPath;
 import com.google.cloud.pubsublite.cloudpubsub.Publisher;
 import com.google.cloud.pubsublite.cloudpubsub.PublisherSettings;
-import com.google.cloud.pubsub.v1.PublisherInterface;
 import com.google.cloud.pubsublite.internal.wire.SystemExecutors;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
@@ -33,26 +33,31 @@ import java.time.Duration;
 public class LitePublisherCache implements PublisherCache {
   @GuardedBy("this")
   private final PublisherSettings.Builder settings;
+
   private final LoadingCache<TopicPath, PublisherInterface> cache;
 
   public LitePublisherCache(PublisherSettings.Builder settings) {
     this.settings = settings;
-    this.cache = CacheBuilder.newBuilder()
-        .expireAfterAccess(Duration.ofMinutes(1))
-        .build(new CacheLoader<TopicPath, PublisherInterface>() {
-          @Override
-          public PublisherInterface load(TopicPath path) throws Exception {
-            Publisher publisher = create(path);
-            publisher.addListener(new Listener() {
-              @Override
-              public void failed(State from, Throwable failure) {
-                cache.invalidate(path);
-              }
-            }, SystemExecutors.getFuturesExecutor());
-            publisher.startAsync().awaitRunning();
-            return publisher;
-          }
-        });
+    this.cache =
+        CacheBuilder.newBuilder()
+            .expireAfterAccess(Duration.ofMinutes(1))
+            .build(
+                new CacheLoader<TopicPath, PublisherInterface>() {
+                  @Override
+                  public PublisherInterface load(TopicPath path) throws Exception {
+                    Publisher publisher = create(path);
+                    publisher.addListener(
+                        new Listener() {
+                          @Override
+                          public void failed(State from, Throwable failure) {
+                            cache.invalidate(path);
+                          }
+                        },
+                        SystemExecutors.getFuturesExecutor());
+                    publisher.startAsync().awaitRunning();
+                    return publisher;
+                  }
+                });
   }
 
   private synchronized Publisher create(TopicPath path) throws IOException {
