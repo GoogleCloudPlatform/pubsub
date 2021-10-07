@@ -18,6 +18,7 @@
   <modules>
     <module>republisher-shared</module>
     <module>mq-republisher</module>
+    <module>kafka-republisher</module>
   </modules>
 
   <dependencyManagement>

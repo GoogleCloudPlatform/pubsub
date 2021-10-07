@@ -40,12 +40,32 @@ MQTT accepts publishes on port `1883` by default. All
 can be configured by setting the `HIVE_MQ_CONFIG_FOLDER` environment variable to
 a folder on your container with a file named `config.xml` in it.
 
+### KAFKA
+
+The Kafka wire protocol is handled by reusing some of the internals of the
+Apache Licensed Kafka broker to respond to the minimum number of requests
+possible to accept messages from producers. It does not account for
+transactions, and you should not attempt to make transactional requests (which
+will cause an UnsupportedVersionException on the client). Produced messages will
+not be acknowledged until acknowledged by the Pub/Sub system.
+
+Because Kafka topics may not have `/` characters, to specify the Pub/Sub topic
+to send to, replace all `/` characters with `.` in the topic name.
+
+The Kafka server accepts publishes on port `9092`. Two environment variables
+must be present: `KAFKA_ROUTING_HOST` and `KAFKA_ROUTING_PORT` for it to
+communicate. The dockerfile will set `KAFKA_ROUTING_PORT` to `9092` and
+`KAFKA_ROUTING_HOST` to the (required) `ROUTING_HOST` docker arg by default.
+Any TCP reverse proxy should be able to route requests- it should not need to be
+aware of the Kafka wire protocol, or you can set the `KAFKA_ROUTING_HOST`
+variable to the current machine for a single-machine deployment.
+
 ## Building
 
-To build the dockerfile, run the following script from the `republisher`
+To build the docker image, run the following script from the `republisher`
 directory:
 
 ```bash
 mvn package
-docker build .
+docker build . --build-arg ROUTING_HOST=<load balancer IP>
 ```

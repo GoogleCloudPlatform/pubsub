@@ -101,18 +101,12 @@ public class RepublishInterceptor implements PublishInboundInterceptor {
     packet
         .getUserProperties()
         .asList()
-        .forEach(
-            prop -> {
-              mapBuilder.put(prop.getName(), prop.getValue());
-            });
+        .forEach(prop -> mapBuilder.put(prop.getName(), prop.getValue()));
     // Format attributes as comma separated http headers
     mapBuilder
         .build()
         .asMap()
-        .forEach(
-            (key, values) -> {
-              builder.putAttributes(key, String.join(", ", values));
-            });
+        .forEach((key, values) -> builder.putAttributes(key, String.join(", ", values)));
     return builder.build();
   }
 }
