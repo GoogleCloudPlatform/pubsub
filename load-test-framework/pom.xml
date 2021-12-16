@@ -30,11 +30,6 @@
       <version>4.13.1</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.kafka</groupId>
-      <artifactId>kafka_2.11</artifactId>
-      <version>0.10.0.0</version>
-    </dependency>
-    <dependency>
       <groupId>com.beust</groupId>
       <artifactId>jcommander</artifactId>
       <version>1.72</version>
@@ -95,11 +90,6 @@
       <artifactId>httpcore</artifactId>
       <version>4.2.5</version>
     </dependency>
-     <dependency>
-       <groupId>com.101tec</groupId>
-       <artifactId>zkclient</artifactId>
-       <version>0.7</version>
-     </dependency>
     <dependency>
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value-annotations</artifactId>

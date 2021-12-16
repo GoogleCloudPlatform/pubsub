@@ -23,7 +23,6 @@ import com.beust.jcommander.converters.EnumConverter;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.protobuf.util.Timestamps;
-import com.google.pubsub.flic.common.KafkaFlags;
 import com.google.pubsub.flic.common.LatencyTracker;
 import com.google.pubsub.flic.common.LoadtestProto.MessageIdentifier;
 import com.google.pubsub.flic.common.MessageTracker;
@@ -42,7 +41,6 @@ import java.util.Map;
 import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
-import org.apache.log4j.BasicConfigurator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -107,14 +105,12 @@ public class Driver {
   }
 
   public static void main(String[] args) {
-    BasicConfigurator.configure();
     Driver driver = new Driver();
     ParameterOverrides overrides = new ParameterOverrides();
     JCommander jCommander =
         JCommander.newBuilder()
             .addObject(driver)
             .addObject(overrides)
-            .addObject(KafkaFlags.getInstance())
             .build();
     jCommander.parse(args);
     if (driver.help) {
@@ -185,17 +181,6 @@ public class Driver {
     params.setTestParameters(testParameters);
     params.setProject(project);
     params.setZone(zone);
-
-    if (type == ClientType.MessagingType.KAFKA) {
-      Preconditions.checkArgument(
-          KafkaFlags.getInstance().broker != null,
-          "If using Kafka you must provide the network address of your broker using the"
-              + "--broker flag.");
-      Preconditions.checkArgument(
-          KafkaFlags.getInstance().zookeeperIp != null,
-          "If using Kafka you must provide the network address of your zookeeper instance using the"
-              + "--broker flag.");
-    }
 
     ClientType publisherType = new ClientType(type, language, ClientType.MessagingSide.PUBLISHER);
     ClientType subscriberType = new ClientType(type, language, ClientType.MessagingSide.SUBSCRIBER);
