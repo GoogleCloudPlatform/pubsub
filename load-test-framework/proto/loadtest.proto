@@ -24,6 +24,8 @@ import "google/protobuf/timestamp.proto";
 option java_package = "com.google.pubsub.flic.common";
 option java_outer_classname = "LoadtestProto";
 
+option go_package = "com.google.pubsub.flic.common";
+
 service LoadtestWorker {
   // Starts a worker
   rpc Start (StartRequest) returns (StartResponse);
@@ -33,10 +35,10 @@ service LoadtestWorker {
 }
 
 message StartRequest {
-  // The GCP project. This must be set even for Kafka, as we use it to export metrics.
+  // The GCP project.
   string project = 1;
 
-  // The Pub/Sub or Kafka topic name.
+  // The Pub/Sub topic name.
   string topic = 2;
 
   // The time at which the load test should start. If this is less than the current time, we start immediately.
@@ -50,7 +52,6 @@ message StartRequest {
 
   oneof options {
     PubsubOptions pubsub_options = 6;
-    KafkaOptions kafka_options = 7;
   }
 
   oneof client_options {
@@ -88,36 +89,12 @@ message PubsubOptions {
   string subscription = 1;
 }
 
-message KafkaOptions {
-  // The network address of the Kafka broker.
-  string broker = 1;
-
-  // The length of time to poll for.
-  google.protobuf.Duration poll_duration = 2;
-
-  // The network address(es) of the Zookeeper host(s).
-  string zookeeper_ip_address = 3;
-
-  // The replication factor of the Kafka topic.
-  int32 replication_factor = 4;
-
-  // The number of partitions of the Kafka topic.
-  int32 partitions = 5;
-}
-
 message MessageIdentifier {
   // The unique id of the client that published the message.
   int64 publisher_client_id = 1;
 
   // Sequence number of the published message with the given publish_client_id.
   int32 sequence_number = 2;
-}
-
-// A message for kafka which does not support adding metadata to the message.
-message KafkaMessage {
-  MessageIdentifier id = 1;
-  google.protobuf.Timestamp publish_time = 2;
-  bytes payload = 3;
 }
 
 // Request a statistics update.

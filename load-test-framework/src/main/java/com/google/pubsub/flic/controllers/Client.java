@@ -23,7 +23,6 @@ import com.google.protobuf.Duration;
 import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Durations;
 import com.google.pubsub.flic.common.*;
-import com.google.pubsub.flic.common.LoadtestProto.KafkaOptions;
 import com.google.pubsub.flic.common.LoadtestProto.PubsubOptions;
 import com.google.pubsub.flic.common.LoadtestProto.StartRequest;
 import com.google.pubsub.flic.common.LoadtestProto.StartResponse;
@@ -69,12 +68,6 @@ public class Client {
   // StartRequest options
   // General options
   private final ClientParams params;
-
-  // Kafka options
-  private static Duration pollDuration = Durations.fromMillis(100);
-  private static String zookeeperIpAddress = "";
-  private static int replicationFactor = 2;
-  private static int partitions = 100;
 
   public Client(
       String networkAddress, ClientParams params, ScheduledExecutorService executorService) {
@@ -173,15 +166,6 @@ public class Client {
       if (params.getClientType().isCps()) {
         requestBuilder.setPubsubOptions(PubsubOptions.newBuilder().setSubscription(SUBSCRIPTION));
       }
-    }
-    if (params.getClientType().isKafka()) {
-      requestBuilder.setKafkaOptions(
-          KafkaOptions.newBuilder()
-              .setBroker(KafkaFlags.getInstance().broker)
-              .setPollDuration(pollDuration)
-              .setZookeeperIpAddress(zookeeperIpAddress)
-              .setReplicationFactor(replicationFactor)
-              .setPartitions(partitions));
     }
 
     StartRequest request = requestBuilder.build();
