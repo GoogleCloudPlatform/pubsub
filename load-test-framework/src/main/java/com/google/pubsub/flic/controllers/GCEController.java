@@ -72,22 +72,11 @@ public class GCEController extends ControllerBase {
       ArrayList<ComputeResourceController> computeControllers = new ArrayList<>();
       // Using atomic for effectively final not thread safety.
       AtomicBoolean hasJavaClient = new AtomicBoolean(false);
-      AtomicReference<Boolean> hasKafkaClient = new AtomicReference<>(null);
       clients.forEach(
           (params, count) -> {
             hasJavaClient.set(
                 hasJavaClient.get()
                     || (params.getClientType().language == ClientType.Language.JAVA));
-            if (hasKafkaClient.get() != null) {
-              if (hasKafkaClient.get() != params.getClientType().isKafka()) {
-                if (!params.getClientType().isKafka()) {
-                  log.error("Cannot use mixed kafka and gcp client types.");
-                  System.exit(1);
-                }
-              }
-            } else {
-              hasKafkaClient.set(params.getClientType().isKafka());
-            }
 
             GCEComputeResourceController computeController =
                 new GCEComputeResourceController(projectName, params, count, executor, compute);
@@ -95,9 +84,6 @@ public class GCEController extends ControllerBase {
             computeControllers.add(computeController);
           });
       controllers.add(new FirewallResourceController(projectName, executor, compute));
-      if (hasKafkaClient.get() != null && hasKafkaClient.get()) {
-        controllers.add(new KafkaResourceController(Client.TOPIC, executor));
-      }
       controllers.add(
           new PubsubResourceController(
               projectName, Client.TOPIC, ImmutableList.of(Client.SUBSCRIPTION), executor, pubsub));
