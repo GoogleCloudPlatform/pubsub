@@ -347,6 +347,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   @Override
   public void flush(Map<TopicPartition, OffsetAndMetadata> partitionOffsets) {
     log.debug("Flushing...");
+    RuntimeException maybeException = null;
     // Process results of all the outstanding futures specified by each TopicPartition.
     for (Map.Entry<TopicPartition, OffsetAndMetadata> partitionOffset :
         partitionOffsets.entrySet()) {
@@ -356,20 +357,29 @@ public class CloudPubSubSinkTask extends SinkTask {
       if (outstandingFuturesForTopic == null) {
         continue;
       }
+      int partition = partitionOffset.getKey().partition();
       OutstandingFuturesForPartition outstandingFutures =
-          outstandingFuturesForTopic.get(partitionOffset.getKey().partition());
+          outstandingFuturesForTopic.get(partition);
       if (outstandingFutures == null) {
         continue;
       }
       try {
-        ApiFutures.allAsList(outstandingFutures.futures).get();
+        // Only wait for partition to complete if the clush hasn't already failed.
+        if (maybeException == null) {
+          ApiFutures.allAsList(outstandingFutures.futures).get();
+        }
       } catch (Exception e) {
-        throw new RuntimeException(e);
+        maybeException = new RuntimeException(e);
       } finally {
+        // Always clear tracking for flushed partitions
         outstandingFutures.futures.clear();
+        allOutstandingFutures.remove(partition);
       }
     }
-    allOutstandingFutures.clear();
+    if (maybeException != null) {
+      // If any partitions had an exceptional future, throw after all cleanup
+      throw maybeException;
+    }
   }
 
   /** Publish all the messages in a partition and store the Future's for each publish request. */
