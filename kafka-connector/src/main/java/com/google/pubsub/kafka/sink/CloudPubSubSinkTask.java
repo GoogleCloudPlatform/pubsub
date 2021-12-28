@@ -364,7 +364,7 @@ public class CloudPubSubSinkTask extends SinkTask {
         continue;
       }
       try {
-        // Only wait for partition to complete if the clush hasn't already failed.
+        // Only wait for partition to complete if the flush hasn't already failed.
         if (maybeException == null) {
           ApiFutures.allAsList(outstandingFutures.futures).get();
         }
