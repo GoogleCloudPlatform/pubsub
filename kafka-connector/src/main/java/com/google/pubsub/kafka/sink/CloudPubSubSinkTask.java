@@ -373,7 +373,6 @@ public class CloudPubSubSinkTask extends SinkTask {
       } finally {
         // Always clear tracking for flushed partitions
         outstandingFutures.futures.clear();
-        allOutstandingFutures.remove(partition);
       }
     }
     if (maybeException != null) {
