@@ -43,6 +43,7 @@ import scala.compat.java8.functionConverterImpls.FromJavaBiConsumer;
 import static scala.collection.JavaConverters.asScalaBufferConverter;
 
 public class SparkUtils {
+
   private static final GoogleLogger log = GoogleLogger.forEnclosingClass();
 
   public static ArrayBasedMapData convertAttributesToSparkMap(Map<String, String> attributeMap) {
@@ -50,10 +51,10 @@ public class SparkUtils {
     List<UTF8String> valueList = new ArrayList<>();
 
     attributeMap.forEach(
-            (key, value) -> {
-              keyList.add(UTF8String.fromString(key));
-              valueList.add(UTF8String.fromString(value));
-            });
+        (key, value) -> {
+          keyList.add(UTF8String.fromString(key));
+          valueList.add(UTF8String.fromString(value));
+        });
 
     return new ArrayBasedMapData(
         new GenericArrayData(asScalaBufferConverter(keyList).asScala()),

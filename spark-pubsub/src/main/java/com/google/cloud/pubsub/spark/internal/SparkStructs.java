@@ -26,6 +26,7 @@ import org.apache.spark.sql.types.StructField;
 import org.apache.spark.sql.types.StructType;
 
 public class SparkStructs {
+
   public static MapType ATTRIBUTES_DATATYPE =
       DataTypes.createMapType(DataTypes.StringType, DataTypes.StringType);
   public static Map<String, DataType> PUBLISH_FIELD_TYPES =
@@ -35,11 +36,13 @@ public class SparkStructs {
           "attributes", ATTRIBUTES_DATATYPE);
   public static StructType DEFAULT_SCHEMA =
       new StructType(
-          new StructField[] {
+          new StructField[]{
               new StructField("subscription", DataTypes.StringType, false, Metadata.empty()),
-              new StructField("ordering_key", PUBLISH_FIELD_TYPES.get("ordering_key"), false, Metadata.empty()),
+              new StructField("ordering_key", PUBLISH_FIELD_TYPES.get("ordering_key"), false,
+                  Metadata.empty()),
               new StructField("data", PUBLISH_FIELD_TYPES.get("data"), false, Metadata.empty()),
-              new StructField("publish_timestamp", DataTypes.TimestampType, false, Metadata.empty()),
+              new StructField("publish_timestamp", DataTypes.TimestampType, false,
+                  Metadata.empty()),
               new StructField(
                   "attributes", PUBLISH_FIELD_TYPES.get("attributes"), true, Metadata.empty())
           });

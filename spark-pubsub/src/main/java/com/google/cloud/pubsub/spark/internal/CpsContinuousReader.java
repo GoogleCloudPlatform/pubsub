@@ -33,6 +33,7 @@ import org.apache.spark.sql.sources.v2.reader.streaming.PartitionOffset;
 import org.apache.spark.sql.types.StructType;
 
 public class CpsContinuousReader implements ContinuousReader {
+
   private final PullSubscriberFactory subscriberFactory;
   private final Committer committer;
   private final SubscriptionName subscription;
@@ -104,7 +105,8 @@ public class CpsContinuousReader implements ContinuousReader {
   @Override
   public boolean needsReconfiguration() {
     Instant now = Instant.now();
-    if (Duration.between(lastReconfigureTime, now).compareTo(Duration.of(1, ChronoUnit.MINUTES)) > 0) {
+    if (Duration.between(lastReconfigureTime, now).compareTo(Duration.of(1, ChronoUnit.MINUTES))
+        > 0) {
       lastReconfigureTime = now;
       return true;
     }

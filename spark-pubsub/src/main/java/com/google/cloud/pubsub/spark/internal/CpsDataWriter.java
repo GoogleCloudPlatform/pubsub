@@ -31,6 +31,7 @@ import org.apache.spark.sql.sources.v2.writer.WriterCommitMessage;
 import org.apache.spark.sql.types.StructType;
 
 public class CpsDataWriter implements DataWriter<InternalRow> {
+
   private static final GoogleLogger log = GoogleLogger.forEnclosingClass();
 
   private final long partitionId, taskId, epochId;

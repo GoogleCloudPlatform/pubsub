@@ -23,6 +23,7 @@ import org.apache.spark.sql.sources.v2.writer.DataWriterFactory;
 import org.apache.spark.sql.types.StructType;
 
 public class CpsDataWriterFactory implements Serializable, DataWriterFactory<InternalRow> {
+
   private static final long serialVersionUID = -6904546364310978844L;
 
   private static final CachedPublishers CACHED_PUBLISHERS = new CachedPublishers();

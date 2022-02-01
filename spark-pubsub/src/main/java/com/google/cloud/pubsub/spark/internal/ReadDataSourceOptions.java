@@ -28,6 +28,7 @@ import org.apache.spark.sql.sources.v2.DataSourceOptions;
 
 @AutoValue
 public abstract class ReadDataSourceOptions implements Serializable {
+
   @Nullable
   public abstract String credentialsKey();
 
@@ -64,14 +65,16 @@ public abstract class ReadDataSourceOptions implements Serializable {
       throw new IllegalArgumentException("Unable to parse subscription path " + pathVal, e);
     }
     options.get(Constants.CREDENTIALS_KEY_CONFIG_KEY).ifPresent(builder::setCredentialsKey);
-    builder.setReadShards(options.getInt(Constants.READ_SHARDS_CONFIG_KEY, Constants.DEFAULT_READ_SHARDS));
+    builder.setReadShards(
+        options.getInt(Constants.READ_SHARDS_CONFIG_KEY, Constants.DEFAULT_READ_SHARDS));
     return builder.build();
   }
 
   private SubscriberStub newStub() {
     try {
       return SubscriberStubSettings.newBuilder()
-          .setCredentialsProvider(new CpsCredentialsProvider(credentialsKey())).build().createStub();
+          .setCredentialsProvider(new CpsCredentialsProvider(credentialsKey())).build()
+          .createStub();
     } catch (IOException e) {
       throw new IllegalStateException(e);
     }

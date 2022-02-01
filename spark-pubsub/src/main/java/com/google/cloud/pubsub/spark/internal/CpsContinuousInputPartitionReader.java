@@ -29,6 +29,7 @@ import org.apache.spark.sql.sources.v2.reader.streaming.ContinuousInputPartition
 
 public class CpsContinuousInputPartitionReader
     implements ContinuousInputPartitionReader<InternalRow> {
+
   private static final GoogleLogger log = GoogleLogger.forEnclosingClass();
 
   private final PullSubscriber subscriber;

@@ -22,6 +22,7 @@ import com.google.pubsub.v1.PullResponse;
 import com.google.pubsub.v1.SubscriptionName;
 
 class PullSubscriberImpl implements PullSubscriber {
+
   private final SubscriberStub stub;
   private final SubscriptionName subscription;
 

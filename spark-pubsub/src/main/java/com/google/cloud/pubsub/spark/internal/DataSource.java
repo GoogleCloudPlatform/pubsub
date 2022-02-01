@@ -51,7 +51,8 @@ public final class DataSource
     ReadDataSourceOptions dataSourceOptions =
         ReadDataSourceOptions.fromSparkDataSourceOptions(options);
     return new CpsContinuousReader(
-        dataSourceOptions::getPullSubscriber, dataSourceOptions.getCommitter(), dataSourceOptions.subscription(), dataSourceOptions.readShards()
+        dataSourceOptions::getPullSubscriber, dataSourceOptions.getCommitter(),
+        dataSourceOptions.subscription(), dataSourceOptions.readShards()
     );
   }
 

@@ -19,6 +19,8 @@ package com.google.cloud.pubsub.spark.internal;
 import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
 import com.google.cloud.pubsub.v1.stub.SubscriberStub;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.Lists;
 import com.google.protobuf.Empty;
 import com.google.pubsub.v1.AcknowledgeRequest;
@@ -27,6 +29,11 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class CommitterImpl implements Committer {
+
+  // A cache of ackIds that have already been acknowledged successfully.
+  private final Cache<String, Empty> completedAckIds = CacheBuilder.newBuilder()
+      .maximumSize(100_000)
+      .build();
   private final SubscriberStub stub;
   private final SubscriptionName subscription;
 
@@ -37,11 +44,16 @@ public class CommitterImpl implements Committer {
 
   @Override
   public void commit(List<String> ackIds) {
+    ackIds = ackIds.stream().filter(id -> completedAckIds.getIfPresent(id) != null).collect(
+        Collectors.toList());
     List<ApiFuture<Empty>> futures = Lists.partition(ackIds, 1000).stream().map(ids ->
-      stub.acknowledgeCallable().futureCall(AcknowledgeRequest.newBuilder().setSubscription(subscription.toString()).addAllAckIds(ids).build())
+        stub.acknowledgeCallable().futureCall(
+            AcknowledgeRequest.newBuilder().setSubscription(subscription.toString())
+                .addAllAckIds(ids).build())
     ).collect(Collectors.toList());
     try {
       ApiFutures.allAsList(futures).get();
+      ackIds.forEach(id -> completedAckIds.put(id, Empty.getDefaultInstance()));
     } catch (Exception e) {
       throw new IllegalStateException(e);
     }

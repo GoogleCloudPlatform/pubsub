@@ -19,6 +19,7 @@ package com.google.cloud.pubsub.spark.internal;
 import com.google.pubsub.v1.PullResponse;
 
 interface PullSubscriber extends AutoCloseable {
+
   PullResponse pull();
 
   void close();

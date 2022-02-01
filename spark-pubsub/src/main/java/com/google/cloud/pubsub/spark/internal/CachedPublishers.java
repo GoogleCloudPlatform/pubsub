@@ -21,8 +21,11 @@ import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.concurrent.GuardedBy;
 
-/** Cached {@link Publisher}s to reuse publisher of same settings in the same task. */
+/**
+ * Cached {@link Publisher}s to reuse publisher of same settings in the same task.
+ */
 public class CachedPublishers {
+
   @GuardedBy("this")
   private final Map<WriteDataSourceOptions, Publisher> publishers = new HashMap<>();
 

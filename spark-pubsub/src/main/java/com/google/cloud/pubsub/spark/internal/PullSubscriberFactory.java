@@ -19,5 +19,6 @@ package com.google.cloud.pubsub.spark.internal;
 import java.io.Serializable;
 
 public interface PullSubscriberFactory extends Serializable {
+
   PullSubscriber newSubscriber();
 }

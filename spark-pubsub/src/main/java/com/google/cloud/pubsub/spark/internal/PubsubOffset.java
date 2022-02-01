@@ -25,6 +25,7 @@ import org.apache.spark.sql.sources.v2.reader.streaming.Offset;
 import org.apache.spark.sql.sources.v2.reader.streaming.PartitionOffset;
 
 class PubsubOffset extends Offset implements PartitionOffset {
+
   final List<String> ackIds = new ArrayList<>();
 
   @Override
@@ -36,7 +37,8 @@ class PubsubOffset extends Offset implements PartitionOffset {
   static PubsubOffset fromJson(String json) {
     PubsubOffset offset = new PubsubOffset();
     Gson gson = new Gson();
-    Collection<String> ackIds = gson.fromJson(json, new TypeToken<Collection<String>>(){}.getType());
+    Collection<String> ackIds = gson.fromJson(json, new TypeToken<Collection<String>>() {
+    }.getType());
     offset.ackIds.addAll(ackIds);
     return offset;
   }

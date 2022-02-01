@@ -17,6 +17,7 @@
 package com.google.cloud.pubsub.spark.internal;
 
 public class Constants {
+
   public static String READ_SHARDS_CONFIG_KEY = "pubsub.readshards";
   public static int DEFAULT_READ_SHARDS = 100;
   public static String TOPIC_CONFIG_KEY = "pubsub.topic";

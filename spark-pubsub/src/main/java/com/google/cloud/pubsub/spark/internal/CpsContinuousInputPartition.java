@@ -27,6 +27,7 @@ import org.apache.spark.sql.sources.v2.reader.streaming.PartitionOffset;
 
 public class CpsContinuousInputPartition
     implements ContinuousInputPartition<InternalRow>, Serializable {
+
   private final PullSubscriberFactory subscriberFactory;
   private final SubscriptionName subscription;
 

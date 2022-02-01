@@ -19,6 +19,7 @@ package com.google.cloud.pubsub.spark.internal;
 import java.util.List;
 
 public interface Committer extends AutoCloseable {
+
   void commit(List<String> ackIds);
 
   void close();
