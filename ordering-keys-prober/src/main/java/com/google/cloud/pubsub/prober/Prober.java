@@ -81,6 +81,7 @@ public class Prober {
     String topicName = new String("");
     String subscriptionName = new String("");
     boolean shouldCleanup = true;
+    boolean noPublish = false;
     SubscriptionType subscriptionType = SubscriptionType.STREAMING_PULL;
     double messageFailureProbability = 0.0;
     long publishFrequency = 1_000_000L;
@@ -103,6 +104,11 @@ public class Prober {
 
     public Builder setEndpoint(String endpoint) {
       this.endpoint = endpoint;
+      return this;
+    }
+
+    public Builder setNoPublish(boolean noPublish) {
+      this.noPublish = noPublish;
       return this;
     }
 
@@ -205,6 +211,7 @@ public class Prober {
   private final String project;
   private final String endpoint;
   private final boolean shouldCleanup;
+  private final boolean noPublish;
   private final String topicName;
   private final String subscriptionName;
   private final SubscriptionType subscriptionType;
@@ -264,6 +271,7 @@ public class Prober {
     this.subscriptionName = builder.subscriptionName;
     this.topicName = builder.topicName;
     this.shouldCleanup = builder.shouldCleanup;
+    this.noPublish = builder.noPublish;
     this.endpoint = builder.endpoint;
     this.project = builder.project;
     subscribers = new Subscriber[subscriberCount];
@@ -670,6 +678,7 @@ public class Prober {
   }
 
   private void generatePublishLoad() {
+    if (noPublish) return;
     logger.log(Level.INFO, "Beginning publishing");
     generatePublishesFuture =
         executor.scheduleAtFixedRate(

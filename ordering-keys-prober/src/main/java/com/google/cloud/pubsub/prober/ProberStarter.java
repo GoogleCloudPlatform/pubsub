@@ -43,6 +43,9 @@ public class ProberStarter {
     @Parameter(names = "--should_cleanup", description ="Whether the prober should start by cleaning up the topic and subscription.")
     private boolean shouldCleanup = true;
 
+    @Parameter(names = "--no_publish", description ="Whether the prober should skip publishing.")
+    private boolean noPublish = false;
+
     @Parameter(names = "--topic_name", description = "Name of topic to create and use for tests.")
     private String topicName = "cloud-pubsub-client-library-prober";
 
@@ -174,6 +177,7 @@ public class ProberStarter {
         .setProject(parsedArgs.project)
         .setEndpoint(parsedArgs.endpoint)
         .setShouldCleanup(parsedArgs.shouldCleanup)
+        .setNoPublish(parsedArgs.noPublish)
         .setTopicName(parsedArgs.topicName)
         .setSubscriptionName(parsedArgs.subscriptionName)
         .setSubscriptionType(parsedArgs.subscriptionType)
