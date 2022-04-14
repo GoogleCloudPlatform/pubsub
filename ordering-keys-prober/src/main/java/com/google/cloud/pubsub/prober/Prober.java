@@ -235,6 +235,7 @@ public class Prober {
   private boolean started;
   private Publisher publisher;
   private final Subscriber[] subscribers;
+  private final GrpcSubscriberStub[] pullSubscriberStubs;
   private final Future<?>[] pullSubscriberFutures;
   private TopicAdminClient topicAdminClient;
   private SubscriptionAdminClient subscriptionAdminClient;
@@ -275,6 +276,7 @@ public class Prober {
     this.endpoint = builder.endpoint;
     this.project = builder.project;
     subscribers = new Subscriber[subscriberCount];
+    pullSubscriberStubs = new GrpcSubscriberStub[subscriberCount];
     pullSubscriberFutures = new Future<?>[subscriberCount];
 
     this.r = new Random();
@@ -627,6 +629,7 @@ public class Prober {
   }
 
   private void createPullSubscribers() {
+    logger.log(Level.INFO, "Creating Pull Subscribers");
     for (int i = 0; i < subscriberCount; ++i) {
       final int index = i;
       pullSubscriberFutures[i] =
@@ -636,6 +639,7 @@ public class Prober {
                     SubscriberStubSettings.newBuilder().setEndpoint(endpoint);
                 try (final GrpcSubscriberStub subscriber =
                     GrpcSubscriberStub.create(subscriberStubSettings.build())) {
+                  pullSubscriberStubs[index] = subscriber;
                   for (int j = 0; j < pullCount; ++j) {
                     doPullIteration(subscriber, index);
                   }
