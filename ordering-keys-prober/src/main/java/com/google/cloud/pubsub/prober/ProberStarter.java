@@ -40,6 +40,12 @@ public class ProberStarter {
     @Parameter(names = "--endpoint", description = "Cloud Pub/Sub endpoint to run against.")
     private String endpoint = "pubsub.googleapis.com:443";
 
+    @Parameter(names = "--should_cleanup", description ="Whether the prober should start by cleaning up the topic and subscription.")
+    private boolean shouldCleanup = true;
+
+    @Parameter(names = "--no_publish", description ="Whether the prober should skip publishing.")
+    private boolean noPublish = false;
+
     @Parameter(names = "--topic_name", description = "Name of topic to create and use for tests.")
     private String topicName = "cloud-pubsub-client-library-prober";
 
@@ -170,6 +176,8 @@ public class ProberStarter {
     builder
         .setProject(parsedArgs.project)
         .setEndpoint(parsedArgs.endpoint)
+        .setShouldCleanup(parsedArgs.shouldCleanup)
+        .setNoPublish(parsedArgs.noPublish)
         .setTopicName(parsedArgs.topicName)
         .setSubscriptionName(parsedArgs.subscriptionName)
         .setSubscriptionType(parsedArgs.subscriptionType)
