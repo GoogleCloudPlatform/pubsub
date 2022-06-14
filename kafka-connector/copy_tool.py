@@ -17,7 +17,7 @@ import tarfile
 import tempfile
 import subprocess
 
-KAFKA_RELEASE = "2.6.0"
+KAFKA_RELEASE = "3.2.0"
 KAFKA_FOLDER = f"kafka_2.13-{KAFKA_RELEASE}"
 KAFKA_LINK = f"https://downloads.apache.org/kafka/{KAFKA_RELEASE}/{KAFKA_FOLDER}.tgz"
 
