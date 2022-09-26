@@ -14,8 +14,7 @@ available are:
   A reference implementation for how to use ordering keys effectively.
 * DEPRECATED - [Kafka Connector](https://github.com/GoogleCloudPlatform/pubsub/tree/master/kafka-connector):
   Send and receive messages from [Apache Kafka](http://kafka.apache.org). *The
-  connector will have future release from its own [repo](https://github.com/googleapis/java-pubsub-group-kafka-connector/)
-  with [releases](https://github.com/googleapis/java-pubsub-group-kafka-connector/releases).*
+  connector will have future release from its own [repo](https://github.com/googleapis/java-pubsub-group-kafka-connector/).*
 * DEPRECATED - [Experimental high-performance client library](https://github.com/GoogleCloudPlatform/pubsub/tree/master/client):
   For Java along with [samples](https://github.com/GoogleCloudPlatform/google-cloud-java/tree/master/google-cloud-examples/src/main/java/com/google/cloud/examples/pubsub/snippets).
 
