@@ -119,7 +119,6 @@ public class GCEComputeResourceController extends ComputeResourceController {
               } catch (IOException e) {
                 numErrors++;
                 if (numErrors > 3) {
-                  log.error("Transient error instance information", e);
                   clientsFuture.setException(new Exception("Failed to get instance information."));
                   return;
                 }
@@ -264,7 +263,7 @@ public class GCEComputeResourceController extends ComputeResourceController {
       Thread.sleep(10000);
     }
 
-    for (ManagedInstance managedInstance : response.getManagedInstances()) {    
+    for (ManagedInstance managedInstance : response.getManagedInstances()) {
       String instanceName =
           managedInstance
               .getInstance()
