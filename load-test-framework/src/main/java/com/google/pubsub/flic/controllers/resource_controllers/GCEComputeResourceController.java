@@ -240,7 +240,6 @@ public class GCEComputeResourceController extends ComputeResourceController {
     ArrayList<Client> clients = new ArrayList<>();
     InstanceGroupManagersListManagedInstancesResponse response;
     while (true) {
-      log.info("Trying to get instances");
       try {
         response =
             compute
@@ -251,7 +250,6 @@ public class GCEComputeResourceController extends ComputeResourceController {
         log.warn("Unable to fetch response: ", e);
         continue;
       }
-      log.info("Got instances info: ", response);
 
       if (response != null) {
         if (response.getManagedInstances() != null) {
@@ -266,23 +264,18 @@ public class GCEComputeResourceController extends ComputeResourceController {
       Thread.sleep(10000);
     }
 
-    log.info("All running");
-    for (ManagedInstance managedInstance : response.getManagedInstances()) {
-      try {
-        String instanceName =
-            managedInstance
-                .getInstance()
-                .substring(managedInstance.getInstance().lastIndexOf('/') + 1);
-        Instance instance =
-            compute.instances().get(project, params.getZone(), instanceName).execute();
-        clients.add(
-            new Client(
-                instance.getNetworkInterfaces().get(0).getAccessConfigs().get(0).getNatIP(),
-                params,
-                executor));
-      }catch(Exception e) {
-        log.error("failed to create client", e);
-      }
+    for (ManagedInstance managedInstance : response.getManagedInstances()) {    
+      String instanceName =
+          managedInstance
+              .getInstance()
+              .substring(managedInstance.getInstance().lastIndexOf('/') + 1);
+      Instance instance =
+          compute.instances().get(project, params.getZone(), instanceName).execute();
+      clients.add(
+          new Client(
+              instance.getNetworkInterfaces().get(0).getAccessConfigs().get(0).getNatIP(),
+              params,
+              executor));
     }
     return clients;
   }
