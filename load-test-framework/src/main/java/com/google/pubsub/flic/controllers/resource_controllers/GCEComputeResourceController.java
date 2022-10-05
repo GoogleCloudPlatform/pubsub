@@ -35,7 +35,7 @@ import org.slf4j.LoggerFactory;
 public class GCEComputeResourceController extends ComputeResourceController {
   private static final String MACHINE_TYPE = "n1-standard-"; // standard machine prefix
   private static final String SOURCE_FAMILY =
-      "projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20210720"; // Ubuntu 20.04 LTS
+      "projects/ubuntu-os-cloud/global/images/ubuntu-2004-focal-v20220927"; // Ubuntu 20.04 LTS
 
   protected static final Logger log = LoggerFactory.getLogger(GCEComputeResourceController.class);
   private final String project;
@@ -119,6 +119,7 @@ public class GCEComputeResourceController extends ComputeResourceController {
               } catch (IOException e) {
                 numErrors++;
                 if (numErrors > 3) {
+                  log.error("Transient error instance information", e);
                   clientsFuture.setException(new Exception("Failed to get instance information."));
                   return;
                 }
@@ -239,6 +240,7 @@ public class GCEComputeResourceController extends ComputeResourceController {
     ArrayList<Client> clients = new ArrayList<>();
     InstanceGroupManagersListManagedInstancesResponse response;
     while (true) {
+      log.info("Trying to get instances");
       try {
         response =
             compute
@@ -249,6 +251,7 @@ public class GCEComputeResourceController extends ComputeResourceController {
         log.warn("Unable to fetch response: ", e);
         continue;
       }
+      log.info("Got instances info: ", response);
 
       if (response != null) {
         if (response.getManagedInstances() != null) {
@@ -263,18 +266,23 @@ public class GCEComputeResourceController extends ComputeResourceController {
       Thread.sleep(10000);
     }
 
+    log.info("All running");
     for (ManagedInstance managedInstance : response.getManagedInstances()) {
-      String instanceName =
-          managedInstance
-              .getInstance()
-              .substring(managedInstance.getInstance().lastIndexOf('/') + 1);
-      Instance instance =
-          compute.instances().get(project, params.getZone(), instanceName).execute();
-      clients.add(
-          new Client(
-              instance.getNetworkInterfaces().get(0).getAccessConfigs().get(0).getNatIP(),
-              params,
-              executor));
+      try {
+        String instanceName =
+            managedInstance
+                .getInstance()
+                .substring(managedInstance.getInstance().lastIndexOf('/') + 1);
+        Instance instance =
+            compute.instances().get(project, params.getZone(), instanceName).execute();
+        clients.add(
+            new Client(
+                instance.getNetworkInterfaces().get(0).getAccessConfigs().get(0).getNatIP(),
+                params,
+                executor));
+      }catch(Exception e) {
+        log.error("failed to create client", e);
+      }
     }
     return clients;
   }

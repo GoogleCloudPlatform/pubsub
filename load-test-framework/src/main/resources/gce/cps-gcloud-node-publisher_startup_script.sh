@@ -26,7 +26,7 @@ curl -sL https://deb.nodesource.com/setup_11.x | sudo -E bash -
 # Download the loadtest binary to this machine and install Java 8.
 /usr/bin/apt-get update
 /usr/bin/apt-get install -y unzip nodejs
-/usr/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}"
+/snap/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}"
 
 cd ${TMP}
 unzip cps.zip

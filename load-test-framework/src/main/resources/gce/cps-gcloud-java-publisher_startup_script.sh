@@ -23,7 +23,7 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 # Download the loadtest binary to this machine and install Java 8.
 /usr/bin/apt-get update
 /usr/bin/apt-get install -y openjdk-8-jre-headless & PIDAPT=$!
-/usr/bin/gsutil cp "gs://${BUCKET}/driver.jar" "${TMP}"
+/snap/bin/gsutil cp "gs://${BUCKET}/driver.jar" "${TMP}"
 
 wait $PIDAPT
 
