@@ -23,7 +23,7 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 # Download the loadtest binary to this machine and install Java 8.
 /usr/bin/apt-get update
 /usr/bin/apt-get install -y unzip gcc
-/usr/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}"
+/snap/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}"
 
 cd ${TMP}
 
