@@ -1,3 +1,10 @@
+# Deprecation Notice
+
+***2022-09-26: This project has moved to a top-level repository at
+https://github.com/googleapis/java-pubsub-group-kafka-connector/
+for future releases of the Pub/Sub Kafka connector. See #325 for
+the announcement.*** 
+
 ### Introduction
 
 The CloudPubSubConnector is a connector to be used with

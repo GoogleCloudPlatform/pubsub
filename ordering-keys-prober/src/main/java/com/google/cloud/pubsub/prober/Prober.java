@@ -80,6 +80,8 @@ public class Prober {
     String endpoint = new String("pubsub.googleapis.com:443");
     String topicName = new String("");
     String subscriptionName = new String("");
+    boolean shouldCleanup = true;
+    boolean noPublish = false;
     SubscriptionType subscriptionType = SubscriptionType.STREAMING_PULL;
     double messageFailureProbability = 0.0;
     long publishFrequency = 1_000_000L;
@@ -102,6 +104,16 @@ public class Prober {
 
     public Builder setEndpoint(String endpoint) {
       this.endpoint = endpoint;
+      return this;
+    }
+
+    public Builder setNoPublish(boolean noPublish) {
+      this.noPublish = noPublish;
+      return this;
+    }
+
+    public Builder setShouldCleanup(boolean shouldCleanup) {
+      this.shouldCleanup = shouldCleanup;
       return this;
     }
 
@@ -198,6 +210,8 @@ public class Prober {
 
   private final String project;
   private final String endpoint;
+  private final boolean shouldCleanup;
+  private final boolean noPublish;
   private final String topicName;
   private final String subscriptionName;
   private final SubscriptionType subscriptionType;
@@ -257,9 +271,12 @@ public class Prober {
     this.subscriptionType = builder.subscriptionType;
     this.subscriptionName = builder.subscriptionName;
     this.topicName = builder.topicName;
+    this.shouldCleanup = builder.shouldCleanup;
+    this.noPublish = builder.noPublish;
     this.endpoint = builder.endpoint;
     this.project = builder.project;
     subscribers = new Subscriber[subscriberCount];
+    pullSubscriberStubs = new GrpcSubscriberStub[subscriberCount];
     pullSubscriberFutures = new Future<?>[subscriberCount];
 
     this.r = new Random();
@@ -614,6 +631,8 @@ public class Prober {
 
   private void createPullSubscribers() {
     pullSubscribers = new GrpcSubscriberStub[subscriberCount];
+    logger.log(Level.INFO, "Creating Pull Subscribers");
+
     for (int i = 0; i < subscriberCount; ++i) {
       final int index = i;
       pullSubscriberFutures[i] =
@@ -659,12 +678,14 @@ public class Prober {
 
   // Returns true if a topic or subscription was deleted.
   private boolean cleanup() {
+    if (!shouldCleanup) return false;
     boolean deleted = deleteSubscription(fullSubscriptionName);
     deleted = deleted || deleteTopic(fullTopicName);
     return deleted;
   }
 
   private void generatePublishLoad() {
+    if (noPublish) return;
     logger.log(Level.INFO, "Beginning publishing");
     generatePublishesFuture =
         executor.scheduleAtFixedRate(
