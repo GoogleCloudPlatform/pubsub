@@ -643,6 +643,7 @@ public class Prober {
                 try {
                   pullSubscribers[index] =
                       GrpcSubscriberStub.create(subscriberStubSettings.build());
+
                 } catch (IOException e) {
                   logger.log(Level.SEVERE, "Could not create pull subscriber.", e);
                   return;
