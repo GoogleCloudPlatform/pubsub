@@ -276,7 +276,7 @@ public class Prober {
     this.endpoint = builder.endpoint;
     this.project = builder.project;
     subscribers = new Subscriber[subscriberCount];
-    pullSubscriberStubs = new GrpcSubscriberStub[subscriberCount];
+    pullSubscribers = new GrpcSubscriberStub[subscriberCount];
     pullSubscriberFutures = new Future<?>[subscriberCount];
 
     this.r = new Random();
