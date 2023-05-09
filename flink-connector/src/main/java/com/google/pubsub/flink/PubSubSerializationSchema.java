@@ -18,7 +18,6 @@ package com.google.pubsub.flink;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.protobuf.ByteString;
 import java.io.Serializable;
-import java.time.Instant;
 import org.apache.flink.api.common.serialization.SerializationSchema;
 
 public interface PubSubSerializationSchema<T> extends Serializable {
