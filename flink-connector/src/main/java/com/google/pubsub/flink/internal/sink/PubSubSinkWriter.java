@@ -13,13 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package com.google.pubsub.flink.internal.sink;
 
 import com.google.pubsub.flink.PubSubSerializationSchema;
 import java.io.IOException;
-import java.time.Instant;
-import org.apache.flink.api.common.eventtime.TimestampAssigner;
 import org.apache.flink.api.connector.sink2.SinkWriter;
 
 public class PubSubSinkWriter<T> implements SinkWriter<T> {
@@ -43,7 +40,6 @@ public class PubSubSinkWriter<T> implements SinkWriter<T> {
 
   @Override
   public void close() throws IOException {
-    // Flush all outstanding messages before shutting down
     publisher.flush();
   }
 }
