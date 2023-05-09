@@ -17,7 +17,6 @@ package com.google.pubsub.flink;
 
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.protobuf.ByteString;
-import com.google.protobuf.util.Timestamps;
 import java.io.Serializable;
 import java.time.Instant;
 import org.apache.flink.api.common.serialization.SerializationSchema;
@@ -32,7 +31,7 @@ public interface PubSubSerializationSchema<T> extends Serializable {
       }
 
       @Override
-      public PubsubMessage serialize(T value, Instant timestamp) {
+      public PubsubMessage serialize(T value) {
         return PubsubMessage.newBuilder()
             .setData(ByteString.copyFrom(schema.serialize(value)))
             .build();
@@ -42,5 +41,5 @@ public interface PubSubSerializationSchema<T> extends Serializable {
 
   void open(SerializationSchema.InitializationContext context) throws Exception;
 
-  PubsubMessage serialize(T value, Instant timestamp);
+  PubsubMessage serialize(T value);
 }
