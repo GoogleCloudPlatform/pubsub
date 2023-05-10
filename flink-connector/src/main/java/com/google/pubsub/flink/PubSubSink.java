@@ -34,14 +34,17 @@ public class PubSubSink<T> implements Sink<T> {
   private final CredentialsProvider credentialsProvider;
   private final PubSubSerializationSchema serializationSchema;
 
-  private PubSubSink(PubSubSinkBuilder builder) {
-    this.topicName = TopicName.of(Preconditions.checkNotNull(builder.projectName), Preconditions.checkNotNull(builder.topicName));
+  private PubSubSink(Builder builder) {
+    this.topicName =
+        TopicName.of(
+            Preconditions.checkNotNull(builder.projectName),
+            Preconditions.checkNotNull(builder.topicName));
     this.credentialsProvider = Preconditions.checkNotNull(builder.credentialsProvider);
     this.serializationSchema = Preconditions.checkNotNull(builder.serializationSchema);
   }
 
-  public static <T> PubSubSinkBuilder<T> builder() {
-    return new PubSubSinkBuilder<>();
+  public static <T> Builder<T> builder() {
+    return new Builder<>();
   }
 
   private Publisher createPublisher() throws IOException {
@@ -52,35 +55,41 @@ public class PubSubSink<T> implements Sink<T> {
 
   @Override
   public SinkWriter<T> createWriter(InitContext initContext) throws IOException {
+    try {
+      serializationSchema.open(initContext.asSerializationSchemaInitializationContext());
+    } catch (Exception e) {
+      throw new IOException(e);
+    }
     return new PubSubSinkWriter<>(
-        new PubSubFlushablePublisher(PubSubPublisherCache.getOrCreate(topicName, this::createPublisher)),
+        new PubSubFlushablePublisher(
+            PubSubPublisherCache.getOrCreate(topicName, this::createPublisher)),
         serializationSchema);
   }
 
-  public static final class PubSubSinkBuilder<T> {
+  public static final class Builder<T> {
     PubSubSerializationSchema<T> serializationSchema;
     String projectName;
     String topicName;
     CredentialsProvider credentialsProvider =
         TopicAdminSettings.defaultCredentialsProviderBuilder().build();
 
-    public PubSubSinkBuilder<T> withCredentials(Credentials credentials) {
+    public Builder<T> withCredentials(Credentials credentials) {
       this.credentialsProvider =
           FixedCredentialsProvider.create(Preconditions.checkNotNull(credentials));
       return this;
     }
 
-    public PubSubSinkBuilder<T> withProjectName(String projectName) {
+    public Builder<T> withProjectName(String projectName) {
       this.projectName = Preconditions.checkNotNull(projectName);
       return this;
     }
 
-    public PubSubSinkBuilder<T> withTopicName(String topicName) {
+    public Builder<T> withTopicName(String topicName) {
       this.topicName = Preconditions.checkNotNull(topicName);
       return this;
     }
 
-    public PubSubSinkBuilder<T> withSerializationSchema(PubSubSerializationSchema schema) {
+    public Builder<T> withSerializationSchema(PubSubSerializationSchema schema) {
       this.serializationSchema = Preconditions.checkNotNull(schema);
       return this;
     }
@@ -89,5 +98,4 @@ public class PubSubSink<T> implements Sink<T> {
       return new PubSubSink<>(this);
     }
   }
-
 }

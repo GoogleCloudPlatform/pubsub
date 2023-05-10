@@ -19,15 +19,12 @@ import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutures;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.pubsub.v1.PubsubMessage;
+import java.util.ArrayList;
 import java.util.List;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public class PubSubFlushablePublisher implements FlushablePublisher {
-  private static final Logger LOG = LoggerFactory.getLogger(PubSubFlushablePublisher.class);
-
   Publisher publisher;
-  List<ApiFuture<String>> outstandingPublishes;
+  List<ApiFuture<String>> outstandingPublishes = new ArrayList<>();
 
   public PubSubFlushablePublisher(Publisher publisher) {
     this.publisher = publisher;
@@ -40,11 +37,12 @@ public class PubSubFlushablePublisher implements FlushablePublisher {
 
   @Override
   public void flush() {
+    publisher.publishAllOutstanding();
     try {
       ApiFutures.allAsList(outstandingPublishes).get();
       outstandingPublishes.clear();
     } catch (Exception e) {
-      LOG.warn("Publisher failed to flush outstanding messages.");
+      throw new RuntimeException(e);
     }
   }
 }

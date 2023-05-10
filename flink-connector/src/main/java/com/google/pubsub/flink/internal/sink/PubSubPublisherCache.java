@@ -16,19 +16,36 @@
 package com.google.pubsub.flink.internal.sink;
 
 import com.google.cloud.pubsub.v1.Publisher;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.pubsub.v1.TopicName;
-import java.util.concurrent.Callable;
+import java.io.IOException;
+import java.util.HashMap;
 
-/**
- *
- */
+/** */
 public class PubSubPublisherCache {
+  private static final HashMap<TopicName, Publisher> publishers = new HashMap<>();
 
-  public static Publisher getOrCreate(TopicName topic, Callable<Publisher> createPublisherFn) {
-    try {
-      return createPublisherFn.call();
-    } catch (Throwable t) {
-      throw new RuntimeException(t);
+  public interface PublisherFactory {
+    Publisher create() throws IOException;
+  }
+
+  static {
+    Runtime.getRuntime().addShutdownHook(new Thread(PubSubPublisherCache::close));
+  }
+
+  public static synchronized Publisher getOrCreate(
+      TopicName topic, PublisherFactory publisherFactory) throws IOException {
+    Publisher publisher = publishers.get(topic);
+    if (publisher == null) {
+      publisher = publisherFactory.create();
+      publishers.put(topic, publisher);
     }
+    return publisher;
+  }
+
+  @VisibleForTesting
+  static void close() {
+    publishers.forEach((topic, publisher) -> publisher.shutdown());
+    publishers.clear();
   }
 }
