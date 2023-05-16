@@ -14,41 +14,45 @@
  * limitations under the License.
  */
 package com.google.pubsub.flink;
+
 import static org.junit.Assert.assertThrows;
 
-import java.lang.NullPointerException;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.junit.Test;
 import org.junit.runner.RunWith;
-import org.mockito.Mock;
 import org.mockito.junit.MockitoJUnitRunner;
 
 @RunWith(MockitoJUnitRunner.class)
 public class PubSubSinkTest {
-    @Test
-    public void build_invalidTopic() throws Exception {
-        assertThrows(NullPointerException.class, () -> PubSubSink.<String>builder().withTopicName(null));
-        PubSubSink.Builder<String> builder = PubSubSink.<String>builder()
-                .withProjectName("project")
-                .withSerializationSchema(PubSubSerializationSchema.dataOnly(new SimpleStringSchema()));
-        assertThrows(NullPointerException.class, builder::build);
-    }
+  @Test
+  public void build_invalidTopic() throws Exception {
+    assertThrows(
+        NullPointerException.class, () -> PubSubSink.<String>builder().withTopicName(null));
+    PubSubSink.Builder<String> builder =
+        PubSubSink.<String>builder()
+            .withProjectName("project")
+            .withSerializationSchema(PubSubSerializationSchema.dataOnly(new SimpleStringSchema()));
+    assertThrows(NullPointerException.class, builder::build);
+  }
 
-    @Test
-    public void build_invalidProject() throws Exception {
-        assertThrows(NullPointerException.class, () -> PubSubSink.<String>builder().withProjectName(null));
-        PubSubSink.Builder<String> builder = PubSubSink.<String>builder()
-                .withTopicName("topic")
-                .withSerializationSchema(PubSubSerializationSchema.dataOnly(new SimpleStringSchema()));
-        assertThrows(NullPointerException.class, builder::build);
-    }
+  @Test
+  public void build_invalidProject() throws Exception {
+    assertThrows(
+        NullPointerException.class, () -> PubSubSink.<String>builder().withProjectName(null));
+    PubSubSink.Builder<String> builder =
+        PubSubSink.<String>builder()
+            .withTopicName("topic")
+            .withSerializationSchema(PubSubSerializationSchema.dataOnly(new SimpleStringSchema()));
+    assertThrows(NullPointerException.class, builder::build);
+  }
 
-    @Test
-    public void build_invalidSchema() throws Exception {
-        assertThrows(NullPointerException.class, () -> PubSubSink.<String>builder().withSerializationSchema(null));
-        PubSubSink.Builder<String> builder = PubSubSink.<String>builder()
-                .withProjectName("project")
-                .withTopicName("topic");
-        assertThrows(NullPointerException.class, builder::build);
-    }
+  @Test
+  public void build_invalidSchema() throws Exception {
+    assertThrows(
+        NullPointerException.class,
+        () -> PubSubSink.<String>builder().withSerializationSchema(null));
+    PubSubSink.Builder<String> builder =
+        PubSubSink.<String>builder().withProjectName("project").withTopicName("topic");
+    assertThrows(NullPointerException.class, builder::build);
+  }
 }
