@@ -15,32 +15,31 @@
  */
 package com.google.pubsub.flink;
 
-import com.google.api.gax.core.CredentialsProvider;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.auth.Credentials;
 import com.google.cloud.pubsub.v1.Publisher;
-import com.google.cloud.pubsub.v1.TopicAdminSettings;
 import com.google.pubsub.flink.internal.sink.PubSubFlushablePublisher;
 import com.google.pubsub.flink.internal.sink.PubSubPublisherCache;
 import com.google.pubsub.flink.internal.sink.PubSubSinkWriter;
 import com.google.pubsub.v1.TopicName;
 import java.io.IOException;
+import java.util.Optional;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
 import org.apache.flink.util.Preconditions;
 
 public class PubSubSink<T> implements Sink<T> {
   private final TopicName topicName;
-  private final CredentialsProvider credentialsProvider;
   private final PubSubSerializationSchema serializationSchema;
+  private final Optional<Credentials> credentials;
 
   private PubSubSink(Builder builder) {
     this.topicName =
         TopicName.of(
             Preconditions.checkNotNull(builder.projectName),
             Preconditions.checkNotNull(builder.topicName));
-    this.credentialsProvider = Preconditions.checkNotNull(builder.credentialsProvider);
     this.serializationSchema = Preconditions.checkNotNull(builder.serializationSchema);
+    this.credentials = builder.credentials;
   }
 
   public static <T> Builder<T> builder() {
@@ -48,9 +47,11 @@ public class PubSubSink<T> implements Sink<T> {
   }
 
   private Publisher createPublisher() throws IOException {
-    return Publisher.newBuilder(topicName.toString())
-        .setCredentialsProvider(credentialsProvider)
-        .build();
+    Publisher.Builder builder = Publisher.newBuilder(topicName.toString());
+    if (credentials.isPresent()) {
+      builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials.get()));
+    }
+    return builder.build();
   }
 
   @Override
@@ -70,12 +71,10 @@ public class PubSubSink<T> implements Sink<T> {
     PubSubSerializationSchema<T> serializationSchema;
     String projectName;
     String topicName;
-    CredentialsProvider credentialsProvider =
-        TopicAdminSettings.defaultCredentialsProviderBuilder().build();
+    Optional<Credentials> credentials = Optional.empty();
 
     public Builder<T> withCredentials(Credentials credentials) {
-      this.credentialsProvider =
-          FixedCredentialsProvider.create(Preconditions.checkNotNull(credentials));
+      this.credentials = Optional.of(Preconditions.checkNotNull(credentials));
       return this;
     }
 
