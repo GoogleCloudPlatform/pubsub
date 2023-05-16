@@ -55,4 +55,11 @@ public class PubSubSinkTest {
         PubSubSink.<String>builder().withProjectName("project").withTopicName("topic");
     assertThrows(NullPointerException.class, builder::build);
   }
+
+  @Test
+  public void build_invalidCreds() throws Exception {
+    assertThrows(
+        NullPointerException.class,
+        () -> PubSubSink.<String>builder().withCredentials(null));
+  }
 }
