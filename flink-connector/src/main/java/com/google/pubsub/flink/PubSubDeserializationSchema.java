@@ -49,4 +49,3 @@ public interface PubSubDeserializationSchema<T> extends Serializable {
 
   TypeInformation<T> getProducedType();
 }
-
