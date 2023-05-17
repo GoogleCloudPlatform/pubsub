@@ -21,18 +21,18 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 
 public final class SubscriptionSplitSerializer
     implements SimpleVersionedSerializer<SubscriptionSplit> {
-    @Override
-    public int getVersion() {
-        return 0;
-    }
+  @Override
+  public int getVersion() {
+    return 0;
+  }
 
-    @Override
-    public byte[] serialize(SubscriptionSplit subscriptionSplit) {
-        return subscriptionSplit.toProto().toByteArray();
-    }
+  @Override
+  public byte[] serialize(SubscriptionSplit subscriptionSplit) {
+    return subscriptionSplit.toProto().toByteArray();
+  }
 
-    @Override
-    public SubscriptionSplit deserialize(int i, byte[] bytes) throws IOException {
-        return SubscriptionSplit.fromProto(SubscriptionSplitProto.parseFrom(bytes));
-    }
+  @Override
+  public SubscriptionSplit deserialize(int i, byte[] bytes) throws IOException {
+    return SubscriptionSplit.fromProto(SubscriptionSplitProto.parseFrom(bytes));
+  }
 }

@@ -23,6 +23,7 @@ import org.apache.flink.api.connector.source.SourceSplit;
 @AutoValue
 public abstract class SubscriptionSplit implements SourceSplit {
   public abstract ProjectSubscriptionName subscriptionName();
+
   public abstract long uid();
 
   public static SubscriptionSplit create(ProjectSubscriptionName subscriptionName, long uid) {
@@ -31,14 +32,14 @@ public abstract class SubscriptionSplit implements SourceSplit {
 
   public static SubscriptionSplit fromProto(SubscriptionSplitProto proto) {
     return SubscriptionSplit.create(
-            ProjectSubscriptionName.parse(proto.getSubscription()), proto.getUid());
+        ProjectSubscriptionName.parse(proto.getSubscription()), proto.getUid());
   }
 
   public SubscriptionSplitProto toProto() {
     return SubscriptionSplitProto.newBuilder()
-            .setSubscription(subscriptionName().toString())
-            .setUid(uid())
-            .build();
+        .setSubscription(subscriptionName().toString())
+        .setUid(uid())
+        .build();
   }
 
   @Override

@@ -24,8 +24,8 @@ public class SubscriptionSplitSerializerTest {
 
   @Test
   public void testSerialization() throws Exception {
-    SubscriptionSplit split = SubscriptionSplit.create(
-        ProjectSubscriptionName.of("project", "subscription"), 1L);
+    SubscriptionSplit split =
+        SubscriptionSplit.create(ProjectSubscriptionName.of("project", "subscription"), 1L);
     SubscriptionSplitSerializer serializer = new SubscriptionSplitSerializer();
     assertThat(serializer.deserialize(serializer.getVersion(), serializer.serialize(split)))
         .isEqualTo(split);
