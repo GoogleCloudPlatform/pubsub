@@ -15,7 +15,6 @@
  */
 package com.google.pubsub.flink.internal.source.reader;
 
-import com.google.protobuf.Timestamp;
 import com.google.protobuf.util.Timestamps;
 import com.google.pubsub.flink.PubSubDeserializationSchema;
 import com.google.pubsub.flink.internal.source.split.SubscriptionSplitState;
@@ -34,9 +33,7 @@ public class PubSubRecordEmitter<T>
 
   @Override
   public void emitRecord(
-      PubsubMessage message,
-      SourceOutput<T> sourceOutput,
-      SubscriptionSplitState state)
+      PubsubMessage message, SourceOutput<T> sourceOutput, SubscriptionSplitState state)
       throws Exception {
     try {
       sourceOutput.collect(
@@ -46,5 +43,4 @@ public class PubSubRecordEmitter<T>
       throw new IOException("Failed to deserialize PubsubMessage", e);
     }
   }
-
 }

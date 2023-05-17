@@ -16,13 +16,13 @@
 package com.google.pubsub.flink.internal.source.split;
 
 public final class SubscriptionSplitState {
-    private final SubscriptionSplit split;
+  private final SubscriptionSplit split;
 
-    public SubscriptionSplitState(SubscriptionSplit split) {
-        this.split = split;
-    }
+  public SubscriptionSplitState(SubscriptionSplit split) {
+    this.split = split;
+  }
 
-    public SubscriptionSplit getSplit() {
-        return split;
-    }
+  public SubscriptionSplit getSplit() {
+    return split;
+  }
 }

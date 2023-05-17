@@ -24,17 +24,18 @@ import org.junit.Test;
 public class SubscriptionSplitTest {
   @Test
   public void toProto_andBack() {
-    SubscriptionSplit split = SubscriptionSplit.create(
-        ProjectSubscriptionName.of("project", "subscription"), 1L);
+    SubscriptionSplit split =
+        SubscriptionSplit.create(ProjectSubscriptionName.of("project", "subscription"), 1L);
     assertThat(SubscriptionSplit.fromProto(split.toProto())).isEqualTo(split);
   }
 
   @Test
   public void fromProto_andBack() {
-    SubscriptionSplitProto proto = SubscriptionSplitProto.newBuilder()
-        .setSubscription(ProjectSubscriptionName.of("project", "subscription").toString())
-        .setUid(1L)
-        .build();
+    SubscriptionSplitProto proto =
+        SubscriptionSplitProto.newBuilder()
+            .setSubscription(ProjectSubscriptionName.of("project", "subscription").toString())
+            .setUid(1L)
+            .build();
     assertThat(SubscriptionSplit.fromProto(proto).toProto()).isEqualTo(proto);
   }
 

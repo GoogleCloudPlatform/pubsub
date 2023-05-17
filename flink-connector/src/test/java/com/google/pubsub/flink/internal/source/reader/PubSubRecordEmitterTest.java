@@ -20,8 +20,8 @@ import static org.mockito.Mockito.when;
 
 import com.google.protobuf.ByteString;
 import com.google.protobuf.util.Timestamps;
-import com.google.pubsub.flink.internal.source.split.SubscriptionSplitState;
 import com.google.pubsub.flink.PubSubDeserializationSchema;
+import com.google.pubsub.flink.internal.source.split.SubscriptionSplitState;
 import com.google.pubsub.v1.PubsubMessage;
 import org.apache.flink.api.connector.source.SourceOutput;
 import org.junit.Test;
@@ -38,10 +38,11 @@ public class PubSubRecordEmitterTest {
   public void emit_deserializesMessage() throws Exception {
     PubSubRecordEmitter<String> recordEmitter = new PubSubRecordEmitter<String>(mockDeserializer);
 
-    PubsubMessage message = PubsubMessage.newBuilder()
-        .setData(ByteString.copyFromUtf8("message"))
-        .setPublishTime(Timestamps.fromMillis(12345L))
-        .build();
+    PubsubMessage message =
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8("message"))
+            .setPublishTime(Timestamps.fromMillis(12345L))
+            .build();
     when(mockDeserializer.deserialize(message)).thenReturn("message");
 
     recordEmitter.emitRecord(message, mockSource, new SubscriptionSplitState(null));
