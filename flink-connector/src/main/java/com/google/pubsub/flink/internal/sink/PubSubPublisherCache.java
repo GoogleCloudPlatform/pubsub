@@ -26,7 +26,7 @@ public class PubSubPublisherCache {
   private static final HashMap<TopicName, Publisher> publishers = new HashMap<>();
 
   public interface PublisherFactory {
-    Publisher create() throws IOException;
+    Publisher create(TopicName topicName) throws IOException;
   }
 
   static {
@@ -37,7 +37,7 @@ public class PubSubPublisherCache {
       TopicName topic, PublisherFactory publisherFactory) throws IOException {
     Publisher publisher = publishers.get(topic);
     if (publisher == null) {
-      publisher = publisherFactory.create();
+      publisher = publisherFactory.create(topic);
       publishers.put(topic, publisher);
     }
     return publisher;

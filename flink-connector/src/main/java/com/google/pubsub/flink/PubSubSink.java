@@ -17,6 +17,7 @@ package com.google.pubsub.flink;
 
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.auth.Credentials;
+import com.google.auto.value.AutoValue;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.pubsub.flink.internal.sink.PubSubFlushablePublisher;
 import com.google.pubsub.flink.internal.sink.PubSubPublisherCache;
@@ -26,30 +27,25 @@ import java.io.IOException;
 import java.util.Optional;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
-import org.apache.flink.util.Preconditions;
 
-public class PubSubSink<T> implements Sink<T> {
-  private final TopicName topicName;
-  private final PubSubSerializationSchema serializationSchema;
-  private final Optional<Credentials> credentials;
+@AutoValue
+public abstract class PubSubSink<T> implements Sink<T> {
+  public abstract String projectName();
 
-  private PubSubSink(Builder builder) {
-    this.topicName =
-        TopicName.of(
-            Preconditions.checkNotNull(builder.projectName),
-            Preconditions.checkNotNull(builder.topicName));
-    this.serializationSchema = Preconditions.checkNotNull(builder.serializationSchema);
-    this.credentials = builder.credentials;
-  }
+  public abstract String topicName();
+
+  public abstract PubSubSerializationSchema<T> serializationSchema();
+
+  public abstract Optional<Credentials> credentials();
 
   public static <T> Builder<T> builder() {
-    return new Builder<>();
+    return new AutoValue_PubSubSink.Builder<T>();
   }
 
-  private Publisher createPublisher() throws IOException {
+  private Publisher createPublisher(TopicName topicName) throws IOException {
     Publisher.Builder builder = Publisher.newBuilder(topicName.toString());
-    if (credentials.isPresent()) {
-      builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials.get()));
+    if (credentials().isPresent()) {
+      builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
     }
     return builder.build();
   }
@@ -57,44 +53,28 @@ public class PubSubSink<T> implements Sink<T> {
   @Override
   public SinkWriter<T> createWriter(InitContext initContext) throws IOException {
     try {
-      serializationSchema.open(initContext.asSerializationSchemaInitializationContext());
+      serializationSchema().open(initContext.asSerializationSchemaInitializationContext());
     } catch (Exception e) {
       throw new IOException(e);
     }
     return new PubSubSinkWriter<>(
         new PubSubFlushablePublisher(
-            PubSubPublisherCache.getOrCreate(topicName, this::createPublisher)),
-        serializationSchema);
+            PubSubPublisherCache.getOrCreate(
+                TopicName.of(projectName(), topicName()), this::createPublisher)),
+        serializationSchema());
   }
 
-  public static final class Builder<T> {
-    PubSubSerializationSchema<T> serializationSchema;
-    String projectName;
-    String topicName;
-    Optional<Credentials> credentials = Optional.empty();
+  @AutoValue.Builder
+  public abstract static class Builder<T> {
+    public abstract Builder<T> setProjectName(String projectName);
 
-    public Builder<T> withCredentials(Credentials credentials) {
-      this.credentials = Optional.of(Preconditions.checkNotNull(credentials));
-      return this;
-    }
+    public abstract Builder<T> setTopicName(String topicName);
 
-    public Builder<T> withProjectName(String projectName) {
-      this.projectName = Preconditions.checkNotNull(projectName);
-      return this;
-    }
+    public abstract Builder<T> setSerializationSchema(
+        PubSubSerializationSchema<T> serializationSchema);
 
-    public Builder<T> withTopicName(String topicName) {
-      this.topicName = Preconditions.checkNotNull(topicName);
-      return this;
-    }
+    public abstract Builder<T> setCredentials(Credentials credentials);
 
-    public Builder<T> withSerializationSchema(PubSubSerializationSchema schema) {
-      this.serializationSchema = Preconditions.checkNotNull(schema);
-      return this;
-    }
-
-    public PubSubSink<T> build() {
-      return new PubSubSink<>(this);
-    }
+    public abstract PubSubSink<T> build();
   }
 }
