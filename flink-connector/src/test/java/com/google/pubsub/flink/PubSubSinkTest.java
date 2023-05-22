@@ -26,33 +26,38 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class PubSubSinkTest {
   @Test
   public void build_invalidTopic() throws Exception {
-    assertThrows(
-        NullPointerException.class, () -> PubSubSink.<String>builder().withTopicName(null));
+    assertThrows(NullPointerException.class, () -> PubSubSink.<String>builder().setTopicName(null));
     PubSubSink.Builder<String> builder =
         PubSubSink.<String>builder()
-            .withProjectName("project")
-            .withSerializationSchema(PubSubSerializationSchema.dataOnly(new SimpleStringSchema()));
-    assertThrows(NullPointerException.class, builder::build);
+            .setProjectName("project")
+            .setSerializationSchema(PubSubSerializationSchema.dataOnly(new SimpleStringSchema()));
+    assertThrows(IllegalStateException.class, builder::build);
   }
 
   @Test
   public void build_invalidProject() throws Exception {
     assertThrows(
-        NullPointerException.class, () -> PubSubSink.<String>builder().withProjectName(null));
+        NullPointerException.class, () -> PubSubSink.<String>builder().setProjectName(null));
     PubSubSink.Builder<String> builder =
         PubSubSink.<String>builder()
-            .withTopicName("topic")
-            .withSerializationSchema(PubSubSerializationSchema.dataOnly(new SimpleStringSchema()));
-    assertThrows(NullPointerException.class, builder::build);
+            .setTopicName("topic")
+            .setSerializationSchema(PubSubSerializationSchema.dataOnly(new SimpleStringSchema()));
+    assertThrows(IllegalStateException.class, builder::build);
   }
 
   @Test
   public void build_invalidSchema() throws Exception {
     assertThrows(
         NullPointerException.class,
-        () -> PubSubSink.<String>builder().withSerializationSchema(null));
+        () -> PubSubSink.<String>builder().setSerializationSchema(null));
     PubSubSink.Builder<String> builder =
-        PubSubSink.<String>builder().withProjectName("project").withTopicName("topic");
-    assertThrows(NullPointerException.class, builder::build);
+        PubSubSink.<String>builder().setProjectName("project").setTopicName("topic");
+    assertThrows(IllegalStateException.class, builder::build);
+  }
+
+  @Test
+  public void build_invalidCreds() throws Exception {
+    assertThrows(
+        NullPointerException.class, () -> PubSubSink.<String>builder().setCredentials(null));
   }
 }

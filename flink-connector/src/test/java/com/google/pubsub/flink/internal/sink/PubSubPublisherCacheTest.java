@@ -35,18 +35,23 @@ public class PubSubPublisherCacheTest {
     TopicName topic1 = TopicName.of("project1", "topic1");
     TopicName topic2 = TopicName.of("project2", "topic2");
 
-    assertThat(PubSubPublisherCache.getOrCreate(topic1, () -> publisher1)).isEqualTo(publisher1);
-    assertThat(PubSubPublisherCache.getOrCreate(topic1, () -> publisher2)).isEqualTo(publisher1);
-    assertThat(PubSubPublisherCache.getOrCreate(topic2, () -> publisher2)).isEqualTo(publisher2);
+    assertThat(PubSubPublisherCache.getOrCreate(topic1, (topic) -> publisher1))
+        .isEqualTo(publisher1);
+    assertThat(PubSubPublisherCache.getOrCreate(topic1, (topic) -> publisher2))
+        .isEqualTo(publisher1);
+    assertThat(PubSubPublisherCache.getOrCreate(topic2, (topic) -> publisher2))
+        .isEqualTo(publisher2);
   }
 
   @Test
   public void close_shutsdownPublishers() throws Exception {
     assertThat(
-            PubSubPublisherCache.getOrCreate(TopicName.of("project1", "topic1"), () -> publisher1))
+            PubSubPublisherCache.getOrCreate(
+                TopicName.of("project1", "topic1"), (topic) -> publisher1))
         .isEqualTo(publisher1);
     assertThat(
-            PubSubPublisherCache.getOrCreate(TopicName.of("project2", "topic2"), () -> publisher2))
+            PubSubPublisherCache.getOrCreate(
+                TopicName.of("project2", "topic2"), (topic) -> publisher2))
         .isEqualTo(publisher2);
 
     PubSubPublisherCache.close();
