@@ -18,16 +18,21 @@ package com.google.pubsub.flink.internal.source.split;
 import com.google.auto.value.AutoValue;
 import com.google.pubsub.flink.proto.SubscriptionSplitProto;
 import com.google.pubsub.v1.ProjectSubscriptionName;
+import java.util.UUID;
 import org.apache.flink.api.connector.source.SourceSplit;
 
 @AutoValue
 public abstract class SubscriptionSplit implements SourceSplit {
   public abstract ProjectSubscriptionName subscriptionName();
 
-  public abstract long uid();
+  public abstract String uid();
 
-  public static SubscriptionSplit create(ProjectSubscriptionName subscriptionName, long uid) {
-    return new AutoValue_SubscriptionSplit(subscriptionName, uid);
+  public static SubscriptionSplit create(ProjectSubscriptionName subscriptionName, String uuid) {
+    return new AutoValue_SubscriptionSplit(subscriptionName, uuid);
+  }
+
+  public static SubscriptionSplit create(ProjectSubscriptionName subscriptionName) {
+    return create(subscriptionName, UUID.randomUUID().toString());
   }
 
   public static SubscriptionSplit fromProto(SubscriptionSplitProto proto) {

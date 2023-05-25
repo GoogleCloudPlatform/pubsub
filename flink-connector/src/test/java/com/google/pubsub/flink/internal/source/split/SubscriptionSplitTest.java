@@ -25,7 +25,7 @@ public class SubscriptionSplitTest {
   @Test
   public void toProto_andBack() {
     SubscriptionSplit split =
-        SubscriptionSplit.create(ProjectSubscriptionName.of("project", "subscription"), 1L);
+        SubscriptionSplit.create(ProjectSubscriptionName.of("project", "subscription"));
     assertThat(SubscriptionSplit.fromProto(split.toProto())).isEqualTo(split);
   }
 
@@ -34,7 +34,7 @@ public class SubscriptionSplitTest {
     SubscriptionSplitProto proto =
         SubscriptionSplitProto.newBuilder()
             .setSubscription(ProjectSubscriptionName.of("project", "subscription").toString())
-            .setUid(1L)
+            .setUid("unique-id")
             .build();
     assertThat(SubscriptionSplit.fromProto(proto).toProto()).isEqualTo(proto);
   }
@@ -42,7 +42,7 @@ public class SubscriptionSplitTest {
   @Test
   public void splitId_returnsString() {
     ProjectSubscriptionName subscription = ProjectSubscriptionName.of("project", "subscription");
-    SubscriptionSplit split = SubscriptionSplit.create(subscription, 1L);
-    assertThat(split.splitId()).isEqualTo(String.format("%s-1", subscription.toString()));
+    SubscriptionSplit split = SubscriptionSplit.create(subscription, "id");
+    assertThat(split.splitId()).isEqualTo(String.format("%s-id", subscription.toString()));
   }
 }
