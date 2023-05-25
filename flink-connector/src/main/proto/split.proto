@@ -27,10 +27,3 @@ message SubscriptionSplitProto {
   int64 uid = 2;
 }
 
-message PubSubEnumeratorCheckpoint {
-  message Assignment {
-    int32 subtask = 1;
-    SubscriptionSplitProto split = 2;
-  }
-  repeated Assignment assignments = 1;
-}
