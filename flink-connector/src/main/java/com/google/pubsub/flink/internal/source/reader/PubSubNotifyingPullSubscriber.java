@@ -27,8 +27,9 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.pubsub.v1.PubsubMessage;
+import java.util.ArrayDeque;
+import java.util.Deque;
 import java.util.Optional;
-import java.util.concurrent.LinkedBlockingQueue;
 
 public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
   public class SubscriberWakeupException extends Exception {}
@@ -46,13 +47,13 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
   private Optional<SettableApiFuture<Void>> notification = Optional.empty();
 
   @GuardedBy("this")
-  private final LinkedBlockingQueue<PubsubMessage> messages = new LinkedBlockingQueue<>();
+  private final Deque<PubsubMessage> messages = new ArrayDeque<>();
 
   private final AckTracker ackTracker;
 
   public PubSubNotifyingPullSubscriber(SubscriberFactory factory, AckTracker ackTracker) {
     this.ackTracker = ackTracker;
-    this.subscriber = factory.create(this::receiveMessages);
+    this.subscriber = factory.create(this::receiveMessage);
     subscriber.addListener(
         new Listener() {
           @Override
@@ -87,7 +88,7 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
     if (messages.size() == 0) {
       return Optional.empty();
     }
-    return Optional.of(messages.remove());
+    return Optional.of(messages.pop());
   }
 
   @Override
@@ -101,7 +102,7 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
     subscriber.stopAsync().awaitTerminated();
   }
 
-  private synchronized void receiveMessages(
+  private synchronized void receiveMessage(
       PubsubMessage message, AckReplyConsumer ackReplyConsumer) {
     ackTracker.addPendingAck(ackReplyConsumer);
     messages.add(message);

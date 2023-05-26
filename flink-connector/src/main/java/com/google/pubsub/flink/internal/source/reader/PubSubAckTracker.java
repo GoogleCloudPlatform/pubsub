@@ -24,15 +24,10 @@ import java.util.TreeMap;
 
 public class PubSubAckTracker implements AckTracker {
   @GuardedBy("this")
-  private final List<AckReplyConsumer> pendingAcks;
+  private final List<AckReplyConsumer> pendingAcks = new ArrayList<>();
 
   @GuardedBy("this")
-  private final SortedMap<Long, List<AckReplyConsumer>> checkpoints;
-
-  PubSubAckTracker() {
-    this.pendingAcks = new ArrayList<>();
-    this.checkpoints = new TreeMap<>();
-  }
+  private final SortedMap<Long, List<AckReplyConsumer>> checkpoints = new TreeMap<>();
 
   @Override
   public synchronized void addPendingAck(AckReplyConsumer ackReplyConsumer) {
