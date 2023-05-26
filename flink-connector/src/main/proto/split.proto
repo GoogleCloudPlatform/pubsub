@@ -24,6 +24,6 @@ message SubscriptionSplitProto {
   // The full Pub/Sub subscription path for this split.
   string subscription = 1;
   // Unique identifier for this subscription's split.
-  int64 uid = 2;
+  string uid = 2;
 }
 
