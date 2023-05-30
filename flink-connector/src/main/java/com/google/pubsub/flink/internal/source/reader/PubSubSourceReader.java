@@ -57,9 +57,6 @@ public class PubSubSourceReader<T>
 
   @Override
   public List<SubscriptionSplit> snapshotState(long checkpointId) {
-    // When a checkpoint is started we intercept the checkpoint call and save the checkpoint.
-    // Once the checkpoint has been committed (notifyCheckpointComplete is called) we will propagate
-    // the cursors to pubsub lite.
     ackTracker.addCheckpoint(checkpointId);
     return super.snapshotState(checkpointId);
   }
