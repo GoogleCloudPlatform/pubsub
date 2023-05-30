@@ -32,7 +32,7 @@ import java.util.Deque;
 import java.util.Optional;
 
 public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
-  public class SubscriberWakeupException extends Exception {}
+  public static class SubscriberWakeupException extends Exception {}
 
   public interface SubscriberFactory {
     Subscriber create(MessageReceiver receiver);
