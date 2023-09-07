@@ -24,12 +24,12 @@ import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Optional;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.pubsub.v1.PubsubMessage;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.Optional;
 
 public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
   public static class SubscriberWakeupException extends Exception {}
@@ -41,10 +41,10 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
   private final Subscriber subscriber;
 
   @GuardedBy("this")
-  private Optional<Throwable> permanentError = Optional.empty();
+  private Optional<Throwable> permanentError = Optional.absent();
 
   @GuardedBy("this")
-  private Optional<SettableApiFuture<Void>> notification = Optional.empty();
+  private Optional<SettableApiFuture<Void>> notification = Optional.absent();
 
   @GuardedBy("this")
   private final Deque<PubsubMessage> messages = new ArrayDeque<>();
@@ -86,7 +86,7 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
       throw permanentError.get();
     }
     if (messages.size() == 0) {
-      return Optional.empty();
+      return Optional.absent();
     }
     return Optional.of(messages.pop());
   }
@@ -106,7 +106,7 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
       PubsubMessage message, AckReplyConsumer ackReplyConsumer) {
     ackTracker.addPendingAck(ackReplyConsumer);
     messages.add(message);
-    completeNotification(Optional.empty());
+    completeNotification(Optional.absent());
   }
 
   @VisibleForTesting
@@ -121,7 +121,7 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
       } else {
         notification.get().set(null);
       }
-      notification = Optional.empty();
+      notification = Optional.absent();
     }
   }
 }

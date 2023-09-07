@@ -3,21 +3,18 @@
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
     xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.google.pubsub.flink</groupId>
+    <artifactId>flink-connector-parent</artifactId>
+    <version>0.0.0</version>
+  </parent>
+
   <groupId>com.google.pubsub.flink</groupId>
-  <packaging>pom</packaging>
-  <name>Pub/Sub Flink Connector Parent</name>
-  <artifactId>flink-connector-parent</artifactId>
-  <version>0.0.0</version>
-  <modules>
-    <module>flink-connector-gcp-pubsub</module>
-    <module>flink-examples-gcp-pubsub</module>
-  </modules>
-  <properties>
-    <flink.version>1.17.0</flink.version>
-    <pubsub.version>1.123.11</pubsub.version>
-    <maven.compiler.source>11</maven.compiler.source>
-    <maven.compiler.target>11</maven.compiler.target>
-  </properties>
+  <packaging>jar</packaging>
+  <name>Pub/Sub Flink Connector</name>
+  <artifactId>flink-connector-gcp-pubsub</artifactId>
+
   <build>
     <extensions>
       <extension>
@@ -101,14 +98,4 @@
       <scope>test</scope>
     </dependency>
   </dependencies>
-
-  <dependencyManagement>
-    <dependencies>
-      <dependency>
-        <groupId>com.google.pubsub.flink</groupId>
-        <artifactId>flink-connector-gcp-pubsub</artifactId>
-        <version>${project.version}</version>
-      </dependency>
-    </dependencies>
-  </dependencyManagement>
 </project>
