@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <parent>
+    <groupId>com.google.pubsub.flink</groupId>
+    <artifactId>flink-examples-gcp-pubsub</artifactId>
+    <version>0.0.0</version>
+  </parent>
+
+  <name>Pub/Sub Flink Connector Source Example</name>
+  <artifactId>pubsub-flink-source-example</artifactId>
+
+  <packaging>jar</packaging>
+
+  <build>
+    <finalName>PubSubSourcePrintExample</finalName>
+    <extensions>
+      <extension>
+        <groupId>kr.motd.maven</groupId>
+        <artifactId>os-maven-plugin</artifactId>
+        <version>1.7.1</version>
+      </extension>
+    </extensions>
+    <plugins>
+      <plugin>
+        <groupId>org.xolstice.maven.plugins</groupId>
+        <artifactId>protobuf-maven-plugin</artifactId>
+        <version>0.6.1</version>
+        <executions>
+          <execution>
+            <phase>process-sources</phase>
+            <goals>
+              <goal>compile</goal>
+              <goal>test-compile</goal>
+            </goals>
+            </execution>
+          </executions>
+        <configuration>
+          <protocArtifact>
+            com.google.protobuf:protoc:3.4.0:exe:${os.detected.classifier}
+          </protocArtifact>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <executions>
+          <execution>
+            <id>shade-flink</id>
+            <phase>package</phase>
+            <goals>
+              <goal>shade</goal>
+            </goals>
+            <configuration>
+              <shadedArtifactAttached>false</shadedArtifactAttached>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <transformers>
+                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                  <mainClass>com.google.pubsub.flink.PubSubSourcePrintExample</mainClass>
+                </transformer>
+              </transformers>
+              <artifactSet>
+                <includes>
+                  <include>org.apache.flink.api*</include>
+                  <include>com.google.pubsub.flink:*</include>
+                  <include>com.google.cloud:google-cloud-pubsub</include>
+                  <include>com.google.*:*</include>
+                  <include>io.grpc:*</include>
+                  <include>io.opencensus:*</include>
+                  <!-- Excludes to avoid triggering invalid file signature security error. -->
+                  <excludeScope>system</excludeScope>
+                  <excludes>META-INF/*.SF,META-INF/*.DSA,META-INF/*.RSA</excludes>
+                  <excludeGroupIds>junit,org.mockito,org.hamcrest</excludeGroupIds>
+                </includes>
+              </artifactSet>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
+</project>
