@@ -39,7 +39,8 @@ public class PubSubSourcePrintExample {
     if (parameterTool.getNumberOfParameters() != 2) {
       System.out.println(
           "Missing parameters!\n"
-              + "Usage: flink run PubSubSourcePrintExample.jar --project <GCP project name> --subscription <subscription>");
+              + "Usage: flink run PubSubSourcePrintExample.jar --project <GCP project name>"
+              + " --subscription <subscription>");
       return;
     }
 

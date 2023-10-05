@@ -32,6 +32,7 @@
           <execution>
             <goals>
               <goal>compile</goal>
+              <goal>compile-custom</goal>
               <goal>test-compile</goal>
             </goals>
           </execution>
@@ -40,11 +41,26 @@
           <protocArtifact>
             com.google.protobuf:protoc:3.4.0:exe:${os.detected.classifier}
           </protocArtifact>
+          <pluginId>grpc-java</pluginId>
+          <pluginArtifact>
+            io.grpc:protoc-gen-grpc-java:1.49.2:exe:${os.detected.classifier}
+          </pluginArtifact>
+          <protoSourceRoot>${project.basedir}/src/main/proto</protoSourceRoot>
         </configuration>
       </plugin>
     </plugins>
   </build>
   <dependencies>
+    <dependency>
+      <groupId>com.google.api</groupId>
+      <artifactId>gax</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>io.opencensus</groupId>
+          <artifactId>opencensus-api</artifactId>
+        </exclusion>
+      </exclusions>
+    </dependency>
     <dependency>
       <groupId>com.google.auto.value</groupId>
       <artifactId>auto-value</artifactId>
@@ -52,26 +68,57 @@
     </dependency>
     <dependency>
       <groupId>com.google.cloud</groupId>
+      <artifactId>google-cloud-core</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>com.google.api</groupId>
+          <artifactId>gax</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.google.guava</groupId>
+          <artifactId>guava</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.google.http-client</groupId>
+          <artifactId>google-http-client</artifactId>
+        </exclusion>
+      </exclusions>
+      <!-- Version is pulled from google-cloud-bom (loaded via the libraries-bom) -->
+    </dependency>
+    <dependency>
+      <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-pubsub</artifactId>
-      <version>${pubsub.version}</version>
+      <!-- Version is pulled from google-cloud-bom (loaded via the libraries-bom) -->
     </dependency>
     <dependency>
-      <groupId>org.apache.flink</groupId>
-      <artifactId>flink-core</artifactId>
-      <version>${flink.version}</version>
-      <scope>provided</scope>
+      <groupId>com.google.api.grpc</groupId>
+      <artifactId>grpc-google-cloud-pubsub-v1</artifactId>
+      <!-- Version is pulled from google-cloud-bom (loaded via the libraries-bom) -->
     </dependency>
     <dependency>
-      <groupId>org.apache.flink</groupId>
-      <artifactId>flink-connector-base</artifactId>
-      <version>${flink.version}</version>
-      <scope>provided</scope>
+      <groupId>com.google.guava</groupId>
+      <artifactId>guava-gwt</artifactId>
+      <version>32.1.2-jre</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.flink</groupId>
-      <artifactId>flink-streaming-java</artifactId>
-      <version>${flink.version}</version>
-      <scope>provided</scope>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-auth</artifactId>
+      <!-- Version is pulled from google-cloud-bom (loaded via the libraries-bom) -->
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-netty</artifactId>
+      <!-- Version is pulled from google-cloud-bom (loaded via the libraries-bom) -->
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-netty-shaded</artifactId>
+      <!-- Version is pulled from google-cloud-bom (loaded via the libraries-bom) -->
+    </dependency>
+    <dependency>
+      <groupId>io.grpc</groupId>
+      <artifactId>grpc-okhttp</artifactId>
+      <!-- Version is pulled from google-cloud-bom (loaded via the libraries-bom) -->
     </dependency>
     <dependency>
       <groupId>org.mockito</groupId>
