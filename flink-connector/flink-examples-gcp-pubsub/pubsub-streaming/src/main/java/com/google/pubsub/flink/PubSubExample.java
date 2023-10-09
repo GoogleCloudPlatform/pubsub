@@ -16,7 +16,6 @@
 
 package com.google.pubsub.flink;
 
-import java.util.logging.Logger;
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
 import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
@@ -25,57 +24,57 @@ import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 
 /**
- * A simple PubSub example Flink job that prints messages from a PubSub subscription.
+ * A simple example PubSub Flink job.
  *
- * <p>Example usage: --project project-name --subscription source-subscription
+ * <p>This job pulls messages from a PubSub subscription as a data source and publishes these
+ * messages to a PubSub topic as a sink.
+ *
+ * <p>Example usage: --project project-name --subscription source-subscription --topic sink-topic
  */
-public class PubSubSourcePrintExample {
-  private static final Logger log = Logger.getLogger(PubSubSourcePrintExample.class.getName());
+public class PubSubExample {
 
   public static void main(String[] args) throws Exception {
+    final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     // Parse input parameters.
     final ParameterTool parameterTool = ParameterTool.fromArgs(args);
-
-    if (parameterTool.getNumberOfParameters() != 2) {
+    if (parameterTool.getNumberOfParameters() != 3) {
       System.out.println(
           "Missing parameters!\n"
-              + "Usage: flink run PubSubSourcePrintExample.jar --project <GCP project name>"
-              + " --subscription <subscription>");
+              + "Usage: flink run PubSubExample.jar --project <GCP project name>"
+              + " --subscription <subscription> --topic <topic>");
       return;
     }
-
     String projectName = parameterTool.getRequired("project");
     String subscription = parameterTool.getRequired("subscription");
+    String topic = parameterTool.getRequired("topic");
 
-    final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
-
-    PubSubDeserializationSchema<String> schema =
+    PubSubDeserializationSchema<String> deserializationSchema =
         PubSubDeserializationSchema.dataOnly(new SimpleStringSchema());
     PubSubSource.Builder<String> sourceBuilder =
         PubSubSource.<String>builder()
-            .setDeserializationSchema(schema)
+            .setDeserializationSchema(deserializationSchema)
             .setProjectName(projectName)
             .setSubscriptionName(subscription);
-
     DataStream<String> stream =
-        env.fromSource(
-            sourceBuilder.build(), WatermarkStrategy.noWatermarks(), "ExamplePubsubSource");
-
-    // Depending on the system where this code is executed, stream.print() may not be supported, so
-    // we use this as a workaround. Furthermore, this logging can be integrated with GCP Cloud
-    // Logging. See https://cloud.google.com/logging/docs/setup/java#example_2.
+        env.fromSource(sourceBuilder.build(), WatermarkStrategy.noWatermarks(), "PubSubSource");
     stream.map(
-        new MapFunction<String, Integer>() {
+        new MapFunction<String, String>() {
           @Override
-          public Integer map(String s) throws Exception {
-            log.info(s);
-            return 0;
+          public String map(String s) throws Exception {
+            return s;
           }
         });
+    PubSubSerializationSchema<String> serializationSchema =
+        PubSubSerializationSchema.dataOnly(new SimpleStringSchema());
+    PubSubSink.Builder<String> sinkBuilder =
+        PubSubSink.<String>builder()
+            .setSerializationSchema(serializationSchema)
+            .setProjectName(projectName)
+            .setTopicName(topic);
+    stream.sinkTo(sinkBuilder.build()).name("PubSubSink");
 
-    env.enableCheckpointing(10);
-    env.setParallelism(2);
-
-    env.execute("Flink Streaming PubSubReader");
+    // Start a checkpoint every 1000 ms.
+    env.enableCheckpointing(1000);
+    env.execute("Streaming PubSub Example");
   }
 }

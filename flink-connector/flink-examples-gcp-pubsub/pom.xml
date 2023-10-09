@@ -19,7 +19,7 @@
   </properties>
 
   <modules>
-    <module>pubsub-source</module>
+    <module>pubsub-streaming</module>
   </modules>
 
   <dependencies>

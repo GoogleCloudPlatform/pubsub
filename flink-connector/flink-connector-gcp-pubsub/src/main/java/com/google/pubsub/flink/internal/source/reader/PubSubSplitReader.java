@@ -45,8 +45,8 @@ public class PubSubSplitReader implements SplitReader<PubsubMessage, Subscriptio
   private Multimap<String, PubsubMessage> getMessages() throws Throwable {
     ImmutableListMultimap.Builder<String, PubsubMessage> messages = ImmutableListMultimap.builder();
     for (Map.Entry<String, NotifyingPullSubscriber> entry : subscribers.entrySet()) {
-      if (entry.getValue().pullMessage() != null && entry.getValue().pullMessage().isPresent()) {
-        messages.put(entry.getKey(), entry.getValue().pullMessage().get());
+      for (PubsubMessage m : entry.getValue().pullMessage().asSet()) {
+        messages.put(entry.getKey(), m);
       }
     }
     return messages.build();
