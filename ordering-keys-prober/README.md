@@ -71,5 +71,5 @@ that can be set.
 | subscriber_max_outstanding_message_count | Long                       | 10,000                                   | The maximum number of messages to allow to be outstanding to each subscriber. |
 | subscriber_max_outstanding_bytes         | Long                       | 1,000,000,000                            | The maximum number of bytes to allow to be outstanding to each subscriber. |
 | ordering_key_count                       | Integer                    | 100                                      | When `ordered_delivery` is true, the number of distinct ordering keys to use. |
-| ordering_key_choice_stategy              | `ROUND_ROBIN` or `RANDOM`  | `ROUND_ROBIN`                            | When `ordered_delivery` is true, the way to choose each ordering key when publishing messages. |
+| ordering_key_choice_strategy             | `ROUND_ROBIN` or `RANDOM`  | `ROUND_ROBIN`                            | When `ordered_delivery` is true, the way to choose each ordering key when publishing messages. |
 | delivery_history_count                   | Integer                    | 250                                      | When `ordered_delivery` is true, the number of messages for which to retain delivery information in memory for each ordering key for printing out error information. |
