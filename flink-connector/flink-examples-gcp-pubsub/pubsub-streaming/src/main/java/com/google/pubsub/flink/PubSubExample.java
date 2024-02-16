@@ -17,7 +17,6 @@
 package com.google.pubsub.flink;
 
 import org.apache.flink.api.common.eventtime.WatermarkStrategy;
-import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.api.java.utils.ParameterTool;
 import org.apache.flink.streaming.api.datastream.DataStream;
@@ -48,30 +47,25 @@ public class PubSubExample {
     String subscription = parameterTool.getRequired("subscription");
     String topic = parameterTool.getRequired("topic");
 
-    PubSubDeserializationSchema<String> deserializationSchema =
-        PubSubDeserializationSchema.dataOnly(new SimpleStringSchema());
-    PubSubSource.Builder<String> sourceBuilder =
-        PubSubSource.<String>builder()
-            .setDeserializationSchema(deserializationSchema)
-            .setProjectName(projectName)
-            .setSubscriptionName(subscription);
     DataStream<String> stream =
-        env.fromSource(sourceBuilder.build(), WatermarkStrategy.noWatermarks(), "PubSubSource");
-    stream.map(
-        new MapFunction<String, String>() {
-          @Override
-          public String map(String s) throws Exception {
-            return s;
-          }
-        });
-    PubSubSerializationSchema<String> serializationSchema =
-        PubSubSerializationSchema.dataOnly(new SimpleStringSchema());
-    PubSubSink.Builder<String> sinkBuilder =
-        PubSubSink.<String>builder()
-            .setSerializationSchema(serializationSchema)
-            .setProjectName(projectName)
-            .setTopicName(topic);
-    stream.sinkTo(sinkBuilder.build()).name("PubSubSink");
+        env.fromSource(
+            PubSubSource.<String>builder()
+                .setDeserializationSchema(
+                    PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()))
+                .setProjectName(projectName)
+                .setSubscriptionName(subscription)
+                .build(),
+            WatermarkStrategy.noWatermarks(),
+            "PubSubSource");
+    stream
+        .sinkTo(
+            PubSubSink.<String>builder()
+                .setSerializationSchema(
+                    PubSubSerializationSchema.dataOnly(new SimpleStringSchema()))
+                .setProjectName(projectName)
+                .setTopicName(topic)
+                .build())
+        .name("PubSubSink");
 
     // Start a checkpoint every 1000 ms.
     env.enableCheckpointing(1000);

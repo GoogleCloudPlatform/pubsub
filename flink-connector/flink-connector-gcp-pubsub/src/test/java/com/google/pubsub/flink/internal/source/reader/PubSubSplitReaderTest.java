@@ -185,6 +185,8 @@ public class PubSubSplitReaderTest {
     SettableApiFuture<Void> future2 = SettableApiFuture.create();
     when(mockSubscriber1.notifyDataAvailable()).thenReturn(future1);
     when(mockSubscriber2.notifyDataAvailable()).thenReturn(future2);
+    when(mockSubscriber1.pullMessage()).thenReturn(Optional.absent());
+    when(mockSubscriber2.pullMessage()).thenReturn(Optional.absent());
     doAnswer(
             invocation -> {
               future1.setException(new PubSubNotifyingPullSubscriber.SubscriberWakeupException());
