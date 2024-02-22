@@ -16,8 +16,8 @@
 package com.google.pubsub.flink.internal.source.reader;
 
 import com.google.api.core.ApiFuture;
+import com.google.common.base.Optional;
 import com.google.pubsub.v1.PubsubMessage;
-import java.util.Optional;
 
 public interface NotifyingPullSubscriber {
   /** Returns a {@link ApiFuture} that will be completed when messages are available to pull */

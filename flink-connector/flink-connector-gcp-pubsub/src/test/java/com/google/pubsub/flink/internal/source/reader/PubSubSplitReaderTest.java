@@ -25,6 +25,7 @@ import static org.mockito.Mockito.when;
 
 import com.google.api.core.ApiFutures;
 import com.google.api.core.SettableApiFuture;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
@@ -33,7 +34,6 @@ import com.google.pubsub.flink.internal.source.split.SubscriptionSplit;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
 import java.io.IOException;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -121,7 +121,7 @@ public class PubSubSplitReaderTest {
     when(mockSubscriber1.notifyDataAvailable()).thenReturn(ApiFutures.immediateFuture(null));
     when(mockSubscriber2.notifyDataAvailable()).thenReturn(SettableApiFuture.create());
     when(mockSubscriber1.pullMessage()).thenReturn(Optional.of(message));
-    when(mockSubscriber2.pullMessage()).thenReturn(Optional.empty());
+    when(mockSubscriber2.pullMessage()).thenReturn(Optional.absent());
 
     RecordsWithSplitIds<PubsubMessage> records = reader.fetch();
     assertThat(records.finishedSplits()).isEmpty();
@@ -185,6 +185,8 @@ public class PubSubSplitReaderTest {
     SettableApiFuture<Void> future2 = SettableApiFuture.create();
     when(mockSubscriber1.notifyDataAvailable()).thenReturn(future1);
     when(mockSubscriber2.notifyDataAvailable()).thenReturn(future2);
+    when(mockSubscriber1.pullMessage()).thenReturn(Optional.absent());
+    when(mockSubscriber2.pullMessage()).thenReturn(Optional.absent());
     doAnswer(
             invocation -> {
               future1.setException(new PubSubNotifyingPullSubscriber.SubscriberWakeupException());

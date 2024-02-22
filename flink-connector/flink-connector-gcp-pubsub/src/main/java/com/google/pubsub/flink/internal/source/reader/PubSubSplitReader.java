@@ -19,6 +19,7 @@ import com.google.api.core.ApiFuture;
 import com.google.api.core.ApiFutureCallback;
 import com.google.api.core.ApiFutures;
 import com.google.api.core.SettableApiFuture;
+import com.google.common.base.Optional;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -45,7 +46,9 @@ public class PubSubSplitReader implements SplitReader<PubsubMessage, Subscriptio
   private Multimap<String, PubsubMessage> getMessages() throws Throwable {
     ImmutableListMultimap.Builder<String, PubsubMessage> messages = ImmutableListMultimap.builder();
     for (Map.Entry<String, NotifyingPullSubscriber> entry : subscribers.entrySet()) {
-      entry.getValue().pullMessage().ifPresent(m -> messages.put(entry.getKey(), m));
+      for (PubsubMessage m : entry.getValue().pullMessage().asSet()) {
+        messages.put(entry.getKey(), m);
+      }
     }
     return messages.build();
   }
