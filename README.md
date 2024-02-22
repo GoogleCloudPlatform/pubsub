@@ -12,6 +12,10 @@ available are:
   If you're having a problem building with those versions, please reach out to us with your issue or solution.
 * [Ordering Keys Prober](https://github.com/GoogleCloudPlatform/pubsub/tree/master/ordering-keys-prober):
   A reference implementation for how to use ordering keys effectively.
+* UNDER DEVELOPMENT -
+  [Flink Connector](https://github.com/GoogleCloudPlatform/pubsub/tree/master/flink-connector):
+  Send and receive messages from [Apache Flink](https://flink.apache.org/).
+  The connector is currently available for experimental usage.
 * DEPRECATED - [Kafka Connector](https://github.com/GoogleCloudPlatform/pubsub/tree/master/kafka-connector):
   Send and receive messages from [Apache Kafka](http://kafka.apache.org). *The
   connector will have future release from its own [repo](https://github.com/googleapis/java-pubsub-group-kafka-connector/).*
