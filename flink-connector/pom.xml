@@ -11,6 +11,7 @@
   <modules>
     <module>flink-connector-gcp-pubsub</module>
     <module>flink-examples-gcp-pubsub</module>
+    <module>flink-connector-gcp-pubsub-e2e-tests</module>
   </modules>
   <properties>
     <flink.version>1.17.0</flink.version>

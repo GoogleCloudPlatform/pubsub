@@ -17,6 +17,9 @@ package com.google.pubsub.flink;
 
 import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.api.gax.core.NoCredentialsProvider;
+import com.google.api.gax.grpc.GrpcTransportChannel;
+import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.pubsub.v1.MessageReceiver;
@@ -34,6 +37,7 @@ import com.google.pubsub.flink.internal.source.split.SubscriptionSplit;
 import com.google.pubsub.flink.internal.source.split.SubscriptionSplitSerializer;
 import com.google.pubsub.flink.proto.PubSubEnumeratorCheckpoint;
 import com.google.pubsub.v1.ProjectSubscriptionName;
+import io.grpc.ManagedChannelBuilder;
 import java.util.HashMap;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -65,6 +69,8 @@ public abstract class PubSubSource<OutputT>
 
   public abstract Optional<Credentials> credentials();
 
+  public abstract Optional<String> emulatorEndpoint();
+
   public static <OutputT> Builder<OutputT> builder() {
     return new AutoValue_PubSubSource.Builder<OutputT>();
   }
@@ -81,6 +87,15 @@ public abstract class PubSubSource<OutputT>
             .build());
     if (credentials().isPresent()) {
       builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
+    }
+    if (emulatorEndpoint().isPresent()) {
+      builder.setCredentialsProvider(NoCredentialsProvider.create());
+      builder.setChannelProvider(
+          FixedTransportChannelProvider.create(
+              GrpcTransportChannel.create(
+                  ManagedChannelBuilder.forTarget(emulatorEndpoint().get())
+                      .usePlaintext()
+                      .build())));
     }
     return builder.build();
   }
@@ -168,6 +183,8 @@ public abstract class PubSubSource<OutputT>
     public abstract Builder<OutputT> setMaxOutstandingMessagesBytes(Long bytes);
 
     public abstract Builder<OutputT> setCredentials(Credentials credentials);
+
+    public abstract Builder<OutputT> setEmulatorEndpoint(String endpoint);
 
     abstract PubSubSource<OutputT> autoBuild();
 

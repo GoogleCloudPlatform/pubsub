@@ -101,4 +101,10 @@ public class PubSubSourceTest {
     assertThrows(
         NullPointerException.class, () -> PubSubSource.<String>builder().setCredentials(null));
   }
+
+  @Test
+  public void build_invalidEmulatorEndpoint() throws Exception {
+    assertThrows(
+        NullPointerException.class, () -> PubSubSource.<String>builder().setEmulatorEndpoint(null));
+  }
 }
