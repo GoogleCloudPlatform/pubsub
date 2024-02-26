@@ -15,12 +15,15 @@
  */
 package com.google.pubsub.flink;
 
+import com.google.api.gax.batching.FlowControlSettings;
+import com.google.api.gax.batching.FlowController.LimitExceededBehavior;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.common.base.Optional;
+import com.google.common.base.Preconditions;
 import com.google.pubsub.flink.internal.source.enumerator.PubSubCheckpointSerializer;
 import com.google.pubsub.flink.internal.source.enumerator.PubSubSplitEnumerator;
 import com.google.pubsub.flink.internal.source.reader.AckTracker;
@@ -57,6 +60,12 @@ public abstract class PubSubSource<OutputT>
 
   public abstract PubSubDeserializationSchema<OutputT> deserializationSchema();
 
+  public abstract Optional<Long> maxOutstandingMessagesCount();
+
+  public abstract Optional<Long> maxOutstandingMessagesBytes();
+
+  public abstract Optional<LimitExceededBehavior> limitExceededBehavior();
+
   public abstract Optional<Credentials> credentials();
 
   public static <OutputT> Builder<OutputT> builder() {
@@ -67,6 +76,13 @@ public abstract class PubSubSource<OutputT>
     Subscriber.Builder builder =
         Subscriber.newBuilder(
             ProjectSubscriptionName.of(projectName(), subscriptionName()).toString(), receiver);
+    builder.setFlowControlSettings(
+        FlowControlSettings.newBuilder()
+            .setMaxOutstandingElementCount(maxOutstandingMessagesCount().or(1000L))
+            .setMaxOutstandingRequestBytes(
+                maxOutstandingMessagesBytes().or(100L * 1024L * 1024L)) // 100MB
+            .setLimitExceededBehavior(limitExceededBehavior().or(LimitExceededBehavior.Block))
+            .build());
     if (credentials().isPresent()) {
       builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
     }
@@ -151,8 +167,26 @@ public abstract class PubSubSource<OutputT>
     public abstract Builder<OutputT> setDeserializationSchema(
         PubSubDeserializationSchema<OutputT> deserializationSchema);
 
+    public abstract Builder<OutputT> setMaxOutstandingMessagesCount(Long count);
+
+    public abstract Builder<OutputT> setMaxOutstandingMessagesBytes(Long bytes);
+
+    public abstract Builder<OutputT> setLimitExceededBehavior(
+        LimitExceededBehavior limitExceededBehavior);
+
     public abstract Builder<OutputT> setCredentials(Credentials credentials);
 
-    public abstract PubSubSource<OutputT> build();
+    abstract PubSubSource<OutputT> autoBuild();
+
+    public final PubSubSource<OutputT> build() {
+      PubSubSource<OutputT> source = autoBuild();
+      Preconditions.checkArgument(
+          source.maxOutstandingMessagesCount().or(1L) > 0,
+          "maxOutstandingMessagesCount, if set, must be a value greater than 0.");
+      Preconditions.checkArgument(
+          source.maxOutstandingMessagesBytes().or(1L) > 0,
+          "maxOutstandingMessagesBytes, if set, must be a value greater than 0.");
+      return source;
+    }
   }
 }

@@ -59,6 +59,43 @@ public class PubSubSourceTest {
   }
 
   @Test
+  public void build_invalidMaxOutstandingMessagesCount() throws Exception {
+    assertThrows(
+        NullPointerException.class,
+        () -> PubSubSource.<String>builder().setMaxOutstandingMessagesCount(null));
+    PubSubSource.Builder<String> builder =
+        PubSubSource.<String>builder()
+            .setProjectName("project")
+            .setSubscriptionName("subscription")
+            .setDeserializationSchema(
+                PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()))
+            .setMaxOutstandingMessagesCount(-1L);
+    assertThrows(IllegalArgumentException.class, builder::build);
+  }
+
+  @Test
+  public void build_invalidMaxOutstandingMessagesBytes() throws Exception {
+    assertThrows(
+        NullPointerException.class,
+        () -> PubSubSource.<String>builder().setMaxOutstandingMessagesBytes(null));
+    PubSubSource.Builder<String> builder =
+        PubSubSource.<String>builder()
+            .setProjectName("project")
+            .setSubscriptionName("subscription")
+            .setDeserializationSchema(
+                PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()))
+            .setMaxOutstandingMessagesBytes(-1L);
+    assertThrows(IllegalArgumentException.class, builder::build);
+  }
+
+  @Test
+  public void build_invalidLimitExceededBehavior() throws Exception {
+    assertThrows(
+        NullPointerException.class,
+        () -> PubSubSource.<String>builder().setLimitExceededBehavior(null));
+  }
+
+  @Test
   public void build_invalidCreds() throws Exception {
     assertThrows(
         NullPointerException.class, () -> PubSubSource.<String>builder().setCredentials(null));
