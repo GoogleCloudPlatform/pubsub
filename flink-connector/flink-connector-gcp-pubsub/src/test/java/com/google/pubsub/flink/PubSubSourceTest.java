@@ -89,13 +89,6 @@ public class PubSubSourceTest {
   }
 
   @Test
-  public void build_invalidLimitExceededBehavior() throws Exception {
-    assertThrows(
-        NullPointerException.class,
-        () -> PubSubSource.<String>builder().setLimitExceededBehavior(null));
-  }
-
-  @Test
   public void build_invalidCreds() throws Exception {
     assertThrows(
         NullPointerException.class, () -> PubSubSource.<String>builder().setCredentials(null));

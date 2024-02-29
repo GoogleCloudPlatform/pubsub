@@ -16,7 +16,6 @@
 package com.google.pubsub.flink;
 
 import com.google.api.gax.batching.FlowControlSettings;
-import com.google.api.gax.batching.FlowController.LimitExceededBehavior;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
@@ -64,8 +63,6 @@ public abstract class PubSubSource<OutputT>
 
   public abstract Optional<Long> maxOutstandingMessagesBytes();
 
-  public abstract Optional<LimitExceededBehavior> limitExceededBehavior();
-
   public abstract Optional<Credentials> credentials();
 
   public static <OutputT> Builder<OutputT> builder() {
@@ -81,7 +78,6 @@ public abstract class PubSubSource<OutputT>
             .setMaxOutstandingElementCount(maxOutstandingMessagesCount().or(1000L))
             .setMaxOutstandingRequestBytes(
                 maxOutstandingMessagesBytes().or(100L * 1024L * 1024L)) // 100MB
-            .setLimitExceededBehavior(limitExceededBehavior().or(LimitExceededBehavior.Block))
             .build());
     if (credentials().isPresent()) {
       builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
@@ -170,9 +166,6 @@ public abstract class PubSubSource<OutputT>
     public abstract Builder<OutputT> setMaxOutstandingMessagesCount(Long count);
 
     public abstract Builder<OutputT> setMaxOutstandingMessagesBytes(Long bytes);
-
-    public abstract Builder<OutputT> setLimitExceededBehavior(
-        LimitExceededBehavior limitExceededBehavior);
 
     public abstract Builder<OutputT> setCredentials(Credentials credentials);
 
