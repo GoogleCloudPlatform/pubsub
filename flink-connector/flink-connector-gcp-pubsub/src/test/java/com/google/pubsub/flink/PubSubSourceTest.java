@@ -59,10 +59,14 @@ public class PubSubSourceTest {
   }
 
   @Test
-  public void build_invalidMaxOutstandingMessagesCount() throws Exception {
+  public void build_nullMaxOutstandingMessagesCountThrows() throws Exception {
     assertThrows(
         NullPointerException.class,
         () -> PubSubSource.<String>builder().setMaxOutstandingMessagesCount(null));
+  }
+
+  @Test
+  public void build_negativeMaxOutstandingMessagesCountThrows() throws Exception {
     PubSubSource.Builder<String> builder =
         PubSubSource.<String>builder()
             .setProjectName("project")
@@ -74,10 +78,14 @@ public class PubSubSourceTest {
   }
 
   @Test
-  public void build_invalidMaxOutstandingMessagesBytes() throws Exception {
+  public void build_nullMaxOutstandingMessagesBytesThrows() throws Exception {
     assertThrows(
         NullPointerException.class,
         () -> PubSubSource.<String>builder().setMaxOutstandingMessagesBytes(null));
+  }
+
+  @Test
+  public void build_negativeMaxOutstandingMessagesBytesThrows() throws Exception {
     PubSubSource.Builder<String> builder =
         PubSubSource.<String>builder()
             .setProjectName("project")
