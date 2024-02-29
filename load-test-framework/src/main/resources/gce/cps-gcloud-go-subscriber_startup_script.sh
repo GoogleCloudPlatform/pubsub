@@ -25,17 +25,18 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 
 # Download the loadtest binary to this machine and install Java 8.
 /usr/bin/apt-get update
-/usr/bin/apt-get install -y unzip gcc golang-go
+/usr/bin/apt-get install -y unzip gcc
 /snap/bin/gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}"
 
 cd ${TMP}
 
 # install go
-# curl https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz -o go.tar.gz
-# tar -C /usr/local -xzf go.tar.gz
-# export PATH=$PATH:/usr/local/go/bin
-# mkdir gopath
-# export GOPATH="${TMP}/gopath"
+curl -L https://go.dev/dl/go1.22.0.linux-amd64.tar.gz -o go.tar.gz
+tar -C /usr/local -xzf go.tar.gz
+export PATH=$PATH:/usr/local/go/bin
+go version
+mkdir gopath
+export GOPATH="${TMP}/gopath"
 # mkdir gocache
 # export GOCACHE="${TMP}/gocache"
 
