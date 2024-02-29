@@ -35,8 +35,8 @@ tar -C /usr/local -xzf go.tar.gz
 export PATH=$PATH:/usr/local/go/bin
 mkdir gopath
 export GOPATH="${TMP}/gopath"
-# mkdir gocache
-# export GOCACHE="${TMP}/gocache"
+mkdir gocache
+export GOCACHE="${TMP}/gocache"
 
 # unpack loadtest
 unzip cps.zip
