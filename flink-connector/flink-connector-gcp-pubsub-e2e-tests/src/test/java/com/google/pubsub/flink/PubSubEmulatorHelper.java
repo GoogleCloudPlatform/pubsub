@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.google.pubsub.flink.emulator;
+package com.google.pubsub.flink;
 
 import com.google.api.gax.core.CredentialsProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
@@ -39,21 +39,22 @@ import io.grpc.ManagedChannelBuilder;
 import java.io.IOException;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
-import org.apache.flink.util.TestLogger;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/** Test base class for local E2E testing against a Cloud Pub/Sub emulator. */
-public class PubSubEmulatorTestBase extends TestLogger {
-  private static final Logger LOG = LoggerFactory.getLogger(PubSubEmulatorTestBase.class);
+/** Helper for local E2E testing against a Cloud Pub/Sub emulator. */
+public final class PubSubEmulatorHelper {
+  private static final Logger LOG = LoggerFactory.getLogger(PubSubEmulatorHelper.class);
 
-  private TransportChannel channel;
-  private TransportChannelProvider channelProvider;
+  private static TransportChannel channel;
+  private static TransportChannelProvider channelProvider;
 
-  private TopicAdminClient topicAdminClient;
-  private SubscriptionAdminClient subscriptionAdminClient;
+  private static TopicAdminClient topicAdminClient;
+  private static SubscriptionAdminClient subscriptionAdminClient;
 
-  public String getEmulatorEndpoint() throws IllegalStateException {
+  private PubSubEmulatorHelper() {}
+
+  public static String getEmulatorEndpoint() throws IllegalStateException {
     String hostport = System.getenv("PUBSUB_EMULATOR_HOST");
     if (hostport == null) {
       throw new IllegalStateException("Environment variable PUBSUB_EMULATOR_HOST not set.");
@@ -61,7 +62,8 @@ public class PubSubEmulatorTestBase extends TestLogger {
     return hostport;
   }
 
-  public TransportChannelProvider getTransportChannelProvider() throws IllegalStateException {
+  public static TransportChannelProvider getTransportChannelProvider()
+      throws IllegalStateException {
     if (channel == null) {
       channel =
           GrpcTransportChannel.create(
@@ -73,17 +75,17 @@ public class PubSubEmulatorTestBase extends TestLogger {
     return channelProvider;
   }
 
-  public CredentialsProvider getCredentialsProvider() {
+  public static CredentialsProvider getCredentialsProvider() {
     return NoCredentialsProvider.create();
   }
 
-  public Topic createTopic(TopicName topic) throws IOException {
+  public static Topic createTopic(TopicName topic) throws IOException {
     deleteTopic(topic);
     LOG.info("CreateTopic {}", topic);
     return getTopicAdminClient().createTopic(topic);
   }
 
-  public void deleteTopic(TopicName topic) throws IOException {
+  public static void deleteTopic(TopicName topic) throws IOException {
     try {
       getTopicAdminClient().getTopic(topic);
     } catch (NotFoundException e) {
@@ -94,7 +96,7 @@ public class PubSubEmulatorTestBase extends TestLogger {
     getTopicAdminClient().deleteTopic(topic);
   }
 
-  public Subscription createSubscription(SubscriptionName subscription, TopicName topic)
+  public static Subscription createSubscription(SubscriptionName subscription, TopicName topic)
       throws IOException {
     deleteSubscription(subscription);
     LOG.info("CreateSubscription {} on topic {}", subscription, topic);
@@ -103,7 +105,7 @@ public class PubSubEmulatorTestBase extends TestLogger {
             subscription, topic, PushConfig.getDefaultInstance(), /* ackDeadlineSeconds= */ 10);
   }
 
-  public void deleteSubscription(SubscriptionName subscription) throws IOException {
+  public static void deleteSubscription(SubscriptionName subscription) throws IOException {
     try {
       getSubscriptionAdminClient().getSubscription(subscription);
     } catch (NotFoundException e) {
@@ -114,7 +116,7 @@ public class PubSubEmulatorTestBase extends TestLogger {
     getSubscriptionAdminClient().deleteSubscription(subscription);
   }
 
-  public void publishMessages(TopicName topic, List<String> payloads)
+  public static void publishMessages(TopicName topic, List<String> payloads)
       throws ExecutionException, InterruptedException, IOException {
     Publisher publisher =
         Publisher.newBuilder(topic)
@@ -128,7 +130,7 @@ public class PubSubEmulatorTestBase extends TestLogger {
     }
   }
 
-  private TopicAdminClient getTopicAdminClient() throws IOException {
+  private static TopicAdminClient getTopicAdminClient() throws IOException {
     if (topicAdminClient == null) {
       topicAdminClient =
           TopicAdminClient.create(
@@ -140,7 +142,7 @@ public class PubSubEmulatorTestBase extends TestLogger {
     return topicAdminClient;
   }
 
-  private SubscriptionAdminClient getSubscriptionAdminClient() throws IOException {
+  private static SubscriptionAdminClient getSubscriptionAdminClient() throws IOException {
     if (subscriptionAdminClient == null) {
       subscriptionAdminClient =
           SubscriptionAdminClient.create(

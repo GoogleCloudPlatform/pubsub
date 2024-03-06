@@ -16,7 +16,6 @@
 
 package com.google.pubsub.flink;
 
-import com.google.pubsub.flink.emulator.PubSubEmulatorTestBase;
 import com.google.pubsub.v1.SubscriptionName;
 import com.google.pubsub.v1.TopicName;
 import java.util.ArrayList;
@@ -27,23 +26,24 @@ import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
 import org.apache.flink.util.CloseableIterator;
+import org.apache.flink.util.TestLogger;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
 /** E2E test for PubSubSource using a local Pub/Sub emulator. */
-public class PubSubSourceEmulatorTest extends PubSubEmulatorTestBase {
+public class PubSubSourceEmulatorTest extends TestLogger {
   private final TopicName topic = TopicName.of("test-project", "test-topic");
   private final SubscriptionName subscription =
       SubscriptionName.of("test-project", "test-subscription");
 
   @Test
   public void testPubSubSource() throws Exception {
-    createTopic(topic);
-    createSubscription(subscription, topic);
+    PubSubEmulatorHelper.createTopic(topic);
+    PubSubEmulatorHelper.createSubscription(subscription, topic);
     List<String> messageInput = Arrays.asList("msg-1", "msg-2", "msg-3", "msg-4", "msg-5");
-    publishMessages(topic, messageInput);
+    PubSubEmulatorHelper.publishMessages(topic, messageInput);
 
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.enableCheckpointing(100);
