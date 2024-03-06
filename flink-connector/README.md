@@ -44,6 +44,20 @@ mvn clean package -DskipTests
 The resulting jars can be found in the `target` directory of the respective
 module.
 
+Flink applications built with Maven can include the connector as a dependency in
+their pom.xml file by adding:
+
+```xml
+<dependency>
+  <groupId>com.google.pubsub.flink</groupId>
+  <artifactId>flink-connector-gcp-pubsub</artifactId>
+  <version>0.0.0</version>
+</dependency>
+```
+
+Learn more about Flink connector packaging
+[here](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/configuration/overview/).
+
 ## Documentation
 
 The documentation of Apache Flink is located on the website:

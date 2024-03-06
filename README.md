@@ -14,7 +14,7 @@ available are:
   A reference implementation for how to use ordering keys effectively.
 * UNDER DEVELOPMENT -
   [Flink Connector](https://github.com/GoogleCloudPlatform/pubsub/tree/master/flink-connector):
-  Send and receive messages from [Apache Flink](https://flink.apache.org/).
+  Send and receive messages to/from [Apache Flink](https://flink.apache.org/).
   The connector is currently available for experimental usage.
 * DEPRECATED - [Kafka Connector](https://github.com/GoogleCloudPlatform/pubsub/tree/master/kafka-connector):
   Send and receive messages from [Apache Kafka](http://kafka.apache.org). *The

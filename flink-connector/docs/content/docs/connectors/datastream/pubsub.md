@@ -27,6 +27,21 @@ Google Cloud Pub/Sub has no notion of subscription partitions or splits, a
 message can be received by any reader. Google Cloud Pub/Sub automatically load
 balances message delivery across readers.
 
+### Google Credentials
+
+By default, Pub/Sub source uses
+[Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
+for [authentication](https://cloud.google.com/docs/authentication) to Google
+Cloud Pub/Sub. Credentials can be manually set using
+`PubSubSource.<String>builder().setCredentials(...)`, which takes precedence
+over Application Default Credentials.
+
+The authenticating principal must be
+[authorized](https://cloud.google.com/pubsub/docs/access-control) to pull
+messages from the subscription. Authorization is managed through Google
+[IAM](https://cloud.google.com/security/products/iam) and can be configured on
+individual subscriptions.
+
 ### Deserialization Schema
 
 `PubSubDeserializationSchema<T>` is required to define how
@@ -146,13 +161,11 @@ extended to at most 1h.
     <tr>
         <td>setCredentials(Credentials credentials)</td>
         <td>(none)</td>
-        <td>The credentials attached to requests sent to Google Cloud Pub/Sub. The identity in the credentials must be authorized to pull messages from the subscription. If not set, then Pub/Sub source attempts to use environment-configured credentials.</td>
+        <td>The credentials attached to requests sent to Google Cloud Pub/Sub. The identity in the credentials must be authorized to pull messages from the subscription. If not set, then Pub/Sub source uses Application Default Credentials.</td>
     </tr>
   </tbody>
 </table>
 
 <!-- TODO(matt-kwong) Add sink details. -->
-
-<!-- TODO(matt-kwong) Add auth details. -->
 
 <!-- TODO(matt-kwong) Add integration testing details. -->
