@@ -69,8 +69,6 @@ public abstract class PubSubSource<OutputT>
 
   public abstract Optional<Credentials> credentials();
 
-  public abstract Optional<String> emulatorEndpoint();
-
   public static <OutputT> Builder<OutputT> builder() {
     return new AutoValue_PubSubSource.Builder<OutputT>();
   }
@@ -88,14 +86,15 @@ public abstract class PubSubSource<OutputT>
     if (credentials().isPresent()) {
       builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
     }
-    if (emulatorEndpoint().isPresent()) {
+
+    // Assume we should connect to the Pub/Sub emulator if PUBSUB_EMULATOR_HOST is set.
+    String emulatorEndpoint = System.getenv("PUBSUB_EMULATOR_HOST");
+    if (emulatorEndpoint != null) {
       builder.setCredentialsProvider(NoCredentialsProvider.create());
       builder.setChannelProvider(
           FixedTransportChannelProvider.create(
               GrpcTransportChannel.create(
-                  ManagedChannelBuilder.forTarget(emulatorEndpoint().get())
-                      .usePlaintext()
-                      .build())));
+                  ManagedChannelBuilder.forTarget(emulatorEndpoint).usePlaintext().build())));
     }
     return builder.build();
   }
@@ -183,8 +182,6 @@ public abstract class PubSubSource<OutputT>
     public abstract Builder<OutputT> setMaxOutstandingMessagesBytes(Long bytes);
 
     public abstract Builder<OutputT> setCredentials(Credentials credentials);
-
-    public abstract Builder<OutputT> setEmulatorEndpoint(String endpoint);
 
     abstract PubSubSource<OutputT> autoBuild();
 

@@ -56,7 +56,6 @@ public class PubSubSourceEmulatorTest extends PubSubEmulatorTestBase {
                     PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()))
                 .setProjectName(subscription.getProject())
                 .setSubscriptionName(subscription.getSubscription())
-                .setEmulatorEndpoint(getEmulatorEndpoint())
                 .build(),
             WatermarkStrategy.noWatermarks(),
             "PubSubEmulatorSource");
