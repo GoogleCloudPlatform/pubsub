@@ -17,6 +17,9 @@ package com.google.pubsub.flink;
 
 import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.api.gax.core.NoCredentialsProvider;
+import com.google.api.gax.grpc.GrpcTransportChannel;
+import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.pubsub.v1.MessageReceiver;
@@ -34,6 +37,7 @@ import com.google.pubsub.flink.internal.source.split.SubscriptionSplit;
 import com.google.pubsub.flink.internal.source.split.SubscriptionSplitSerializer;
 import com.google.pubsub.flink.proto.PubSubEnumeratorCheckpoint;
 import com.google.pubsub.v1.ProjectSubscriptionName;
+import io.grpc.ManagedChannelBuilder;
 import java.util.HashMap;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -81,6 +85,16 @@ public abstract class PubSubSource<OutputT>
             .build());
     if (credentials().isPresent()) {
       builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
+    }
+
+    // Assume we should connect to the Pub/Sub emulator if PUBSUB_EMULATOR_HOST is set.
+    String emulatorEndpoint = System.getenv("PUBSUB_EMULATOR_HOST");
+    if (emulatorEndpoint != null) {
+      builder.setCredentialsProvider(NoCredentialsProvider.create());
+      builder.setChannelProvider(
+          FixedTransportChannelProvider.create(
+              GrpcTransportChannel.create(
+                  ManagedChannelBuilder.forTarget(emulatorEndpoint).usePlaintext().build())));
     }
     return builder.build();
   }

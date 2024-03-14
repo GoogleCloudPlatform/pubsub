@@ -85,7 +85,7 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
     if (permanentError.isPresent()) {
       throw permanentError.get();
     }
-    if (messages.size() == 0) {
+    if (messages.isEmpty()) {
       return Optional.absent();
     }
     return Optional.of(messages.pop());
