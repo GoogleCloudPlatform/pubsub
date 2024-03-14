@@ -41,10 +41,14 @@ import java.util.List;
 import java.util.concurrent.ExecutionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.PubSubEmulatorContainer;
+import org.testcontainers.utility.DockerImageName;
 
 /** Helper for local E2E testing against a Cloud Pub/Sub emulator. */
 public final class PubSubEmulatorHelper {
   private static final Logger LOG = LoggerFactory.getLogger(PubSubEmulatorHelper.class);
+
+  private static PubSubEmulatorContainer container;
 
   private static TransportChannel channel;
   private static TransportChannelProvider channelProvider;
@@ -54,12 +58,19 @@ public final class PubSubEmulatorHelper {
 
   private PubSubEmulatorHelper() {}
 
-  public static String getEmulatorEndpoint() throws IllegalStateException {
+  public static String getEmulatorEndpoint() {
     String hostport = System.getenv("PUBSUB_EMULATOR_HOST");
-    if (hostport == null) {
-      throw new IllegalStateException("Environment variable PUBSUB_EMULATOR_HOST not set.");
+    if (hostport != null) {
+      return hostport;
     }
-    return hostport;
+
+    if (container == null) {
+      container =
+          new PubSubEmulatorContainer(
+              DockerImageName.parse(DockerImageVersions.GOOGLE_CLOUD_PUBSUB_EMULATOR));
+      container.start();
+    }
+    return container.getEmulatorEndpoint();
   }
 
   public static TransportChannelProvider getTransportChannelProvider()

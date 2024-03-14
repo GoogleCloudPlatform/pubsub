@@ -16,6 +16,7 @@
 
 package com.google.pubsub.flink;
 
+import com.google.pubsub.flink.util.EmulatorEndpoint;
 import com.google.pubsub.v1.SubscriptionName;
 import com.google.pubsub.v1.TopicName;
 import java.util.ArrayList;
@@ -56,6 +57,8 @@ public class PubSubSourceEmulatorTest extends TestLogger {
                     PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()))
                 .setProjectName(subscription.getProject())
                 .setSubscriptionName(subscription.getSubscription())
+                .setEndpoint(
+                    EmulatorEndpoint.toEmulatorEndpoint(PubSubEmulatorHelper.getEmulatorEndpoint()))
                 .build(),
             WatermarkStrategy.noWatermarks(),
             "PubSubEmulatorSource");
