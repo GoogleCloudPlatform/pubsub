@@ -35,7 +35,7 @@ Prerequisites:
 *   Maven (we recommend version 3.8.6)
 *   Java 11
 
-```
+```sh
 git clone https://github.com/GoogleCloudPlatform/pubsub.git
 cd pubsub/flink-connector
 mvn clean package -DskipTests
