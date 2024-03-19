@@ -97,8 +97,33 @@ public class PubSubSourceTest {
   }
 
   @Test
+  public void build_nullParallelPullCountThrows() throws Exception {
+    assertThrows(
+        NullPointerException.class,
+        () -> PubSubSource.<String>builder().setParallelPullCount(null));
+  }
+
+  @Test
+  public void build_negativeParallelPullCountThrows() throws Exception {
+    PubSubSource.Builder<String> builder =
+        PubSubSource.<String>builder()
+            .setProjectName("project")
+            .setSubscriptionName("subscription")
+            .setDeserializationSchema(
+                PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()))
+            .setParallelPullCount(-1);
+    assertThrows(IllegalArgumentException.class, builder::build);
+  }
+
+  @Test
   public void build_invalidCreds() throws Exception {
     assertThrows(
         NullPointerException.class, () -> PubSubSource.<String>builder().setCredentials(null));
+  }
+
+  @Test
+  public void build_invalidEndpoint() throws Exception {
+    assertThrows(
+        NullPointerException.class, () -> PubSubSource.<String>builder().setEndpoint(null));
   }
 }

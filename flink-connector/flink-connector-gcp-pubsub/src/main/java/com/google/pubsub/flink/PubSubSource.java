@@ -67,7 +67,11 @@ public abstract class PubSubSource<OutputT>
 
   public abstract Optional<Long> maxOutstandingMessagesBytes();
 
+  public abstract Optional<Integer> parallelPullCount();
+
   public abstract Optional<Credentials> credentials();
+
+  public abstract Optional<String> endpoint();
 
   public static <OutputT> Builder<OutputT> builder() {
     return new AutoValue_PubSubSource.Builder<OutputT>();
@@ -83,8 +87,14 @@ public abstract class PubSubSource<OutputT>
             .setMaxOutstandingRequestBytes(
                 maxOutstandingMessagesBytes().or(100L * 1024L * 1024L)) // 100MB
             .build());
+    if (parallelPullCount().isPresent()) {
+      builder.setParallelPullCount(parallelPullCount().get());
+    }
     if (credentials().isPresent()) {
       builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
+    }
+    if (endpoint().isPresent()) {
+      builder.setEndpoint(endpoint().get());
     }
 
     // Assume we should connect to the Pub/Sub emulator if PUBSUB_EMULATOR_HOST is set.
@@ -181,7 +191,11 @@ public abstract class PubSubSource<OutputT>
 
     public abstract Builder<OutputT> setMaxOutstandingMessagesBytes(Long bytes);
 
+    public abstract Builder<OutputT> setParallelPullCount(Integer parallelPullCount);
+
     public abstract Builder<OutputT> setCredentials(Credentials credentials);
+
+    public abstract Builder<OutputT> setEndpoint(String endpoint);
 
     abstract PubSubSource<OutputT> autoBuild();
 
@@ -193,6 +207,9 @@ public abstract class PubSubSource<OutputT>
       Preconditions.checkArgument(
           source.maxOutstandingMessagesBytes().or(1L) > 0,
           "maxOutstandingMessagesBytes, if set, must be a value greater than 0.");
+      Preconditions.checkArgument(
+          source.parallelPullCount().or(1) > 0,
+          "parallelPullCount, if set, must be a value greater than 0.");
       return source;
     }
   }

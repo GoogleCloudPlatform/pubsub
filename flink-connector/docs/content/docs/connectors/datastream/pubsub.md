@@ -113,29 +113,54 @@ successful checkpoint are unacknowledged and will automatically be redelivered.
 Note that there is no message delivery state stored in checkpoints, so retained
 checkpoints are not necessary to resume using Pub/Sub source.
 
-### Flow Control
+### StreamingPull Connections and Flow Control
 
-Each Pub/Sub source subtask manages a `StreamingPull` connection to Google Cloud
-Pub/Sub. That is, a Pub/Sub source with parallelism of 20 manages 20 separate
-`StreamingPull` connections to Google Cloud Pub/Sub. The flow control settings
-described in this section are applied to **individual** connections.
+Each Pub/Sub source subtask opens and manages `StreamingPull` connections to
+Google Cloud Pub/Sub. The number of connections per subtask can be set using
+`PubSubSource.<OutputT>builder().setParallelPullCount` (defaults to 1). Opening
+more connections can increase the message throughput delivered to each subtask.
+Note that the underlying subscriber client library creates an executor with 5
+threads for each connection opened, so too many connections can be detrimental
+to performance.
 
-Several Pub/Sub source options configure flow control. These options are
-illustrated below:
+Google Cloud Pub/Sub servers pause message delivery to a `StreamingPull`
+connection when a flow control limit is exceeded. There are two forms of flow
+control:
+
+1) Message delivery throughput
+2) Outstanding message count / bytes
+
+`StreamingPull` connections are limited to pulling messages at 10 MB/s. This
+limit cannot be configured. Opening more connections is recommended when
+observing message throughput flow control. See
+[Pub/Sub quotas and limits](https://cloud.google.com/pubsub/quotas) for a full
+list of limitations.
+
+The other form of flow control is based on outstanding messages--when a message
+has been delivered but not yet acknowledged. Since outstanding messages are
+acknowledged when a checkpoint completes, flow control limits for outstanding
+messages are effectively per-checkpoint interval limits. Infrequent
+checkpointing can cause connections to be flow controlled due to too many
+outstanding messages.
+
+The snippet below shows how to configure connection count and flow control
+settings.
 
 ```java
 PubSubSource.<OutputT>builder()
+    // Open 5 StreamingPull connections.
+    .setParallelPullCount(5)
     // Allow up to 10,000 message deliveries per checkpoint interval.
     .setMaxOutstandingMessagesCount(10_000L)
     // Allow up to 1000 MB in cumulatitive message size per checkpoint interval.
     .setMaxOutstandingMessagesBytes(1000L * 1024L * 1024L)  // 1000 MB
 ```
 
-Google Cloud Pub/Sub servers pause message delivery when a flow control setting
-is exceeded. A message is considered outstanding from when Google Cloud Pub/Sub
-delivers it until the subscriber acknowledges it. Since outstanding messages are
-acknowledged when a checkpoint completes, flow control limits for outstanding
-messages are effectively per-checkpoint interval limits.
+A Pub/Sub source subtask with these options is able to:
+
+- Pull messages at up to 50 MB/s
+- Receive up to 50,000 messages **or** 5000 MB in cumulative message size per
+  checkpoint interval
 
 ### Message Leasing
 
@@ -143,17 +168,6 @@ Pub/Sub source automatically extends the acknowledge deadline of messages. This
 means a checkpointing interval can be longer than the acknowledge deadline
 without causing messages redelivery. Note that acknowledge deadlines can be
 extended to at most 1h.
-
-### Performance Considerations
-
--   Infrequent checkpointing can cause performance issues, including
-    subscription backlog growth and increased rate of duplicate message
-    delivery.
--   `StreamingPull` connections have a 10 MB/s throughput limit. See
-    [Pub/Sub quotas and limits](https://cloud.google.com/pubsub/quotas) for all
-    restrictions.
-
-<!-- TODO(matt-kwong) Add threading details. -->
 
 ### All Options
 
@@ -200,17 +214,27 @@ extended to at most 1h.
     <tr>
         <td>setMaxOutstandingMessagesCount(Long count)</td>
         <td><code>1000L</code></td>
-        <td>The maximum number of messages that can be delivered to a Pub/Sub source subtask in a checkpoint interval.</td>
+        <td>The maximum number of messages that can be delivered to a StreamingPull connection within a checkpoint interval.</td>
     </tr>
     <tr>
         <td>setMaxOutstandingMessagesBytes(Long bytes)</td>
         <td><code>100L * 1024L * 1024L</code> (100 MB)</td>
-        <td>The maximum number of cumulative bytes that can be delivered to a Pub/Sub source subtask in a checkpoint interval.</td>
+        <td>The maximum number of cumulative bytes that can be delivered to a StreamingPull connection within a checkpoint interval.</td>
+    </tr>
+    <tr>
+        <td>setParallelPullCount(Integer parallelPullCount)</td>
+        <td>1</td>
+        <td>The number of StreamingPull connections to open for pulling messages from Google Cloud Pub/Sub.</td>
     </tr>
     <tr>
         <td>setCredentials(Credentials credentials)</td>
         <td>(none)</td>
         <td>The credentials attached to requests sent to Google Cloud Pub/Sub. The identity in the credentials must be authorized to pull messages from the subscription. If not set, then Pub/Sub source uses Application Default Credentials.</td>
+    </tr>
+    <tr>
+        <td>setEndpoint(String endpoint)</td>
+        <td>pubsub.googleapis.com:443</td>
+        <td>The Google Cloud Pub/Sub gRPC endpoint from which messages are pulled. Defaults to the global endpoint, which routes requests to the nearest regional endpoint.</td>
     </tr>
   </tbody>
 </table>
@@ -291,6 +315,16 @@ possible data loss.
         <td>setCredentials(Credentials credentials)</td>
         <td>(none)</td>
         <td>The credentials attached to requests sent to Google Cloud Pub/Sub. The identity in the credentials must be authorized to publish messages to the topic. If not set, then Pub/Sub sink uses Application Default Credentials.</td>
+    </tr>
+    <tr>
+        <td>setEnableMessageOrdering(Boolean enableMessageOrdering)</td>
+        <td>false</td>
+        <td>This must be set to true when publishing messages with an ordering key.</td>
+    </tr>
+    <tr>
+        <td>setEndpoint(String endpoint)</td>
+        <td>pubsub.googleapis.com:443</td>
+        <td>The Google Cloud Pub/Sub gRPC endpoint to which messages are published. Defaults to the global endpoint, which routes requests to the nearest regional endpoint.</td>
     </tr>
   </tbody>
 </table>

@@ -60,4 +60,16 @@ public class PubSubSinkTest {
     assertThrows(
         NullPointerException.class, () -> PubSubSink.<String>builder().setCredentials(null));
   }
+
+  @Test
+  public void build_invalidEnableMessageOrdering() throws Exception {
+    assertThrows(
+        NullPointerException.class,
+        () -> PubSubSink.<String>builder().setEnableMessageOrdering(null));
+  }
+
+  @Test
+  public void build_invalidEndpoint() throws Exception {
+    assertThrows(NullPointerException.class, () -> PubSubSink.<String>builder().setEndpoint(null));
+  }
 }

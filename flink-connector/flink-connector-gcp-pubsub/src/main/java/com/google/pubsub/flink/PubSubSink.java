@@ -38,6 +38,10 @@ public abstract class PubSubSink<T> implements Sink<T> {
 
   public abstract Optional<Credentials> credentials();
 
+  public abstract Optional<Boolean> enableMessageOrdering();
+
+  public abstract Optional<String> endpoint();
+
   public static <T> Builder<T> builder() {
     return new AutoValue_PubSubSink.Builder<T>();
   }
@@ -46,6 +50,12 @@ public abstract class PubSubSink<T> implements Sink<T> {
     Publisher.Builder builder = Publisher.newBuilder(topicName.toString());
     if (credentials().isPresent()) {
       builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
+    }
+    if (enableMessageOrdering().isPresent()) {
+      builder.setEnableMessageOrdering(enableMessageOrdering().get());
+    }
+    if (endpoint().isPresent()) {
+      builder.setEndpoint(endpoint().get());
     }
     return builder.build();
   }
@@ -74,6 +84,10 @@ public abstract class PubSubSink<T> implements Sink<T> {
         PubSubSerializationSchema<T> serializationSchema);
 
     public abstract Builder<T> setCredentials(Credentials credentials);
+
+    public abstract Builder<T> setEnableMessageOrdering(Boolean enableMessageOrdering);
+
+    public abstract Builder<T> setEndpoint(String endpoint);
 
     public abstract PubSubSink<T> build();
   }
