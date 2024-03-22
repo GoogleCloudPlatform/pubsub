@@ -53,6 +53,13 @@ import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.util.UserCodeClassLoader;
 
+/**
+ * Google Cloud Pub/Sub source to pull messages from a Pub/Sub subscription.
+ *
+ * <p>{@link PubSubSource} is constructed and configured using {@link Builder}. {@link PubSubSource}
+ * cannot be configured after it is built. See {@link Builder} for how {@link PubSubSource} can be
+ * configured.
+ */
 @AutoValue
 public abstract class PubSubSource<OutputT>
     implements Source<OutputT, SubscriptionSplit, PubSubEnumeratorCheckpoint>,
@@ -178,23 +185,75 @@ public abstract class PubSubSource<OutputT>
     return deserializationSchema().getProducedType();
   }
 
+  /** Builder to construct {@link PubSubSource}. */
   @AutoValue.Builder
   public abstract static class Builder<OutputT> {
+    /**
+     * Sets the GCP project ID that owns the subscription from which messages are pulled.
+     *
+     * <p>Setting this option is required to build {@link PubSubSource}.
+     */
     public abstract Builder<OutputT> setProjectName(String projectName);
 
+    /**
+     * Sets the Pub/Sub subscription to which messages are pulled.
+     *
+     * <p>Setting this option is required to build {@link PubSubSource}.
+     */
     public abstract Builder<OutputT> setSubscriptionName(String subscriptionName);
 
+    /**
+     * Sets the deserialization schema used to deserialize {@link PubsubMessage} for processing.
+     *
+     * <p>Setting this option is required to build {@link PubSubSource}.
+     */
     public abstract Builder<OutputT> setDeserializationSchema(
         PubSubDeserializationSchema<OutputT> deserializationSchema);
 
+    /**
+     * Sets the max number of messages that can be outstanding to a StreamingPull connection.
+     *
+     * <p>Defaults to 1,000 outstanding messages. A message is considered outstanding when it is
+     * delivered and waiting to be acknowledged in the next successful checkpoint. Google Cloud
+     * Pub/Sub suspends message delivery to StreamingPull connections that reach this limit.
+     *
+     * <p>If set, this value must be > 0. Otherwise, calling {@link build} will throw an exception.
+     */
     public abstract Builder<OutputT> setMaxOutstandingMessagesCount(Long count);
 
+    /**
+     * Sets the max cumulative message bytes that can be outstanding to a StreamingPull connection.
+     *
+     * <p>Defaults to 100 MB. A message is considered outstanding when it is delivered and waiting
+     * to be acknowledged in the next successful checkpoint. Google Cloud Pub/Sub suspends message
+     * delivery to StreamingPull connections that reach this limit.
+     *
+     * <p>If set, this value must be > 0. Otherwise, calling {@link build} will throw an exception.
+     */
     public abstract Builder<OutputT> setMaxOutstandingMessagesBytes(Long bytes);
 
+    /**
+     * Sets the number of StreamingPull connections opened by each {@link PubSubSource} subtask.
+     *
+     * <p>Defaults to 1.
+     *
+     * <p>If set, this value must be > 0. Otherwise, calling {@link build} will throw an exception.
+     */
     public abstract Builder<OutputT> setParallelPullCount(Integer parallelPullCount);
 
+    /**
+     * Sets the credentials used when pulling messages from Google Cloud Pub/Sub.
+     *
+     * <p>If not set, then Application Default Credentials are used for authentication.
+     */
     public abstract Builder<OutputT> setCredentials(Credentials credentials);
 
+    /**
+     * Sets the Google Cloud Pub/Sub service endpoint from which messages are pulled.
+     *
+     * <p>Defaults to connecting to the global endpoint, which routes requests to the nearest
+     * regional endpoint.
+     */
     public abstract Builder<OutputT> setEndpoint(String endpoint);
 
     abstract PubSubSource<OutputT> autoBuild();
