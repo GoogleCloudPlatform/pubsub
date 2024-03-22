@@ -28,6 +28,13 @@ import java.io.IOException;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
 
+/**
+ * Google Cloud Pub/Sub sink to publish messages to a Pub/Sub topic.
+ *
+ * <p>{@link PubSubSink} is constructed and configured using {@link Builder}. {@link PubSubSink}
+ * cannot be configured after it is built. See {@link Builder} for how {@link PubSubSink} can be
+ * configured.
+ */
 @AutoValue
 public abstract class PubSubSink<T> implements Sink<T> {
   public abstract String projectName();
@@ -38,6 +45,10 @@ public abstract class PubSubSink<T> implements Sink<T> {
 
   public abstract Optional<Credentials> credentials();
 
+  public abstract Optional<Boolean> enableMessageOrdering();
+
+  public abstract Optional<String> endpoint();
+
   public static <T> Builder<T> builder() {
     return new AutoValue_PubSubSink.Builder<T>();
   }
@@ -46,6 +57,12 @@ public abstract class PubSubSink<T> implements Sink<T> {
     Publisher.Builder builder = Publisher.newBuilder(topicName.toString());
     if (credentials().isPresent()) {
       builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
+    }
+    if (enableMessageOrdering().isPresent()) {
+      builder.setEnableMessageOrdering(enableMessageOrdering().get());
+    }
+    if (endpoint().isPresent()) {
+      builder.setEndpoint(endpoint().get());
     }
     return builder.build();
   }
@@ -64,16 +81,53 @@ public abstract class PubSubSink<T> implements Sink<T> {
         serializationSchema());
   }
 
+  /** Builder to construct {@link PubSubSink}. */
   @AutoValue.Builder
   public abstract static class Builder<T> {
+    /**
+     * Sets the GCP project ID that owns the topic to which messages are published.
+     *
+     * <p>Setting this option is required to build {@link PubSubSink}.
+     */
     public abstract Builder<T> setProjectName(String projectName);
 
+    /**
+     * Sets the Pub/Sub topic to which messages are published.
+     *
+     * <p>Setting this option is required to build {@link PubSubSink}.
+     */
     public abstract Builder<T> setTopicName(String topicName);
 
+    /**
+     * Sets the serialization schema used to serialize incoming data into a {@link PubsubMessage}.
+     *
+     * <p>Setting this option is required to build {@link PubSubSink}.
+     */
     public abstract Builder<T> setSerializationSchema(
         PubSubSerializationSchema<T> serializationSchema);
 
+    /**
+     * Sets the credentials used when publishing messages to Google Cloud Pub/Sub.
+     *
+     * <p>If not set, then Application Default Credentials are used for authentication.
+     */
     public abstract Builder<T> setCredentials(Credentials credentials);
+
+    /**
+     * Sets whether to enable ordered publishing.
+     *
+     * <p>The default value is {@code false}. This must be set to {@code true} when publishing an
+     * {@link PubsubMessage} with an ordering key set.
+     */
+    public abstract Builder<T> setEnableMessageOrdering(Boolean enableMessageOrdering);
+
+    /**
+     * Sets the Google Cloud Pub/Sub service endpoint to which messages are published.
+     *
+     * <p>Defaults to connecting to the global endpoint, which routes requests to the nearest
+     * regional endpoint.
+     */
+    public abstract Builder<T> setEndpoint(String endpoint);
 
     public abstract PubSubSink<T> build();
   }
