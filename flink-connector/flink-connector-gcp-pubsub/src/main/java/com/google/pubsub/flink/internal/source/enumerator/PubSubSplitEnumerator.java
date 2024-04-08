@@ -91,7 +91,8 @@ public class PubSubSplitEnumerator
     HashMap<Integer, List<SubscriptionSplit>> newAssignments = new HashMap<>();
     for (Integer reader : registeredReaders) {
       if (!readersWithAssignments.containsKey(reader)) {
-        SubscriptionSplit newSplit = SubscriptionSplit.create(subscriptionName);
+        SubscriptionSplit newSplit =
+            SubscriptionSplit.create(subscriptionName, Integer.toString(reader));
         readersWithAssignments.put(reader, newSplit);
         newAssignments.put(reader, Collections.singletonList(newSplit));
       }

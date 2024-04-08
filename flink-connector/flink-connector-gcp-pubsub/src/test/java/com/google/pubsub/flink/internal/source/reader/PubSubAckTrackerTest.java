@@ -85,4 +85,18 @@ public class PubSubAckTrackerTest {
     verify(mockAck1).ack();
     verify(mockAck2).ack();
   }
+
+  @Test
+  public void nackAll_pendingAndIncompleteCheckpointAcks() throws Exception {
+    AckReplyConsumer mockAck1 = mock(AckReplyConsumer.class);
+    ackTracker.addPendingAck(mockAck1);
+    ackTracker.addCheckpoint(1L);
+    AckReplyConsumer mockAck2 = mock(AckReplyConsumer.class);
+    ackTracker.addPendingAck(mockAck2);
+
+    ackTracker.nackAll();
+
+    verify(mockAck1).nack();
+    verify(mockAck2).nack();
+  }
 }

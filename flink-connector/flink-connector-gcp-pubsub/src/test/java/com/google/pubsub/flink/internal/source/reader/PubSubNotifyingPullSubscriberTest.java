@@ -65,10 +65,9 @@ public class PubSubNotifyingPullSubscriberTest {
     AckReplyConsumer consumer = mock(AckReplyConsumer.class);
     receiver.receiveMessage(message, consumer);
 
-    verify(mockAckTracker).addPendingAck(consumer);
     assertThat(notification.isDone()).isTrue();
-
     assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message);
+    verify(mockAckTracker).addPendingAck(consumer);
   }
 
   @Test
@@ -77,7 +76,6 @@ public class PubSubNotifyingPullSubscriberTest {
         PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("message")).build();
     AckReplyConsumer consumer = mock(AckReplyConsumer.class);
     receiver.receiveMessage(message, consumer);
-    verify(mockAckTracker).addPendingAck(consumer);
 
     ApiFuture<Void> notification = pullSubscriber.notifyDataAvailable();
     assertThat(notification.isDone()).isTrue();
@@ -97,15 +95,15 @@ public class PubSubNotifyingPullSubscriberTest {
     AckReplyConsumer consumer3 = mock(AckReplyConsumer.class);
 
     receiver.receiveMessage(message1, consumer1);
-    verify(mockAckTracker).addPendingAck(consumer1);
     receiver.receiveMessage(message2, consumer2);
-    verify(mockAckTracker).addPendingAck(consumer2);
     receiver.receiveMessage(message3, consumer3);
-    verify(mockAckTracker).addPendingAck(consumer3);
 
     assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message1);
+    verify(mockAckTracker).addPendingAck(consumer1);
     assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message2);
+    verify(mockAckTracker).addPendingAck(consumer2);
     assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message3);
+    verify(mockAckTracker).addPendingAck(consumer3);
   }
 
   @Test
@@ -144,8 +142,34 @@ public class PubSubNotifyingPullSubscriberTest {
     when(mockSubscriber.stopAsync()).thenReturn(mockSubscriber);
     pullSubscriber.shutdown();
     verify(mockSubscriber).stopAsync();
+    verify(mockAckTracker).nackAll();
 
     assertThrows(Exception.class, () -> pullSubscriber.pullMessage());
     assertThrows(ExecutionException.class, () -> pullSubscriber.notifyDataAvailable().get());
+  }
+
+  @Test
+  public void shutdown_nacksOutstandingMessages() throws Throwable {
+    PubsubMessage message1 =
+        PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("message1")).build();
+    PubsubMessage message2 =
+        PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("message2")).build();
+    AckReplyConsumer consumer1 = mock(AckReplyConsumer.class);
+    AckReplyConsumer consumer2 = mock(AckReplyConsumer.class);
+    receiver.receiveMessage(message1, consumer1);
+    receiver.receiveMessage(message2, consumer2);
+
+    assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message1);
+    verify(mockAckTracker).addPendingAck(consumer1);
+
+    when(mockSubscriber.stopAsync()).thenReturn(mockSubscriber);
+    pullSubscriber.shutdown();
+    verify(mockSubscriber).stopAsync();
+
+    assertThrows(Exception.class, () -> pullSubscriber.pullMessage());
+    assertThrows(ExecutionException.class, () -> pullSubscriber.notifyDataAvailable().get());
+    // consumer1 is nacked by this call. consumer2 is nacked by pullSubscriber.
+    verify(mockAckTracker).nackAll();
+    verify(consumer2).nack();
   }
 }

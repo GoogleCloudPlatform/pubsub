@@ -23,4 +23,6 @@ public interface AckTracker {
   void addCheckpoint(long checkpointId);
 
   void notifyCheckpointComplete(long checkpointId);
+
+  void nackAll();
 }

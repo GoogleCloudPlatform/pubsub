@@ -31,7 +31,7 @@ public class PubSubAckTracker implements AckTracker {
 
   @Override
   public synchronized void addPendingAck(AckReplyConsumer ackReplyConsumer) {
-    this.pendingAcks.add(ackReplyConsumer);
+    pendingAcks.add(ackReplyConsumer);
   }
 
   @Override
@@ -47,5 +47,17 @@ public class PubSubAckTracker implements AckTracker {
       toAck.addAll(checkpoints.remove(checkpoints.firstKey()));
     }
     toAck.forEach((ackReplyConsumer) -> ackReplyConsumer.ack());
+  }
+
+  @Override
+  public synchronized void nackAll() {
+    pendingAcks.forEach((ackReplyConsumer) -> ackReplyConsumer.nack());
+    pendingAcks.clear();
+    checkpoints
+        .values()
+        .forEach(
+            (ackReplyConsumers) ->
+                ackReplyConsumers.forEach((ackReplyConsumer) -> ackReplyConsumer.nack()));
+    checkpoints.clear();
   }
 }
