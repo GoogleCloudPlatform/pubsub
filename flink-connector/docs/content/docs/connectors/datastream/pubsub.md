@@ -68,8 +68,9 @@ either at the Google Cloud project-level or the Pub/Sub resource-level.
 
 ## Pub/Sub Source
 
-Pub/Sub source streams data from a single Google Cloud Pub/Sub subscription. The
-sample below shows the minimal configurations required to build Pub/Sub source.
+Pub/Sub source streams data from a single Google Cloud Pub/Sub subscription with
+an at-least-once guarantee. The sample below shows the minimal configurations
+required to build Pub/Sub source.
 
 ```java
 PubSubSource.<String>builder()
@@ -241,8 +242,9 @@ extended to at most 1h.
 
 ## Pub/Sub Sink
 
-Pub/Sub sink publishes data to a single Google Cloud Pub/Sub topic. The sample
-below shows the minimal configurations required to build Pub/Sub sink.
+Pub/Sub sink publishes data to a single Google Cloud Pub/Sub topic with an
+at-least-once guarantee. The sample below shows the minimal configurations
+required to build Pub/Sub sink.
 
 ```java
 PubSubSink.<String>builder()
@@ -262,12 +264,6 @@ serialized to
 For convenience, `PubSubSserializationSchema.dataOnly(SerializationSchema<T>
 schema)` can be used if `PubsubMessage.data` is the only field used when
 publishing messages.
-
-### Publish Guarantees
-
-There are currently no guarantees that messages are published. Pub/Sub sink uses
-a fire-and-forget publishing strategy to maximize throughput, at the cost of
-possible data loss.
 
 ### All Options
 
