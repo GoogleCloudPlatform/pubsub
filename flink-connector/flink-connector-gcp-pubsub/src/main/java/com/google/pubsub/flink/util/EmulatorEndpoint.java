@@ -33,6 +33,7 @@ public class EmulatorEndpoint {
   @Nullable
   public static String getEmulatorEndpoint(Optional<String> endpoint) {
     String emulatorEndpoint = null;
+    // Prioritize using an emulator endpoint set in env var PUBSUB_EMULATOR_HOST.
     if ((emulatorEndpoint = System.getenv("PUBSUB_EMULATOR_HOST")) != null) {
       return emulatorEndpoint;
     }

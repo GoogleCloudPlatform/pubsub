@@ -23,12 +23,16 @@ import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.api.gax.rpc.NotFoundException;
 import com.google.api.gax.rpc.TransportChannel;
 import com.google.api.gax.rpc.TransportChannelProvider;
+import com.google.cloud.pubsub.v1.AckReplyConsumer;
+import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Publisher;
+import com.google.cloud.pubsub.v1.Subscriber;
 import com.google.cloud.pubsub.v1.SubscriptionAdminClient;
 import com.google.cloud.pubsub.v1.SubscriptionAdminSettings;
 import com.google.cloud.pubsub.v1.TopicAdminClient;
 import com.google.cloud.pubsub.v1.TopicAdminSettings;
 import com.google.protobuf.ByteString;
+import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.PushConfig;
 import com.google.pubsub.v1.Subscription;
@@ -37,8 +41,10 @@ import com.google.pubsub.v1.Topic;
 import com.google.pubsub.v1.TopicName;
 import io.grpc.ManagedChannelBuilder;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.PubSubEmulatorContainer;
@@ -139,6 +145,36 @@ public final class PubSubEmulatorHelper {
           .publish(PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8(payload)).build())
           .get();
     }
+    publisher.shutdown();
+    publisher.awaitTermination(1, TimeUnit.MINUTES);
+  }
+
+  public static List<PubsubMessage> pullAndAckMessages(
+      SubscriptionName subscription, Integer expectedMessageCount, Integer deadlineSeconds)
+      throws ExecutionException, InterruptedException, IOException {
+    List<PubsubMessage> messages = new ArrayList<PubsubMessage>();
+    MessageReceiver receiver =
+        (PubsubMessage message, AckReplyConsumer consumer) -> {
+          messages.add(message);
+          consumer.ack();
+        };
+    Subscriber subscriber =
+        Subscriber.newBuilder(
+                ProjectSubscriptionName.of(
+                    subscription.getProject(), subscription.getSubscription()),
+                receiver)
+            .setChannelProvider(getTransportChannelProvider())
+            .setCredentialsProvider(getCredentialsProvider())
+            .build();
+    subscriber.startAsync().awaitRunning();
+    for (int i = deadlineSeconds; i > 0; i--) {
+      Thread.sleep(1000);
+      if (messages.size() >= expectedMessageCount) {
+        break;
+      }
+    }
+    subscriber.stopAsync().awaitTerminated();
+    return messages;
   }
 
   private static TopicAdminClient getTopicAdminClient() throws IOException {
