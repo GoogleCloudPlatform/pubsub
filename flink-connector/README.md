@@ -1,23 +1,20 @@
-# Apache Flink Google Cloud Pub/Sub Connector (Under Development)
+# Apache Flink Google Cloud Pub/Sub Connector
+
+This repository contains an **unofficial** Flink connector library that is
+maintained by the owners of Google Cloud Pub/Sub. This connector was designed to
+enable building Flink pipelines that scale to your streaming data analytics
+performance requirements. Reasons to use this connector include:
+
+*   Stream data from Google Cloud Pub/Sub with minimal latency and maximal
+    throughput by taking advantage of Google Cloud Pub/Sub's
+    [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api)
+*   Process data at your pace with automatic
+    [message lease extensions](https://cloud.google.com/pubsub/docs/lease-management)
+*   Using the latest Flink DataStream APIs, including the source API updated in
+    [FLIP-27](https://cwiki.apache.org/confluence/display/FLINK/FLIP-27%3A+Refactor+Source+Interface)
 
 The official Apache Flink Google Cloud Pub/Sub connector is located at
 [https://github.com/apache/flink-connector-gcp-pubsub](https://github.com/apache/flink-connector-gcp-pubsub).
-
-This repository contains an **unofficial** connector that is **under
-development** by the owners of Google Cloud Pub/Sub. The connector is available
-to preview, but there are currently no performance or stability guarantees.
-
-Some motivations behind creating this connector:
-
-*   Create a Google Cloud Pub/Sub source that implements the Source interface
-    introduced in
-    [FLIP-27](https://cwiki.apache.org/confluence/display/FLINK/FLIP-27%3A+Refactor+Source+Interface)
-*   Leverage
-    [StreamingPull API](https://cloud.google.com/pubsub/docs/pull#streamingpull_api)
-    to achieve high throughput and low latency in this connector source
-*   Add support for automatic
-    [message lease extensions](https://cloud.google.com/pubsub/docs/lease-management)
-    to enable setting longer checkpointing intervals
 
 ## Apache Flink
 
@@ -26,7 +23,13 @@ and batch-processing capabilities.
 
 Learn more about Flink at [https://flink.apache.org/](https://flink.apache.org/)
 
-## Building from Source
+## Using the Connector
+
+We are in the process of uploading the connector to a public respository. In the
+meantime, you can build the connector jar file from source to be packaged with
+your Flink deployment.
+
+### Building from Source
 
 Prerequisites:
 
