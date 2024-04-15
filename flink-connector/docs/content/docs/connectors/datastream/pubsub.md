@@ -43,20 +43,26 @@ Learn more about Flink connector packaging
 
 ## Configuring Access to Google Cloud Pub/Sub
 
-By default, the connector library uses
-[Application Default Credentials](https://cloud.google.com/docs/authentication/application-default-credentials)
-when [authenticating](https://cloud.google.com/docs/authentication) to Google
-Cloud Pub/Sub.
+Requests sent to Google Cloud Pub/Sub must be
+[authenticated](https://cloud.google.com/pubsub/docs/authentication). By
+default, the connector library authenticates requests using
+[Application Default Credentials](https://cloud.google.com/docs/authentication#adc).
 
-Credentials that are set in the source and sink builders take precedence over
-Application Default Credentials. Example of setting credentials in builders:
+Credentials can also be in the source and sink builders. The connector library
+prioritizes using credentials set in builders over Application Default
+Credentials. The snippet below shows how to authenticate using an OAuth 2.0
+token.
 
 ```java
-// Set credentials used by Pub/Sub source to pull messages from a subscription.
-`PubSubSource.<String>builder().setCredentials(...)`
+final String tokenValue = "...";
 
-// Set credentials used by Pub/Sub sink to publish messages to a topic.
-PubSubSink.<String>builder().setCredentials(...)
+// Authenticate with OAuth 2.0 token when pulling messages from a subscription.
+PubSubSource.<String>builder().setCredentials(
+    GoogleCredentials.create(new AccessToken(tokenValue, /* expirationTime= */ null)))
+
+// Authenticate with OAuth 2.0 token when publishing messages to a topic.
+PubSubSink.<String>builder().setCredentials(
+    GoogleCredentials.create(new AccessToken(tokenValue, /* expirationTime= */ null)))
 ```
 
 The authenticating principal must be
@@ -74,9 +80,10 @@ required to build Pub/Sub source.
 
 ```java
 PubSubSource.<String>builder()
-     .setDeserializationSchema(PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()))
-     .setProjectName("my-project-name")
-     .setSubscriptionName("my-subscription-name")
+    .setDeserializationSchema(
+        PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()))
+    .setProjectName("my-project-name")
+    .setSubscriptionName("my-subscription-name")
     .build()
 ```
 
@@ -97,8 +104,20 @@ balances message delivery across readers.
 [`PubsubMessage`](https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage)
 is deserialized into an output that is suitable for processing.
 
-For convenience, `PubSubDeserializationSchema.dataOnly` can be used if only the
-field `PubsubMessage.data` is required for processing.
+For convenience,
+`PubSubDeserializationSchema.dataOnly(DeserializationSchema<T> schema)` can be
+used if the field `PubsubMessage.data` stores all of the data to be processed.
+Additionally, Flink provides basic schemas for further convenience.
+
+```java
+// Deserialization output is PubsubMessage.data field converted to String type.
+PubSubSource.<String>builder()
+    .setDeserializationSchema(PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()))
+```
+
+Implementing `PubSubDeserializationSchema<T>` is required to process data stored
+in fields other than `PubsubMessage.data`.
+<!-- TODO(matt-kwong): Add custom deserialization code example. -->
 
 ### Boundedness
 
@@ -116,13 +135,14 @@ checkpoints are not necessary to resume using Pub/Sub source.
 
 ### StreamingPull Connections and Flow Control
 
-Each Pub/Sub source subtask opens and manages `StreamingPull` connections to
-Google Cloud Pub/Sub. The number of connections per subtask can be set using
-`PubSubSource.<OutputT>builder().setParallelPullCount` (defaults to 1). Opening
-more connections can increase the message throughput delivered to each subtask.
-Note that the underlying subscriber client library creates an executor with 5
-threads for each connection opened, so too many connections can be detrimental
-to performance.
+Each Pub/Sub source subtask opens and manages
+[`StreamingPull`](https://cloud.google.com/pubsub/docs/pull#streamingpull_api)
+connections to Google Cloud Pub/Sub. The number of connections per subtask can
+be set using `PubSubSource.<OutputT>builder().setParallelPullCount` (defaults to
+1). Opening more connections can increase the message throughput delivered to
+each subtask. Note that the underlying subscriber client library creates an
+executor with 5 threads for each connection opened, so too many connections can
+be detrimental to performance.
 
 Google Cloud Pub/Sub servers pause message delivery to a `StreamingPull`
 connection when a flow control limit is exceeded. There are two forms of flow
@@ -165,10 +185,12 @@ A Pub/Sub source subtask with these options is able to:
 
 ### Message Leasing
 
-Pub/Sub source automatically extends the acknowledge deadline of messages. This
-means a checkpointing interval can be longer than the acknowledge deadline
-without causing messages redelivery. Note that acknowledge deadlines can be
-extended to at most 1h.
+Pub/Sub source automatically
+[extends the acknowledgement deadline](https://cloud.google.com/pubsub/docs/lease-management)
+of messages. This means a checkpointing interval can be longer than a message's
+acknowledgement deadline without causing message redelivery. Note that message
+acknowledgement deadlines are extended for up to 1 hour, after which, they are
+redelivered by Google Cloud Pub/Sub.
 
 ### All Options
 
@@ -261,9 +283,17 @@ PubSubSink.<String>builder()
 serialized to
 [`PubsubMessage`](https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage).
 
-For convenience, `PubSubSserializationSchema.dataOnly(SerializationSchema<T>
-schema)` can be used if `PubsubMessage.data` is the only field used when
-publishing messages.
+For convenience,
+`PubSubSerializationSchema.dataOnly(SerializationSchema<T> schema)` can be used
+to write output data to the field `PubsubMessage.data`. The type of
+`SerializationSchema<T>` must be one of the supported types matching
+[`ByteString.copyFrom(schema.serialize(T ...))`](https://cloud.google.com/java/docs/reference/protobuf/latest/com.google.protobuf.ByteString).
+
+
+Implementing `PubSubSerializationSchema<T>` is required to publish messages with
+attributes or ordering keys.
+
+<!-- TODO(matt-kwong): Add custom serialization code example. -->
 
 ### All Options
 
