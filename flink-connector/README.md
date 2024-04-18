@@ -57,7 +57,7 @@ mvn clean package -DskipTests
 
 The resulting jars can be found in the `target` directory of the respective
 module. The connector library JAR file is
-`flink-connector-gcp-pubsub/target/flink-connector-gcp-pubsub-0.0.0.jar`.
+`flink-connector-gcp-pubsub/target/flink-connector-gcp-pubsub-1.0.0-SNAPSHOT.jar`.
 
 Flink applications built with Maven can include the connector as a dependency in
 their pom.xml file by adding:
@@ -66,7 +66,7 @@ their pom.xml file by adding:
 <dependency>
   <groupId>com.google.pubsub.flink</groupId>
   <artifactId>flink-connector-gcp-pubsub</artifactId>
-  <version>0.0.0</version>
+  <version>1.0.0-SNAPSHOT</version>
 </dependency>
 ```
 

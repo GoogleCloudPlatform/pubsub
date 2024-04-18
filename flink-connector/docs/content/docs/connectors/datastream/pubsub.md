@@ -31,7 +31,7 @@ their pom.xml file by adding:
 <dependency>
   <groupId>com.google.pubsub.flink</groupId>
   <artifactId>flink-connector-gcp-pubsub</artifactId>
-  <version>0.0.0</version>
+  <version>1.0.0-SNAPSHOT</version>
 </dependency>
 ```
 

@@ -19,11 +19,13 @@ import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
+import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.pubsub.v1.MessageReceiver;
 import com.google.cloud.pubsub.v1.Subscriber;
+import com.google.cloud.pubsub.v1.SubscriptionAdminSettings;
 import com.google.common.base.Optional;
 import com.google.common.base.Preconditions;
 import com.google.pubsub.flink.internal.source.enumerator.PubSubCheckpointSerializer;
@@ -52,6 +54,7 @@ import org.apache.flink.configuration.Configuration;
 import org.apache.flink.core.io.SimpleVersionedSerializer;
 import org.apache.flink.metrics.MetricGroup;
 import org.apache.flink.util.UserCodeClassLoader;
+import org.threeten.bp.Duration;
 
 /**
  * Google Cloud Pub/Sub source to pull messages from a Pub/Sub subscription.
@@ -88,6 +91,16 @@ public abstract class PubSubSource<OutputT>
     Subscriber.Builder builder =
         Subscriber.newBuilder(
             ProjectSubscriptionName.of(projectName(), subscriptionName()).toString(), receiver);
+    // Channel settings copied from com.google.cloud:google-cloud-pubsub:1.124.1.
+    builder.setChannelProvider(
+        SubscriptionAdminSettings.defaultGrpcTransportProviderBuilder()
+            .setMaxInboundMessageSize(20 * 1024 * 1024) // 20MB API maximum message size.
+            .setMaxInboundMetadataSize(4 * 1024 * 1024) // 4MB API maximum metadata size)
+            .setKeepAliveTime(Duration.ofMinutes(5))
+            .setHeaderProvider(
+                FixedHeaderProvider.create(
+                    "x-goog-api-client", "PubSub-Flink-Connector/1.0.0-SNAPSHOT"))
+            .build());
     builder.setFlowControlSettings(
         FlowControlSettings.newBuilder()
             .setMaxOutstandingElementCount(maxOutstandingMessagesCount().or(1000L))
