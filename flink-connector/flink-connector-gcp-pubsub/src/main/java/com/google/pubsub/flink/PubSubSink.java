@@ -18,10 +18,12 @@ package com.google.pubsub.flink;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
+import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.pubsub.v1.Publisher;
+import com.google.cloud.pubsub.v1.TopicAdminSettings;
 import com.google.common.base.Optional;
 import com.google.pubsub.flink.internal.sink.PubSubFlushablePublisher;
 import com.google.pubsub.flink.internal.sink.PubSubPublisherCache;
@@ -60,6 +62,14 @@ public abstract class PubSubSink<T> implements Sink<T> {
 
   private Publisher createPublisher(TopicName topicName) throws IOException {
     Publisher.Builder builder = Publisher.newBuilder(topicName.toString());
+    // Channel settings copied from com.google.cloud:google-cloud-pubsub:1.124.1.
+    builder.setChannelProvider(
+        TopicAdminSettings.defaultGrpcTransportProviderBuilder()
+            .setChannelsPerCpu(1)
+            .setHeaderProvider(
+                FixedHeaderProvider.create(
+                    "x-goog-api-client", "PubSub-Flink-Connector/1.0.0-SNAPSHOT"))
+            .build());
     if (credentials().isPresent()) {
       builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
     }
