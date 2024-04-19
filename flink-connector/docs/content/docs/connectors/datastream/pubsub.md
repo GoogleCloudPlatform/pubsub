@@ -361,7 +361,9 @@ Instead of integration tests reading from and writing to production Google Cloud
 Pub/Sub, tests can run against a local instance of the
 [Pub/Sub emulator](https://cloud.google.com/pubsub/docs/emulator). Pub/Sub
 source and sink will automatically try connecting to the emulator if the
-environment variable `PUBSUB_EMULATOR_HOST` is set.
+environment variable `PUBSUB_EMULATOR_HOST` is set. Alternatively, you can
+manually set the emulator endpoint in your builder by calling
+`.setEndpoint(EmulatorEndpoint.toEmulatorEndpoint("localhost:8085"))`.
 
 Steps to run tests against the Pub/Sub emulator:
 
@@ -376,3 +378,7 @@ Steps to run tests against the Pub/Sub emulator:
     where the emulator is running. For example, if the emulator is listening on
     port 8085 and running on the same machine as the test, set
     `PUBSUB_EMULATOR_HOST=localhost:8085`.
+
+The emulator can also be started within a Docker container while testing. The
+tests under `flink-connector/flink-connector-gcp-pubsub-e2e-tests/` illustrate
+how to do this.

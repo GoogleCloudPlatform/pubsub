@@ -17,62 +17,63 @@
 package com.google.pubsub.flink;
 
 import com.google.pubsub.flink.util.EmulatorEndpoint;
+import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.SubscriptionName;
 import com.google.pubsub.v1.TopicName;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import org.apache.flink.api.common.eventtime.WatermarkStrategy;
+import java.util.stream.Collectors;
 import org.apache.flink.api.common.serialization.SimpleStringSchema;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.environment.StreamExecutionEnvironment;
-import org.apache.flink.util.CloseableIterator;
 import org.apache.flink.util.TestLogger;
 import org.junit.Test;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
-/** E2E test for PubSubSource using a local Pub/Sub emulator. */
-public class PubSubSourceEmulatorTest extends TestLogger {
+/** E2E test for PubSubSink using a local Pub/Sub emulator. */
+public class PubSubSinkEmulatorTest extends TestLogger {
   private final TopicName topic = TopicName.of("test-project", "test-topic");
   private final SubscriptionName subscription =
       SubscriptionName.of("test-project", "test-subscription");
 
   @Test
-  public void testPubSubSource() throws Exception {
+  public void testPubSubSink() throws Exception {
     PubSubEmulatorHelper.createTopic(topic);
     PubSubEmulatorHelper.createSubscription(subscription, topic);
     List<String> messageInput = Arrays.asList("msg-1", "msg-2", "msg-3", "msg-4", "msg-5");
-    PubSubEmulatorHelper.publishMessages(topic, messageInput);
-
     final StreamExecutionEnvironment env = StreamExecutionEnvironment.getExecutionEnvironment();
     env.enableCheckpointing(100);
-    env.setParallelism(2);
-
-    DataStream<String> stream =
-        env.fromSource(
-            PubSubSource.<String>builder()
-                .setDeserializationSchema(
-                    PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()))
-                .setProjectName(subscription.getProject())
-                .setSubscriptionName(subscription.getSubscription())
+    env.setParallelism(1);
+    DataStream<String> stream = env.fromCollection(messageInput);
+    stream
+        .sinkTo(
+            PubSubSink.<String>builder()
+                .setSerializationSchema(
+                    PubSubSerializationSchema.dataOnly(new SimpleStringSchema()))
+                .setProjectName(topic.getProject())
+                .setTopicName(topic.getTopic())
                 .setEndpoint(
                     EmulatorEndpoint.toEmulatorEndpoint(PubSubEmulatorHelper.getEmulatorEndpoint()))
-                .build(),
-            WatermarkStrategy.noWatermarks(),
-            "PubSubEmulatorSource");
-    CloseableIterator<String> iterator = stream.executeAndCollect();
-    List<String> messageOutput = new ArrayList<>();
-    while (messageOutput.size() < messageInput.size() && iterator.hasNext()) {
-      messageOutput.add(iterator.next());
-    }
-    iterator.close();
+                .build())
+        .name("PubSubSink");
+    env.execute("PubSubSinkEmulatorTest");
+
+    List<PubsubMessage> messageOutput =
+        PubSubEmulatorHelper.pullAndAckMessages(
+            subscription,
+            /* expectedMessageCount= */ messageInput.size(),
+            /* deadlineSeconds= */ 60);
+    List<String> messageDataOutput =
+        messageOutput.stream()
+            .map(message -> message.getData().toStringUtf8())
+            .collect(Collectors.toList());
 
     assertEquals(
         "Did not receive expected number of messages.", messageInput.size(), messageOutput.size());
     for (final String msg : messageInput) {
-      assertTrue("Missing " + msg, messageOutput.contains(msg));
+      assertTrue("Missing " + msg, messageDataOutput.contains(msg));
     }
   }
 }
