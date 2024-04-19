@@ -73,6 +73,11 @@
       <!-- Version is pulled from google-cloud-bom (loaded via the libraries-bom) -->
       <scope>test</scope>
     </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>gcloud</artifactId>
+      <scope>test</scope>
+    </dependency>
   </dependencies>
 
   <build>
