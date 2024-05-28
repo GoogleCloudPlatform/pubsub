@@ -33,14 +33,17 @@ import org.mockito.junit.MockitoJUnitRunner;
 public class PubSubRecordEmitterTest {
   @Mock PubSubDeserializationSchema mockDeserializer;
   @Mock SourceOutput<String> mockSource;
+  @Mock AckTracker mockAckTracker;
 
   @Test
   public void emit_deserializesMessage() throws Exception {
-    PubSubRecordEmitter<String> recordEmitter = new PubSubRecordEmitter<String>(mockDeserializer);
+    PubSubRecordEmitter<String> recordEmitter =
+        new PubSubRecordEmitter<String>(mockDeserializer, mockAckTracker);
 
     PubsubMessage message =
         PubsubMessage.newBuilder()
             .setData(ByteString.copyFromUtf8("message"))
+            .setMessageId("message-id")
             .setPublishTime(Timestamps.fromMillis(12345L))
             .build();
     when(mockDeserializer.deserialize(message)).thenReturn("message");
@@ -48,5 +51,6 @@ public class PubSubRecordEmitterTest {
     recordEmitter.emitRecord(message, mockSource, new SubscriptionSplitState(null));
     verify(mockDeserializer).deserialize(message);
     verify(mockSource).collect("message", 12345L);
+    verify(mockAckTracker).stagePendingAck("message-id");
   }
 }

@@ -61,13 +61,16 @@ public class PubSubNotifyingPullSubscriberTest {
     assertThat(notification.isDone()).isFalse();
 
     PubsubMessage message =
-        PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("message")).build();
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8("message"))
+            .setMessageId("message-id")
+            .build();
     AckReplyConsumer consumer = mock(AckReplyConsumer.class);
     receiver.receiveMessage(message, consumer);
 
     assertThat(notification.isDone()).isTrue();
     assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message);
-    verify(mockAckTracker).addPendingAck(consumer);
+    verify(mockAckTracker).addPendingAck("message-id", consumer);
   }
 
   @Test
@@ -84,11 +87,20 @@ public class PubSubNotifyingPullSubscriberTest {
   @Test
   public void messages_pulledInOrder() throws Throwable {
     PubsubMessage message1 =
-        PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("message1")).build();
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8("message1"))
+            .setMessageId("message1-id")
+            .build();
     PubsubMessage message2 =
-        PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("message2")).build();
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8("message2"))
+            .setMessageId("message2-id")
+            .build();
     PubsubMessage message3 =
-        PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("message3")).build();
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8("message3"))
+            .setMessageId("message3-id")
+            .build();
 
     AckReplyConsumer consumer1 = mock(AckReplyConsumer.class);
     AckReplyConsumer consumer2 = mock(AckReplyConsumer.class);
@@ -98,12 +110,12 @@ public class PubSubNotifyingPullSubscriberTest {
     receiver.receiveMessage(message2, consumer2);
     receiver.receiveMessage(message3, consumer3);
 
+    verify(mockAckTracker).addPendingAck("message1-id", consumer1);
+    verify(mockAckTracker).addPendingAck("message2-id", consumer2);
+    verify(mockAckTracker).addPendingAck("message3-id", consumer3);
     assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message1);
-    verify(mockAckTracker).addPendingAck(consumer1);
     assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message2);
-    verify(mockAckTracker).addPendingAck(consumer2);
     assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message3);
-    verify(mockAckTracker).addPendingAck(consumer3);
   }
 
   @Test
@@ -151,25 +163,29 @@ public class PubSubNotifyingPullSubscriberTest {
   @Test
   public void shutdown_nacksOutstandingMessages() throws Throwable {
     PubsubMessage message1 =
-        PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("message1")).build();
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8("message1"))
+            .setMessageId("message1-id")
+            .build();
     PubsubMessage message2 =
-        PubsubMessage.newBuilder().setData(ByteString.copyFromUtf8("message2")).build();
+        PubsubMessage.newBuilder()
+            .setData(ByteString.copyFromUtf8("message2"))
+            .setMessageId("message2-id")
+            .build();
     AckReplyConsumer consumer1 = mock(AckReplyConsumer.class);
     AckReplyConsumer consumer2 = mock(AckReplyConsumer.class);
     receiver.receiveMessage(message1, consumer1);
     receiver.receiveMessage(message2, consumer2);
+    verify(mockAckTracker).addPendingAck("message1-id", consumer1);
+    verify(mockAckTracker).addPendingAck("message2-id", consumer2);
 
     assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message1);
-    verify(mockAckTracker).addPendingAck(consumer1);
-
     when(mockSubscriber.stopAsync()).thenReturn(mockSubscriber);
     pullSubscriber.shutdown();
     verify(mockSubscriber).stopAsync();
 
     assertThrows(Exception.class, () -> pullSubscriber.pullMessage());
     assertThrows(ExecutionException.class, () -> pullSubscriber.notifyDataAvailable().get());
-    // consumer1 is nacked by this call. consumer2 is nacked by pullSubscriber.
     verify(mockAckTracker).nackAll();
-    verify(consumer2).nack();
   }
 }

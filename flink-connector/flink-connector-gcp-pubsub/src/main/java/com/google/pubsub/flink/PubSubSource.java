@@ -31,8 +31,8 @@ import com.google.common.base.Preconditions;
 import com.google.pubsub.flink.internal.source.enumerator.PubSubCheckpointSerializer;
 import com.google.pubsub.flink.internal.source.enumerator.PubSubSplitEnumerator;
 import com.google.pubsub.flink.internal.source.reader.AckTracker;
+import com.google.pubsub.flink.internal.source.reader.PubSubAckTracker;
 import com.google.pubsub.flink.internal.source.reader.PubSubNotifyingPullSubscriber;
-import com.google.pubsub.flink.internal.source.reader.PubSubRecordEmitter;
 import com.google.pubsub.flink.internal.source.reader.PubSubSourceReader;
 import com.google.pubsub.flink.internal.source.reader.PubSubSplitReader;
 import com.google.pubsub.flink.internal.source.split.SubscriptionSplit;
@@ -156,7 +156,8 @@ public abstract class PubSubSource<OutputT>
           }
         });
     return new PubSubSourceReader<>(
-        new PubSubRecordEmitter<>(schema),
+        schema,
+        new PubSubAckTracker(),
         this::createSplitReader,
         new Configuration(),
         readerContext);

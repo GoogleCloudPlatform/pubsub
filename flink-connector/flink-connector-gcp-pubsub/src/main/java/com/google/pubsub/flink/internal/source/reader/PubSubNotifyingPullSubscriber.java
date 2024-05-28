@@ -30,7 +30,6 @@ import com.google.errorprone.annotations.concurrent.GuardedBy;
 import com.google.pubsub.v1.PubsubMessage;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import org.apache.flink.api.java.tuple.Tuple2;
 
 public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
   public static class SubscriberWakeupException extends Exception {}
@@ -50,7 +49,7 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
   private Optional<SettableApiFuture<Void>> notification = Optional.absent();
 
   @GuardedBy("this")
-  private final Deque<Tuple2<PubsubMessage, AckReplyConsumer>> messages = new ArrayDeque<>();
+  private final Deque<PubsubMessage> messages = new ArrayDeque<>();
 
   private final AckTracker ackTracker;
 
@@ -91,9 +90,7 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
     if (messages.isEmpty()) {
       return Optional.absent();
     }
-    Tuple2<PubsubMessage, AckReplyConsumer> message = messages.pop();
-    ackTracker.addPendingAck(message.f1);
-    return Optional.of(message.f0);
+    return Optional.of(messages.pop());
   }
 
   @Override
@@ -105,9 +102,8 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
   public void shutdown() {
     setPermanentError(new SubscriberShutdownException());
     completeNotification(permanentError);
-    // Nack all outstanding messages, so that they are redelivered quickly.
-    messages.forEach((tuple) -> tuple.f1.nack());
     messages.clear();
+    // Nack all outstanding messages, so that they are redelivered quickly.
     ackTracker.nackAll();
     subscriber.stopAsync().awaitTerminated();
   }
@@ -119,7 +115,8 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
       completeNotification(permanentError);
       return;
     }
-    messages.add(Tuple2.of(message, ackReplyConsumer));
+    ackTracker.addPendingAck(message.getMessageId(), ackReplyConsumer);
+    messages.add(message);
     completeNotification(Optional.absent());
   }
 
