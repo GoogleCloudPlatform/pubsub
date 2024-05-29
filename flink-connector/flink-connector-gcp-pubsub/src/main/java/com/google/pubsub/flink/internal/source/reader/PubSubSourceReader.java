@@ -16,6 +16,7 @@
 package com.google.pubsub.flink.internal.source.reader;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.pubsub.flink.PubSubDeserializationSchema;
 import com.google.pubsub.flink.internal.source.split.SubscriptionSplit;
 import com.google.pubsub.flink.internal.source.split.SubscriptionSplitState;
 import com.google.pubsub.v1.PubsubMessage;
@@ -36,23 +37,18 @@ public class PubSubSourceReader<T>
 
   private final AckTracker ackTracker;
 
-  @VisibleForTesting
-  PubSubSourceReader(
-      RecordEmitter<PubsubMessage, T, SubscriptionSplitState> recordEmitter,
-      SplitReaderFactory splitReaderFactory,
-      Configuration config,
-      SourceReaderContext context,
-      AckTracker ackTracker) {
-    super(() -> splitReaderFactory.create(ackTracker), recordEmitter, config, context);
-    this.ackTracker = ackTracker;
-  }
-
   public PubSubSourceReader(
-      RecordEmitter<PubsubMessage, T, SubscriptionSplitState> recordEmitter,
+      PubSubDeserializationSchema<T> schema,
+      AckTracker ackTracker,
       SplitReaderFactory splitReaderFactory,
       Configuration config,
       SourceReaderContext context) {
-    this(recordEmitter, splitReaderFactory, config, context, new PubSubAckTracker());
+    super(
+        () -> splitReaderFactory.create(ackTracker),
+        new PubSubRecordEmitter<>(schema, ackTracker),
+        config,
+        context);
+    this.ackTracker = ackTracker;
   }
 
   @Override

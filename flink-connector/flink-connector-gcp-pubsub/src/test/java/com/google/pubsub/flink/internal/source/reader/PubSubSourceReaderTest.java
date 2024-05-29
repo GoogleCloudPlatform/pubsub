@@ -58,14 +58,13 @@ public class PubSubSourceReaderTest {
   public void doBeforeEachTest() throws Exception {
     reader =
         new PubSubSourceReader<>(
-            new PubSubRecordEmitter<String>(
-                PubSubDeserializationSchema.dataOnly(new SimpleStringSchema())),
+            PubSubDeserializationSchema.dataOnly(new SimpleStringSchema()),
+            mockAckTracker,
             (ackTracker) -> {
               return mockSplitReader;
             },
             new Configuration(),
-            mockContext,
-            mockAckTracker);
+            mockContext);
   }
 
   @Test

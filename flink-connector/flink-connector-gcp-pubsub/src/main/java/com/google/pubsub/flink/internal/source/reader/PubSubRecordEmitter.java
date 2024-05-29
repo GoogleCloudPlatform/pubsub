@@ -26,9 +26,12 @@ import org.apache.flink.connector.base.source.reader.RecordEmitter;
 public class PubSubRecordEmitter<T>
     implements RecordEmitter<PubsubMessage, T, SubscriptionSplitState> {
   private final PubSubDeserializationSchema<T> deserializationSchema;
+  private final AckTracker ackTracker;
 
-  public PubSubRecordEmitter(PubSubDeserializationSchema<T> deserializationSchema) {
+  public PubSubRecordEmitter(
+      PubSubDeserializationSchema<T> deserializationSchema, AckTracker ackTracker) {
     this.deserializationSchema = deserializationSchema;
+    this.ackTracker = ackTracker;
   }
 
   @Override
@@ -39,6 +42,7 @@ public class PubSubRecordEmitter<T>
       sourceOutput.collect(
           deserializationSchema.deserialize(message),
           Timestamps.toMillis(message.getPublishTime()));
+      ackTracker.stagePendingAck(message.getMessageId());
     } catch (Exception e) {
       throw new IOException("Failed to deserialize PubsubMessage", e);
     }

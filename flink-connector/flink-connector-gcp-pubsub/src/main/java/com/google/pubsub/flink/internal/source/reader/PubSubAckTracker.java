@@ -18,26 +18,39 @@ package com.google.pubsub.flink.internal.source.reader;
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 import com.google.errorprone.annotations.concurrent.GuardedBy;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.SortedMap;
 import java.util.TreeMap;
 
 public class PubSubAckTracker implements AckTracker {
   @GuardedBy("this")
-  private final List<AckReplyConsumer> pendingAcks = new ArrayList<>();
+  private final Map<String, AckReplyConsumer> pendingAcks = new HashMap<>();
+
+  @GuardedBy("this")
+  private final List<AckReplyConsumer> stagedAcks = new ArrayList<>();
 
   @GuardedBy("this")
   private final SortedMap<Long, List<AckReplyConsumer>> checkpoints = new TreeMap<>();
 
   @Override
-  public synchronized void addPendingAck(AckReplyConsumer ackReplyConsumer) {
-    pendingAcks.add(ackReplyConsumer);
+  public synchronized void addPendingAck(String messageId, AckReplyConsumer ackReplyConsumer) {
+    pendingAcks.put(messageId, ackReplyConsumer);
+  }
+
+  @Override
+  public synchronized void stagePendingAck(String messageId) {
+    AckReplyConsumer ackToStage = pendingAcks.remove(messageId);
+    if (ackToStage != null) {
+      stagedAcks.add(ackToStage);
+    }
   }
 
   @Override
   public synchronized void addCheckpoint(long checkpointId) {
-    checkpoints.put(checkpointId, new ArrayList<>(pendingAcks));
-    pendingAcks.clear();
+    checkpoints.put(checkpointId, new ArrayList<>(stagedAcks));
+    stagedAcks.clear();
   }
 
   @Override
@@ -51,8 +64,10 @@ public class PubSubAckTracker implements AckTracker {
 
   @Override
   public synchronized void nackAll() {
-    pendingAcks.forEach((ackReplyConsumer) -> ackReplyConsumer.nack());
+    pendingAcks.values().forEach((ackReplyConsumer) -> ackReplyConsumer.nack());
     pendingAcks.clear();
+    stagedAcks.forEach((ackReplyConsumer) -> ackReplyConsumer.nack());
+    stagedAcks.clear();
     checkpoints
         .values()
         .forEach(
