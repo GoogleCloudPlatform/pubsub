@@ -36,7 +36,7 @@ Learn more about Flink at [https://flink.apache.org/](https://flink.apache.org/)
 
 ## Using the Connector
 
-We are in the process of uploading the connector to a public respository. In the
+We are in the process of uploading the connector to a public repository. In the
 meantime, you can build the connector JAR file from source to be packaged with
 your Flink deployment.
 
@@ -137,7 +137,7 @@ data flows through Pub/Sub and the example Flink job as expected.
     Flink job successfully used Pub/Sub as both a source and sink
 
 The following commands set variables for your GCP project name, Pub/Sub topic
-names, and Pub/Sub subcription names. These variables are referenced in this
+names, and Pub/Sub subscription names. These variables are referenced in this
 section's commands. The placeholder value for `PROJECT_NAME` must be updated to
 your GCP project name. The other placeholder values can be used as is or updated
 to your liking.
@@ -276,3 +276,17 @@ Stop the example Flink job.
 ```sh
 flink cancel {Flink JobID output when it started}
 ```
+
+## Contributing
+
+Contributions to this library are always welcome and highly encouraged.
+
+See
+[CONTRIBUTING](https://github.com/GoogleCloudPlatform/pubsub/blob/master/flink-connector/CONTRIBUTING.md)
+for more information on how to get started.
+
+## License
+
+Apache 2.0 - See
+[LICENSE](https://github.com/GoogleCloudPlatform/pubsub/blob/master/LICENSE) for
+more information.
