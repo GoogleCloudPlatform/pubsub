@@ -7,7 +7,10 @@ companies who wish to benchmark Cloud Pub/Sub.
 The goal of this framework is to provide users with a tool that allows them to see how Cloud Pub/Sub
 performs under various conditions.
 
-#### IMPORTANT NOTE:
+#### IMPORTANT NOTES:
+
+The load test framework is provided as-is for testing purposes only with no SLA.
+It is not meant to be run as part of a production or critical workload.
 
 Running this loadtest framework in throughput testParameters on a 16 core machine can consume somewhere between 1 and 2 TB of
 pubsub data usage, which will cost from 60 to 120 dollars.  Please take this into account before running this loadtest.

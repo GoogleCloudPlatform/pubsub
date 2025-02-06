@@ -3,6 +3,11 @@
 The prober is designed to demonstrate effective use of Cloud Pub/Sub's
 [ordered delivery](https://cloud.google.com/pubsub/docs/ordering).
 
+#### IMPORTANT NOTE:
+
+The ordering keys prober is provided as-is for testing purposes only with no
+SLA. It is not meant to be run as part of a production or critical workload.
+
 ### Building
 
 These instructions assume you are using [Maven](https://maven.apache.org/).
