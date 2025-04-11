@@ -48,6 +48,65 @@
           <protoSourceRoot>${project.basedir}/src/main/proto</protoSourceRoot>
         </configuration>
       </plugin>
+        <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-shade-plugin</artifactId>
+              <version>3.6.0</version>
+              <executions>
+                  <execution>
+                      <phase>package</phase>
+                      <goals>
+                          <goal>shade</goal>
+                      </goals>
+                      <configuration>
+                          <shadedArtifactAttached>false</shadedArtifactAttached>
+                          <transformers>
+                              <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                          </transformers>
+                          <artifactSet>
+                              <excludes>
+                                  <exclude>org.apache.flink:flink-core</exclude>
+                                  <exclude>org.apache.flink:flink-java</exclude>
+                                  <exclude>org.apache.flink:flink-streaming-java</exclude>
+                                  <exclude>org.apache.flink:flink-clients</exclude>
+                                  <exclude>org.apache.flink:flink-runtime</exclude>
+                                  <exclude>org.apache.flink:flink-optimizer</exclude>
+                                  <exclude>org.apache.flink:flink-shaded-force-shading</exclude>
+                                  <exclude>com.google.code.findbugs:jsr305</exclude>
+                                  <exclude>com.google.auth:google-auth-library-oauth2-http</exclude>
+                                  <exclude>org.slf4j:*</exclude>
+                                  <exclude>log4j:*</exclude>
+                                  <exclude>org.apache.logging.log4j:*</exclude> 
+                              </excludes>
+                          </artifactSet>
+                          <filters>
+                              <filter>
+                                  <artifact>*:*</artifact>
+                                  <excludes>
+                                      <exclude>META-INF/*.SF</exclude>
+                                      <exclude>META-INF/*.DSA</exclude>
+                                      <exclude>META-INF/*.RSA</exclude>
+                                  </excludes>
+                              </filter>
+                          </filters>
+                      </configuration>
+                  </execution>
+              </executions>
+          </plugin>
+          <plugin>
+              <groupId>org.apache.maven.plugins</groupId>
+              <artifactId>maven-compiler-plugin</artifactId>
+              <version>3.14.0</version>
+              <configuration>
+                  <source>${java.version}</source>
+                  <target>${java.version}</target>
+              </configuration>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-jar-plugin</artifactId>
+            <version>3.4.2</version>
+          </plugin>
     </plugins>
   </build>
   <dependencies>
