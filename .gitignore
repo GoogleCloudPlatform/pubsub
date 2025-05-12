@@ -13,3 +13,6 @@ node_modules/
 venv/
 .DS_Store
 .idea/
+
+**/dependency-reduced-pom.xml
+
