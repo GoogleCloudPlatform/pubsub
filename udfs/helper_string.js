@@ -5,7 +5,7 @@
  * @param {Object} metadata - The metadata of the message.
  * @returns {Object} The message with manipulated string fields.
  */
-function string_helper(message, metadata) {
+function helper_string(message, metadata) {
     // Parse the message
     const data = JSON.parse(message.data);
     
