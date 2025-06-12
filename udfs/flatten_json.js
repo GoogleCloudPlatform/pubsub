@@ -6,6 +6,7 @@
  * @returns {Object} The message with flattened JSON.
  */
 function flatten_json(message, metadata) {
+    
     // Parse the message
     const data = JSON.parse(message.data);
     
