@@ -9,7 +9,6 @@ function validate(message, metadata) {
     
     const data = JSON.parse(message.data);
 
-
     if (data["field1"] < 0) {
       throw new Error("field1 is invalid");
     }
