@@ -5,7 +5,7 @@
  * @param {Object} metadata - The metadata of the message.
  * @returns {Object} The message with the converted timestamp.
  */
-function gmt_converter(message, metadata) {
+function timestamp_gmt_converter(message, metadata) {
     // Parse the message
     const data = JSON.parse(message.data);
     
