@@ -1,11 +1,9 @@
-# BigQuery UDFs
+# Pub/Sub UDFs
 
-User-defined functions
-([UDFs](https://cloud.google.com/bigquery/docs/reference/standard-sql/user-defined-functions))
-are a feature of SQL supported by BigQuery that enables a user to create a
-function using another SQL expression or JavaScript. These functions accept
-columns of input and perform actions, returning the result of those actions as a
-value.
+Pub/Sub offers Single Message Transforms ([SMTs](https://cloud.google.com/pubsub/docs/smts/smts-overview)) to simplify data transformations for streaming pipelines. SMTs enable lightweight modifications to message data and attributes directly within Pub/Sub. SMTs eliminate the need for additional data processing steps or separate data transformation products.
+
+A JavaScript User-Defined Function ([UDF](https://cloud.google.com/pubsub/docs/smts/udfs-overview)) is a type of Single Message Transform (SMT). UDFs provide a flexible way to implement custom transformation logic within Pub/Sub
+
 
 ## Repo Folder to BigQuery Dataset Mappings
 
