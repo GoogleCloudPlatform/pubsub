@@ -9,7 +9,7 @@ function filter_custom(message, metadata) {
     // Parse the message
     const data = JSON.parse(message.data);
     
-    // Extract region from the message
+    // Filter out from the message
     const region = data['region'];
     
     // Filter out messages that are not from US region
