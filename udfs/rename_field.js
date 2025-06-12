@@ -5,7 +5,7 @@
  * @param {Object} metadata - The metadata of the message.
  * @returns {Object} The message with renamed fields.
  */
-function replace_field(message, metadata) {
+function rename_field(message, metadata) {
     // Parse the message
     const data = JSON.parse(message.data);
     
