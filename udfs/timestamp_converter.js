@@ -18,18 +18,19 @@ function timestamp_converter(message, metadata) {
     // Check if timestamp field exists
     if (data[timestampField]) {
         // Convert timestamp to Date object
-        const date = new Date(data[timestampField]);
+        const date = new Date(data['timestampField']);
         
-        // Format the date according to target format
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        const hours = String(date.getHours()).padStart(2, '0');
-        const minutes = String(date.getMinutes()).padStart(2, '0');
-        const seconds = String(date.getSeconds()).padStart(2, '0');
+        const map = {
+            YYYY: date.getFullYear(),
+            MM: String(date.getMonth() + 1).padStart(2, '0'),
+            DD: String(date.getDate()).padStart(2, '0'),
+            HH: String(date.getHours()).padStart(2, '0'),
+            mm: String(date.getMinutes()).padStart(2, '0'),
+            ss: String(date.getSeconds()).padStart(2, '0'),
+        };
         
         // Create formatted timestamp
-        const formattedTimestamp = `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+        const formattedTimestamp = targetFormat.replace(/YYYY|MM|DD|HH|mm|ss/g, match => map[match]);
         
         // Add formatted timestamp to data
         data['formatted_timestamp'] = formattedTimestamp;

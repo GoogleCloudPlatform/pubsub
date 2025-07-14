@@ -9,9 +9,9 @@ function url_decode(message, metadata) {
     // Parse the message
     const data = JSON.parse(message.data);
     
-    // URL decode the specified field
-    if (data['url'] !== undefined) {
-        data['url'] = decodeURIComponent(data['url']);
+    // URL decode the specified field (e.g. encodedString)
+    if (data['encodedString'] !== undefined) {
+        data['decodedString'] = decodeURIComponent(data['encodedString']);
     }
     
     // Update the message with decoded data

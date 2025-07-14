@@ -8,6 +8,7 @@
 function upgrade_attribute(message, metadata) {
     // Parse the message
     const data = JSON.parse(message.data);
+    const attributes = JSON.parse(metadata.attributes);
     
     // Define the field to extract from metadata
     const fieldToExtract = 'attribute_to_upgrade';
@@ -15,10 +16,10 @@ function upgrade_attribute(message, metadata) {
     // Check if field exists in metadata
     if (metadata[fieldToExtract] !== undefined) {
         // Add field to data
-        data[fieldToExtract] = metadata[fieldToExtract];
+        data[fieldToExtract] = attributes[fieldToExtract];
         
-        // Remove field from metadata
-        delete metadata[fieldToExtract];
+        // Remove field from attributes
+        delete attributes[fieldToExtract];
     }
     
     // Update the message with modified data

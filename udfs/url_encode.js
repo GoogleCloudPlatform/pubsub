@@ -10,8 +10,8 @@ function url_encode(message, metadata) {
     const data = JSON.parse(message.data);
     
     // URL encode the specified field
-    if (data['url'] !== undefined) {
-        data['url'] = encodeURIComponent(data['url']);
+    if (data['field'] !== undefined) {
+        data['encodedString'] = encodeURIComponent(data['field']);
     }
     
     // Update the message with encoded data

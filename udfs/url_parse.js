@@ -6,6 +6,7 @@
  * @returns {Object} The message with extracted URL parameters.
  */
 function url_parse(message, metadata) {
+    
     // Parse the message
     const data = JSON.parse(message.data);
     

@@ -7,4 +7,4 @@ A JavaScript User-Defined Function ([UDF](https://cloud.google.com/pubsub/docs/s
 
 ## Using the UDFs
 
-Please clone the repo and use it as a starting point for your Single Message Transforms. All UDFs within this repository are maintained in js format. This format is used to enable testing and deployment of the UDFs with Pub/Sub SMTs
+Please clone the repo and use it as a starting point for your Single Message Transforms. All UDFs within this repository are maintained in js format. This format is used to enable testing and deployment of the UDFs with Pub/Sub SMTs.
