@@ -18,8 +18,8 @@ shopt -s nullglob
 
 ## Get the directory of the build script
 scriptDir=$(realpath $(dirname "${BASH_SOURCE[0]}"))
-## cd to the flink connector directory
-cd ${scriptDir}/../flink-connector
+## cd to the parent directory, i.e. flink-connector
+cd ${scriptDir}/..
 
 # include common functions
 source ${scriptDir}/common.sh
