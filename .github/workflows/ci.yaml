@@ -62,7 +62,7 @@ jobs:
           distribution: zulu
           java-version: ${{matrix.java}}
       - run: java -version
-      - run: .kokoro/dependencies.sh
+      - run: flink-connector/.kokoro/dependencies.sh
   lint:
     runs-on: ubuntu-latest
     steps:
