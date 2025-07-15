@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright 2022 Google LLC
+# Copyright 2025 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@ set -eo pipefail
 
 ## Get the directory of the build script
 scriptDir=$(realpath $(dirname "${BASH_SOURCE[0]}"))
-## cd to the parent directory, i.e. the root of the git repo
-cd ${scriptDir}/..
+## cd to the flink connector directory
+cd ${scriptDir}/../flink-connector
 
 # include common functions
 source ${scriptDir}/common.sh
@@ -63,7 +63,7 @@ integration)
       then
           source "${KOKORO_GFILE_DIR}/secret_manager/pubsub-secrets"
     fi
-    mvn clean test -Dtest=it.StandaloneIT
+    mvn clean test -Dtest=it.StandaloneIT -DfailIfNoTests=false
     RETURN_CODE=$?
     ;;
 *)
