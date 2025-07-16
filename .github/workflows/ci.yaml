@@ -33,6 +33,7 @@ jobs:
           distribution: zulu
           java-version: ${{matrix.java}}
       - run: java -version
+      - run: chmod +x flink-connector/.kokoro/*
       - run: flink-connector/.kokoro/build.sh
         env:
           JOB_TYPE: test
@@ -47,6 +48,7 @@ jobs:
           distribution: zulu
           java-version: 8
       - run: java -version
+      - run: chmod +x flink-connector/.kokoro/*
       - run: flink-connector/.kokoro/build.bat
         env:
           JOB_TYPE: test
@@ -62,6 +64,7 @@ jobs:
           distribution: zulu
           java-version: ${{matrix.java}}
       - run: java -version
+      - run: chmod +x flink-connector/.kokoro/*
       - run: flink-connector/.kokoro/dependencies.sh
   lint:
     runs-on: ubuntu-latest
@@ -72,6 +75,7 @@ jobs:
           distribution: zulu
           java-version: 11
       - run: java -version
+      - run: chmod +x flink-connector/.kokoro/*
       - run: flink-connector/.kokoro/build.sh
         env:
           JOB_TYPE: lint
