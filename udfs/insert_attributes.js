@@ -7,15 +7,17 @@
  */
 function insert_attributes(message, metadata) {
    
-    // Define the new attributes to insert
-    const newAttributes = {
-        'attribute1': 'value1',
-        'attribute2': 'value2',
-        'attribute3': 'value3'
-    };
-    
-    // Add new attributes to metadata
-    Object.assign(metadata, newAttributes);
-    
+    // Parse the message
+    const data = JSON.parse(message.data);
+    const attributes = message.attributes;
+
+    // Add new attributes to insert
+    attributes["key1"] = 'value1';
+    attributes["key2"] = 'value2';
+    attributes["key3"] = 'value3'; 
+
+    // Update the message with modified data
+    message.data = JSON.stringify(data);
+        
     return message;
 }

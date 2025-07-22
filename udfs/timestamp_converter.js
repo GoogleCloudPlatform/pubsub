@@ -13,12 +13,12 @@ function timestamp_converter(message, metadata) {
     const timestampField = 'timestamp';
 
     // Target format
-    const targetFormat = 'YYYY-MM-DD HH:mm:ss';
+    const targetFormat = 'YYYY---MM----DD HH:mm:ss';
     
     // Check if timestamp field exists
     if (data[timestampField]) {
         // Convert timestamp to Date object
-        const date = new Date(data['timestampField']);
+        const date = new Date(data['timestamp']);
         
         const map = {
             YYYY: date.getFullYear(),

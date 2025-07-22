@@ -10,7 +10,7 @@ function filter_field_regex(message, metadata) {
     const data = JSON.parse(message.data);
     
     // Define the field to filter and the regex pattern
-    const fieldToFilter = 'text_field';
+    const fieldToFilter = 'field1';
     const regexPattern = /^[A-Za-z0-9]+$/;  // Only allows alphanumeric characters
     
     // Check if the field exists and matches the regex pattern

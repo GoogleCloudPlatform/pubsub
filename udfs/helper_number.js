@@ -30,10 +30,10 @@ function helper_number(message, metadata) {
     };
     
     // Apply transformations to specified fields
-    data['price'] = roundToDecimal(data['price'], 2);
-    data['price_formatted'] = formatWithCommas(data['price']);
-    data['discount_rate'] = toPercentage(data['discount_rate']);
-    data['quantity'] = clamp(data['quantity'], 0, 1000);
+    data['field1'] = roundToDecimal(data['field1'], 2);
+    data['field2'] = formatWithCommas(data['field2']);
+    data['field3'] = toPercentage(data['field3']);
+    data['field4'] = clamp(data['field4'], 0, 1000);
     
     // Update the message with transformed data
     message.data = JSON.stringify(data);

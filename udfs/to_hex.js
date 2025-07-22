@@ -22,3 +22,12 @@ function to_hex(message, metadata) {
   
     return message;
 }
+
+function stringToHexByteArray(str) {
+    // Converts a string to an array of hex byte values
+    const bytes = [];
+    for (let i = 0; i < str.length; i++) {
+        bytes.push(str.charCodeAt(i).toString(16).padStart(2, '0'));
+    }
+    return bytes;
+}

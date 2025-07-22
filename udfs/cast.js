@@ -5,11 +5,14 @@
  * @param {Object} metadata - The metadata of the message.
  * @returns {Object} The message with casted fields.
  */
-function cast(data) {
+function cast(message, metadata) {
+    // Parse the message
+    const data = JSON.parse(message.data);
+
     // Define type casting map
     const typeMap = {
-        'field1': Number,
-        'field2': Boolean,
+        'field1': String,
+        'field2': String,
         'field3': String,
     };
 
@@ -20,5 +23,8 @@ function cast(data) {
         }
     });
 
-    return data;
+    // Update the message with new data
+    message.data = JSON.stringify(data);
+    
+    return message;
 }

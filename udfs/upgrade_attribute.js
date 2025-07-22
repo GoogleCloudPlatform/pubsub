@@ -8,13 +8,13 @@
 function upgrade_attribute(message, metadata) {
     // Parse the message
     const data = JSON.parse(message.data);
-    const attributes = JSON.parse(metadata.attributes);
+    const attributes = message.attributes;
     
     // Define the field to extract from metadata
-    const fieldToExtract = 'attribute_to_upgrade';
+    const fieldToExtract = 'city';
     
-    // Check if field exists in metadata
-    if (metadata[fieldToExtract] !== undefined) {
+    // Check if attributes exist and field exists in attributes
+    if (attributes && attributes[fieldToExtract] != null) {
         // Add field to data
         data[fieldToExtract] = attributes[fieldToExtract];
         
