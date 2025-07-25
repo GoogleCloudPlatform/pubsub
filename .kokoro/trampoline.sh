@@ -22,5 +22,6 @@ function cleanup() {
 }
 trap cleanup EXIT
 
+chmod +x $(dirname $0)/populate-secrets.sh
 $(dirname $0)/populate-secrets.sh # Secret Manager secrets.
 python3 "${KOKORO_GFILE_DIR}/trampoline_v1.py"
