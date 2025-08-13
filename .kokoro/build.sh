@@ -63,7 +63,7 @@ integration)
       then
           source "${KOKORO_GFILE_DIR}/secret_manager/pubsub-secrets"
     fi
-    mvn clean test -Dtest=it.StandaloneIT -DfailIfNoTests=false
+    mvn clean test -Dtest=it.StandaloneIT -Dsurefire.failIfNoSpecifiedTests=false
     RETURN_CODE=$?
     ;;
 *)
