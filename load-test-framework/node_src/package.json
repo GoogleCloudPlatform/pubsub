@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "",
   "dependencies": {
-    "@google-cloud/pubsub": "0.24.1",
+    "@google-cloud/pubsub": "5.2.0",
     "minimist": "latest"
   },
   "devDependencies": {},
