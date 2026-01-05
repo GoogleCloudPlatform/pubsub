@@ -23,7 +23,7 @@ readonly BUCKET=$(metadata instance/attributes/bucket)
 # Download the loadtest binary to this machine and install python.
 apt-get update
 apt-get install -y unzip
-gsutil cp "gs://${BUCKET}/cps.zip" "${TMP}"
+gcloud storage cp "gs://${BUCKET}/cps.zip" "${TMP}"
 
 # set up miniconda environment
 cd ${TMP}
