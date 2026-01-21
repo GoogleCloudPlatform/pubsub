@@ -16,6 +16,7 @@
 package com.google.pubsub.kafka.sink;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Matchers.any;
 import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
@@ -25,6 +26,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.google.api.core.ApiFuture;
+import com.google.api.core.SettableApiFuture;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.protobuf.ByteString;
 import com.google.pubsub.kafka.common.ConnectorUtils;
@@ -281,7 +283,7 @@ public class CloudPubSubSinkTaskTest {
   public void testPutWherePublishesAreInvoked() {
     props.put(CloudPubSubSinkConnector.MAX_BUFFER_SIZE_CONFIG, CPS_MIN_BATCH_SIZE1);
     task.start(props);
-    List<SinkRecord> records = getSampleRecords();
+    List<SinkRecord> records = getSampleRecords(0);
     task.put(records);
     ArgumentCaptor<PubsubMessage> captor = ArgumentCaptor.forClass(PubsubMessage.class);
     verify(publisher, times(2)).publish(captor.capture());
@@ -349,7 +351,7 @@ public class CloudPubSubSinkTaskTest {
     task.start(props);
     Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
     partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
-    List<SinkRecord> records = getSampleRecords();
+    List<SinkRecord> records = getSampleRecords(0);
     ApiFuture<String> goodFuture = getSuccessfulPublishFuture();
     when(publisher.publish(any(PubsubMessage.class))).thenReturn(goodFuture);
     task.put(records);
@@ -362,18 +364,66 @@ public class CloudPubSubSinkTaskTest {
    * Tests that if a Future that is being processed in flush() failed with an exception, that an
    * exception is thrown.
    */
-  @Test(expected = RuntimeException.class)
+  @Test
   public void testFlushExceptionCase() throws Exception {
     task.start(props);
     Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
     partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
-    List<SinkRecord> records = getSampleRecords();
+    List<SinkRecord> records = getSampleRecords(0);
     ApiFuture<String> badFuture = getFailedPublishFuture();
     when(publisher.publish(any(PubsubMessage.class))).thenReturn(badFuture);
     task.put(records);
+    assertThrows(RuntimeException.class, () -> task.flush(partitionOffsets));
+    verify(publisher, times(2)).publish(any(PubsubMessage.class));
+    verify(badFuture, times(2)).addListener(any(Runnable.class), any(Executor.class));
+  }
+
+  /**
+   * Tests that flush clears tracking of all partitions it is invoked for even during exceptions and
+   * propagates an exception.
+   */
+  @Test
+  public void testFlushMultiPartitionExceptionCase() throws Exception {
+    task.start(props);
+    Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
+    partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
+    partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 1), null);
+    List<SinkRecord> recordsP0 = getSampleRecords(0);
+    List<SinkRecord> recordsP1 = getSampleRecords(1);
+    when(publisher.publish(any(PubsubMessage.class))).thenReturn(getFailedPublishFuture());
+    task.put(recordsP0);
+    task.put(recordsP1);
+    assertThrows(RuntimeException.class, () -> task.flush(partitionOffsets));
+    verify(publisher, times(4)).publish(any(PubsubMessage.class));
+    // The second flush should not throw an exception since all tracking was cleared
     task.flush(partitionOffsets);
-    verify(publisher, times(1)).publish(any(PubsubMessage.class));
-    verify(badFuture, times(1)).addListener(any(Runnable.class), any(Executor.class));
+  }
+
+  /**
+   * Tests that flush clears tracking of only the partitions it is invoked for so it cannot be
+   * considered complete for a subsequent flush on another partition that may have failed.
+   */
+  @Test
+  public void testFlushOneOfMultiplePartitionsCase() throws Exception {
+    task.start(props);
+    Map<TopicPartition, OffsetAndMetadata> partitionOffsetsP0 = new HashMap<>();
+    partitionOffsetsP0.put(new TopicPartition(KAFKA_TOPIC, 0), null);
+    Map<TopicPartition, OffsetAndMetadata> partitionOffsetsP1 = new HashMap<>();
+    partitionOffsetsP1.put(new TopicPartition(KAFKA_TOPIC, 1), null);
+    List<SinkRecord> recordsP0 = getSampleRecords(0);
+    List<SinkRecord> recordsP1 = getSampleRecords(1);
+    when(publisher.publish(any(PubsubMessage.class)))
+        .thenReturn(getSuccessfulPublishFuture())
+        .thenReturn(getSuccessfulPublishFuture())
+        .thenReturn(getFailedPublishFuture())
+        .thenReturn(getFailedPublishFuture());
+    task.put(recordsP0);
+    task.put(recordsP1);
+    verify(publisher, times(4)).publish(any(PubsubMessage.class));
+
+    task.flush(partitionOffsetsP0);
+    // The second flush should not complete successfully
+    assertThrows(RuntimeException.class, () -> task.flush(partitionOffsetsP1));
   }
 
   /**
@@ -590,7 +640,7 @@ public class CloudPubSubSinkTaskTest {
     task.start(props);
     Map<TopicPartition, OffsetAndMetadata> partitionOffsets = new HashMap<>();
     partitionOffsets.put(new TopicPartition(KAFKA_TOPIC, 0), null);
-    List<SinkRecord> records = getSampleRecords();
+    List<SinkRecord> records = getSampleRecords(0);
     ApiFuture<String> badFuture = getFailedPublishFuture();
     ApiFuture<String> goodFuture = getSuccessfulPublishFuture();
     when(publisher.publish(any(PubsubMessage.class))).thenReturn(badFuture).thenReturn(badFuture).thenReturn(goodFuture);
@@ -599,7 +649,7 @@ public class CloudPubSubSinkTaskTest {
       task.flush(partitionOffsets);
     } catch (RuntimeException e) {
     }
-    records = getSampleRecords();
+    records = getSampleRecords(0);
     task.put(records);
     task.flush(partitionOffsets);
     verify(publisher, times(4)).publish(any(PubsubMessage.class));
@@ -620,12 +670,12 @@ public class CloudPubSubSinkTaskTest {
   }
 
   /** Get some sample SinkRecords's to use in the tests. */
-  private List<SinkRecord> getSampleRecords() {
+  private List<SinkRecord> getSampleRecords(int partition) {
     List<SinkRecord> records = new ArrayList<>();
     records.add(
         new SinkRecord(
             KAFKA_TOPIC,
-            0,
+            partition,
             STRING_SCHEMA,
             KAFKA_MESSAGE_KEY1,
             BYTE_STRING_SCHEMA,
@@ -634,7 +684,7 @@ public class CloudPubSubSinkTaskTest {
     records.add(
         new SinkRecord(
             KAFKA_TOPIC,
-            0,
+            partition,
             STRING_SCHEMA,
             KAFKA_MESSAGE_KEY1,
             BYTE_STRING_SCHEMA,
