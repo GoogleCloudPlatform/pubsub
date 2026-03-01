@@ -15,6 +15,9 @@ function metadata() {
     "http://metadata/computeMetadata/v1/${1}";
 }
 
+# set -euxo pipefail
+set -x
+
 readonly TMP="$(mktemp -d)"
 readonly BUCKET=$(metadata instance/attributes/bucket)
 
@@ -28,9 +31,10 @@ gcloud storage cp "gs://${BUCKET}/cps.zip" "${TMP}"
 cd ${TMP}
 
 # install go
-curl https://dl.google.com/go/go1.11.5.linux-amd64.tar.gz -o go.tar.gz
+curl -L https://go.dev/dl/go1.22.0.linux-amd64.tar.gz -o go.tar.gz
 tar -C /usr/local -xzf go.tar.gz
 export PATH=$PATH:/usr/local/go/bin
+go version
 mkdir gopath
 export GOPATH="${TMP}/gopath"
 mkdir gocache
@@ -38,6 +42,8 @@ export GOCACHE="${TMP}/gocache"
 
 # unpack loadtest
 unzip cps.zip
-cd go_src/cmd
+cd go_src
+go mod tidy
 
+cd cmd
 go run main.go --publisher=false
