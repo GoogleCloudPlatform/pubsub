@@ -14,9 +14,24 @@
 
 module google.com/cloud_pubsub_loadtest
 
+go 1.26.1
+
 require (
 	cloud.google.com/go v0.35.1
-	github.com/golang/protobuf v1.2.0
-	golang.org/x/net v0.0.0-20181106065722-10aee1819953
-	google.golang.org/grpc v1.18.0
+	github.com/golang/protobuf v1.5.4
+	google.golang.org/grpc v1.79.3
+	google.golang.org/protobuf v1.36.10
+)
+
+require (
+	github.com/googleapis/gax-go/v2 v2.0.3 // indirect
+	go.opencensus.io v0.18.0 // indirect
+	golang.org/x/net v0.48.0 // indirect
+	golang.org/x/oauth2 v0.34.0 // indirect
+	golang.org/x/sync v0.19.0 // indirect
+	golang.org/x/sys v0.39.0 // indirect
+	golang.org/x/text v0.32.0 // indirect
+	google.golang.org/api v0.1.0 // indirect
+	google.golang.org/appengine v1.3.0 // indirect
+	google.golang.org/genproto v0.0.0-20190122154452-ba6ebe99b011 // indirect
 )
