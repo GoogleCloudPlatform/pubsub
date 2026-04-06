@@ -41,7 +41,7 @@ public class ProberStarter {
     private String endpoint = "pubsub.googleapis.com:443";
 
     @Parameter(names = "--no_cleanup", description = "Skip the cleanup of the topic and subscription on startup.")
-    private boolean shouldNotCleanup = false;
+    private boolean noCleanup = false;
 
     @Parameter(names = "--no_publish", description ="Whether the prober should skip publishing.")
     private boolean noPublish = false;
@@ -176,7 +176,7 @@ public class ProberStarter {
     builder
         .setProject(parsedArgs.project)
         .setEndpoint(parsedArgs.endpoint)
-        .setShouldCleanup(!parsedArgs.shouldNotCleanup)
+        .setShouldCleanup(!parsedArgs.noCleanup)
         .setNoPublish(parsedArgs.noPublish)
         .setTopicName(parsedArgs.topicName)
         .setSubscriptionName(parsedArgs.subscriptionName)
