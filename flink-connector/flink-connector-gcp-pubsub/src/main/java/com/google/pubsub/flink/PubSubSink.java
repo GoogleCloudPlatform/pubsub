@@ -34,6 +34,7 @@ import io.grpc.ManagedChannelBuilder;
 import java.io.IOException;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
+import org.apache.flink.api.connector.sink2.WriterInitContext;
 
 /**
  * Google Cloud Pub/Sub sink to publish messages to a Pub/Sub topic.
@@ -92,7 +93,7 @@ public abstract class PubSubSink<T> implements Sink<T> {
   }
 
   @Override
-  public SinkWriter<T> createWriter(InitContext initContext) throws IOException {
+  public SinkWriter<T> createWriter(WriterInitContext initContext) throws IOException {
     try {
       serializationSchema().open(initContext.asSerializationSchemaInitializationContext());
     } catch (Exception e) {
