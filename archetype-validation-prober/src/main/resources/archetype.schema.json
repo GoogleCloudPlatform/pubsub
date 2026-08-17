@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/archetypes/ingest-message/v1.json",
+  "title": "IngestMessage",
+  "description": "Canonical, versioned archetype every incoming payload must satisfy at the gate before it is published. Whatever passes this schema is guaranteed to at minimum fit the downstream process.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["policyNumber", "amount", "channel"],
+  "properties": {
+    "policyNumber": {
+      "type": "string",
+      "description": "Business identifier. Fixed format so both emitter and receiver agree byte-for-byte.",
+      "pattern": "^POL-\\d{6}$"
+    },
+    "amount": {
+      "type": "number",
+      "description": "Monetary amount. Must be a JSON number, never a string.",
+      "minimum": 0
+    },
+    "channel": {
+      "type": "string",
+      "description": "Origin channel. Closed enum: anything else is a deterministic reject.",
+      "enum": ["WEB", "APP", "IVR", "BRANCH"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Optional free-text name. Canonicalized to Unicode NFC at the gate.",
+      "maxLength": 140
+    }
+  }
+}
