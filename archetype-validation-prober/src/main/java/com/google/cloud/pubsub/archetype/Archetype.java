@@ -23,7 +23,11 @@ import com.networknt.schema.SpecVersion;
 import com.networknt.schema.ValidationMessage;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.charset.CharacterCodingException;
 import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CodingErrorAction;
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
@@ -73,9 +77,12 @@ public final class Archetype {
     // 1. Canonicalization: decode + normalize (Unicode NFC). Kills false rejects up front.
     String canonical;
     try {
-      String decoded = new String(rawBytes, declaredCharset);
+      CharsetDecoder decoder = declaredCharset.newDecoder();
+      decoder.onMalformedInput(CodingErrorAction.REPORT);
+      decoder.onUnmappableCharacter(CodingErrorAction.REPORT);
+      String decoded = decoder.decode(ByteBuffer.wrap(rawBytes)).toString();
       canonical = Normalizer.normalize(decoded, Normalizer.Form.NFC);
-    } catch (RuntimeException e) {
+    } catch (CharacterCodingException | RuntimeException e) {
       return ValidationResult.rejected(
           single("ENCODING_UNDECODABLE: payload is not valid " + declaredCharset.name()));
     }

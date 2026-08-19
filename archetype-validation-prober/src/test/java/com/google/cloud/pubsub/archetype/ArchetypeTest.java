@@ -79,6 +79,14 @@ public class ArchetypeTest {
   }
 
   @Test
+  public void rejectsMalformedUtf8Bytes() {
+    byte[] malformed = new byte[] {(byte) 0xC3, (byte) 0x28};
+    ValidationResult r = archetype.validate(malformed, StandardCharsets.UTF_8);
+    assertFalse(r.isAccepted());
+    assertTrue(r.reasons().toString(), r.reasons().get(0).startsWith("ENCODING_UNDECODABLE"));
+  }
+
+  @Test
   public void canonicalizesNfdToNfcSoItIsNotAFalseReject() {
     // "Nuñez" with 'ñ' as NFD (n + U+0303). Must be accepted and stored as NFC.
     String nfd = "{\"policyNumber\":\"POL-000123\",\"amount\":1.0,\"channel\":\"WEB\",\"name\":\"Nun\u0303ez\"}";
