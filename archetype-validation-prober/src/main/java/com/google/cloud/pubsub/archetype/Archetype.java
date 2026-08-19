@@ -66,6 +66,18 @@ public final class Archetype {
   }
 
   /**
+   * Loads the archetype from a classpath resource (e.g. {@code "/archetype.schema.json"}).
+   * Convenience factory for tests and the offline demo.
+   */
+  public static Archetype fromResource(String resourcePath) {
+    InputStream stream = Archetype.class.getResourceAsStream(resourcePath);
+    if (stream == null) {
+      throw new IllegalArgumentException("Classpath resource not found: " + resourcePath);
+    }
+    return new Archetype(stream);
+  }
+
+  /**
    * Validates and canonicalizes a raw payload at the gate.
    *
    * @param rawBytes the payload exactly as received on the wire

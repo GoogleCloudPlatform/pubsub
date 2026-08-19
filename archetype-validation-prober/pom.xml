@@ -91,4 +91,47 @@
       </plugin>
     </plugins>
   </build>
+
+  <!--
+    Smoke profile — runs integration tests against a real or emulated Pub/Sub endpoint.
+    Intentionally OFF by default; activate with: mvn verify -Psmoke
+
+    Two modes:
+      Emulator (zero cost):  export PUBSUB_EMULATOR_HOST=localhost:8085
+                             gcloud beta emulators pubsub start
+      Real GCP:              export GOOGLE_CLOUD_PROJECT=<project>
+                             (Application Default Credentials must be valid)
+  -->
+  <profiles>
+    <profile>
+      <id>smoke</id>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-failsafe-plugin</artifactId>
+            <version>3.2.5</version>
+            <configuration>
+              <includes>
+                <include>**/*SmokeIT.java</include>
+              </includes>
+              <systemPropertyVariables>
+                <GOOGLE_CLOUD_PROJECT>${env.GOOGLE_CLOUD_PROJECT}</GOOGLE_CLOUD_PROJECT>
+                <PUBSUB_EMULATOR_HOST>${env.PUBSUB_EMULATOR_HOST}</PUBSUB_EMULATOR_HOST>
+              </systemPropertyVariables>
+            </configuration>
+            <executions>
+              <execution>
+                <goals>
+                  <goal>integration-test</goal>
+                  <goal>verify</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
+
 </project>
