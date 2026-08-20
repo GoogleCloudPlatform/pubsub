@@ -83,3 +83,31 @@ enqueued.
 ```
 mvn test
 ```
+
+## Smoke test (real Pub/Sub or emulator)
+
+The smoke tests are intentionally off by default. They validate the end-to-end
+flow against either a local emulator or a real GCP project.
+
+### Emulator
+
+```bash
+export PUBSUB_EMULATOR_HOST=localhost:8085
+gcloud beta emulators pubsub start
+mvn verify -Psmoke
+```
+
+### Real GCP
+
+```bash
+export GOOGLE_CLOUD_PROJECT=portfolioadvanced-llm
+gcloud auth login
+gcloud auth application-default login
+mvn verify -Psmoke
+```
+
+The smoke suite covers:
+
+- valid payload round-trip
+- invalid payload never reaches publish
+- encoding rejection before JSON parsing
