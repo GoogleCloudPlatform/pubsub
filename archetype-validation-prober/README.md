@@ -111,3 +111,6 @@ The smoke suite covers:
 - valid payload round-trip
 - invalid payload never reaches publish
 - encoding rejection before JSON parsing
+
+For the higher-level GCP-native companion that demonstrates the same idea in
+Python, see [PYTHON_COMPANION.md](PYTHON_COMPANION.md).
