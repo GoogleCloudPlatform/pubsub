@@ -8,6 +8,40 @@
   <name>Pub/Sub Flink Connector Parent</name>
   <artifactId>flink-connector-parent</artifactId>
   <version>1.0.0-SNAPSHOT</version>
+  <description>Parent POM for the Google Cloud Pub/Sub connector for Apache Flink.</description>
+  <url>https://github.com/GoogleCloudPlatform/pubsub/tree/master/flink-connector</url>
+
+  <organization>
+    <name>Google LLC</name>
+    <url>https://www.google.com</url>
+  </organization>
+
+  <licenses>
+    <license>
+      <name>The Apache Software License, Version 2.0</name>
+      <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
+
+  <developers>
+    <developer>
+      <id>cloud-pubsub</id>
+      <name>Google Cloud Pub/Sub Team</name>
+      <email>cloud-pubsub@google.com</email>
+      <organization>Google LLC</organization>
+      <organizationUrl>https://www.google.com</organizationUrl>
+    </developer>
+  </developers>
+
+  <scm child.scm.connection.inherit.append.path="false"
+      child.scm.developerConnection.inherit.append.path="false"
+      child.scm.url.inherit.append.path="false">
+    <connection>scm:git:https://github.com/GoogleCloudPlatform/pubsub.git</connection>
+    <developerConnection>scm:git:git@github.com:GoogleCloudPlatform/pubsub.git</developerConnection>
+    <url>https://github.com/GoogleCloudPlatform/pubsub</url>
+  </scm>
+
   <modules>
     <module>flink-connector-gcp-pubsub</module>
   </modules>
@@ -155,4 +189,71 @@
       </plugin>
     </plugins>
   </build>
+
+  <profiles>
+    <profile>
+      <!-- Builds the sources and javadoc jars and GPG-signs all artifacts, as
+          required by Maven Central. The release job activates this profile by
+          passing -DperformRelease=true, and provides the key through
+          -Dgpg.homedir and the passphrase through the MAVEN_GPG_PASSPHRASE
+          environment variable. -->
+      <id>release-sign-artifacts</id>
+      <activation>
+        <property>
+          <name>performRelease</name>
+          <value>true</value>
+        </property>
+      </activation>
+      <build>
+        <plugins>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-source-plugin</artifactId>
+            <version>3.4.0</version>
+            <executions>
+              <execution>
+                <id>attach-sources</id>
+                <goals>
+                  <goal>jar-no-fork</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-javadoc-plugin</artifactId>
+            <version>3.12.0</version>
+            <executions>
+              <execution>
+                <id>attach-javadocs</id>
+                <goals>
+                  <goal>jar</goal>
+                </goals>
+              </execution>
+            </executions>
+          </plugin>
+          <plugin>
+            <groupId>org.apache.maven.plugins</groupId>
+            <artifactId>maven-gpg-plugin</artifactId>
+            <version>3.2.8</version>
+            <executions>
+              <execution>
+                <id>sign-artifacts</id>
+                <phase>verify</phase>
+                <goals>
+                  <goal>sign</goal>
+                </goals>
+                <configuration>
+                  <gpgArguments>
+                    <arg>--pinentry-mode</arg>
+                    <arg>loopback</arg>
+                  </gpgArguments>
+                </configuration>
+              </execution>
+            </executions>
+          </plugin>
+        </plugins>
+      </build>
+    </profile>
+  </profiles>
 </project>

@@ -14,6 +14,7 @@
   <packaging>jar</packaging>
   <name>Pub/Sub Flink Connector</name>
   <artifactId>flink-connector-gcp-pubsub</artifactId>
+  <description>Apache Flink source and sink connector for Google Cloud Pub/Sub.</description>
 
   <build>
     <extensions>
