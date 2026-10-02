@@ -101,7 +101,7 @@ public abstract class PubSubSource<OutputT>
             .setKeepAliveTime(Duration.ofMinutes(5))
             .setHeaderProvider(
                 FixedHeaderProvider.create(
-                    "x-goog-api-client", "PubSub-Flink-Connector/1.0.0-SNAPSHOT"))
+                    "x-goog-api-client", "PubSub-Flink-Connector/1.0.0"))
             .build());
     builder.setFlowControlSettings(
         FlowControlSettings.newBuilder()

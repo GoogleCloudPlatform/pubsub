@@ -7,7 +7,7 @@
   <packaging>pom</packaging>
   <name>Pub/Sub Flink Connector Parent</name>
   <artifactId>flink-connector-parent</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.0.0</version>
   <description>Parent POM for the Google Cloud Pub/Sub connector for Apache Flink.</description>
   <url>https://github.com/GoogleCloudPlatform/pubsub/tree/master/flink-connector</url>
 
