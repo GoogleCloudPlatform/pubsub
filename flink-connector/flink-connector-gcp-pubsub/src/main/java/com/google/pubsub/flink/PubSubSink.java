@@ -70,7 +70,7 @@ public abstract class PubSubSink<T> implements Sink<T> {
             .setChannelsPerCpu(1)
             .setHeaderProvider(
                 FixedHeaderProvider.create(
-                    "x-goog-api-client", "PubSub-Flink-Connector/1.0.0-SNAPSHOT"))
+                    "x-goog-api-client", "PubSub-Flink-Connector/1.0.0"))
             .build());
     if (credentials().isPresent()) {
       builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
