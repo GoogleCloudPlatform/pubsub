@@ -29,6 +29,7 @@ import com.google.pubsub.flink.internal.sink.PubSubFlushablePublisher;
 import com.google.pubsub.flink.internal.sink.PubSubPublisherCache;
 import com.google.pubsub.flink.internal.sink.PubSubSinkWriter;
 import com.google.pubsub.flink.util.EmulatorEndpoint;
+import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.TopicName;
 import io.grpc.ManagedChannelBuilder;
 import java.io.IOException;

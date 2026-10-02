@@ -20,8 +20,8 @@ import com.google.common.base.Optional;
 import javax.annotation.Nullable;
 
 /**
- * Utility class used to help connect {@link PubSubSink} and {@link PubSubSource} to a Google Cloud
- * Pub/Sub emulator.
+ * Utility class used to help connect {@link com.google.pubsub.flink.PubSubSink} and {@link
+ * com.google.pubsub.flink.PubSubSource} to a Google Cloud Pub/Sub emulator.
  */
 public class EmulatorEndpoint {
   public static final String EMULATOR_ENDPOINT_PREFIX = "emulator:///";

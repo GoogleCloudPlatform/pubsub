@@ -40,6 +40,7 @@ import com.google.pubsub.flink.internal.source.split.SubscriptionSplitSerializer
 import com.google.pubsub.flink.proto.PubSubEnumeratorCheckpoint;
 import com.google.pubsub.flink.util.EmulatorEndpoint;
 import com.google.pubsub.v1.ProjectSubscriptionName;
+import com.google.pubsub.v1.PubsubMessage;
 import io.grpc.ManagedChannelBuilder;
 import java.util.HashMap;
 import org.apache.flink.api.common.serialization.DeserializationSchema;

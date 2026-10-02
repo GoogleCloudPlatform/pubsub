@@ -17,7 +17,7 @@ package com.google.pubsub.flink.internal.source.reader;
 
 import com.google.cloud.pubsub.v1.AckReplyConsumer;
 
-/** This class tracks the lifecycle of messages in {@link PubSubSource}. */
+/** This class tracks the lifecycle of messages in {@link com.google.pubsub.flink.PubSubSource}. */
 public interface AckTracker {
   /**
    * Track a new pending ack. Acks are pending when a message has been received but not yet
