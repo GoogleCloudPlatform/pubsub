@@ -441,7 +441,7 @@ public class CloudPubSubSinkTask extends SinkTask {
   private boolean useFlowControl() {
     // only enable flow control if at least one flow control config has been set
     return maxOutstandingRequestBytes != CloudPubSubSinkConnector.DEFAULT_MAX_OUTSTANDING_REQUEST_BYTES
-        || maxOutstandingRequestBytes != CloudPubSubSinkConnector.DEFAULT_MAX_OUTSTANDING_MESSAGES;
+        || maxOutstandingMessages!= CloudPubSubSinkConnector.DEFAULT_MAX_OUTSTANDING_MESSAGES;
   }
 
   @Override
