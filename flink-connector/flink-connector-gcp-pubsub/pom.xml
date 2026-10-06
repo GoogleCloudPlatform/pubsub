@@ -5,12 +5,12 @@
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
-    <groupId>com.google.pubsub.flink</groupId>
+    <groupId>com.google.cloud.pubsub.flink</groupId>
     <artifactId>flink-connector-parent</artifactId>
     <version>1.0.0</version>
   </parent>
 
-  <groupId>com.google.pubsub.flink</groupId>
+  <groupId>com.google.cloud.pubsub.flink</groupId>
   <packaging>jar</packaging>
   <name>Pub/Sub Flink Connector</name>
   <artifactId>flink-connector-gcp-pubsub</artifactId>
