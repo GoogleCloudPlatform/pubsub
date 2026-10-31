@@ -18,9 +18,8 @@ package com.google.pubsub.flink;
 import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
-import com.google.api.gax.grpc.GrpcTransportChannel;
+import com.google.api.gax.grpc.InstantiatingGrpcChannelProvider;
 import com.google.api.gax.rpc.FixedHeaderProvider;
-import com.google.api.gax.rpc.FixedTransportChannelProvider;
 import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.pubsub.v1.MessageReceiver;
@@ -41,7 +40,6 @@ import com.google.pubsub.flink.proto.PubSubEnumeratorCheckpoint;
 import com.google.pubsub.flink.util.EmulatorEndpoint;
 import com.google.pubsub.v1.ProjectSubscriptionName;
 import com.google.pubsub.v1.PubsubMessage;
-import io.grpc.ManagedChannelBuilder;
 import java.util.HashMap;
 import org.apache.flink.api.common.serialization.DeserializationSchema;
 import org.apache.flink.api.common.typeinfo.TypeInformation;
@@ -93,16 +91,6 @@ public abstract class PubSubSource<OutputT>
     Subscriber.Builder builder =
         Subscriber.newBuilder(
             ProjectSubscriptionName.of(projectName(), subscriptionName()).toString(), receiver);
-    // Channel settings copied from com.google.cloud:google-cloud-pubsub:1.124.1.
-    builder.setChannelProvider(
-        SubscriptionAdminSettings.defaultGrpcTransportProviderBuilder()
-            .setMaxInboundMessageSize(20 * 1024 * 1024) // 20MB API maximum message size.
-            .setMaxInboundMetadataSize(4 * 1024 * 1024) // 4MB API maximum metadata size)
-            .setKeepAliveTime(Duration.ofMinutes(5))
-            .setHeaderProvider(
-                FixedHeaderProvider.create(
-                    "x-goog-api-client", "PubSub-Flink-Connector/1.0.1-SNAPSHOT"))
-            .build());
     builder.setFlowControlSettings(
         FlowControlSettings.newBuilder()
             .setMaxOutstandingElementCount(maxOutstandingMessagesCount().or(1000L))
@@ -122,12 +110,27 @@ public abstract class PubSubSource<OutputT>
     String emulatorEndpoint = EmulatorEndpoint.getEmulatorEndpoint(endpoint());
     if (emulatorEndpoint != null) {
       builder.setCredentialsProvider(NoCredentialsProvider.create());
-      builder.setChannelProvider(
-          FixedTransportChannelProvider.create(
-              GrpcTransportChannel.create(
-                  ManagedChannelBuilder.forTarget(emulatorEndpoint).usePlaintext().build())));
     }
+    builder.setChannelProvider(createChannelProvider(emulatorEndpoint));
     return builder.build();
+  }
+
+  InstantiatingGrpcChannelProvider createChannelProvider(String emulatorEndpoint) {
+    // Let the SDK create and own channels so stop/failure also closes emulator transports.
+    InstantiatingGrpcChannelProvider.Builder provider =
+        SubscriptionAdminSettings.defaultGrpcTransportProviderBuilder()
+            .setMaxInboundMessageSize(20 * 1024 * 1024)
+            .setMaxInboundMetadataSize(4 * 1024 * 1024)
+            .setKeepAliveTime(Duration.ofMinutes(5))
+            .setHeaderProvider(
+                FixedHeaderProvider.create(
+                    "x-goog-api-client", "PubSub-Flink-Connector/1.0.1-SNAPSHOT"));
+    if (emulatorEndpoint != null) {
+      provider
+          .setEndpoint(emulatorEndpoint)
+          .setChannelConfigurator(channel -> channel.usePlaintext());
+    }
+    return provider.build();
   }
 
   private PubSubSplitReader createSplitReader(AckTracker ackTracker) {
@@ -158,7 +161,7 @@ public abstract class PubSubSource<OutputT>
         });
     return new PubSubSourceReader<>(
         schema,
-        new PubSubAckTracker(),
+        new PubSubAckTracker(readerContext.metricGroup().addGroup("pubsub")),
         this::createSplitReader,
         new Configuration(),
         readerContext);

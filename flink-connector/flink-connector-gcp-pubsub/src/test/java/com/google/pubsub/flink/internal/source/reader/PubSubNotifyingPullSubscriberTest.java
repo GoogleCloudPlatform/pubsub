@@ -17,7 +17,11 @@ package com.google.pubsub.flink.internal.source.reader;
 
 import static com.google.common.truth.Truth.assertThat;
 import static org.junit.Assert.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -37,6 +41,7 @@ import org.mockito.junit.MockitoJUnitRunner;
 @RunWith(MockitoJUnitRunner.class)
 public class PubSubNotifyingPullSubscriberTest {
   @Mock AckTracker mockAckTracker;
+
   @Mock Subscriber mockSubscriber;
 
   PubSubNotifyingPullSubscriber pullSubscriber;
@@ -45,6 +50,7 @@ public class PubSubNotifyingPullSubscriberTest {
 
   @Before
   public void doBeforeEachTest() {
+    lenient().when(mockAckTracker.addPendingAck(any(), any())).thenReturn(true);
     when(mockSubscriber.startAsync()).thenReturn(mockSubscriber);
     pullSubscriber =
         new PubSubNotifyingPullSubscriber(
@@ -71,6 +77,50 @@ public class PubSubNotifyingPullSubscriberTest {
     assertThat(notification.isDone()).isTrue();
     assertThat(pullSubscriber.pullMessage().get()).isEqualTo(message);
     verify(mockAckTracker).addPendingAck("message-id", consumer);
+  }
+
+  @Test
+  public void redeliveryBeforeEmission_queuesMessageOnlyOnce() throws Throwable {
+    PubSubAckTracker tracker = new PubSubAckTracker();
+    PubSubNotifyingPullSubscriber subscriber =
+        new PubSubNotifyingPullSubscriber(
+            messageReceiver -> {
+              receiver = messageReceiver;
+              return mockSubscriber;
+            },
+            tracker);
+    PubsubMessage message = PubsubMessage.newBuilder().setMessageId("message-id").build();
+    AckReplyConsumer original = mock(AckReplyConsumer.class);
+    AckReplyConsumer latest = mock(AckReplyConsumer.class);
+    receiver.receiveMessage(message, original);
+    receiver.receiveMessage(message, latest);
+
+    assertThat(subscriber.pullMessage().get()).isEqualTo(message);
+    assertThat(subscriber.pullMessage().isPresent()).isFalse();
+    verify(original, never()).nack();
+    tracker.nackAll();
+    verify(original).nack();
+    verify(latest).nack();
+  }
+
+  @Test
+  public void redeliveryAfterSnapshot_doesNotReemitBeforeCheckpointCompletes() throws Throwable {
+    PubSubAckTracker tracker = new PubSubAckTracker();
+    PubSubNotifyingPullSubscriber subscriber =
+        new PubSubNotifyingPullSubscriber(
+            messageReceiver -> {
+              receiver = messageReceiver;
+              return mockSubscriber;
+            },
+            tracker);
+    PubsubMessage message = PubsubMessage.newBuilder().setMessageId("message-id").build();
+    receiver.receiveMessage(message, mock(AckReplyConsumer.class));
+    assertThat(subscriber.pullMessage().get()).isEqualTo(message);
+    tracker.stagePendingAck("message-id");
+    tracker.addCheckpoint(1L);
+    receiver.receiveMessage(message, mock(AckReplyConsumer.class));
+
+    assertThat(subscriber.pullMessage().isPresent()).isFalse();
   }
 
   @Test
@@ -158,6 +208,36 @@ public class PubSubNotifyingPullSubscriberTest {
 
     assertThrows(Exception.class, () -> pullSubscriber.pullMessage());
     assertThrows(ExecutionException.class, () -> pullSubscriber.notifyDataAvailable().get());
+  }
+
+  @Test
+  public void shutdown_nackFailureStillStopsSubscriber() {
+    when(mockSubscriber.stopAsync()).thenReturn(mockSubscriber);
+    doThrow(new IllegalStateException("Injected negative acknowledgement failure"))
+        .when(mockAckTracker)
+        .nackAll();
+
+    assertThrows(IllegalStateException.class, () -> pullSubscriber.shutdown());
+
+    // Transport shutdown must still be attempted when releasing deliveries fails.
+    verify(mockSubscriber).stopAsync();
+    verify(mockSubscriber).awaitTerminated();
+  }
+
+  @Test
+  public void shutdown_nackAndStopFailuresPreserveOriginalFailure() {
+    IllegalStateException nackFailure = new IllegalStateException("Injected nack failure");
+    IllegalStateException stopFailure =
+        new IllegalStateException("Injected subscriber stop failure");
+    doThrow(nackFailure).when(mockAckTracker).nackAll();
+    when(mockSubscriber.stopAsync()).thenThrow(stopFailure);
+
+    IllegalStateException thrown =
+        assertThrows(IllegalStateException.class, () -> pullSubscriber.shutdown());
+
+    assertThat(thrown).isSameInstanceAs(nackFailure);
+    assertThat(thrown.getSuppressed()).asList().containsExactly(stopFailure);
+    verify(mockSubscriber).stopAsync();
   }
 
   @Test

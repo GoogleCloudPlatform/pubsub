@@ -104,8 +104,15 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
     completeNotification(permanentError);
     messages.clear();
     // Nack all outstanding messages, so that they are redelivered quickly.
-    ackTracker.nackAll();
-    subscriber.stopAsync().awaitTerminated();
+    try (Step stop = () -> subscriber.stopAsync().awaitTerminated()) {
+      ackTracker.nackAll();
+    }
+  }
+
+  /** A cleanup step that, unlike {@link AutoCloseable}, declares no checked exception. */
+  private interface Step extends AutoCloseable {
+    @Override
+    void close();
   }
 
   private synchronized void receiveMessage(
@@ -115,9 +122,10 @@ public class PubSubNotifyingPullSubscriber implements NotifyingPullSubscriber {
       completeNotification(permanentError);
       return;
     }
-    ackTracker.addPendingAck(message.getMessageId(), ackReplyConsumer);
-    messages.add(message);
-    completeNotification(Optional.absent());
+    if (ackTracker.addPendingAck(message.getMessageId(), ackReplyConsumer)) {
+      messages.add(message);
+      completeNotification(Optional.absent());
+    }
   }
 
   @VisibleForTesting
