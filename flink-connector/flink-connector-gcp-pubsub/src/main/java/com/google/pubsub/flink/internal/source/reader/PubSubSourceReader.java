@@ -15,7 +15,6 @@
  */
 package com.google.pubsub.flink.internal.source.reader;
 
-import com.google.common.annotations.VisibleForTesting;
 import com.google.pubsub.flink.PubSubDeserializationSchema;
 import com.google.pubsub.flink.internal.source.split.SubscriptionSplit;
 import com.google.pubsub.flink.internal.source.split.SubscriptionSplitState;
@@ -24,7 +23,6 @@ import java.util.List;
 import java.util.Map;
 import org.apache.flink.api.connector.source.SourceReaderContext;
 import org.apache.flink.configuration.Configuration;
-import org.apache.flink.connector.base.source.reader.RecordEmitter;
 import org.apache.flink.connector.base.source.reader.SingleThreadMultiplexSourceReaderBase;
 import org.apache.flink.connector.base.source.reader.splitreader.SplitReader;
 

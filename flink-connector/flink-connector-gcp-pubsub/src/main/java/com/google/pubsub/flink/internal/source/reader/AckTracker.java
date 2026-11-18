@@ -20,12 +20,14 @@ import com.google.cloud.pubsub.v1.AckReplyConsumer;
 /** This class tracks the lifecycle of messages in {@link com.google.pubsub.flink.PubSubSource}. */
 public interface AckTracker {
   /**
-   * Track a new pending ack. Acks are pending when a message has been received but not yet
-   * processed by the Flink pipeline.
+   * Track a new pending ack and return whether the message should be emitted. Acks are pending when
+   * a message has been received but not yet processed by the Flink pipeline.
    *
-   * <p>If there is already a pending ack for {@code messageId}, the existing ack is replaced.
+   * <p>A redelivery of a message that is still tracked returns {@code false}. Its handle is kept
+   * and resolved together with the original at checkpoint completion or shutdown, never earlier: an
+   * early ACK would precede the checkpoint, and an early NACK can trigger a redelivery loop.
    */
-  void addPendingAck(String messageId, AckReplyConsumer ackReplyConsumer);
+  boolean addPendingAck(String messageId, AckReplyConsumer ackReplyConsumer);
 
   /**
    * Stage a pending ack for the next checkpoint snapshot. Staged acks indicate that a message has

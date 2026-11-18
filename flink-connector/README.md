@@ -73,6 +73,24 @@ their pom.xml file by adding:
 Learn more about Flink connector packaging
 [here](https://nightlies.apache.org/flink/flink-docs-master/docs/dev/configuration/overview/).
 
+## Running Tests
+
+From `flink-connector/`, run unit tests with:
+
+```sh
+mvn test
+```
+
+Run unit and integration tests with:
+
+```sh
+mvn verify
+```
+
+Integration tests start a Pub/Sub emulator in Docker through Testcontainers, so
+Docker must be running. No cloud credentials or local emulator install are needed.
+CI runs the same command.
+
 ## Quickstart
 
 This section describes how to build the example Flink job located under

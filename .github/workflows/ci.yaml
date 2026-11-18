@@ -19,6 +19,8 @@ on:
       - main
   pull_request:
 name: ci
+permissions:
+  contents: read
 jobs:
   units:
     runs-on: ubuntu-latest
@@ -27,8 +29,8 @@ jobs:
       matrix:
         java: [8, 11]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
+      - uses: actions/setup-java@e9fbacdec3bb3b6036605a3e6f7995d66773a8c6 # v3.14.2
         with:
           distribution: zulu
           java-version: ${{matrix.java}}
@@ -42,8 +44,8 @@ jobs:
     steps:
       - name: Support longpaths
         run: git config --system core.longpaths true
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
+      - uses: actions/setup-java@e9fbacdec3bb3b6036605a3e6f7995d66773a8c6 # v3.14.2
         with:
           distribution: zulu
           java-version: 8
@@ -58,8 +60,8 @@ jobs:
       matrix:
         java: [8, 11]
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
+      - uses: actions/setup-java@e9fbacdec3bb3b6036605a3e6f7995d66773a8c6 # v3.14.2
         with:
           distribution: zulu
           java-version: ${{matrix.java}}
@@ -69,8 +71,8 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-java@v3
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
+      - uses: actions/setup-java@e9fbacdec3bb3b6036605a3e6f7995d66773a8c6 # v3.14.2
         with:
           distribution: zulu
           java-version: 11
@@ -79,3 +81,16 @@ jobs:
       - run: .kokoro/build.sh
         env:
           JOB_TYPE: lint
+  flink-connector:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3.7.0
+      - uses: actions/setup-java@e9fbacdec3bb3b6036605a3e6f7995d66773a8c6 # v3.14.2
+        with:
+          distribution: zulu
+          java-version: '17'
+      # Integration tests start the Pub/Sub emulator in Docker via Testcontainers.
+      - name: Build and test
+        working-directory: flink-connector
+        run: mvn -B clean verify

@@ -15,24 +15,28 @@
  */
 package com.google.pubsub.flink;
 
+import com.google.api.gax.core.CredentialsProvider;
 import com.google.api.gax.core.FixedCredentialsProvider;
+import com.google.api.gax.core.FixedExecutorProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
-import com.google.api.gax.grpc.GrpcTransportChannel;
+import com.google.api.gax.grpc.InstantiatingGrpcChannelProvider;
 import com.google.api.gax.rpc.FixedHeaderProvider;
 import com.google.api.gax.rpc.FixedTransportChannelProvider;
+import com.google.api.gax.rpc.TransportChannel;
+import com.google.api.gax.rpc.TransportChannelProvider;
 import com.google.auth.Credentials;
 import com.google.auto.value.AutoValue;
 import com.google.cloud.pubsub.v1.Publisher;
 import com.google.cloud.pubsub.v1.TopicAdminSettings;
 import com.google.common.base.Optional;
 import com.google.pubsub.flink.internal.sink.PubSubFlushablePublisher;
-import com.google.pubsub.flink.internal.sink.PubSubPublisherCache;
+import com.google.pubsub.flink.internal.sink.PubSubPublisherExecutor;
 import com.google.pubsub.flink.internal.sink.PubSubSinkWriter;
 import com.google.pubsub.flink.util.EmulatorEndpoint;
 import com.google.pubsub.v1.PubsubMessage;
 import com.google.pubsub.v1.TopicName;
-import io.grpc.ManagedChannelBuilder;
 import java.io.IOException;
+import java.util.concurrent.ScheduledExecutorService;
 import org.apache.flink.api.connector.sink2.Sink;
 import org.apache.flink.api.connector.sink2.SinkWriter;
 import org.apache.flink.api.connector.sink2.WriterInitContext;
@@ -46,6 +50,9 @@ import org.apache.flink.api.connector.sink2.WriterInitContext;
  */
 @AutoValue
 public abstract class PubSubSink<T> implements Sink<T> {
+  private static final int PUBLISHER_THREADS = 2;
+  private static final int CALLBACK_THREADS = 2;
+
   public abstract String projectName();
 
   public abstract String topicName();
@@ -62,35 +69,75 @@ public abstract class PubSubSink<T> implements Sink<T> {
     return new AutoValue_PubSubSink.Builder<T>();
   }
 
-  private Publisher createPublisher(TopicName topicName) throws IOException {
-    Publisher.Builder builder = Publisher.newBuilder(topicName.toString());
-    // Channel settings copied from com.google.cloud:google-cloud-pubsub:1.124.1.
-    builder.setChannelProvider(
+  PubSubFlushablePublisher createPublisher(TopicName topicName) throws IOException {
+    ScheduledExecutorService executor = createExecutor();
+    TransportChannel transport = null;
+    ScheduledExecutorService callbackExecutor = null;
+    try {
+      callbackExecutor = createCallbackExecutor();
+      String emulatorEndpoint = EmulatorEndpoint.getEmulatorEndpoint(endpoint());
+      CredentialsProvider credentialsProvider =
+          emulatorEndpoint != null
+              ? NoCredentialsProvider.create()
+              : credentials().isPresent()
+                  ? FixedCredentialsProvider.create(credentials().get())
+                  : TopicAdminSettings.defaultCredentialsProviderBuilder().build();
+      TransportChannelProvider provider = createChannelProvider(emulatorEndpoint);
+      if (provider.needsExecutor()) provider = provider.withExecutor(callbackExecutor);
+      Credentials resolvedCredentials = credentialsProvider.getCredentials();
+      if (provider.needsCredentials() && resolvedCredentials != null) {
+        provider = provider.withCredentials(resolvedCredentials);
+      }
+      if (provider.needsEndpoint()) {
+        provider =
+            provider.withEndpoint(
+                emulatorEndpoint != null
+                    ? emulatorEndpoint
+                    : endpoint().or(TopicAdminSettings.getDefaultEndpoint()));
+      }
+      transport = provider.getTransportChannel();
+      Publisher.Builder builder =
+          Publisher.newBuilder(topicName.toString())
+              .setCredentialsProvider(credentialsProvider)
+              .setChannelProvider(FixedTransportChannelProvider.create(transport))
+              .setExecutorProvider(FixedExecutorProvider.create(executor));
+      if (enableMessageOrdering().isPresent()) {
+        builder.setEnableMessageOrdering(enableMessageOrdering().get());
+      }
+      return new PubSubFlushablePublisher(builder.build(), transport, executor, callbackExecutor);
+    } catch (IOException | RuntimeException | Error failure) {
+      PubSubFlushablePublisher.forceCloseResources(failure, transport, callbackExecutor, executor);
+      throw failure;
+    }
+  }
+
+  ScheduledExecutorService createExecutor() {
+    return new PubSubPublisherExecutor(
+        PUBLISHER_THREADS,
+        TopicAdminSettings.defaultExecutorProviderBuilder().build().getThreadFactory());
+  }
+
+  ScheduledExecutorService createCallbackExecutor() {
+    return TopicAdminSettings.defaultExecutorProviderBuilder()
+        .setExecutorThreadCount(CALLBACK_THREADS)
+        .build()
+        .getExecutor();
+  }
+
+  InstantiatingGrpcChannelProvider createChannelProvider(String emulatorEndpoint) {
+    InstantiatingGrpcChannelProvider.Builder provider =
         TopicAdminSettings.defaultGrpcTransportProviderBuilder()
             .setChannelsPerCpu(1)
             .setHeaderProvider(
                 FixedHeaderProvider.create(
-                    "x-goog-api-client", "PubSub-Flink-Connector/1.0.1-SNAPSHOT"))
-            .build());
-    if (credentials().isPresent()) {
-      builder.setCredentialsProvider(FixedCredentialsProvider.create(credentials().get()));
-    }
-    if (enableMessageOrdering().isPresent()) {
-      builder.setEnableMessageOrdering(enableMessageOrdering().get());
-    }
-    if (endpoint().isPresent()) {
-      builder.setEndpoint(endpoint().get());
-    }
-
-    String emulatorEndpoint = EmulatorEndpoint.getEmulatorEndpoint(endpoint());
+                    "x-goog-api-client", "PubSub-Flink-Connector/1.0.1-SNAPSHOT"));
     if (emulatorEndpoint != null) {
-      builder.setCredentialsProvider(NoCredentialsProvider.create());
-      builder.setChannelProvider(
-          FixedTransportChannelProvider.create(
-              GrpcTransportChannel.create(
-                  ManagedChannelBuilder.forTarget(emulatorEndpoint).usePlaintext().build())));
+      provider
+          .setEndpoint(emulatorEndpoint)
+          .setPoolSize(1)
+          .setChannelConfigurator(channel -> channel.usePlaintext());
     }
-    return builder.build();
+    return provider.build();
   }
 
   @Override
@@ -101,10 +148,7 @@ public abstract class PubSubSink<T> implements Sink<T> {
       throw new IOException(e);
     }
     return new PubSubSinkWriter<>(
-        new PubSubFlushablePublisher(
-            PubSubPublisherCache.getOrCreate(
-                TopicName.of(projectName(), topicName()), this::createPublisher)),
-        serializationSchema());
+        createPublisher(TopicName.of(projectName(), topicName())), serializationSchema());
   }
 
   /** Builder to construct {@link PubSubSink}. */

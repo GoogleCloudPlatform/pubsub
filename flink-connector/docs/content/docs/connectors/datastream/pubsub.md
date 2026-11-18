@@ -192,6 +192,25 @@ acknowledgement deadline without causing message redelivery. Note that message
 acknowledgement deadlines are extended for up to 1 hour, after which, they are
 redelivered by Google Cloud Pub/Sub.
 
+### Redeliveries
+
+Pub/Sub can deliver a message again while the source still holds it, for example
+after a connection reset. The source does not emit such a duplicate downstream. It
+acknowledges both deliveries together at the next completed checkpoint. Each delivery
+counts toward the subscriber's outstanding-message limit until then.
+
+### Metrics
+
+Each source reader reports these metrics in its `pubsub` metric group:
+
+| Metric | Meaning |
+| --- | --- |
+| `outstandingMessages` | Messages waiting to be acknowledged at a checkpoint. |
+| `outstandingDeliveryHandles` | Deliveries waiting to be acknowledged, including redeliveries. |
+| `oldestOutstandingAgeMillis` | Age of the oldest message waiting to be acknowledged. |
+| `redeliveries` | Duplicate deliveries that were not emitted. |
+| `checkpointAckFailures` | Checkpoints whose acknowledgements failed. |
+
 ### All Options
 
 #### Required Builder Options
@@ -294,6 +313,13 @@ Implementing `PubSubSerializationSchema<T>` is required to publish messages with
 attributes or ordering keys.
 
 <!-- TODO(matt-kwong): Add custom serialization code example. -->
+
+### Shutdown
+
+Each sink writer has its own publisher with four threads. When a task is cancelled,
+closing the writer waits at most 30 seconds for pending publishes, then fails instead
+of hanging, even if Pub/Sub is unreachable. Unfinished publishes are never reported
+as successful, so the records are written again after restart.
 
 ### All Options
 

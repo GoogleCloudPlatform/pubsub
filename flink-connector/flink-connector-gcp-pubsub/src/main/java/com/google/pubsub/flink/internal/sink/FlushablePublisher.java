@@ -16,10 +16,14 @@
 package com.google.pubsub.flink.internal.sink;
 
 import com.google.pubsub.v1.PubsubMessage;
-import java.io.Flushable;
+import java.io.Closeable;
+import java.io.IOException;
 
 /** A publisher that waits for all outstanding publishes to complete when flushed. */
-public interface FlushablePublisher extends Flushable {
+public interface FlushablePublisher extends Closeable {
 
   void publish(PubsubMessage message) throws InterruptedException;
+
+  /** Waits for all outstanding publishes. Matches Flink's {@code SinkWriter.flush} exceptions. */
+  void flush() throws IOException, InterruptedException;
 }

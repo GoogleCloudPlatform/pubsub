@@ -46,9 +46,9 @@ public class PubSubSinkWriterTest {
   }
 
   @Test
-  public void close_flushesPublisher() throws Exception {
+  public void close_closesPublisher() throws Exception {
     sinkWriter.close();
-    verify(mockPublisher).flush();
+    verify(mockPublisher).close();
   }
 
   @Test
